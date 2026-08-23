@@ -15,7 +15,7 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    none
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:869c75445341"
