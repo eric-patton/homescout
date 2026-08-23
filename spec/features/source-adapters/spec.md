@@ -146,10 +146,14 @@ problem brief is in `research.md`.
       state, and an address with a radius, and issues each in the source's own form.
 - [ ] AC-18: The Realtor.com adapter declares as source-applied exactly the filters it actually
       pushes, and a test asserts that each declared filter measurably changes the request sent.
-- [ ] AC-19: The Realtor.com adapter works around its 10,000-result ceiling by splitting on date
-      range, and a query known to exceed it returns more than 10,000 distinct properties.
-- [ ] AC-20: Fetching additional per-property detail is off by default. With it off, the number of
-      requests does not grow with the number of properties returned.
+- [ ] AC-19: The Realtor.com adapter works around its 10,000-result ceiling by splitting on the date
+      a listing appeared. The split and its stitching are verified against a source whose whole
+      population is known and whose ceiling is small enough to force several levels of splitting, so
+      that the union can be shown to be complete rather than merely large.
+- [ ] AC-20: Fetching additional per-property detail is off by default. With it off, no additional
+      per-property request is made, and the number of *listing* requests does not grow with the
+      number of properties returned. Retrieving one preview image per row (AC-23) is not
+      per-property detail and is not restricted by this.
 - [ ] AC-21: Registering an adapter requires no change to any other adapter, to the run loop, or to
       the store. A test registers a new stub adapter and uses it in a run without editing those.
 - [ ] AC-22: No adapter reads a credential, an API key, or a login of any kind.
@@ -157,6 +161,10 @@ problem brief is in `research.md`.
       offers one, subject to the same pacing, backoff, and retry rules as every other request. A
       failed image retrieval affects that row's image only: it never fails the query, never changes
       the source outcome, and never removes a previously retrieved image.
+- [ ] AC-24: Against the real source, a query whose matching set exceeds 10,000 is detected as
+      exceeding it, and every date range the split produces reports a count within the ceiling. This
+      is established by reading the counts the source reports, not by retrieving the rows, so
+      checking ourselves never becomes the heaviest thing the tool does.
 
 ## Edge cases & errors
 
@@ -186,5 +194,6 @@ problem brief is in `research.md`.
 
 ## Open questions
 
-- Whether the retry bound and the delay floor are per source or shared is a plan decision. The
-  requirements hold either way.
+- Whether the retry bound and the delay floor are per source or shared was left to the plan, which
+  settled it: the floor is global, everything else is per source over a shared default. The
+  requirements held either way.

@@ -14,12 +14,12 @@ readiness:
   research: ready
   design:   n/a
   spec:     ready
-  plan:     none
+  plan:     ready
   tasks:    none
 gate:
-  analyze: not-run
-  product_global_hash: ""
-  constitution_hash: ""
+  analyze: pass
+  product_global_hash: "sha256:869c75445341"
+  constitution_hash: "sha256:7ed19648690b"
 human_signoff: []
 open_decisions: []
 overrides: []
