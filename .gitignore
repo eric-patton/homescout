@@ -1,0 +1,27 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+dist/
+build/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local data: never commit. The database is the history this tool exists to keep,
+# and git handles binary files badly enough to corrupt it.
+*.db
+*.db-wal
+*.db-shm
+data/
+photos/
+exports/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
