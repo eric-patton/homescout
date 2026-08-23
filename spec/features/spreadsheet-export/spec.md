@@ -102,7 +102,7 @@ problem brief is in `research.md`.
 
 - A search with zero results. A workbook is still produced, with headers and no property rows,
   rather than an error or an absent file.
-- A property with no listing link, which happens when its only provider row came from a source that
+- A property with no listing link, which happens when its only source row came from a source that
   does not expose one. The address cell is plain text rather than a broken link.
 - A cell's text is longer than the spreadsheet format permits, which long descriptions and notes can
   be. It is truncated at the limit with the truncation visible, rather than producing a corrupt
@@ -112,9 +112,12 @@ problem brief is in `research.md`.
 - The output path's directory does not exist, or the file is open in another application, which is
   the normal Windows case. The failure is reported in terms naming the likely cause.
 - Two properties merged into one canonical listing. One row appears, and the columns that differ
-  between providers show the canonical value rather than a concatenation.
+  between sources show the canonical value rather than a concatenation.
 - A property whose price is unknown. The price cell is empty and the derived price per square foot
   cell is also empty, rather than zero.
+- The default column set includes crime and safety, and fire, egress and terrain. No free national
+  source supplies either, so those columns are structurally empty and are filled only by the user's
+  own notes. They remain in the default set because the sheet must stay recognizable.
 
 ## Non-functional requirements
 

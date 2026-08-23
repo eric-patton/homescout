@@ -5,7 +5,7 @@
 From `homescout-brief.md` sections 9 and 14, and decision D1 in `homescout-decisions.md`:
 
 - The user's consolidated spreadsheet has columns for heating and cooling, water source, sewer or
-  septic, gas, roof and construction, and garage and outbuildings. No provider returns any of these
+  septic, gas, roof and construction, and garage and outbuildings. No source returns any of these
   as data. They are buried in prose: "newer refrigerated air, private well, community septic".
 - The brief asks explicitly whether an AI pass is worth supporting, and the answer recorded in D1
   is that it is optional and off by default, with two interchangeable backends: OpenAI using the
@@ -14,7 +14,7 @@ From `homescout-brief.md` sections 9 and 14, and decision D1 in `homescout-decis
 - The brief's rule for these columns is stated twice and is binding here: extract where possible,
   leave blank rather than guess where not.
 - With extraction disabled the tool must be completely functional, needing no key, no network call
-  to a model provider, and no local model runner.
+  to a model source, and no local model runner.
 
 ## Problem brief
 
@@ -38,7 +38,7 @@ model a requirement for using the tool at all.
 ### Jobs to be done
 
 - Recover structured fields from listing prose without reading every listing.
-- Know whether a value came from a pattern, from a model, or from the provider itself.
+- Know whether a value came from a pattern, from a model, or from the source itself.
 - Never be told a property has a well when the description merely mentioned a neighbour's.
 - Run the whole tool with no model configured at all.
 

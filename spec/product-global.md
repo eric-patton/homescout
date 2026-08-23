@@ -9,7 +9,7 @@ listing sites do not expose, and honest about what changed since the last time y
 
 ## Glossary
 
-- **Source**: one provider adapter (`realtor`, `zillow`, `redfin`). All satisfy the same interface
+- **Source**: one listing adapter (`realtor`, `zillow`, `redfin`). All satisfy the same interface
   and declare which filters they can push server-side.
 - **Raw listing**: a single row exactly as one source returned it, tagged with its source and the
   time it was fetched. Never edited, never deleted.

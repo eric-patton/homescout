@@ -15,7 +15,7 @@ From `homescout-brief.md` sections 7 and 10, and decision D2 in `homescout-decis
 - Credentials come from the environment or a local file that is never committed. This is a
   constitution requirement, not a preference.
 - The thumbnail the email needs exists because of decision D2, which stores one preview image per
-  property precisely so the digest renders without depending on a provider permitting hotlinking.
+  property precisely so the digest renders without depending on a source permitting hotlinking.
 
 ## Problem brief
 
@@ -50,7 +50,7 @@ silent when nothing changed, without any credential ever living in the repositor
 
 - Windows Task Scheduler is the target. No daemon, no service, no always-on process.
 - Credentials from the environment or an uncommitted local file only.
-- The email must render on a phone, including the image, without depending on a provider allowing
+- The email must render on a phone, including the image, without depending on a source allowing
   its images to be loaded from elsewhere.
 
 ### Explicitly out of scope

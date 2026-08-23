@@ -6,7 +6,7 @@ From `homescout-brief.md` sections 5.5 and 12:
 
 - The user's real criteria are compound and idiosyncratic: a well with no principal aquifer under
   it, a listing that sat for six months and then raised its price, an address with no fibre. None
-  of these is a filter any provider offers, and all of them combine provider data with enriched
+  of these is a filter any source offers, and all of them combine source data with enriched
   data.
 - These criteria change as the search matures, which is why the brief insists they are data stored
   in the saved search rather than code: tunable per search and diffable in git.
@@ -22,9 +22,9 @@ From `homescout-brief.md` sections 5.5 and 12:
 
 ### Problem statement
 
-Someone with specific, compound property criteria struggles to express them because no provider
+Someone with specific, compound property criteria struggles to express them because no source
 filters on the things that actually decide the question, and the ones that matter combine listing
-data with public data the provider has never heard of, which results in either judging every
+data with public data the source has never heard of, which results in either judging every
 property by hand against a mental checklist or hard-coding personal preferences into a tool that
 then fits nobody else's search. A solution should let criteria be written as data alongside the
 search they belong to, evaluated the same way every run, without any path by which a written

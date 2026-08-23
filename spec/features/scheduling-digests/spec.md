@@ -46,16 +46,16 @@ ignore it, which costs more than sending nothing. The problem brief is in `resea
   - Then each new property shows its stored preview image, its price, its address, its notable
     flags, and a link, in a single-column layout that requires no horizontal scrolling
 
-- **Scenario: the image does not depend on the provider**
-  - Given a provider that does not permit its images to be loaded from elsewhere
+- **Scenario: the image does not depend on the source**
+  - Given a source that does not permit its images to be loaded from elsewhere
   - When the email is rendered
   - Then the preview image still displays, because it is the copy the tool stored rather than a
-    reference to the provider
+    reference to the source
 
 - **Scenario: a degraded run is reported as such**
-  - Given a scheduled run in which one provider failed
+  - Given a scheduled run in which one source failed
   - When it completes
-  - Then the digest and the email both name the provider and its outcome, and the exit code reports
+  - Then the digest and the email both name the source and its outcome, and the exit code reports
     the run as degraded
 
 - **Scenario: mail delivery fails**
@@ -89,10 +89,10 @@ ignore it, which costs more than sending nothing. The problem brief is in `resea
 - [ ] AC-5: The email renders in a single column and is legible on a narrow phone screen without
       horizontal scrolling.
 - [ ] AC-6: Images in the email are served from the tool's own stored copies, not referenced from a
-      provider, so rendering does not depend on a provider permitting it.
+      source, so rendering does not depend on a source permitting it.
 - [ ] AC-7: The email reports price changes with the previous value, the new value, and a direction,
       and reports disappearances and returns separately from new properties.
-- [ ] AC-8: A degraded run names each failing provider and its outcome in both the digest and the
+- [ ] AC-8: A degraded run names each failing source and its outcome in both the digest and the
       email.
 - [ ] AC-9: Mail credentials are read from the environment or an uncommitted local file. A test
       asserts that no credential is accepted from a saved search, a committed configuration file, or
@@ -131,7 +131,7 @@ ignore it, which costs more than sending nothing. The problem brief is in `resea
 
 ## Non-functional requirements
 
-- Performance: delivery adds negligible time to a run. The run's duration is dominated by provider
+- Performance: delivery adds negligible time to a run. The run's duration is dominated by source
   pacing.
 - Security: credentials only from the environment or an uncommitted local file, never in a commit,
   a saved search, or a command argument. Email content is generated from stored data and never

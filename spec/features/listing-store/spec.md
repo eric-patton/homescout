@@ -32,12 +32,12 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
   notes about a property to survive every future run, merge, and unmerge, so that the tool can
   replace my spreadsheet instead of merely feeding it.
 - As the person running searches, I want to see the source rows behind any change the tool
-  reports, so that I can tell a real price cut from a provider bug.
+  reports, so that I can tell a real price cut from a source bug.
 - As a scheduled automated agent, I want the difference between two points in time to be
   reproducible, so that a digest generated today about last week matches the one generated last
   week.
 - As the person running searches, I want a run in which a source failed to be recorded as exactly
-  that, so that a provider outage never reads as a market that emptied out.
+  that, so that a source outage never reads as a market that emptied out.
 
 ## Behavior & scenarios
 
@@ -190,6 +190,13 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       produces the same ordering of events as one that does not.
 - [ ] AC-24: A property returned more than once within a single source's response for a single run
       is recorded once per distinct source row and produces exactly one difference event.
+- [ ] AC-25: At most one preview image is retained per canonical listing. It is stored on disk
+      outside the database and referenced by path, survives the property becoming `disappeared`, and
+      is never overwritten by a later failed retrieval. Full-size image addresses are recorded but
+      the images themselves are not retained.
+- [ ] AC-26: Notes about an area or a town are stored independently of any property, are addressed
+      by the area they describe, and survive every run exactly as property annotations do. They are
+      never created or modified by a run.
 
 ## Edge cases & errors
 

@@ -58,7 +58,7 @@ implementation of the tool's behavior.
 ### Explicitly out of scope
 
 - The saved search format and geography resolution (feat-004), which this feature consumes.
-- Fetching from providers (feat-002, feat-005) and the store itself (feat-001).
+- Fetching from sources (feat-002, feat-005) and the store itself (feat-001).
 - Writing the digest to email, and the Task Scheduler setup (feat-012). This feature owns the
   digest's shape and the exit codes; feat-012 owns delivering and scheduling them.
 - The browser server's own behavior (feat-010). This feature owns only the command that starts it.

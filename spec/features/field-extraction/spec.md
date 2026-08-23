@@ -1,6 +1,6 @@
 ## Why
 
-Half the columns in the spreadsheet this tool replaces are facts that no provider returns as data,
+Half the columns in the spreadsheet this tool replaces are facts that no source returns as data,
 because they live in the description: refrigerated air, private well, community septic, metal roof.
 Recovering them is what lets a person filter on habitability rather than on square footage. The
 constraint that shapes the whole feature is the brief's rule, restated in the decisions log: a
@@ -11,8 +11,8 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
 ## Vocabulary used in this feature
 
 - An **extracted field** is a structured value recovered from a listing's prose, as opposed to one
-  the provider returned as data.
-- **Provenance** on an extracted field records how it was determined: `source` when the provider
+  the source returned as data.
+- **Provenance** on an extracted field records how it was determined: `source` when the source
   supplied it directly, `pattern` when deterministic matching recovered it, `model` when the
   optional pass did.
 - The **model pass** is the optional extraction backend. It is one client speaking one request
@@ -23,7 +23,7 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
 - As the person running searches, I want water source, sewer, heating, gas, and roof recovered from
   descriptions, so that the columns I used to fill in by hand fill themselves.
 - As the person running searches, I want to know how each value was determined, so that I can trust
-  a provider-supplied value more than a recovered one.
+  a source-supplied value more than a recovered one.
 - As the person running searches, I want a field left empty when the text does not say, so that I
   never drive to a property on the strength of a well that was never mentioned.
 - As the person running searches, I want to use the entire tool without configuring any model, so
@@ -46,10 +46,10 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
   - Then the heating field is empty with no provenance, and is not populated with a default, a most
     common value, or a guess
 
-- **Scenario: a provider supplied the value directly**
-  - Given a provider that returned a structured heating field
+- **Scenario: a source supplied the value directly**
+  - Given a source that returned a structured heating field
   - When extraction runs
-  - Then the provider's value is kept with provenance `source`, and extraction does not overwrite
+  - Then the source's value is kept with provenance `source`, and extraction does not overwrite
     it
 
 - **Scenario: the model pass is off**
@@ -94,7 +94,7 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
 - [ ] AC-2: Extracted fields cover at minimum heating and cooling, water source, sewer or septic,
       gas, and roof or construction.
 - [ ] AC-3: Every populated field carries provenance of `source`, `pattern`, or `model`.
-- [ ] AC-4: A provider-supplied value is never overwritten by an extracted one.
+- [ ] AC-4: A source-supplied value is never overwritten by an extracted one.
 - [ ] AC-5: A field the text does not support is left empty. A test over descriptions that mention
       none of the target fields asserts that every extracted field is empty.
 - [ ] AC-6: The model pass is off by default and is enabled per saved search.
@@ -129,7 +129,7 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
 - The description is empty or absent. Extraction produces no values and reports nothing unusual.
 - The description is extremely long. It is truncated to a bounded length before any model request,
   and the truncation is recorded.
-- The same property is described differently by two providers. Each description is extracted
+- The same property is described differently by two sources. Each description is extracted
   independently and the canonical listing carries both, with conflicts visible rather than resolved
   by preference order.
 - The model pass is enabled but no credential is configured. This is reported at validation time,

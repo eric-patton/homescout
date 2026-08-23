@@ -15,7 +15,7 @@ on this feature:
 - No free source exposes reliable price history, and the freshness filters sources do offer
   (`past_days` and similar) answer "recently listed according to us", which is not the same
   question and cannot be audited.
-- Sources fail. A provider being down, rate-limited, or newly incompatible is a normal Tuesday,
+- Sources fail. A source being down, rate-limited, or newly incompatible is a normal Tuesday,
   and the failure mode that would destroy the tool's value is one where a bad run quietly
   rewrites or deletes good history.
 
@@ -71,7 +71,7 @@ discarding an earlier observation.
 ### Explicitly out of scope
 
 - Fetching anything. Sources belong to the source-adapter feature (feat-002).
-- Deciding that rows from different providers describe the same house. Cross-source matching
+- Deciding that rows from different sources describe the same house. Cross-source matching
   belongs to address matching and merge review (feat-006). This feature owns only the trivial case
   where a canonical listing is backed by exactly one source's row.
 - Editing annotations through an interface. This feature owns the data and the durability

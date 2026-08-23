@@ -1,6 +1,6 @@
 ## Why
 
-Two more providers, chosen because they stress the adapter interface in opposite directions. Zillow
+Two more sources, chosen because they stress the adapter interface in opposite directions. Zillow
 is a library that wants a bounding box and refuses to return more than about 500 rows however
 politely you page. Redfin is not a library at all, is capped lower, and in much of the country is
 simply not available because the local multiple listing service does not permit downloads. If both
@@ -13,10 +13,10 @@ problem brief is in `research.md`.
   them, so that a ceiling I did not choose does not silently truncate my market.
 - As the person running searches, I want to know when Redfin is unavailable in a region rather than
   simply absent from the results, so that I can tell a coverage gap from a quiet failure.
-- As the person running searches, I want these providers paced as carefully as the first one, so
+- As the person running searches, I want these sources paced as carefully as the first one, so
   that adding coverage does not increase the odds of being blocked.
-- As whoever maintains this, I want both providers to have required no change to the core, so that
-  the fourth provider is equally cheap.
+- As whoever maintains this, I want both sources to have required no change to the core, so that
+  the fourth source is equally cheap.
 
 ## Behavior & scenarios
 
@@ -56,14 +56,14 @@ problem brief is in `research.md`.
 
 - **Scenario: no core change**
   - Given both adapters registered
-  - When a search naming all three providers runs
+  - When a search naming all three sources runs
   - Then the run loop, the store, and the first adapter are unchanged from before these two existed
 
 ## Acceptance criteria
 
 - [ ] AC-1: Both adapters satisfy the adapter interface and declare their capabilities honestly,
       verified by the same tests that verify the first adapter.
-- [ ] AC-2: The Zillow adapter accepts a bounding box natively and issues it in the provider's own
+- [ ] AC-2: The Zillow adapter accepts a bounding box natively and issues it in the source's own
       form.
 - [ ] AC-3: A Zillow query exceeding the per-query ceiling is subdivided, and the union of the
       pieces contains every property the ceiling suppressed. A test asserts more than 500 distinct
@@ -80,12 +80,12 @@ problem brief is in `research.md`.
       property as disappeared on the strength of Redfin's absence.
 - [ ] AC-9: The Redfin adapter respects its row cap and reports truncation when the cap is reached
       rather than presenting a capped result as complete.
-- [ ] AC-10: Both adapters tag every row with the producing provider and a fetch timestamp, and
-      retain the provider's original payload, as the interface requires.
+- [ ] AC-10: Both adapters tag every row with the producing source and a fetch timestamp, and
+      retain the source's original payload, as the interface requires.
 - [ ] AC-11: Neither adapter reads a credential, an API key, or a login.
-- [ ] AC-12: Registering both adapters required no change to the adapter interface, the politeness
-      layer, the run loop, or the store. A test asserts a run naming all three providers works with
-      no core modification, and the change history for this feature shows no core file altered.
+- [ ] AC-12: Registering both adapters requires no change to the adapter interface, the politeness
+      layer, the run loop, or the store. A test asserts that a run naming all three sources succeeds
+      with both adapters supplied only through registration, touching no core behavior.
 
 ## Edge cases & errors
 
@@ -99,13 +99,13 @@ problem brief is in `research.md`.
   throttling rather than a small market. Treated under the standard backoff rules.
 - A subdivided Zillow query begins being refused partway through. The pieces already retrieved are
   returned, flagged truncated.
-- Both new providers are unavailable while the first succeeds. The run is degraded and complete.
+- Both new sources are unavailable while the first succeeds. The run is degraded and complete.
 
 ## Non-functional requirements
 
 - Performance: subdivision issues the smallest number of queries that clears the ceiling; wall-clock
   time is dominated by the pacing floor rather than by adapter code.
-- Security: no credentials. No provider response is evaluated or used to construct a path.
+- Security: no credentials. No source response is evaluated or used to construct a path.
 - Reliability: either adapter failing leaves the other adapters' results and the run intact.
 - Accessibility: none. No user-facing surface.
 

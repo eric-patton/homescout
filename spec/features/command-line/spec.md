@@ -1,7 +1,7 @@
 ## Why
 
 This is the surface an unattended machine drives. It owns two things that have to be stable enough
-to build a scheduled job on: the run loop that asks each provider what it can filter, applies the
+to build a scheduled job on: the run loop that asks each source what it can filter, applies the
 rest locally, and records the outcome, and the machine contract of structured output plus exit
 codes that lets a caller act on the result without reading English. The compact digest exists
 because the full dataset is already in the store, and what a scheduled agent needs is the part that
@@ -9,7 +9,7 @@ moved. The problem brief is in `research.md`.
 
 ## Vocabulary used in this feature
 
-- A **degraded run** completed and wrote its observations, but at least one configured provider
+- A **degraded run** completed and wrote its observations, but at least one configured source
   reported `failed` or `unavailable`. It is neither a success nor a failure and the exit code says
   so.
 - A **digest** is the compact summary of what one or more runs changed. It carries counts and the
@@ -29,40 +29,40 @@ moved. The problem brief is in `research.md`.
   available in the browser, so that the scheduled path and the interactive path never diverge.
 - As the person running searches, I want readable output when I have not asked for machine output,
   so that the terminal is usable by hand.
-- As whoever debugs a surprising result, I want to see which filters the provider applied and which
-  the tool applied locally, so that I can tell a provider's opinion from mine.
+- As whoever debugs a surprising result, I want to see which filters the source applied and which
+  the tool applied locally, so that I can tell a source's opinion from mine.
 
 ## Behavior & scenarios
 
 - **Scenario: a clean run**
-  - Given a saved search whose configured providers all succeed
+  - Given a saved search whose configured sources all succeed
   - When it is run
   - Then observations are recorded, a comparison against the previous completed run is produced,
     and the command exits with the success code
 
 - **Scenario: a degraded run**
-  - Given a saved search where one of three configured providers reports `failed`
+  - Given a saved search where one of three configured sources reports `failed`
   - When it is run
-  - Then the run still completes and records its observations, the failing provider is named with
+  - Then the run still completes and records its observations, the failing source is named with
     its outcome in the result, and the command exits with the degraded code rather than the success
     code
 
-- **Scenario: every provider fails**
-  - Given a saved search where every configured provider reports `failed`
+- **Scenario: every source fails**
+  - Given a saved search where every configured source reports `failed`
   - When it is run
   - Then no property is marked as disappeared on the strength of that run, the run is recorded with
-    every provider's failure, and the command exits with the degraded code
+    every source's failure, and the command exits with the degraded code
 
-- **Scenario: filters split between the provider and the tool**
-  - Given a saved search with a filter one provider applies and another does not
+- **Scenario: filters split between the source and the tool**
+  - Given a saved search with a filter one source applies and another does not
   - When it is run
-  - Then each provider is sent only the filters it declared it applies, the remainder are applied
-    locally to that provider's rows, and the result reports which filters were applied where
+  - Then each source is sent only the filters it declared it applies, the remainder are applied
+    locally to that source's rows, and the result reports which filters were applied where
 
 - **Scenario: running every saved search**
   - Given several saved searches
   - When all of them are run with machine output requested
-  - Then one digest is emitted covering every search, each entry naming its search, its per-provider
+  - Then one digest is emitted covering every search, each entry naming its search, its per-source
     outcomes, its counts, and its changed subset
 
 - **Scenario: a digest stays small when nothing changed**
@@ -120,31 +120,32 @@ moved. The problem brief is in `research.md`.
       primary output stream. Progress, warnings, and diagnostics appear only on the secondary
       stream.
 - [ ] AC-3: Exit codes are stable and documented, with exactly these meanings: success; degraded,
-      meaning completed with at least one provider failed or unavailable; precondition not met,
+      meaning completed with at least one source failed or unavailable; precondition not met,
       meaning the operation is valid but cannot proceed yet; invalid input, meaning usage, an
       unknown name, or a saved search that fails validation; and internal error for anything
       unexpected.
-- [ ] AC-4: A run in which every provider succeeds exits with the success code. A run in which any
-      provider reports `failed` or `unavailable` exits with the degraded code. A test asserts both.
+- [ ] AC-4: A run in which every source succeeds exits with the success code. A run in which any
+      source reports `failed` or `unavailable` exits with the degraded code. A test asserts both.
 - [ ] AC-5: A degraded run still records its observations and its comparison. Degraded never means
       discarded.
-- [ ] AC-6: A run where every provider failed marks no property as disappeared, satisfying the
+- [ ] AC-6: A run where every source failed marks no property as disappeared, satisfying the
       store's rule that absence is not evidence.
-- [ ] AC-7: For each configured provider, the run sends only the filters that provider declared it
-      applies, and applies every remaining filter locally to that provider's rows.
-- [ ] AC-8: The result of a run reports, per provider, which filters it applied and which the tool
+- [ ] AC-7: For each configured source, the run sends only the filters that source declared it
+      applies, and applies every remaining filter locally to that source's rows.
+- [ ] AC-8: The result of a run reports, per source, which filters it applied and which the tool
       applied afterwards.
 - [ ] AC-9: A run records one run entry containing its identifier, the search, start and finish
-      times, and each provider's outcome and row count.
+      times, and each source's outcome and row count.
 - [ ] AC-10: Running all saved searches emits one digest containing an entry per search, each with
-      the search name, per-provider outcomes, counts for matched, new, changed and gone, and the
+      the search name, per-source outcomes, counts for matched, new, changed and gone, and the
       changed subset.
 - [ ] AC-11: A digest never contains the full result set. For a run over N properties of which K
       changed, the digest's size is a function of K and not of N. A test with N large and K zero
       asserts a bounded size.
 - [ ] AC-12: A digest reports price changes with a previous value, a new value, and a direction, and
       reports listing-status changes, disappearances, returns, and newly flagged properties as
-      separate sets.
+      separate sets. The newly flagged set is always present and is empty for a search with no
+      criteria configured, so the digest's shape does not depend on the rule engine existing.
 - [ ] AC-13: A comparison can be requested against the previous completed run or against a date, and
       the same request repeated later returns the same result.
 - [ ] AC-14: A comparison with no baseline reports that fact and exits with the precondition code.
@@ -164,11 +165,21 @@ moved. The problem brief is in `research.md`.
 - [ ] AC-20: The commands named in the brief exist and are reachable: listing, creating, editing and
       validating saved searches; running one search and running all of them; comparing since a point
       in time; enriching, optionally limited to stale values or one search; exporting; and starting
-      the local server.
+      the local server. Alongside them, the two commands the two-surface rule requires: annotating a
+      property, and reviewing and resolving queued ambiguous matches.
 - [ ] AC-21: Human output is the default. With machine output not requested, the primary stream is
       readable prose and no structured document is emitted.
 - [ ] AC-22: An unexpected internal failure exits with the internal-error code and leaves the store
       in a state where the previous completed run is still a usable comparison baseline.
+- [ ] AC-23: A property's annotation fields can be set from the command line, individually or
+      together, and the resulting stored annotation is identical to the one the browser interface
+      would have written for the same values.
+- [ ] AC-24: Queued ambiguous matches can be listed with the signals that agreed and conflicted, and
+      resolved as the same property or as different properties, from the command line. A resolution
+      made this way is indistinguishable in the store from one made in the browser interface, and is
+      honored by later runs identically.
+- [ ] AC-25: Both of the above accept machine output and return the same exit codes as every other
+      command, so an unattended caller can drain the ambiguous queue without a browser.
 
 ## Edge cases & errors
 
@@ -178,9 +189,9 @@ moved. The problem brief is in `research.md`.
 - A run is interrupted by the machine sleeping or the task being killed. The partial run is not
   usable as a comparison baseline, per the store's rules, and the next run compares against the
   last completed one.
-- A saved search names a provider that is not registered. This is a validation failure, reported
+- A saved search names a source that is not registered. This is a validation failure, reported
   before anything is fetched.
-- A saved search names zero providers. This is a validation failure, not a run that matches
+- A saved search names zero sources. This is a validation failure, not a run that matches
   nothing.
 - Machine output is requested and the result contains characters outside the ASCII range, which
   property descriptions routinely do. Output is UTF-8 encoded and parses correctly on Windows,

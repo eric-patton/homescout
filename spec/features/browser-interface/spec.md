@@ -24,7 +24,7 @@ in five years. The problem brief is in `research.md`.
 - As the person running searches, I want to write my rank, verdict, red flags, and next step on the
   row I am reading, so that my judgment lands in the tool rather than in a separate spreadsheet.
 - As the person running searches, I want one property's full picture on one page, including how its
-  record was assembled from providers, so that I can tell a real record from a bad merge.
+  record was assembled from sources, so that I can tell a real record from a bad merge.
 - As the person running searches, I want to see what changed since any earlier run, so that I can
   catch up after being away.
 - As the person running searches, I want to resolve the matches the tool refused to guess at, so
@@ -68,7 +68,7 @@ in five years. The problem brief is in `research.md`.
   - Given the detail surface for one property
   - When it is opened
   - Then it shows its photographs, its full description, its enriched values, links to each
-    provider's listing, its price and status timeline, and the provider rows the record was built
+    source's listing, its price and status timeline, and the source rows the record was built
     from with the signal that justified each join
 
 - **Scenario: comparing against an earlier run**
@@ -86,7 +86,7 @@ in five years. The problem brief is in `research.md`.
 - **Scenario: running a search from here**
   - Given the saved search list
   - When a search is run
-  - Then progress is visible, per-provider outcomes are shown on completion including any failure,
+  - Then progress is visible, per-source outcomes are shown on completion including any failure,
     and the resulting state is identical to running the same search from a terminal
 
 - **Scenario: reachable only from this machine**
@@ -113,7 +113,7 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-8: Criteria that fired are shown as badges naming the criterion, and the default ordering
       reflects boost and demote criteria until an explicit sort is chosen.
 - [ ] AC-9: The listing detail shows photographs, the full description, enriched values, a link per
-      provider, the price and status timeline, and the provider rows underneath the record with the
+      source, the price and status timeline, and the source rows underneath the record with the
       signal that justified each join.
 - [ ] AC-10: A value that is missing is displayed as missing and is visually distinguishable from a
       value that is known to be negative.
@@ -121,7 +121,7 @@ in five years. The problem brief is in `research.md`.
       comparison for the same two points in time.
 - [ ] AC-12: Ambiguous match pairs are listed with the agreeing and conflicting signals, and a
       decision made here is durable and honored by later runs.
-- [ ] AC-13: Running a search from here shows progress and per-provider outcomes, including
+- [ ] AC-13: Running a search from here shows progress and per-source outcomes, including
       failures, and leaves the store in the same state the equivalent terminal command would.
 - [ ] AC-14: This layer contains no business logic. Every action calls a core operation, and a test
       asserts identical resulting state for an action performed here and through the core directly.
@@ -134,6 +134,12 @@ in five years. The problem brief is in `research.md`.
       the merge review decisions.
 - [ ] AC-18: No information is conveyed by color alone. Every badge, status, and difference event
       carries a text label.
+- [ ] AC-19: Notes about an area or a town can be written and edited, addressed by the area they
+      describe rather than by a property, and are the notes the spreadsheet export's second sheet
+      carries.
+- [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
+      default and are shown by an explicit filter, which is always available and reports how many
+      are hidden.
 
 ## Edge cases & errors
 
@@ -144,7 +150,7 @@ in five years. The problem brief is in `research.md`.
   marked as not locatable.
 - A property has no photographs. The detail surface renders without them rather than showing broken
   images.
-- A photograph the provider has since removed. The stored preview still renders; the full gallery
+- A photograph the source has since removed. The stored preview still renders; the full gallery
   shows the images that still load and does not present a wall of broken frames.
 - Two browser tabs edit the same annotation. The last write wins, consistent with the store's
   decision, and the other tab shows the current value on its next read rather than silently holding
@@ -162,7 +168,7 @@ in five years. The problem brief is in `research.md`.
 - Performance: a results table of 5,000 rows becomes interactive within three seconds, and sorting
   or filtering it responds within 200 milliseconds without contacting the server.
 - Security: bound to the local interface, single user, no authentication by design. Every value
-  originating from a provider or from a user note is rendered as text and never as markup, so no
+  originating from a source or from a user note is rendered as text and never as markup, so no
   listing description can inject content into the page.
 - Reliability: an interface error affects the surface being used and never leaves an annotation
   half-written or a saved search partially overwritten.

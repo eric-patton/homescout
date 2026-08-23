@@ -1,7 +1,7 @@
 ## Why
 
 The criteria that actually decide whether a property is worth a drive combine listing data with
-public data no provider has heard of, and they change as a search matures. Keeping them as data in
+public data no source has heard of, and they change as a search matures. Keeping them as data in
 the saved search makes them tunable and reviewable as a change. The hard part is not evaluating
 them; it is evaluating them safely and honestly: no path from a written expression to executable
 code, and no property quietly excluded because a value was missing rather than because it failed
@@ -170,7 +170,7 @@ the test. The problem brief is in `research.md`.
   exclusion counts per rule, not an unexplained empty table.
 - Two rules contradict each other, one boosting and one demoting the same property. The documented
   combination order under AC-7 settles it deterministically.
-- A rule refers to an enriched value in a search where that enrichment provider is not configured.
+- A rule refers to an enriched value in a search where that enrichment source is not configured.
   Reported under AC-14 as a value that exists in the namespace but will never be populated for this
   search, which is a more useful message than a per-property undetermined verdict.
 - Arithmetic that cannot produce a value, such as a division by zero, yields unknown rather than an

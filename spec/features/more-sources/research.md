@@ -18,16 +18,16 @@ From `homescout-brief.md` section 5.1:
 
 ### Problem statement
 
-Someone consolidating a regional market struggles to see the whole market from one provider because
+Someone consolidating a regional market struggles to see the whole market from one source because
 each has partial coverage and its own undocumented ceiling, which results in properties that are
-listed, findable, and simply absent from the tool. A solution should add two more providers behind
+listed, findable, and simply absent from the tool. A solution should add two more sources behind
 the existing interface, each working around its own ceiling and its own availability limits,
-without any of that leaking into the core, and without a provider that is unavailable in a region
-being mistaken for a provider that failed.
+without any of that leaking into the core, and without a source that is unavailable in a region
+being mistaken for a source that failed.
 
 ### Target users
 
-- **The person running searches** (primary): wants coverage, and wants to know when a provider had
+- **The person running searches** (primary): wants coverage, and wants to know when a source had
   nothing to say versus could not be asked.
 
 ### Jobs to be done
@@ -45,14 +45,14 @@ being mistaken for a provider that failed.
 
 ### Constraints
 
-- The same politeness floor as every other provider: pacing, backoff, jitter, honest user agent.
+- The same politeness floor as every other source: pacing, backoff, jitter, honest user agent.
   Splitting a query must not become a burst.
 - No credentials, no paid API, no multiple listing service access.
 
 ### Explicitly out of scope
 
 - The adapter interface and the politeness layer themselves (feat-002).
-- Reconciling these providers' rows with Realtor.com's (feat-006).
+- Reconciling these sources' rows with Realtor.com's (feat-006).
 
 ### Open questions
 

@@ -3,7 +3,7 @@
 The brief calls this the messiest part of the project, and the reason is asymmetry: failing to
 merge two rows costs a duplicate line in a table, while wrongly merging them fuses two properties
 into one record whose price history is fiction. Everything in this spec follows from taking that
-asymmetry seriously. Merge where the evidence is strong, ask where it is not, keep the provider
+asymmetry seriously. Merge where the evidence is strong, ask where it is not, keep the source
 rows underneath so any decision can be inspected and undone, and never overrule a person. The
 problem brief is in `research.md`.
 
@@ -14,12 +14,12 @@ problem brief is in `research.md`.
 - The **review queue** holds every `ambiguous` pair awaiting a person's decision.
 - A **merge decision** is a person's recorded instruction to join two records or to keep them
   apart. It outranks every automatic signal and persists indefinitely.
-- **Provenance** is the record of which provider rows a canonical listing was built from and which
+- **Provenance** is the record of which source rows a canonical listing was built from and which
   signal justified joining them.
 
 ## User stories
 
-- As the person running searches, I want a house listed on three providers to appear once, so that
+- As the person running searches, I want a house listed on three sources to appear once, so that
   my table is a list of properties rather than a list of listings.
 - As the person running searches, I want the tool to ask me when it is unsure rather than pick, so
   that I never discover months later that two properties have been sharing a price history.
@@ -35,46 +35,46 @@ problem brief is in `research.md`.
 ## Behavior & scenarios
 
 - **Scenario: the same house, formatted differently**
-  - Given two provider rows reading `1747 S Roosevelt Rd 10 1/2` and
+  - Given two source rows reading `1747 S Roosevelt Rd 10 1/2` and
     `1747 South Roosevelt Road 10 1/2`, in the same ZIP code
   - When they are compared
   - Then the outcome is `matched`, they resolve to one canonical listing, and the provenance names
     the normalized address and ZIP as the justifying signal
 
 - **Scenario: a parcel number settles it**
-  - Given two provider rows whose addresses are formatted so differently that normalization does
+  - Given two source rows whose addresses are formatted so differently that normalization does
     not align them, but which carry the same parcel number
   - When they are compared
   - Then the outcome is `matched`, and the provenance names the parcel number as the justifying
     signal
 
 - **Scenario: a parcel number rules it out**
-  - Given two provider rows with identical normalized addresses and ZIP codes but different parcel
+  - Given two source rows with identical normalized addresses and ZIP codes but different parcel
     numbers
   - When they are compared
   - Then the outcome is `distinct`, and no merge occurs despite the address agreement
 
 - **Scenario: coordinates confirm a probable match**
-  - Given two provider rows with the same normalized street and ZIP, no parcel numbers, and
+  - Given two source rows with the same normalized street and ZIP, no parcel numbers, and
     coordinates thirty metres apart
   - When they are compared
   - Then the outcome is `matched` and the provenance names both the address and the coordinate
     agreement
 
 - **Scenario: coordinates contradict an address match**
-  - Given two provider rows with the same normalized street and ZIP but coordinates several
+  - Given two source rows with the same normalized street and ZIP but coordinates several
     kilometres apart
   - When they are compared
   - Then the outcome is `ambiguous`, both records remain separate, and the pair enters the review
     queue with the contradiction stated
 
 - **Scenario: a unit number is not noise**
-  - Given two provider rows with the same street and ZIP but different unit designations
+  - Given two source rows with the same street and ZIP but different unit designations
   - When they are compared
   - Then the outcome is `distinct`, because different units are different properties
 
 - **Scenario: land with no street address**
-  - Given two provider rows for unimproved land, neither carrying a street address, with
+  - Given two source rows for unimproved land, neither carrying a street address, with
     coordinates twenty metres apart and matching lot size
   - When they are compared
   - Then the outcome is `ambiguous` rather than `matched`, and the pair enters the review queue,
@@ -105,21 +105,21 @@ problem brief is in `research.md`.
     than acted on
 
 - **Scenario: undoing a merge**
-  - Given a canonical listing built from provider rows that were merged
+  - Given a canonical listing built from source rows that were merged
   - When the merge is undone
-  - Then the original records exist again, each backed by the provider rows it originally had, no
-    provider row was altered, and every annotation that existed before the merge still exists with
+  - Then the original records exist again, each backed by the source rows it originally had, no
+    source row was altered, and every annotation that existed before the merge still exists with
     its original content attached to the record it originally described
 
-- **Scenario: a third provider joins an existing record**
-  - Given a canonical listing already built from two providers' rows
-  - When a third provider's row matches it
+- **Scenario: a third source joins an existing record**
+  - Given a canonical listing already built from two sources' rows
+  - When a third source's row matches it
   - Then it joins the same canonical listing, and the provenance grows to name all three rows
 
 - **Scenario: provenance is inspectable**
   - Given any canonical listing
   - When its provenance is read
-  - Then it names every provider row underneath it, the signal that justified each join, and
+  - Then it names every source row underneath it, the signal that justified each join, and
     whether the join was automatic or decided by a person
 
 ## Acceptance criteria
@@ -154,18 +154,20 @@ problem brief is in `research.md`.
 - [ ] AC-13: A pair with a recorded decision never returns to the review queue.
 - [ ] AC-14: New evidence that contradicts a recorded decision is surfaced as a flagged
       contradiction and does not alter the merge state.
-- [ ] AC-15: No provider row is modified, deleted, or hidden by any merge, separation, or undo. A
-      test compares provider rows before and after a merge-and-undo cycle for exact equality.
+- [ ] AC-15: No source row is modified, deleted, or hidden by any merge, separation, or undo. A
+      test compares source rows before and after a merge-and-undo cycle for exact equality.
 - [ ] AC-16: Undoing a merge restores the records that existed before it, each backed by the same
-      provider rows it had beforehand.
-- [ ] AC-17: After a merge followed by an undo, every annotation that existed beforehand exists with
-      identical content, attached to the record it originally described.
-- [ ] AC-18: Every canonical listing exposes its provenance: every provider row underneath it, the
+      source rows it had beforehand.
+- [ ] AC-17: Merging and undoing a merge do not defeat the store's guarantee that annotations
+      survive both operations. The guarantee itself is stated once, by the store; this criterion
+      asserts that these operations satisfy it, exercised through a merge-and-undo cycle on records
+      that both carry annotations.
+- [ ] AC-18: Every canonical listing exposes its provenance: every source row underneath it, the
       signal that justified each join, and whether the join was automatic or human.
-- [ ] AC-19: A canonical listing backed by exactly one provider row is a valid state and requires no
-      merge, so the feature is usable with a single provider configured.
-- [ ] AC-20: Merging is deterministic and order-independent: the same set of provider rows produces
-      the same canonical listings regardless of the order the providers returned in, and regardless
+- [ ] AC-19: A canonical listing backed by exactly one source row is a valid state and requires no
+      merge, so the feature is usable with a single source configured.
+- [ ] AC-20: Merging is deterministic and order-independent: the same set of source rows produces
+      the same canonical listings regardless of the order the sources returned in, and regardless
       of which run each row arrived in.
 - [ ] AC-21: A row that matches more than one existing canonical listing does not join any of them.
       The situation produces `ambiguous` and enters the review queue naming all candidates.
@@ -179,11 +181,11 @@ problem brief is in `research.md`.
 - A duplex or a shared driveway where two genuinely different properties carry the identical
   address with no unit designation and coordinates a few metres apart. This is `ambiguous`, and it
   is the case that justifies the whole queue existing.
-- A provider corrects a property's address between runs, so a row that previously matched now does
+- A source corrects a property's address between runs, so a row that previously matched now does
   not. The existing canonical listing is not torn apart automatically; the change is surfaced as a
   contradiction under AC-14.
-- A property is relisted under a new provider identifier with the same address. This is a new
-  provider row that matches an existing canonical listing and joins it, which is how a relisting
+- A property is relisted under a new source identifier with the same address. This is a new
+  source row that matches an existing canonical listing and joins it, which is how a relisting
   becomes visible as a status event rather than a second property.
 - A rural address with no street number, of the form used for land parcels on a named road. Handled
   under AC-8: never merged on coordinates alone.
@@ -193,7 +195,7 @@ problem brief is in `research.md`.
   absent rather than as a contradiction, so one bad coordinate does not make every pair ambiguous.
 - A person merges two records that both carry annotations. Nothing is discarded; both annotations
   survive, and the undo restores each to its original record.
-- A parcel number is formatted differently by two providers, with or without separators. Parcel
+- A parcel number is formatted differently by two sources, with or without separators. Parcel
   numbers are normalized before comparison, or the comparison is treated as not available rather
   than as a disagreement.
 - The review queue grows large on the first run over a new area. This is expected, and the queue
@@ -203,7 +205,7 @@ problem brief is in `research.md`.
 
 - Performance: comparing a run of 5,000 rows against existing canonical listings completes within
   the run's overall budget and does not require comparing every row against every other row.
-- Security: address and parcel strings are data. Nothing parsed from a provider row is used to
+- Security: address and parcel strings are data. Nothing parsed from a source row is used to
   construct a query, a path, or an expression.
 - Reliability: an unparseable or malformed row degrades that row's match quality and nothing else.
   It never fails the merge pass or the run.
