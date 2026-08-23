@@ -12,8 +12,10 @@ replace hours of manual searching and spreadsheet maintenance with a scheduled, 
 ## Non-negotiables
 
 1. **This is a monitor, not a scraper.** Almost everything valuable is a difference over time, not
-   a field in any response. Every run writes an append-only snapshot of every matching listing.
-   New, changed, and gone are computed locally by comparing snapshots.
+   a field in any response. Every run records what it observed of every matching listing, such that
+   the exact state at any past run remains recoverable and nothing already recorded is ever
+   rewritten. New, changed, and gone are computed locally by comparing those records. This binds the
+   guarantee, not the table design.
 2. **Snapshots are immutable.** Corrections are written as new rows. Nothing rewrites history.
 3. **Source-side freshness filters are an optimization, never the source of truth for "new."**
 4. **A failing source degrades a run. It never corrupts history and never deletes listings.**

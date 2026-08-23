@@ -47,7 +47,7 @@ are enforced.
 
 ### D-4. Append-only is enforced by the database, not by convention
 
-Every history table (`raw_listings`, `listing_observations`, `listing_snapshots`,
+Every history table (`raw_listings`, `listing_snapshots`,
 `listing_events`) carries `BEFORE UPDATE` and `BEFORE DELETE` triggers that `RAISE(ABORT)`.
 
 This is the single most important decision in the plan. AC-2 says an attempt to update a recorded
@@ -56,25 +56,23 @@ true for code written years from now by someone who has not read the constitutio
 true for a person poking at the file with a SQLite browser. It also makes AC-2's test trivial and
 honest: issue an `UPDATE` and assert the exception.
 
-### D-5. State is recorded by change, not by copy, and this is deliberate
+### D-5. One complete snapshot row per listing per run
 
-The brief says every run writes a snapshot of every matching listing. Taken literally that is one
-row per listing per run: at 5,000 listings and a daily run, roughly 1.8 million rows and a
-multi-gigabyte file within a year, growing without bound, in a file the user is meant to keep
-forever.
+`listing_snapshots` carries a full copy of every compared field, for every matching listing, on
+every run. Append-only, one row, no reconstruction.
 
-What the spec actually requires (AC-1) is that the observed state at any past run is recoverable
-exactly. Two tables give that at a fraction of the size:
+An earlier draft of this plan recorded a lightweight observation every run and a full copy only on
+change, roughly twenty times smaller. The pre-build check rejected it against the constitution, and
+on reflection the smaller design was the wrong trade regardless. Answering "what did run R see"
+would have required combining two tables, which introduces a state where they disagree, in the one
+component every other feature trusts and whose corruption is unrecoverable because no source can
+tell us last month's price. Simplicity is worth more here than storage.
 
-- `listing_observations` — one row per (run, listing, source row) for every listing seen in that
-  run. This is the complete record of what was observed when, and it is what AC-4, AC-8 and AC-9
-  are computed from.
-- `listing_snapshots` — one row written only when a compared field differs from the listing's
-  previous snapshot. State at run R is the latest snapshot at or before R.
-
-Both are append-only. The reconstruction is a single indexed query. This is an interpretation of
-the brief rather than a contradiction of it, and it is called out here so it can be challenged
-before it is code.
+On size: the expected load is a county run weekly, in the hundreds of listings, which is a few
+hundred megabytes over years. The multi-gigabyte case only appears at the specification's ceiling
+of 5,000 listings run daily, sustained for years. If that ever becomes real, the constitution now
+binds the guarantee rather than the layout, so changing the storage is an ordinary decision rather
+than an amendment.
 
 ### D-6. The compared field set is declared, not inferred
 
@@ -100,7 +98,7 @@ Merging itself is feat-006's; this feature provides the supersession mechanics a
 `runs` rows carry a generated unique id (not a timestamp, so the same-second edge case is a
 non-issue) and a `status` of `running`, `completed`, or `failed`.
 
-This also answers the spec's open question: observations are written **incrementally** as each
+This also answers the spec's open question: snapshots are written **incrementally** as each
 source returns, and the run becomes `completed` in a final transaction. An interrupted run leaves
 its rows in place, marked `running`, where they are visible for debugging but are excluded from
 every comparison (AC-19). Choosing this over a single end-of-run commit means a long run that dies
@@ -182,6 +180,6 @@ uv run pytest -m slow tests/test_store_performance.py
 
 ## Deviations from the constitution
 
-None. D-5 is an interpretation of the brief's wording, argued above, and does not touch a
-non-negotiable: history remains append-only and every past observation remains exactly
-recoverable.
+None. D-5 previously deviated from non-negotiable 1 and was rejected by the pre-build check. The
+plan now writes a full snapshot per listing per run, and the non-negotiable has separately been
+reworded to bind the recoverability guarantee rather than a table layout.

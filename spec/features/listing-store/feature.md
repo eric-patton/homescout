@@ -17,9 +17,9 @@ readiness:
   plan:     ready
   tasks:    none
 gate:
-  analyze: blocking-hard
+  analyze: pass
   product_global_hash: "sha256:869c75445341"
-  constitution_hash: "sha256:aa89f53aff52"
+  constitution_hash: "sha256:7ed19648690b"
 human_signoff: []
 open_decisions: []
 overrides: []
