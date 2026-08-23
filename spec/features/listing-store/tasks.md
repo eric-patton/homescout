@@ -1,0 +1,87 @@
+# Tasks — listing store and snapshot history
+
+Glyphs: `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` not applicable ·
+`[H]` needs a human. `[P]` marks a task that can run alongside its group peers.
+
+Each task names the criteria it satisfies. Tests carry the trace token `feat-001/AC-N`.
+
+## Group A — foundation
+
+- [ ] **T1. Project scaffolding.** `pyproject.toml` with `uv`, `.python-version` pinned to 3.13,
+      `src/homescout/` package layout, pytest and ruff configured, a `slow` test marker registered.
+      Verify: `uv run pytest` collects zero tests and exits clean.
+- [ ] **T2. Database open, create, and version.** Open or create the file, set write-ahead logging
+      and a busy timeout, read and write `PRAGMA user_version`, and run forward-only migrations.
+      Refuse a file stamped newer than the code, naming both versions.
+      Satisfies AC-22. Files: `src/homescout/store/db.py`, `src/homescout/store/migrations.py`.
+- [ ] **T3. Schema, version 1.** `runs`, `raw_listings`, `listings`, `listing_observations`,
+      `listing_snapshots`, `listing_events`, `annotations`, `area_notes`, `listing_images`, with
+      indexes for the comparison queries.
+      Files: `src/homescout/store/schema.py`.
+- [ ] **T4. Append-only enforcement.** `BEFORE UPDATE` and `BEFORE DELETE` triggers that abort, on
+      every history table. Tests issue the statements through a raw connection.
+      Satisfies AC-2, AC-14.
+
+## Group B — writing what a run saw
+
+- [ ] **T5. Run lifecycle.** Start a run with a generated id, record per-source outcome and row
+      count, complete it in a final transaction. Only completed runs are comparison baselines; an
+      interrupted run stays `running` and is excluded.
+      Satisfies AC-18, AC-19.
+- [ ] **T6. Recording source rows.** Write raw rows with their source, fetch time, and the source's
+      original payload retained. Handle the same property appearing twice in one response.
+      Satisfies AC-13, AC-24.
+- [ ] **T7. Canonical listings and supersession.** Promote a single source row to a canonical
+      listing. Immutable ids, `superseded_by` for merges, retraction for undo. Resolve a listing to
+      its source rows.
+      Satisfies AC-13. Underpins AC-16.
+- [ ] **T8. Observations and change-detected snapshots.** Record an observation per (run, listing,
+      source row). Write a snapshot only when a declared compared field differs from the previous
+      one. Reconstruct exact state at any run.
+      Satisfies AC-1, AC-6.
+- [ ] **T9. Presence and the event timeline.** Compute presence from observations and per-source
+      outcomes: absent everywhere with all sources succeeding becomes `disappeared`; absent with any
+      source failed stays `observed`; a disappeared listing observed again returns. Record each
+      transition as a dated event. Disappeared listings stay readable and queryable.
+      Satisfies AC-7, AC-8, AC-9, AC-10, AC-11.
+
+## Group C — the arithmetic
+
+- [ ] **T10. The comparison.** Produce exactly one difference event per listing across two points in
+      time: `new`, `changed`, `unchanged`, `gone`, `returned`. Changed events name each differing
+      field with before and after; price changes carry an absolute difference and a direction.
+      Reproducible for fixed endpoints regardless of what ran in between.
+      Satisfies AC-3, AC-4, AC-5, AC-20, AC-21.
+- [ ] **T11. Locally derived history.** Days on market from first local observation, and the price
+      and listing-status timeline. A source's own contradictory value never substitutes.
+      Satisfies AC-12.
+
+## Group D — the user's own data
+
+These three touch disjoint files and depend only on group A.
+
+- [ ] **T12. Annotations.** `[P]` Read and write rank, verdict, red flags, summary, next step, and
+      free notes against a listing id, with an update time. Never written by a run. Survive merge
+      and unmerge by never moving.
+      Satisfies AC-15, AC-16, AC-17.
+- [ ] **T13. Area and town notes.** `[P]` Notes addressed by area rather than by property, with the
+      same durability as annotations and never touched by a run.
+      Satisfies AC-26.
+- [ ] **T14. Preview image storage.** `[P]` Store one image per listing on disk with its path and
+      retrieval time recorded. Retained through a disappearance. A later failed retrieval never
+      replaces a good image. Full-size addresses recorded, images not retained.
+      Satisfies AC-25.
+
+## Group E — the unhappy paths and the bar
+
+- [ ] **T15. Error surfaces.** A locked file, a missing or empty file, a file from a newer version,
+      and a write that fails partway. Each reports a message naming the likely cause, and leaves the
+      previous completed run usable as a baseline.
+      Covers the spec's edge cases and the reliability requirement.
+- [ ] **T16. Performance.** A slow-marked test building 5,000 synthetic listings, asserting the
+      write and comparison bounds. Excluded from the default run.
+      Covers the performance requirement.
+- [ ] **T17. README with the legal posture.** The constitution requires the personal-use,
+      low-volume, not-republished, not-commercialized constraint to travel with the code. No feature
+      owns the README and it gets created in this one.
+      Satisfies a constitution requirement rather than a criterion of this feature.
