@@ -89,5 +89,4 @@ def do_run(
 
 def kinds(comparison: object) -> dict[str, int]:
     """Difference-event counts, for tests that only care about the shape of the answer."""
-    counts = comparison.counts  # type: ignore[attr-defined]
-    return {k: v for k, v in counts.items() if k != "matched"}
+    return comparison.counts  # type: ignore[attr-defined,no-any-return]

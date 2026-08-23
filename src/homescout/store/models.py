@@ -52,6 +52,9 @@ class ListingFields:
     listing_url: str | None = None
     description: str | None = None
     photo_urls: tuple[str, ...] | None = None
+    #: What the source claims about time on market. Recorded, never used: this tool's own
+    #: figure comes from its own first observation and is never overwritten by this one.
+    days_on_market_source: int | None = None
 
     def as_row(self) -> dict[str, Any]:
         """Column values for a database row. The photo list is stored as JSON text."""
@@ -199,9 +202,6 @@ class Comparison:
         counts = {k: 0 for k in ("new", "changed", "unchanged", "gone", "returned")}
         for event in self.events:
             counts[event.kind] += 1
-        counts["matched"] = sum(
-            counts[k] for k in ("new", "changed", "unchanged", "returned")
-        )
         return counts
 
 

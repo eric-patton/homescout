@@ -160,8 +160,14 @@ class Store:
         matters when every request is deliberately slow. The run only becomes a comparison baseline
         when it is completed.
 
-        Returns the canonical listing ids the rows resolved to, in input order, with duplicates
-        within this response collapsed.
+        Every row a source returned is recorded, including a repeat of an identifier the same
+        response already carried. Two rows under one identifier is a source contradicting itself,
+        and both halves of that contradiction are evidence: discarding either would be destroying a
+        source row. What collapses is the property, not the row, so the repeat joins the same
+        canonical listing and the run still holds one snapshot of it.
+
+        Returns the canonical listing ids the rows resolved to, in input order, with repeats of one
+        property collapsed.
         """
         observed_at = utc_now()
         listing_ids: list[str] = []
@@ -169,12 +175,6 @@ class Store:
 
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             for row in rows:
-                key = self._identity_key(source, row)
-                if key in seen_keys:
-                    # The same property twice in one response is one property.
-                    continue
-                seen_keys.add(key)
-
                 raw_id = _new_id()
                 values = row.fields.as_row()
                 conn.execute(
@@ -195,7 +195,10 @@ class Store:
                 )
 
                 listing_id, is_new = self._resolve_listing(conn, source, row, run_id, observed_at)
-                listing_ids.append(listing_id)
+                key = self._identity_key(source, row)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    listing_ids.append(listing_id)
 
                 conn.execute(
                     "INSERT OR IGNORE INTO listing_sources "

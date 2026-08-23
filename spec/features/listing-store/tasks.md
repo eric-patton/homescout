@@ -89,3 +89,20 @@ earlier.
       **Project setup carried by this feature, not part of its scope.** Recorded here so a later
       audit reads it as deliberate rather than as unrequested work. Satisfies a constitution
       requirement, not a criterion of this feature.
+
+## Group F — remediation from the first code-against-spec audit
+
+- [x] **T- [x] **T18. Keep every source row a response contained.** `gap-001`. Two rows carrying the same
+      source identifier in one response are currently collapsed to one, so the second row's values
+      are discarded. When they differ, that is evidence destroyed, against both AC-24 and the
+      project rule that source rows are never destroyed. Record every row; collapse only the
+      snapshot and the listing resolution, which is what AC-24 actually asks for.
+- [x] **T- [x] **T19. Retain a source's own days-on-market claim.** `gap-002`. The guarantee that our own
+      figure is never overwritten currently holds because there is nowhere to put the source's
+      value, which means the criterion's own scenario cannot be exercised at all. Keep the source's
+      claim as an informational field, uncompared, and prove by test that it never substitutes for
+      the locally derived figure.
+- [x] **T20. Remove the digest-oriented total from the comparison.** `gap-003`. The comparison
+      exposes a combined "matched" count that nothing in this feature's spec asks for; it
+      anticipates the run digest, which belongs to the command line feature. Remove it here and let
+      that feature define it when it needs it.

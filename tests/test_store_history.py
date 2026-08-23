@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from conftest import do_run, prop
+from conftest import do_run, kinds, prop
 from homescout.store import Store, UnknownListingError, to_utc_text
 
 
@@ -67,6 +67,8 @@ def test_the_same_property_twice_in_one_response_is_one_property(store: Store) -
 
     assert len(store.listings()) == 2
     assert len(store.snapshots_for_run(run.id)) == 2
+    # Every row is kept: three rows arrived, three rows are recorded.
+    assert store.connection.execute("SELECT COUNT(*) FROM raw_listings").fetchone()[0] == 3
 
     comparison = store.compare("test-search", target_run_id=run.id)
     ids = [event.listing_id for event in comparison.events]
@@ -354,3 +356,71 @@ def test_a_naive_reference_time_is_treated_as_utc(store: Store) -> None:
     reference = datetime.now(UTC) + timedelta(days=10)
 
     assert store.history(listing.id, as_of=to_utc_text(reference)).days_on_market == 10
+
+
+# -- regressions from the first code-against-spec audit ---------------------
+
+
+def test_a_repeated_identifier_in_one_response_keeps_both_rows(store: Store) -> None:
+    """feat-001/AC-24, gap-001: a source contradicting itself is two pieces of evidence.
+
+    The first implementation keyed rows by the source's identifier and skipped a repeat of that key
+    outright, so when the two rows disagreed the second one's values were discarded with no record
+    that it had ever been seen. That is destroying a source row, which the project rules forbid
+    outright, and no source will ever tell us what it said last week.
+
+    What collapses is the property, not the row: one canonical listing, one snapshot for the run,
+    one difference event, and both rows kept underneath.
+    """
+    run = do_run(
+        store,
+        sources={"realtor": [prop("a1", price=400_000), prop("a1", price=350_000)]},
+    )
+
+    prices = [
+        row["price"]
+        for row in store.connection.execute(
+            "SELECT price FROM raw_listings ORDER BY price DESC"
+        )
+    ]
+    assert prices == [400_000, 350_000]
+
+    assert len(store.listings()) == 1
+    listing_id = store.listings()[0].id
+    assert len(store.source_links(listing_id)) == 2
+    assert len(store.snapshots_for_run(run.id)) == 1
+
+    comparison = store.compare("test-search", target_run_id=run.id)
+    assert len(comparison.events) == 1
+
+
+def test_a_sources_own_days_on_market_is_kept_but_never_substituted(store: Store) -> None:
+    """feat-001/AC-12, gap-002: the criterion's own scenario, now actually exercisable.
+
+    A source reporting four hundred days about a property we first saw forty days ago is telling us
+    about its records, not ours. Its claim is worth keeping, because the first source adapter will
+    want it when a number looks wrong. It is not worth believing.
+    """
+    do_run(store, sources={"realtor": [prop("a1", days_on_market_source=400)]})
+    listing = store.listings()[0]
+    run = store.last_completed_run("test-search")
+
+    forty_days_on = to_utc_text(
+        datetime.fromisoformat(listing.first_observed_at.replace("Z", "+00:00"))
+        + timedelta(days=40)
+    )
+    assert store.history(listing.id, as_of=forty_days_on).days_on_market == 40
+    assert store.snapshot_at(listing.id, run.id).fields.days_on_market_source == 400  # type: ignore[union-attr]
+
+
+def test_a_sources_days_on_market_changing_is_not_a_market_event(store: Store) -> None:
+    """feat-001/AC-6, gap-002: kept, but outside the compared set.
+
+    Otherwise every source simply incrementing its own counter overnight would read as every
+    property in the search having changed.
+    """
+    do_run(store, sources={"realtor": [prop("a1", days_on_market_source=10)]})
+    second = do_run(store, sources={"realtor": [prop("a1", days_on_market_source=11)]})
+
+    comparison = store.compare("test-search", target_run_id=second.id)
+    assert kinds(comparison) == {"new": 0, "changed": 0, "unchanged": 1, "gone": 0, "returned": 0}

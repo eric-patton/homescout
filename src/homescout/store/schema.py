@@ -44,6 +44,10 @@ INFORMATIONAL_FIELDS: tuple[str, ...] = (
     "listing_url",
     "description",
     "photo_urls",
+    # A source's own idea of how long this has been listed. Retained because the first source
+    # adapter will want it for debugging, and pointedly NOT compared: freshness is always
+    # computed from our own first observation, never read from a source field.
+    "days_on_market_source",
 )
 
 SNAPSHOT_FIELDS: tuple[str, ...] = COMPARED_FIELDS + INFORMATIONAL_FIELDS
@@ -77,7 +81,8 @@ _LISTING_COLUMNS = """
     parcel_number   TEXT,
     listing_url     TEXT,
     description     TEXT,
-    photo_urls      TEXT
+    photo_urls      TEXT,
+    days_on_market_source INTEGER
 """
 
 SCHEMA_V1 = f"""
