@@ -11,9 +11,9 @@ external: null
 depends_on: [feat-002]
 requires_design: null
 readiness:
-  research: none
+  research: ready
   design:   n/a
-  spec:     none
+  spec:     ready
   plan:     none
   tasks:    none
 gate:

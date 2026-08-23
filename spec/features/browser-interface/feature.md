@@ -11,9 +11,9 @@ external: null
 depends_on: [feat-004, feat-006, feat-008]
 requires_design: true
 readiness:
-  research: none
+  research: ready
   design:   none
-  spec:     none
+  spec:     ready
   plan:     none
   tasks:    none
 gate:
