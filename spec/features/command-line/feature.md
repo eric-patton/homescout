@@ -21,7 +21,15 @@ gate:
   product_global_hash: ""
   constitution_hash: ""
 human_signoff: []
-open_decisions: []
+open_decisions:
+  - id: od-1
+    description: >-
+      When a scheduled run and a manual run of the same saved search overlap, does the second wait
+      for the first or decline outright? Both satisfy the spec. Scheduling and digests (feat-012)
+      defers to whatever this feature decides, so it must be settled here before either is planned,
+      or the two plans will assume opposite answers.
+    owner: eric-patton
+    resolved: false
 overrides: []
 extends: []
 ---
