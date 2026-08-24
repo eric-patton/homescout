@@ -15,7 +15,7 @@ the surface never imports the store to find out what went wrong.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from .claim import claim_run
-from .errors import InvalidInput, PreconditionNotMet
+from .errors import HomescoutError, InvalidInput, PreconditionNotMet
 from .matches import AmbiguousMatch, MergeQueue, default_queue
 from .runner import RunOutcome
 from .runner import run_search as _run_search
@@ -107,6 +107,10 @@ class Workspace:
     sources: Mapping[str, Any] = field(default_factory=dict)
     delay: float | None = None
     images: bool = True
+    #: Whether this workspace put the boundary provider in place, and should therefore take it away
+    #: again. Registering is process-wide, so a workspace that leaves one behind changes how the
+    #: next one in the same process resolves geography.
+    owns_boundaries: bool = False
     _session: Any = None
 
     @property
@@ -114,6 +118,10 @@ class Workspace:
         return self.store.path.parent
 
     def close(self) -> None:
+        if self.owns_boundaries:
+            from .search.boundaries import unregister_boundaries
+
+            unregister_boundaries()
         self.store.close()
 
     def __enter__(self) -> Workspace:
@@ -197,7 +205,16 @@ def open_workspace(
     path = database_path(db)
     with _translating():
         store = Store.open(path)
+
+    # Saved searches asks something to turn a place name into a shape, and this is where that
+    # something is supplied. Cache-only: a boundary this workspace has not already fetched answers
+    # None rather than reaching for the network in the middle of a filtering loop.
+    from .enrich.boundaries import register as register_boundaries
+
+    register_boundaries(store)
+
     return Workspace(
+        owns_boundaries=True,
         store=store,
         catalog=catalog if catalog is not None else default_catalog(path.parent),
         queue=queue if queue is not None else default_queue(store),
@@ -402,8 +419,62 @@ def resolve_match(workspace: Workspace, match_id: str, *, same: bool) -> str | N
 # -- not built yet ---------------------------------------------------------
 
 
-def enrich(workspace: Workspace, *, stale_only: bool = False, search: str | None = None) -> None:
-    raise NotYetBuilt("Enrichment", "location enrichment providers")
+def enrich(
+    workspace: Workspace,
+    *,
+    stale_only: bool = False,
+    search: str | None = None,
+    providers: Sequence[str] | None = None,
+    progress: Any = None,
+) -> Any:
+    """Attach what the public record says about where these properties are.
+
+    Its own pass, deliberately: a backfill over a county is thousands of points at a second each,
+    and no nightly listing run should wait for it. Nothing here can fail a run, because nothing here
+    is part of one.
+    """
+    from .enrich.pass_ import run_pass
+    from .enrich.registry import create
+
+    try:
+        built = create(providers)
+    except ValueError as exc:
+        raise InvalidInput(str(exc)) from None
+
+    with _translating():
+        outcome = run_pass(
+            workspace.store, built, search=search, stale_only=stale_only, progress=progress
+        )
+    _resolve_boundaries(workspace, search=search, progress=progress)
+    return outcome
+
+
+def _resolve_boundaries(workspace: Workspace, *, search: str | None, progress: Any = None) -> None:
+    """Put the shapes a saved search names into the cache, where its geography test can read them.
+
+    This is the half of enrichment that saved searches has been waiting for. A named area cannot be
+    tested exactly until something turns its name into a boundary, and the place to do that is here,
+    once, rather than inside the loop that tests every property.
+    """
+    from .enrich.boundaries import resolve
+
+    names = [search] if search else list(workspace.catalog.names())
+    wanted: list[tuple[str, str]] = []
+    for name in names:
+        try:
+            definition = workspace.catalog.load(name)
+        except HomescoutError:
+            continue
+        for area in (*getattr(definition, "areas", ()), *getattr(definition, "exclusions", ())):
+            kind = getattr(area, "kind", None)
+            value = getattr(area, "value", None)
+            if kind in ("city", "county", "zip", "state") and value:
+                wanted.append((kind, value))
+
+    if wanted:
+        found = resolve(workspace.store, tuple(dict.fromkeys(wanted)))
+        if found and progress is not None:
+            progress(f"boundaries: {found} named places resolved")
 
 
 def export(workspace: Workspace, *, search: str | None = None) -> None:

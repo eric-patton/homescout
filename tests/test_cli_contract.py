@@ -240,7 +240,7 @@ def test_every_command_in_the_brief_is_reachable(command, db_path: Path) -> None
     assert code != ExitCode.INTERNAL_ERROR, err
 
 
-@pytest.mark.parametrize("command", [["enrich"], ["export"], ["serve"]])
+@pytest.mark.parametrize("command", [["export"], ["serve"]])
 def test_a_command_whose_feature_is_unbuilt_says_so(command, db_path: Path) -> None:
     """feat-003/AC-20: not built is a precondition, not a crash and not a lie."""
     code, out, err = invoke(command, db=db_path)

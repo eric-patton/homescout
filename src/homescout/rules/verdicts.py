@@ -14,7 +14,7 @@ and history here is append-only.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -42,6 +42,7 @@ def values_for(
     run_id: str | None = None,
     at: str | None = None,
     snapshot: Snapshot | None = None,
+    enriched: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Everything a criterion may ask about one property, gathered once.
 
@@ -59,6 +60,10 @@ def values_for(
     if snapshot is not None:
         values.update({name: getattr(snapshot.fields, name, None) for name in _LISTING_NAMES})
 
+    if enriched is None and snapshot is not None:
+        enriched = _enriched(store, snapshot.fields.latitude, snapshot.fields.longitude)
+    values.update(enriched or {})
+
     history = store.history(listing_id, as_of=at)
     prices = [entry.price for entry in history.prices if entry.price is not None]
     values["dom"] = history.days_on_market
@@ -70,6 +75,21 @@ def values_for(
     if run_id is not None:
         values["is_new"] = store.get_listing(listing_id).created_in_run == run_id
     return values
+
+
+def _enriched(store: Store, latitude: float | None, longitude: float | None) -> dict[str, Any]:
+    """What the public record says about where this property is, if anybody has asked.
+
+    Read from the cache and never fetched here. A criterion is evaluated inside a loop over every
+    property a run saw, and a lookup in that loop would be a paced network request per property;
+    enrichment is its own pass for exactly that reason. A value nobody has fetched is simply absent,
+    which the evaluator already reads as unknown, which is what the spec asks for.
+    """
+    from ..enrich.cache import known_values
+    from ..enrich.cache import values_for as enriched_values_for
+    from ..enrich.registry import create
+
+    return known_values(enriched_values_for(store, create(), latitude, longitude))
 
 
 def _raised_after(history: ListingHistory) -> int | None:
@@ -99,10 +119,17 @@ def evaluate_run(
         return ()
     run = store.get_run(run_id)
     at = run.finished_at or run.started_at
+    snapshots = store.snapshots_for_run(run_id)
+    enriched = _enriched_for_all(store, snapshots)
     found: list[RuleVerdict] = []
-    for snapshot in store.snapshots_for_run(run_id):
+    for snapshot in snapshots:
         values = values_for(
-            store, snapshot.listing_id, run_id=run_id, at=at, snapshot=snapshot
+            store,
+            snapshot.listing_id,
+            run_id=run_id,
+            at=at,
+            snapshot=snapshot,
+            enriched=enriched.get(snapshot.listing_id, {}),
         )
         for rule in rules:
             answer, missing = verdict(rule.expression, values)
@@ -117,6 +144,25 @@ def evaluate_run(
                 )
             )
     return tuple(found)
+
+
+def _enriched_for_all(store: Store, snapshots: Sequence[Snapshot]) -> dict[str, dict[str, Any]]:
+    """Every property's enriched values, in one query per provider rather than one per property."""
+    from ..enrich.cache import known_values, read
+    from ..enrich.registry import create
+
+    providers = create()
+    places = [
+        (s.fields.latitude, s.fields.longitude)
+        for s in snapshots
+        if s.fields.latitude is not None and s.fields.longitude is not None
+    ]
+    held = read(store, providers, places) if places else {}
+    found: dict[str, dict[str, Any]] = {}
+    for snapshot in snapshots:
+        place = (snapshot.fields.latitude, snapshot.fields.longitude)
+        found[snapshot.listing_id] = known_values(held.get(place, {}))
+    return found
 
 
 def record(store: Store, rules: Sequence[Rule], run_id: str) -> tuple[RuleVerdict, ...]:

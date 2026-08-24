@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -327,6 +327,32 @@ CREATE INDEX rule_verdicts_by_rule ON rule_verdicts (run_id, rule_id, verdict);
 """
 
 VERDICT_TABLES: tuple[str, ...] = ("rule_verdicts",)
+
+#: Version 3, added by location enrichment (feat-007).
+#:
+#: The one table here that is deliberately not append-only, and the exception is worth stating
+#: rather than noticing. Every other table records what this tool observed, and an observation is
+#: never rewritten: the constitution's first non-negotiable is about what a run saw of a listing,
+#: and product invariant 1 names snapshot and raw-listing history. This table is neither. It holds
+#: a copy of somebody else's fact about a place, and refreshing a copy is what a cache is for.
+#:
+#: The narrower rule that does apply is the feature's own: a provider failing never removes a cached
+#: value. A refresh replaces it; a failure leaves it exactly where it was, and it reads as stale.
+SCHEMA_V3 = """
+CREATE TABLE enrichment_values (
+    provider   TEXT NOT NULL,
+    -- The location, rounded to this provider's own precision, or a place name for the boundary
+    -- provider. Two properties on one street share a key, and therefore share one lookup.
+    cache_key  TEXT NOT NULL,
+    -- The value's name in the rule engine's namespace, so a criterion and a cache row agree.
+    name       TEXT NOT NULL,
+    -- JSON, so a number stays a number, false stays false, and a known-absent value stays null
+    -- rather than becoming an empty string.
+    value      TEXT,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (provider, cache_key, name)
+);
+"""
 
 
 def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:

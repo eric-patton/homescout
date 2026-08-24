@@ -82,3 +82,18 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   byte-for-byte unchanged, which is the rule that matters here: a migration that has run on
   somebody's real database is history too. Three read and write methods were added alongside it
   (`record_verdicts`, `verdicts`, `fired`), keeping every statement of SQL behind this package.
+- **2026-08-23, location enrichment (feat-007).** Schema version 3: one table, `enrichment_values`,
+  holding what a public data service said about a place, keyed by provider, rounded location and
+  value name.
+
+  The one table in this database that is deliberately not append-only, and the exception is written
+  into the schema rather than left to be noticed. Every other table records what this tool observed,
+  and the rules that protect those are scoped to exactly that: the constitution's first
+  non-negotiable is about what a run saw of a listing, and product invariant 1 names snapshot and
+  raw-listing history. A cached copy of a federal map is neither. The narrower rule that does apply
+  is the enrichment feature's own: a provider failure never removes a cached value, which is
+  enforced by failures never reaching the write at all.
+
+  Two methods came with it, `cache_values` and `cached_values`, the second reading in bulk because
+  five providers against five thousand properties is twenty-five thousand lookups and a query each
+  would spend the whole performance budget on round trips.

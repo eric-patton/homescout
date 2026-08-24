@@ -558,9 +558,12 @@ def test_the_facade_is_the_whole_surface() -> None:
 
 
 def test_asking_for_something_not_built_is_a_precondition_not_a_failure() -> None:
-    """feat-003/AC-20: three commands whose bodies arrive with their own features."""
-    with pytest.raises(PreconditionNotMet, match="location enrichment"):
-        api.enrich(None)  # type: ignore[arg-type]
+    """feat-003/AC-20: a command whose body arrives with its own feature says so.
+
+    Two left, and shrinking. Enrichment used to be here and is not, which is what this criterion
+    describes happening: the command was reachable from the first release and grew a body later,
+    without an automated caller having to know which release it was.
+    """
     with pytest.raises(PreconditionNotMet, match="spreadsheet export"):
         api.export(None)  # type: ignore[arg-type]
     with pytest.raises(PreconditionNotMet, match="browser interface"):

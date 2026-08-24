@@ -130,6 +130,20 @@ def problems(name: str, found: Sequence[Any]) -> str:
     return "\n".join(lines)
 
 
+def enrichment(outcome: Any) -> str:
+    """What an enrichment pass did, for somebody watching it rather than parsing it."""
+    lines = [f"{outcome.properties} properties"]
+    if outcome.without_location:
+        lines[0] += f", {outcome.without_location} with no location to look up"
+    for found in outcome.providers:
+        detail = f" ({found.detail})" if found.detail else ""
+        lines.append(
+            f"  {found.provider}: {found.outcome}, {found.looked_up} looked up, "
+            f"{found.cached} already cached{detail}"
+        )
+    return "\n".join(lines)
+
+
 def annotation(written: Any) -> str:
     rows = [
         (name.replace("_", " "), getattr(written, name))

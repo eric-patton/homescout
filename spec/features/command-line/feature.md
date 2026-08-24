@@ -104,3 +104,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   criterion since the baseline run, with the criteria they tripped. A per-rule `excluded` count sits
   beside it, so a run that dropped everything says why rather than looking like a market that
   emptied out.
+
+- **2026-08-23, location enrichment (feat-007).** The `enrich` command stopped reporting itself
+  unbuilt and grew a body: it runs the enrichment pass, takes `--stale` and `--search`, emits the
+  per-provider outcomes as a structured document, and exits degraded rather than failed when a
+  provider is down, because one dead service costs one column and the values that were obtained are
+  worth what they were always worth.
+
+  This is the first of the three reserved commands to arrive, and it is what that reservation was
+  for: an automated caller that could already discover the command did not need to learn a version
+  number to find out it now works.

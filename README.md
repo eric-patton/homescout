@@ -150,6 +150,42 @@ history (`dom`, `is_new`, `price_cut`, `price_raised_after_days`), and the enric
 values that arrive with later features. A criterion naming something else is refused before the run,
 with the available names listed.
 
+## Public data about a location
+
+The questions that decide a rural property are not listing fields. `homescout enrich` asks five free
+public services what is true at each property's coordinates, caches every answer against a rounded
+location, and never asks twice:
+
+```
+homescout enrich                 # everything that has never been asked about
+homescout enrich --stale         # only what has aged past its lifetime
+homescout enrich --search nm-acreage --json
+```
+
+| What | Where it comes from | Fills |
+| --- | --- | --- |
+| Flood zone | FEMA National Flood Hazard Layer | `flood_zone` |
+| Elevation | USGS National Map | `elevation_ft` |
+| Principal aquifer | USGS principal aquifers | `over_principal_aquifer` |
+| Wildfire hazard | USFS wildfire hazard potential | `wildfire_hazard` |
+| Boundaries | Census TIGERweb | the shapes a saved search's named areas resolve to |
+| Broadband | FCC National Broadband Map | `upload_mbps`, `download_mbps`, `broadband_provider` |
+
+**Broadband needs a key and the rest do not.** The FCC's national map requires an API token, so that
+provider is off unless `HOMESCOUT_FCC_TOKEN` is set in your environment or `.env`. Without one it
+makes no request and reports itself skipped, which is different from failing.
+
+**Three states, not two.** A value is *fresh* (cached and current), *stale* (cached, past its
+lifetime, still used and still labelled), or *missing* (never fetched). Missing is never rendered as
+a negative answer: a property whose aquifer nobody looked up does not read as "not over an aquifer",
+and a criterion that names it is undetermined rather than false.
+
+One service being down costs that one column. Every other provider is asked normally, the pass
+completes, and whatever was already cached stays exactly where it was.
+
+Endpoints are configuration, because they move: FEMA's had already moved by the time this was built.
+Override any of them with `HOMESCOUT_ENRICH_<PROVIDER>_URL`.
+
 ## Exit codes
 
 Every command takes `--json` and returns one of five codes. They are a contract: a scheduled task

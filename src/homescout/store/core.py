@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -34,6 +34,7 @@ from .migrations import migrate
 from .models import (
     Annotation,
     AreaNote,
+    CachedValue,
     Comparison,
     ListingEvent,
     ListingHistory,
@@ -446,6 +447,58 @@ class Store:
             (run_id,),
         ).fetchall()
         return [self._snapshot_from(r) for r in rows]
+
+    # -- cached public data about places -------------------------------------
+
+    def cache_values(self, provider: str, cache_key: str, values: Mapping[str, Any]) -> None:
+        """Remember what one provider said about one place.
+
+        The one table in this database that is written twice. A cached copy of a federal map is not
+        an observation this tool made, so the append-only rule does not reach it; the rule that does
+        is that a failure never gets here at all, so a failure cannot overwrite a good answer with
+        nothing.
+        """
+        if not values:
+            return
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.executemany(
+                "INSERT INTO enrichment_values (provider, cache_key, name, value, fetched_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT (provider, cache_key, name) DO UPDATE SET "
+                "value = excluded.value, fetched_at = excluded.fetched_at",
+                [
+                    (provider, cache_key, name, json.dumps(value), now)
+                    for name, value in values.items()
+                ],
+            )
+
+    def cached_values(
+        self, provider: str, cache_keys: Sequence[str]
+    ) -> dict[str, dict[str, CachedValue]]:
+        """Everything cached for these places, in one query.
+
+        In bulk because the alternative is a round trip per property per provider, and a pass over
+        five thousand fully cached properties has a five-second budget for the whole thing.
+        """
+        if not cache_keys:
+            return {}
+        found: dict[str, dict[str, CachedValue]] = {}
+        keys = list(dict.fromkeys(cache_keys))
+        for start in range(0, len(keys), 500):
+            batch = keys[start : start + 500]
+            placeholders = ", ".join("?" * len(batch))
+            rows = self._conn.execute(
+                "SELECT cache_key, name, value, fetched_at FROM enrichment_values "
+                f"WHERE provider = ? AND cache_key IN ({placeholders})",
+                (provider, *batch),
+            )
+            for row in rows:
+                found.setdefault(row["cache_key"], {})[row["name"]] = CachedValue(
+                    value=json.loads(row["value"]) if row["value"] is not None else None,
+                    fetched_at=row["fetched_at"],
+                )
+        return found
 
     # -- rule verdicts ------------------------------------------------------
 

@@ -196,6 +196,18 @@ class RuleVerdict:
 
 
 @dataclass(frozen=True, slots=True)
+class CachedValue:
+    """One value a public data service gave about one place, and when.
+
+    The value may be `None`, and that is a real answer: a point outside every mapped flood zone has
+    been asked about and has no zone. A value nobody asked about is not a row here at all.
+    """
+
+    value: object
+    fetched_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class StoredImage:
     listing_id: str
     path: str

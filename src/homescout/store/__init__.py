@@ -25,6 +25,7 @@ from .errors import (
 from .models import (
     Annotation,
     AreaNote,
+    CachedValue,
     Comparison,
     DifferenceEvent,
     FieldChange,
@@ -47,6 +48,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "SNAPSHOT_FIELDS",
     "Annotation",
+    "CachedValue",
     "AreaNote",
     "Comparison",
     "DifferenceEvent",

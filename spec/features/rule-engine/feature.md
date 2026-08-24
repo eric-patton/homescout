@@ -44,3 +44,17 @@ Brief section 5.5. Constitution non-negotiable 11.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes by other features
+
+- **2026-08-23, location enrichment (feat-007).** The enriched names this feature declares are now
+  filled. A criterion naming `flood_zone` or `over_principal_aquifer` finds a value where one has
+  been fetched, and finds nothing where none has, which the three-valued evaluator already reads as
+  undetermined.
+
+  Read from the cache and never fetched during evaluation. Criteria are evaluated inside a loop over
+  every property a run saw, and a lookup there would be a paced network request per property;
+  enrichment is a separate pass for exactly that reason. The registry that supplies the providers
+  also checks, at import, that every enriched name this feature declares has something that fills
+  it, so the notice a criterion gets about an unfilled field stops appearing when it stops being
+  true.

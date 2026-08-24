@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-007"
 slug: "enrichment"
 title: "Location enrichment providers"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,11 +15,15 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    none
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:869c75445341"
   constitution_hash: "sha256:7ed19648690b"
+converge:
+  last_run: 2026-08-23
+  open: 2
+  contradicts: 0
 human_signoff: []
 open_decisions: []
 overrides: []

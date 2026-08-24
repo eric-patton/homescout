@@ -277,6 +277,31 @@ def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("search", search=_summary_of(edited)), render.definition(edited))
 
 
+def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    outcome = api.enrich(
+        workspace, stale_only=args.stale, search=args.search, progress=note
+    )
+    document = digest.envelope(
+        "enrichment",
+        properties=outcome.properties,
+        without_location=outcome.without_location,
+        providers=[
+            {
+                "provider": found.provider,
+                "outcome": found.outcome,
+                "looked_up": found.looked_up,
+                "cached": found.cached,
+                "detail": found.detail,
+            }
+            for found in outcome.providers
+        ],
+    )
+    # Degraded, not failed: one provider down costs one column, and the values that were obtained
+    # are worth the same as they would have been.
+    code = ExitCode.DEGRADED if outcome.degraded else ExitCode.SUCCESS
+    return Answer(document, render.enrichment(outcome), code)
+
+
 def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     values = {
         name: getattr(args, name)
@@ -336,7 +361,7 @@ def _dispatch(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> 
     if args.command == "matches":
         return _matches(workspace, args)
     if args.command == "enrich":
-        api.enrich(workspace, stale_only=args.stale, search=args.search)
+        return _enrich(workspace, args, note)
     if args.command == "export":
         api.export(workspace, search=args.search)
     if args.command == "serve":

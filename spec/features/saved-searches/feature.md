@@ -58,3 +58,12 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   queue are ports because their implementations genuinely vary; the rule engine is not optional and
   has no second implementation, so a registry would model a state the product never occupies and
   would let a search with unreadable criteria validate cleanly whenever somebody forgot to register.
+- **2026-08-23, location enrichment (feat-007).** The boundary provider this feature declared a port
+  for is registered: Census TIGERweb for the shapes of named places, the Census geocoder for what
+  contains a point. That is what gap-001 in this feature's ledger was waiting for.
+
+  Registered cache-only. A saved search tests its geography once per property inside the filtering
+  loop, and a boundary that had to be fetched at that moment would put a paced network request in
+  the middle of a loop that is meant to be local and instant. The shapes a saved search names are
+  fetched by the enrichment pass, once, and read from the cache everywhere else. A workspace that
+  registers the provider also removes it when it closes, because registration is process-wide.
