@@ -1,0 +1,87 @@
+# Tasks — Saved searches and geography (feat-004)
+
+`[x]` done · `[ ]` not started · `[~]` in progress · `[-]` n/a · `[H]` needs a human · `[P]` can run
+alongside its peers.
+
+## Groundwork
+
+- [x] T1: Add `shapely>=2.0` and `ruamel.yaml>=0.18` to `pyproject.toml` and lock them (D-2).
+- [x] T2: Turn `src/homescout/search.py` into `src/homescout/search/__init__.py` with no behavior
+      change, and confirm the existing suite is still green (D-1).
+
+## The seam the run loop enters through
+
+- [x] T3: Replace `queries()` with `areas` and `queries_for(capabilities)` on the definition
+      protocol and on `InMemorySearch` (D-5). Update `runner.run_search` to ask each source for its
+      own queries, `cli/main.py:190` and `cli/render.py:120` to count `areas`, and
+      `tests/cli_fakes.py` plus `tests/test_cli_live.py` to match.
+- [x] T4: A source left with no expressible area records `unavailable` naming the areas, rather than
+      failing the run (D-5). Test in `tests/test_searches_run.py`.
+- [x] T5: Replace `keeps()` with `place() -> Placement` (D-6). The run loop keeps `inside` and
+      `unlocatable`, drops `outside`, and counts the third into `SourceReport.not_locatable`, which
+      the digest's per-source block carries through.
+- [x] T5a: `SearchProblem` gains a severity, and only a `problem` makes a definition invalid
+      (D-20). `api.run_search`, `api.validate_search` and the `validate` command change from "any
+      problem" to "any of severity problem"; the command's human and machine output both show
+      notices.
+- [x] T6: Record T3, T5 and T5a in feat-003's manifest under "Later changes by other features",
+      naming the criterion each one serves here.
+
+## The source layer's new area (feat-002)
+
+- [x] T7: Add `PointRadius(latitude, longitude, miles)` to `sources/base.py` and to the `Area`
+      union (D-8).
+- [x] T8: Accept it in the Realtor adapter: `_resolve` returns a `Place` directly for a
+      `PointRadius` with no geocoding request, and `_build` reads its miles the way it reads an
+      `AddressRadius`'s (D-8). Offline test in `tests/test_sources_realtor.py`.
+- [x] T9: Record T7 and T8 in feat-002's manifest under "Later changes by other features".
+
+## Geometry
+
+- [x] T10 [P]: `search/geometry.py`: GeoJSON (geometry or Feature) to shapely, validity and
+      self-intersection, prepared containment, bounding box, and the covering circle (centroid plus
+      the farthest vertex plus a margin) (D-7, D-15).
+- [x] T11 [P]: `search/boundaries.py`: the provider port, its registry, and the no-op default
+      (D-10).
+- [x] T12: `search/areas.py`: every area type from the file, each answering its coarse form for a
+      given capability declaration and its three-valued containment test (D-7, D-9). Depends on
+      T10 and T11.
+
+## The file
+
+- [x] T13 [P]: `search/document.py`: round-trip load and save, one-key edit, and a location string
+      built from each node's line and column (D-14, D-13).
+- [x] T14 [P]: `search/validate.py`: every rule in D-13, collected in one pass, nothing fetched.
+- [x] T15: `search/definition.py`: `FileSearch` (areas, filters to a query, freshness, the exact
+      test) and `FileCatalog` (list, load, create from the commented template, edit). Depends on
+      T12, T13, T14.
+- [x] T15a: A search name is constrained to a safe file name and the resolved path is checked to be
+      inside the searches directory, for reading and for creating (D-19).
+- [x] T16: `default_catalog` returns the file catalog when nothing is registered, and a missing
+      `searches/` directory means no saved searches rather than an error (D-16).
+- [x] T16a: The wholly excluded search and the area no configured source can express are reported
+      as notices (D-20).
+
+## Tests
+
+- [x] T17 [P]: `tests/searches_fakes.py`: the definition-file builder, the counting boundary
+      provider, and a source that raises if it is contacted.
+- [x] T18 [P]: `tests/test_searches_document.py`: AC-1, AC-8, AC-12.
+- [x] T19 [P]: `tests/test_searches_validation.py`: AC-9, AC-10, the ambiguity rule (D-17), the
+      notices (D-20), and the security NFR: a constructor tag is a problem rather than an effect,
+      and a traversing name is refused for reading and for creating (D-19).
+- [x] T20 [P]: `tests/test_searches_geometry.py`: AC-2, AC-3, AC-4, and the overlapping-areas and
+      exclusion edge cases.
+- [x] T21 [P]: `tests/test_searches_run.py`: AC-5, AC-6, AC-7, AC-11, AC-13, and the wholly excluded
+      search.
+- [x] T22 [P]: `tests/test_searches_performance.py`: the two-second budget over 5,000 properties,
+      marked slow.
+
+## Finishing
+
+- [x] T23: Document the definition file in the README: where searches live, the shape, and the two
+      additions to the brief's form.
+- [x] T24: `uv run ruff check .` and the full suite, default and slow, green.
+- [x] T25: A live run of a real definition file end to end, against Realtor, proving the file, the
+      geometry and the loop work together outside the fakes.
+- [x] T26: `/spec-flow:converge`, then the manifest stamp.

@@ -18,6 +18,7 @@ from homescout.sources import (
     BoundingBox,
     City,
     County,
+    PointRadius,
     PolitenessConfig,
     PostalCode,
     SearchQuery,
@@ -489,3 +490,28 @@ def test_a_plaintext_image_address_is_asked_for_over_https() -> None:
     assert normalize.preview_url(plain) == "https://ap.rdcpix.com/abc-m123s.jpg"
     assert normalize.preview_url(secure) == "https://ap.rdcpix.com/abc-m123s.jpg"
     assert normalize.preview_url({}) is None
+
+
+def test_a_radius_around_coordinates_is_searched_without_looking_the_place_up() -> None:
+    """feat-002/AC-17, feat-004/AC-4: a circle around a point this tool already knows.
+
+    Added by saved searches (feat-004), which turns a drawn shape into a circle containing it. The
+    geography lookup exists to turn a name into a point, so a request spent learning coordinates
+    already in hand is a request spent for nothing, and this source is rate limited.
+    """
+    transport = responder()
+
+    result = source(transport).search(SearchQuery(area=PointRadius(34.18, -103.35, miles=12.5)))
+
+    assert result.outcome == "ok"
+    assert len(transport.bodies) == 1, "no place was looked up"
+    search = json.loads(transport.bodies[0])
+    assert search["operationName"] == "GetHomeSearch"
+    assert search["variables"]["coordinates"] == [-103.35, 34.18]
+    assert search["variables"]["radius"] == "12.5mi"
+    assert "nearby" in search["query"]
+    #: The area search's sort bucket is answered with a server error and no rows when it is sent
+    #: with a radius, which looks exactly like a market with nothing for sale in it. This query
+    #: sorts explicitly instead, which paging by offset needs anyway.
+    assert "bucket" not in search["query"]
+    assert "sort: [{ field: list_date, direction: desc }]" in search["query"]

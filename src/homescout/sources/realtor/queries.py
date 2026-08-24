@@ -100,6 +100,18 @@ query GetHomeSearch($search_location: SearchLocation, $offset: Int) {
 }
 """
 
+#: A search around a point rather than inside a named place.
+#:
+#: Two things about it are not obvious and both were learned from the source refusing.
+#:
+#: The radius is text with a unit, and the site checks it against `^((\\d*\\.?\\d+)|\\d+)(mi)$`. A
+#: number is a validation error, and so is `"5"`.
+#:
+#: It does not take the sort bucket the area search uses. Sending one is answered with a server
+#: error and no rows at all, which is indistinguishable from a market with nothing in it. So this
+#: query sorts explicitly, by the date a listing appeared, newest first. That is not a substitute
+#: for the bucket, it is better for the purpose: paging by offset needs a defined order, and
+#: "whatever the site felt like" is not one.
 RADIUS_SEARCH = """
 query GetHomeSearch($coordinates: [Float]!, $radius: String!, $offset: Int) {
   homeSearch: home_search(
@@ -110,7 +122,7 @@ query GetHomeSearch($coordinates: [Float]!, $radius: String!, $offset: Int) {
       %(types)s
       %(filters)s
     }
-    bucket: { sort: "fractal_v1.1.3_fr" }
+    sort: [{ field: list_date, direction: desc }]
     limit: %(limit)d
     offset: $offset
   ) {

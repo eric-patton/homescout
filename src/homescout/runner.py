@@ -18,7 +18,8 @@ boundary wrong once.
 
 **A filter applied here never removes a property whose value is absent.** Reporting that a house
 failed a test that could not be run is the same error as treating absence as evidence, one field
-down.
+down. The search's own geometry answers the same way: a property a source returned without
+coordinates is kept and counted as not locatable, never dropped as though it had failed a test.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from typing import Any
 
 from .errors import InvalidInput
 from .records import ListingFields, SourceRow
-from .search import SearchDefinition
+from .search import Placement, SearchDefinition
 from .sources.base import Preview, SearchQuery, SearchResult, Source
 from .store import Comparison, RunRecord, SourceOutcome, Store
 
@@ -88,6 +89,11 @@ class SourceReport:
     detail: str | None = None
     applied_by_source: tuple[str, ...] = ()
     applied_locally: tuple[str, ...] = ()
+    #: Rows kept although the search's geometry could not be tested against them, because the source
+    #: reported no coordinates. Counted rather than dropped: a property nobody could place is an
+    #: unresolved case, and letting it vanish into the matched count would make it look like an
+    #: absence instead.
+    not_locatable: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +164,35 @@ def _worst(outcomes: Sequence[str]) -> str:
     return "ok"
 
 
+def _cannot_cover(name: str, definition: SearchDefinition) -> SourceReport:
+    """A source that can express none of this search's areas.
+
+    Reported as unavailable rather than as a source that found nothing, because the two mean
+    opposite things to the store: nothing found is evidence about a market, and nothing asked is
+    evidence about nothing at all.
+    """
+    named = ", ".join(_name_of(area) for area in definition.areas)
+    return SourceReport(
+        source=name,
+        outcome="unavailable",
+        rows=0,
+        detail=(
+            f"{name} has no way to express any of this search's areas ({named}), "
+            "so it was not asked. No substitute area was searched."
+        ),
+    )
+
+
+def _name_of(area: object) -> str:
+    """Whatever an area calls itself, for a message a person has to act on."""
+    for attribute in ("name", "value"):
+        found = getattr(area, attribute, None)
+        if isinstance(found, str) and found:
+            return found
+    as_term = getattr(area, "as_term", None)
+    return as_term() if callable(as_term) else str(area)
+
+
 def _ask(
     source: Source, queries: Sequence[SearchQuery]
 ) -> tuple[list[SourceRow], list[SearchResult]]:
@@ -223,8 +258,7 @@ def run_search(
     exactly as usable as it was.
     """
     say = progress or (lambda _message: None)
-    queries = definition.queries()
-    if not queries:
+    if not definition.areas:
         raise InvalidInput(
             f"The saved search {definition.name!r} names no area, so there is nothing to ask a "
             f"source for. Checked before the run started, so nothing was recorded."
@@ -238,6 +272,21 @@ def run_search(
         for name in definition.sources:
             source = sources[name]
             capabilities = source.capabilities()
+            queries = definition.queries_for(capabilities)
+            if not queries:
+                reports.append(_cannot_cover(name, definition))
+                store.record_source_outcome(
+                    run.id,
+                    SourceOutcome(
+                        source=name,
+                        outcome="unavailable",
+                        row_count=0,
+                        detail=reports[-1].detail,
+                    ),
+                )
+                say(f"{name}: unavailable, no area it can express")
+                continue
+
             application = capabilities.application(queries[0])
             by_source = tuple(f for f, applied in application.items() if applied)
             locally = tuple(
@@ -248,11 +297,17 @@ def run_search(
 
             rows, results = _ask(source, queries)
             outcome = _worst([r.outcome for r in results])
-            kept = [
-                row
-                for row in rows
-                if passes(row.fields, queries[0], locally) and definition.keeps(row.fields)
-            ]
+            kept: list[SourceRow] = []
+            unplaced = 0
+            for row in rows:
+                if not passes(row.fields, queries[0], locally):
+                    continue
+                where = definition.place(row.fields)
+                if where is Placement.outside:
+                    continue
+                if where is Placement.unlocatable:
+                    unplaced += 1
+                kept.append(row)
 
             listing_ids = store.record_observations(run.id, name, kept) if kept else []
             if images and kept:
@@ -279,9 +334,11 @@ def run_search(
                     detail=detail,
                     applied_by_source=by_source,
                     applied_locally=locally,
+                    not_locatable=unplaced,
                 )
             )
-            say(f"{name}: {outcome}, {len(kept)} listings")
+            unplaced_text = f", {unplaced} not locatable" if unplaced else ""
+            say(f"{name}: {outcome}, {len(kept)} listings{unplaced_text}")
 
         completed = store.complete_run(run.id)
         comparison = store.compare(definition.name, target_run_id=run.id)

@@ -108,7 +108,7 @@ def search(
     sources: tuple[str, ...] = ("fake",),
     areas: int = 1,
     problems: Sequence[SearchProblem] = (),
-    keep: Any = None,
+    where: Any = None,
     **filters: Any,
 ) -> InMemorySearch:
     """A saved search with no file behind it."""
@@ -116,7 +116,7 @@ def search(
         SearchQuery(area=City(f"Area {i}", "NM"), **filters) for i in range(max(areas, 1))
     )
     return InMemorySearch(
-        name=name, sources=sources, asks=asks, faults=tuple(problems), keep=keep
+        name=name, sources=sources, asks=asks, faults=tuple(problems), where=where
     )
 
 

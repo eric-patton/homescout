@@ -117,7 +117,7 @@ def definition(search: Any) -> str:
         [
             f"name:    {search.name}",
             f"sources: {', '.join(search.sources) or DASH}",
-            f"areas:   {len(search.queries())}",
+            f"areas:   {len(search.areas)}",
         ]
     )
 

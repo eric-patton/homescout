@@ -98,6 +98,23 @@ class AddressRadius:
 
 
 @dataclass(frozen=True, slots=True)
+class PointRadius:
+    """A circle around a point this tool already knows the coordinates of.
+
+    Distinct from `AddressRadius`, which names a place a source has to look up first. The difference
+    matters twice: it is one request cheaper, and it is the only circle that can be asked for around
+    somewhere with no name, which is what a drawn shape's covering circle is.
+    """
+
+    latitude: float
+    longitude: float
+    miles: float
+
+    def as_term(self) -> str:
+        return f"{self.miles:g} miles around {self.latitude:.5f}, {self.longitude:.5f}"
+
+
+@dataclass(frozen=True, slots=True)
 class BoundingBox:
     south: float
     west: float
@@ -123,7 +140,7 @@ class Polygon:
         return f"polygon({len(self.points)} points)"
 
 
-Area = PostalCode | City | County | State | AddressRadius | BoundingBox | Polygon
+Area = PostalCode | City | County | State | AddressRadius | PointRadius | BoundingBox | Polygon
 
 
 @dataclass(frozen=True, slots=True)

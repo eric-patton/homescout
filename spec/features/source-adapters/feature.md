@@ -60,3 +60,26 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   correct, and it costs one request rather than two. A traced regression fix against `AC-23`, with
   an offline test (`test_a_plaintext_image_address_is_asked_for_over_https`) and a live one
   (`test_a_real_preview_image_comes_back_as_a_picture`) both citing it.
+
+- **2026-08-23, saved searches and geography (feat-004), addition.** A new area type,
+  `PointRadius(latitude, longitude, miles)`, in the area vocabulary, accepted by the Realtor.com
+  adapter. It is what a drawn shape becomes for a source that takes no bounding box: a circle
+  around the shape that contains it, which the caller then filters exactly. Distinct from
+  `AddressRadius`, which names a place the source has to look up first; a `PointRadius` resolves
+  with no geography request at all, because the coordinates are what that request exists to
+  produce. Additive: this feature's area vocabulary is explicitly the set of forms a source can be
+  asked for, and no existing behavior changed. Offline test
+  `test_a_radius_around_coordinates_is_searched_without_looking_the_place_up` cites `AC-17`.
+- **2026-08-23, saved searches and geography (feat-004), defect.** The radius search had never
+  worked against the real site. It carried the same sort bucket the area search uses, and the
+  source answers a radius query carrying one with a server error and no rows, which is
+  indistinguishable from a market with nothing for sale in it. No offline test could catch it: the
+  radius path is exercised against a fake transport, which returns whatever it is told regardless
+  of what the document says.
+
+  Found by the first live run of a drawn shape, because a shape becomes a circle and a circle is a
+  radius query. Fixed in `realtor/queries.py`: the radius search sorts explicitly by listing date,
+  newest first, which the site accepts and which paging by offset needs anyway. Pinned offline by
+  an assertion on the document shape in
+  `test_a_radius_around_coordinates_is_searched_without_looking_the_place_up` (`AC-17`), and
+  covered live by `test_a_drawn_shape_in_a_file_runs_against_the_real_site`.

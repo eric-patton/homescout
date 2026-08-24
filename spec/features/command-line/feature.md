@@ -61,3 +61,31 @@ Brief sections 5, 7. Product invariant 6.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes by other features
+
+- **2026-08-23, saved searches and geography (feat-004).** The contract a saved search satisfies,
+  in `homescout/search/`, changed in three places. This feature's own acceptance criteria are all
+  unaffected and its suite passed unchanged apart from the fakes that implement the seam.
+
+  **Coarse queries are per source.** `SearchDefinition.queries()` became `areas` (what the search
+  covers, source-independent, which is what a surface counts) plus
+  `queries_for(capabilities)` (what to send one source, given what that source accepts). One set of
+  coarse queries sent to every source cannot be right for a product whose sources take different
+  geography: Realtor.com takes named places and a radius, Zillow takes a box, neither takes a drawn
+  shape. A source that can express none of a search's areas is now reported `unavailable` naming
+  them, rather than being asked for somewhere else or quietly returning nothing, which serves this
+  feature's own AC-6: not asked and asked-and-found-nothing must never look alike to the store.
+
+  **The exact local test has three answers.** `keeps(fields) -> bool` became
+  `place(fields) -> Placement`, one of inside, outside, or unlocatable, and the run loop keeps the
+  first and the last, drops the middle, and counts the last into `SourceReport.not_locatable`,
+  which the digest's per-source block carries. A property a source returned without coordinates
+  cannot be placed, and both of the two answers a boolean allows are lies: keeping it asserts it
+  qualified, dropping it stops recording a property the store would then read as having
+  disappeared. Serves feat-004/AC-6.
+
+  **A problem and a notice are told apart.** `SearchProblem` gained a severity, and only a
+  `problem` makes a definition invalid or refuses a run. A search whose exclusions cover all of its
+  areas is valid, matches nothing, and has to be able to say which of those two it is. `validate`
+  reports both and exits successfully when only notices are present.

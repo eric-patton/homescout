@@ -28,6 +28,7 @@ from typing import Any, TextIO
 
 from .. import api, digest
 from ..errors import HomescoutError, InvalidInput
+from ..search import blocking
 from . import render
 from .codes import ExitCode, code_for, worst_of
 
@@ -187,11 +188,13 @@ def _assignments(pairs: Sequence[str]) -> dict[str, object]:
 
 
 def _summary_of(search: Any) -> dict[str, Any]:
-    return {"name": search.name, "sources": list(search.sources), "areas": len(search.queries())}
+    return {"name": search.name, "sources": list(search.sources), "areas": len(search.areas)}
 
 
 def _problems(found: Sequence[Any]) -> list[dict[str, str]]:
-    return [{"location": p.location, "message": p.message} for p in found]
+    return [
+        {"location": p.location, "message": p.message, "severity": p.severity} for p in found
+    ]
 
 
 def _run(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
@@ -258,13 +261,14 @@ def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
         )
     if args.action == "validate":
         problems = api.validate_search(workspace, args.name)
+        stopping = blocking(problems)
         document = digest.envelope(
             "validation",
             name=args.name,
-            valid=not problems,
+            valid=not stopping,
             problems=_problems(problems),
         )
-        code = ExitCode.INVALID_INPUT if problems else ExitCode.SUCCESS
+        code = ExitCode.INVALID_INPUT if stopping else ExitCode.SUCCESS
         return Answer(document, render.problems(args.name, problems), code)
     if args.action == "create":
         made = api.create_search(workspace, args.name)

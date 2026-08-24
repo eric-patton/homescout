@@ -150,6 +150,7 @@ def entry(
             "detail": report.detail,
             "applied_by_source": list(report.applied_by_source),
             "applied_locally": list(report.applied_locally),
+            "not_locatable": report.not_locatable,
         }
         for report in (outcome.sources if outcome else ())
     ]

@@ -27,7 +27,14 @@ from .errors import InvalidInput, PreconditionNotMet
 from .matches import AmbiguousMatch, MergeQueue, default_queue
 from .runner import RunOutcome
 from .runner import run_search as _run_search
-from .search import InvalidSearch, SearchCatalog, SearchDefinition, SearchProblem, default_catalog
+from .search import (
+    InvalidSearch,
+    SearchCatalog,
+    SearchDefinition,
+    SearchProblem,
+    blocking,
+    default_catalog,
+)
 from .store import (
     Annotation,
     Comparison,
@@ -212,7 +219,11 @@ def show_search(workspace: Workspace, name: str) -> SearchDefinition:
 
 
 def validate_search(workspace: Workspace, name: str) -> tuple[SearchProblem, ...]:
-    """Everything wrong with one definition, in one pass. Nothing is fetched."""
+    """Everything worth saying about one definition, in one pass. Nothing is fetched.
+
+    Both severities come back together. The caller decides what a notice means for it; what a
+    problem means is settled here, in `run_search`, which refuses.
+    """
     return workspace.catalog.load(name).problems()
 
 
@@ -241,9 +252,12 @@ def run_search(
     database is touched, so the run in progress is entirely unaffected.
     """
     definition = workspace.catalog.load(name)
-    problems = definition.problems()
-    if problems:
-        raise InvalidSearch(name, problems)
+    # Only a problem refuses a run. A notice (a search whose exclusions cover all of it, an area no
+    # configured source can express) is said out loud and run anyway, because it describes a search
+    # that is valid and disappointing rather than one that is wrong.
+    stopping = blocking(definition.problems())
+    if stopping:
+        raise InvalidSearch(name, stopping)
     sources = workspace.sources_for(definition)
 
     with _translating(), claim_run(workspace.root, name) as claim:

@@ -7,7 +7,9 @@ which is why this adapter has no authentication code at all rather than careful 
 Geography resolves in two steps because that is how the source thinks: a free-text term becomes the
 site's own place object, and the search is then issued against that place. An area the site has no
 way to express (a drawn polygon, a bounding box) is reported unavailable rather than swapped for
-something nearby, because answering a different question quietly is worse than not answering.
+something nearby, because answering a different question quietly is worse than not answering. A
+circle around coordinates skips the first step entirely, since the point it would have looked up is
+already in hand.
 
 The site caps one query at ten thousand results. The way around that is to cut the query by the date
 a listing appeared, which is the only dimension it will divide on, and the cutting itself lives in
@@ -31,6 +33,7 @@ from ..base import (
     City,
     County,
     DateRange,
+    PointRadius,
     PostalCode,
     Preview,
     SearchQuery,
@@ -90,7 +93,7 @@ _FILTER_FRAGMENTS: dict[str, tuple[str, str]] = {
     "year_built_max": ("year_built", "max"),
 }
 
-_ACCEPTED_AREAS = (PostalCode, City, County, State, AddressRadius)
+_ACCEPTED_AREAS = (PostalCode, City, County, State, AddressRadius, PointRadius)
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +144,16 @@ class RealtorSource(BaseSource):
 
     def _resolve(self, area: Any) -> Place:
         """Turn an area into the site's own place object, or say it cannot be expressed."""
+        if isinstance(area, PointRadius):
+            # A circle around coordinates this tool already has. The lookup below exists only to
+            # turn a name into a point, so asking for one here would be a request spent learning
+            # something already known.
+            return Place(
+                text=area.as_term(),
+                area_type="address",
+                latitude=area.latitude,
+                longitude=area.longitude,
+            )
         if not isinstance(area, _ACCEPTED_AREAS):
             raise SourceUnavailable(
                 f"realtor cannot express {area.as_term()}; it takes named places and a radius "
@@ -236,7 +249,11 @@ class RealtorSource(BaseSource):
             document = queries.RADIUS_SEARCH % parts
             #: The radius comes from what was asked for. Reading it off the resolved place would
             #: lose it: the place knows where it is, only the query knows how far around it to look.
-            miles = query.area.miles if isinstance(query.area, AddressRadius) else 0
+            miles = (
+                query.area.miles
+                if isinstance(query.area, AddressRadius | PointRadius)
+                else 0
+            )
             variables = {
                 "coordinates": [place.longitude, place.latitude],
                 "radius": f"{miles:g}mi",
@@ -314,6 +331,7 @@ def _expected_area_type(area: Any) -> str:
         County: "county",
         State: "state",
         AddressRadius: "address",
+        PointRadius: "address",
     }[type(area)]
 
 

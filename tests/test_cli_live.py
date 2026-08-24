@@ -139,3 +139,61 @@ def test_a_real_run_retrieves_one_preview_image_and_not_twice(portales, tmp_path
             if image is not None
         }
     assert again == first_times, "an image already on disk was fetched again"
+
+
+def test_a_drawn_shape_in_a_file_runs_against_the_real_site(tmp_path: Path) -> None:
+    """feat-004/AC-4, feat-004/AC-5: the whole two-stage chain, outside the fakes.
+
+    A definition file with a shape nobody can search for, a source that has never heard of a
+    polygon, and a run that turns one into the other. Realtor takes named places and a radius, so
+    the shape goes out as a circle containing it, and what falls outside is removed here.
+
+    The assertion that matters is the last one: everything recorded is inside the shape, and the
+    circle was wider than the shape, so something was necessarily thrown away.
+    """
+    from homescout.search.geometry import contains, prepare, to_geometry
+
+    shape = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-103.36, 34.16],
+                [-103.32, 34.16],
+                [-103.32, 34.20],
+                [-103.36, 34.20],
+                [-103.36, 34.16],
+            ]
+        ],
+    }
+    searches = tmp_path / "live" / "searches"
+    searches.mkdir(parents=True)
+    (searches / "drawn.yaml").write_text(
+        "name: drawn\n"
+        "description: A shape no listing site can be asked for\n"
+        "areas:\n"
+        f"  - {{type: polygon, name: mid-portales, geometry: {json.dumps(shape)}}}\n"
+        "filters:\n"
+        "  price: {max: 600000}\n"
+        "sources: [realtor]\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    db = tmp_path / "live" / "homescout.db"
+
+    code, out, err = invoke(["run", "drawn", "--json", "--no-images"], db=db)
+    assert code == 0, err
+    entry = json.loads(out)["searches"][0]
+    assert entry["sources"][0]["outcome"] == "ok"
+    assert entry["counts"]["matched"] > 0, "the middle of Portales is not empty"
+
+    prepared = prepare(to_geometry(shape))
+    with Store.open(db) as store:
+        run_id = entry["run_id"]
+        recorded = store.snapshots_for_run(run_id)
+        assert recorded
+        for snapshot in recorded:
+            fields = snapshot.fields
+            assert fields.latitude is not None and fields.longitude is not None
+            assert contains(prepared, fields.latitude, fields.longitude), (
+                f"{fields.address_line} is outside the shape that was asked for"
+            )
