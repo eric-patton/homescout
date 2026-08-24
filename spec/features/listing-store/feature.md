@@ -124,3 +124,22 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   `Store.latest_snapshots()` came with them: the most recent snapshot of every live listing in one
   query, which is what the merge pass compares. One query rather than one per listing, because a
   county is several thousand of them and this runs after every run.
+
+- **2026-08-24, description field extraction (feat-009).** Schema version 6: one table,
+  `extracted_values`, and it is the second cache in this database rather than history.
+
+  It holds what a language model said about a piece of prose, so it is a copy of somebody else's
+  answer and not an observation this tool made. That is why the append-only triggers do not reach
+  it, the same exception `enrichment_values` takes for the same reason.
+
+  **Nothing the deterministic patterns produce is stored at all.** They are regular expressions over
+  at most four thousand characters and running them costs less than the query that would fetch the
+  answer, and a cached pattern result would be stale the moment the pattern that wrote it was
+  corrected. Only the expensive backend is cached.
+
+  The key is the **digest of the description** rather than the listing, which is what makes "a
+  description is processed at most once" true regardless of how many properties or runs carry the
+  same text. The model is in the key too, so a person who changes models can ask again rather than
+  being stuck with a cache nobody can invalidate. A row with a null value means the model was asked
+  and determined nothing, which is a real answer and is what stops the same question being paid for
+  every night.

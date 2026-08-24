@@ -83,3 +83,21 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   an assertion on the document shape in
   `test_a_radius_around_coordinates_is_searched_without_looking_the_place_up` (`AC-17`), and
   covered live by `test_a_drawn_shape_in_a_file_runs_against_the_real_site`.
+
+- **2026-08-24, description field extraction (feat-009).** No change to any adapter, and one
+  measurement worth keeping where the adapters are.
+
+  **Only Realtor.com returns a description.** Zillow's search response carries no description field
+  and Redfin's CSV download has no description column. Measured by reading all three normalization
+  modules and confirmed against 1,231 live rows: 1,176 carried prose and every one came from
+  Realtor.com. Extraction therefore has material to work with for one of the three sources, which is
+  a fact about what a search response contains rather than a defect in either place.
+
+  **No adapter supplies any of the six extracted fields as data.** None maps heating, cooling, water,
+  sewer, gas or roof. The precedence that forbids prose from overwriting a source-supplied value is
+  built and tested anyway, and `tests/test_extract_values.py` asserts the absence, so the day an
+  adapter starts returning one of them, that test fails and says so.
+
+  The run loop gained the model pass, placed after the run completes and before the criteria are
+  evaluated, so a rule naming `sewer` sees this run's value rather than last night's. It runs only
+  when the saved search asked for it, and a model failure degrades the run exactly as a source does.

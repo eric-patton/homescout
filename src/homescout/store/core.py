@@ -535,6 +535,63 @@ class Store:
                 )
         return found
 
+    # -- extracted values ---------------------------------------------------
+
+    def record_extractions(
+        self, digest: str, model: str, values: Mapping[str, tuple[str | None, str | None]]
+    ) -> None:
+        """Remember what one model said about one description.
+
+        The second cache in this database and the second exception to the append-only rule, for the
+        same reason as the first: this is a copy of somebody else's answer, not an observation.
+
+        A value of `None` is written rather than skipped. It means the model was asked and
+        determined nothing, which is a real answer and is what stops the same question being paid
+        for again tomorrow night.
+        """
+        if not values:
+            return
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.executemany(
+                "INSERT INTO extracted_values (digest, model, name, value, evidence, extracted_at) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT (digest, model, name) DO UPDATE SET "
+                "value = excluded.value, evidence = excluded.evidence, "
+                "extracted_at = excluded.extracted_at",
+                [
+                    (digest, model, name, value, evidence, now)
+                    for name, (value, evidence) in values.items()
+                ],
+            )
+
+    def extractions(
+        self, model: str, digests: Sequence[str]
+    ) -> dict[str, dict[str, tuple[str | None, str | None]]]:
+        """Everything this model has already said about these descriptions, in one query.
+
+        In bulk for the same reason as the enrichment cache: the alternative is a round trip per
+        property, inside a loop that runs over every property a run saw.
+        """
+        if not digests:
+            return {}
+        found: dict[str, dict[str, tuple[str | None, str | None]]] = {}
+        keys = list(dict.fromkeys(digests))
+        for start in range(0, len(keys), 500):
+            batch = keys[start : start + 500]
+            placeholders = ", ".join("?" * len(batch))
+            rows = self._conn.execute(
+                "SELECT digest, name, value, evidence FROM extracted_values "
+                f"WHERE model = ? AND digest IN ({placeholders})",
+                (model, *batch),
+            )
+            for row in rows:
+                found.setdefault(row["digest"], {})[row["name"]] = (
+                    row["value"],
+                    row["evidence"],
+                )
+        return found
+
     # -- rule verdicts ------------------------------------------------------
 
     def record_verdicts(self, run_id: str, verdicts: Sequence[RuleVerdict]) -> None:

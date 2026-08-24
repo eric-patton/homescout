@@ -58,3 +58,19 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   also checks, at import, that every enriched name this feature declares has something that fills
   it, so the notice a criterion gets about an unfilled field stops appearing when it stops being
   true.
+
+- **2026-08-24, description field extraction (feat-009).** The six extracted names are filled.
+
+  `heating`, `cooling`, `water_source`, `sewer`, `gas` and `roof` were declared here from the first
+  release with `populated: false`, so a rule naming one got told which feature would arrive to fill
+  it. They now say `populated: true`, and a criterion naming one finds a value.
+
+  Every value is a word from a short closed vocabulary that `extract/fields.py` checks against this
+  table at import, in both directions: a value no criterion can name is work nobody can use, and a
+  name declared here with nothing filling it is a promise the tool cannot keep.
+
+  `"none"` is one of those words and means the description said the property does **not** have the
+  thing. It reaches a criterion. An **empty** field does not, so a rule naming one is undetermined
+  rather than false, which is what stops a house being excluded for having a quiet listing. Observed
+  on a live run over Portales: of 83 properties, a well criterion fired on 2, was false for 2, and
+  was undetermined for 79.

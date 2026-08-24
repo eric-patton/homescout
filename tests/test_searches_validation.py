@@ -248,3 +248,63 @@ def test_a_definition_that_fails_validation_is_never_run(tmp_path: Path) -> None
             api.run_search(workspace, "bad")
 
         assert not store.runs("bad"), "nothing was recorded for a search that never ran"
+
+
+# ---------------------------------------------------------------------------
+# The optional model extraction pass (feat-009)
+# ---------------------------------------------------------------------------
+
+
+BASE = 'name: {name}\nareas:\n  - {{type: city, value: "Portales, NM"}}\nsources: [fake]\n'
+
+
+def test_a_search_asks_for_the_model_pass_by_saying_so(tmp_path: Path) -> None:
+    """feat-009/AC-6: enabled per saved search, and this is the only way to enable it."""
+    text = BASE.format(name="wants") + "extract:\n  model: true\n"
+    write(tmp_path / "searches", "wants", text=text)
+    definition = catalog(tmp_path / "searches").load("wants")
+
+    assert definition.problems() == ()
+    assert definition.model_extraction is True
+
+
+def test_a_search_that_says_nothing_gets_no_model_pass(tmp_path: Path) -> None:
+    """feat-009/AC-6, feat-009/AC-7: off by default, which is how the tool ships."""
+    write(tmp_path / "searches", "quiet", text=BASE.format(name="quiet"))
+    assert catalog(tmp_path / "searches").load("quiet").model_extraction is False
+
+
+def test_a_search_can_turn_the_model_pass_off_explicitly(tmp_path: Path) -> None:
+    write(tmp_path / "searches", "off", text=BASE.format(name="off") + "extract:\n  model: false\n")
+    definition = catalog(tmp_path / "searches").load("off")
+    assert definition.problems() == ()
+    assert definition.model_extraction is False
+
+
+def test_a_typo_inside_extract_is_a_complaint_rather_than_silence(tmp_path: Path) -> None:
+    """feat-009/AC-6: a misspelled setting that parses is a feature that never turns on."""
+    write(
+        tmp_path / "searches",
+        "typo",
+        text=BASE.format(name="typo") + "extract:\n  models: true\n",
+    )
+    found = catalog(tmp_path / "searches").load("typo").problems()
+    assert "models" in messages(found)
+    assert "model" in messages(found)
+
+
+def test_extract_has_to_be_an_object(tmp_path: Path) -> None:
+    write(tmp_path / "searches", "flat", text=BASE.format(name="flat") + "extract: true\n")
+    assert "object" in messages(catalog(tmp_path / "searches").load("flat").problems())
+
+
+def test_the_model_setting_has_to_be_true_or_false(tmp_path: Path) -> None:
+    """Because `model: gpt-4o` is what somebody will write, and it must not read as truthy."""
+    write(
+        tmp_path / "searches",
+        "named",
+        text=BASE.format(name="named") + 'extract:\n  model: "gpt-4o"\n',
+    )
+    found = catalog(tmp_path / "searches").load("named").problems()
+    assert "true or false" in messages(found)
+    assert "HOMESCOUT_EXTRACT_MODEL" in messages(found), "and it says where the name goes"

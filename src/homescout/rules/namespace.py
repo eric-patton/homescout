@@ -110,15 +110,22 @@ _ENRICHED: tuple[Field, ...] = (
     Field("elevation_ft", NUMBER, "enriched", False, "location enrichment"),
 )
 
-#: Recovered from a listing's prose. Declared here, filled by description field extraction
-#: (feat-009).
+#: Recovered from a listing's prose by description field extraction (feat-009).
+#:
+#: Every one of these is a word from a closed vocabulary, so a criterion compares against a word:
+#: `water_source == "well"`, `sewer != "septic"`, `cooling in ["refrigerated", "central"]`. The
+#: vocabulary lives in `extract/fields.py`, which checks itself against this table at import.
+#:
+#: `"none"` is a value and means the description said the property does not have the thing. It is
+#: not the same as the field being empty, which means nobody said either way and leaves a criterion
+#: undetermined rather than false.
 _EXTRACTED: tuple[Field, ...] = (
-    Field("heating", TEXT, "extracted", False, "description field extraction"),
-    Field("cooling", TEXT, "extracted", False, "description field extraction"),
-    Field("water_source", TEXT, "extracted", False, "description field extraction"),
-    Field("sewer", TEXT, "extracted", False, "description field extraction"),
-    Field("gas", TEXT, "extracted", False, "description field extraction"),
-    Field("roof", TEXT, "extracted", False, "description field extraction"),
+    Field("heating", TEXT, "extracted", populated=True),
+    Field("cooling", TEXT, "extracted", populated=True),
+    Field("water_source", TEXT, "extracted", populated=True),
+    Field("sewer", TEXT, "extracted", populated=True),
+    Field("gas", TEXT, "extracted", populated=True),
+    Field("roof", TEXT, "extracted", populated=True),
 )
 
 FIELDS: dict[str, Field] = {

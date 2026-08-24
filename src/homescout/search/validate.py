@@ -37,6 +37,7 @@ TOP_LEVEL = (
     "sources",
     "rules",
     "export",
+    "extract",
 )
 
 #: Filter names, and the query field each becomes. `lot_acres` is the one that changes units: a file
@@ -78,6 +79,9 @@ class Reading:
     freshness_days: int | None = None
     export_template: str | None = None
     rules: tuple[Rule, ...] = ()
+    #: Whether this search has turned the optional model extraction pass on. Off unless the file
+    #: says otherwise, which is product invariant 9: an optional component is absent by default.
+    model_extraction: bool = False
     found: list[tuple[str, str, str]] = field(default_factory=list)
 
     def say(self, location: str, message: str, severity: Severity = "problem") -> None:
@@ -109,6 +113,7 @@ def examine(document: Document, *, known_sources: Sequence[str]) -> Reading:
     _filters(document, reading)
     _sources(document, reading, known_sources)
     _rules_and_export(document, reading)
+    _extraction(document, reading)
     _notices(document, reading)
     return reading
 
@@ -330,6 +335,42 @@ def _rules_and_export(document: Document, reading: Reading) -> None:
         reading.say(document.at("export", "template"), "an export template is named with text")
         return
     reading.export_template = template
+
+
+def _extraction(document: Document, reading: Reading) -> None:
+    """Whether this search wants the optional model pass.
+
+    Absent means off, and off means nothing in that feature reads a credential, resolves an address
+    or opens a connection. The deterministic pattern extraction is not configurable and is not
+    mentioned here: it always runs, needs nothing, and costs nothing.
+    """
+    section = document.data.get("extract")
+    if section is None:
+        return
+    if not isinstance(section, Mapping):
+        reading.say(document.at("extract"), "extract has to be an object, such as {model: true}")
+        return
+
+    for key in section:
+        if key != "model":
+            reading.say(
+                document.at("extract", key),
+                f"{key!r} is not part of extract. The only setting is 'model', which is true or "
+                "false and is false unless you say otherwise.",
+            )
+
+    wanted = section.get("model")
+    if wanted is None:
+        return
+    if not isinstance(wanted, bool):
+        reading.say(
+            document.at("extract", "model"),
+            "extract.model is true or false. Turning it on asks a language model about the "
+            "descriptions this search finds, which needs HOMESCOUT_EXTRACT_MODEL and, for anything "
+            "that is not on this machine, a credential in the environment.",
+        )
+        return
+    reading.model_extraction = wanted
 
 
 def _notices(document: Document, reading: Reading) -> None:

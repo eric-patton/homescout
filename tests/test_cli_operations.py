@@ -541,6 +541,8 @@ def test_the_facade_is_the_whole_surface() -> None:
         "pending_matches",
         "resolve_match",
         "enrich",
+        "extract",
+        "extracted_for",
         "deliver",
         "delivery_settings",
         "export",

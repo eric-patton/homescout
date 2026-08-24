@@ -67,3 +67,19 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   the middle of a loop that is meant to be local and instant. The shapes a saved search names are
   fetched by the enrichment pass, once, and read from the cache everywhere else. A workspace that
   registers the provider also removes it when it closes, because registration is process-wide.
+
+- **2026-08-24, description field extraction (feat-009).** One new top-level key, absent by default.
+
+  ```yaml
+  extract:
+    model: true
+  ```
+
+  `extract` joined the known top-level keys so a typo in it is a complaint rather than silence, and
+  `model` must be true or false: `model: gpt-4o` is what somebody will write, and a string that read
+  as truthy would turn on a paid service by accident. The complaint says where a model name actually
+  goes, which is the environment.
+
+  With the key absent or false, nothing in that feature reads a credential, resolves an address or
+  opens a connection. No credential ever goes in a saved search, which is the constitution's rule
+  and is why this setting is a switch rather than a configuration block.

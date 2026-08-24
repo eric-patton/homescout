@@ -513,6 +513,52 @@ def _resolve_boundaries(workspace: Workspace, *, search: str | None, progress: A
             progress(f"boundaries: {found} named places resolved")
 
 
+def extract(
+    workspace: Workspace,
+    *,
+    search: str | None = None,
+    limit: int | None = None,
+    progress: Any = None,
+) -> Any:
+    """Ask the configured model about descriptions the patterns could not settle.
+
+    Its own command as well as part of a run, for the case a run cannot cover: a store that was
+    filled before anybody turned the model pass on. Nothing here is needed to use the six extracted
+    fields, which the deterministic patterns fill on every property with a description, with no
+    configuration at all.
+    """
+    from .extract.pass_ import run_pass
+
+    with _translating():
+        return run_pass(
+            workspace.store,
+            root=workspace.root,
+            search=search,
+            limit=limit,
+            progress=progress,
+        )
+
+
+def extracted_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
+    """What is known about one property's six recovered fields, and how each was determined.
+
+    The seam both surfaces read: a value, its provenance, and the sentence it came from. Non-
+    negotiable 8 says the command line and the browser are thin wrappers over one library, and
+    this is the one thing either of them needs to show a person why a column says what it says.
+    """
+    from .extract import values_for
+    from .extract.pass_ import model_values
+
+    store = workspace.store
+    with _translating():
+        snapshots = store.latest_snapshots()
+    snapshot = snapshots.get(listing_id)
+    if snapshot is None:
+        raise UnknownListingError(listing_id)
+    held = model_values(store, [snapshot], root=workspace.root)
+    return values_for(snapshot.fields, model=held.get(listing_id))
+
+
 def export(workspace: Workspace, *, search: str | None = None) -> None:
     raise NotYetBuilt("Export", "spreadsheet export")
 

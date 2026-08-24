@@ -43,9 +43,9 @@ append-only, and new, changed and gone are computed here by comparing those reco
 
 Early, and it runs unattended. The listing store and its snapshot history, three source adapters
 (Realtor.com, Zillow, Redfin), the command line with its run loop, saved searches with their
-geography, criteria, public-data enrichment, address matching, and scheduling with its digests are
-built and tested. Field extraction, the browser interface and spreadsheet export are specified and
-not yet built.
+geography, criteria, public-data enrichment, address matching, scheduling with its digests, and
+description field extraction are built and tested. The browser interface and spreadsheet export are
+specified and not yet built.
 
 The full specification lives in `spec/`. Each feature has its requirements in
 `spec/features/<name>/spec.md`; the project-wide rules are in `spec/constitution.md` and
@@ -261,6 +261,87 @@ completes, and whatever was already cached stays exactly where it was.
 
 Endpoints are configuration, because they move: FEMA's had already moved by the time this was built.
 Override any of them with `HOMESCOUT_ENRICH_<PROVIDER>_URL`.
+
+## Things the listing does not put in a field
+
+Half the columns in the spreadsheet this replaces are facts no source returns as data: whether a
+house is on a well or the town supply, whether it has refrigerated air or a swamp cooler, whether
+the sewer is a pipe or a tank in the yard. They are in the description, and this reads them out of
+it into six fields a criterion can name: `water_source`, `sewer`, `heating`, `cooling`, `gas`,
+`roof`.
+
+Every value is a word from a short fixed list, so a rule reads plainly:
+
+```yaml
+rules:
+  - id: on-a-well
+    when: water_source == "well"
+    severity: flag
+  - id: no-swamp-cooler
+    when: cooling == "evaporative"
+    severity: demote
+```
+
+`"none"` is one of those words and means the description said the property does **not** have the
+thing, which is different from the field being empty. Empty means nobody said either way, and a
+criterion naming an empty field is undetermined rather than false, so no house is ever excluded for
+having a quiet listing.
+
+**This runs on its own, with nothing configured.** No key, no address, no network. It is regular
+expressions over the description, and it was built against 1,176 real listings rather than against
+imagined prose, which is why it does the two things a keyword search does not:
+
+- **It knows `well-maintained` is not a well.** `well` occurs 301 times in that corpus and roughly
+  one in seven of those is about water. The rest are `well-appointed`, `as well as`, `well-kept`.
+- **It knows a possibility is not a fact.** About three mentions in ten of a utility in real prose
+  are hedged: `septic needed`, `sewer are nearby`, `City water is available`,
+  `would give the buyer city water & sewer`. None of those is a connection, and none of them fills
+  a field. A stated absence does: `the propane tank was removed` records gas as `none`.
+
+Two things worth knowing before you rely on the columns:
+
+- **Only Realtor.com returns a description at all.** Zillow's search response has no description
+  field and Redfin's download has no description column, so extraction has prose to work with for
+  one of the three sources.
+- **Coverage is thin, because listings are.** In that corpus, roughly one description in twenty
+  mentions the sewer, one in twenty the heating, and one in fifty the gas. Water and roofs are more
+  common. A blank column usually means the agent did not say, not that the tool missed it.
+
+### The optional model pass
+
+Off unless a saved search asks for it:
+
+```yaml
+extract:
+  model: true
+```
+
+It then asks a language model about the descriptions the patterns could not settle, for that search
+only, and only about the fields still open. It is cached against the description itself, so the same
+text is never processed twice however many properties or nights contain it, and `homescout extract`
+runs the same pass on its own for a store that predates the setting.
+
+One client, two backends, the only difference being configuration:
+
+```
+HOMESCOUT_EXTRACT_BASE_URL=http://localhost:1234/v1   # LM Studio, no credential needed
+HOMESCOUT_EXTRACT_MODEL=some-local-model
+```
+
+```
+HOMESCOUT_EXTRACT_MODEL=gpt-4o-mini                   # hosted, credential from OPENAI_API_KEY
+```
+
+**Only the description is sent.** Not the address, the price, the coordinates, the link, the
+listing's identifier or the name of your search. **And nothing the model says is taken on trust**:
+every value has to be one of the words that field may take, and has to come with a verbatim quote
+from the description, which is checked. An answer that cannot be attributed to the text is thrown
+away and counted. That is also why a description containing something that reads like an
+instruction cannot do anything: the worst an obedient model achieves is a word that fails the list.
+
+A model that is unreachable costs the fields it would have filled and nothing else. The
+deterministic values stand, the run finishes and reports itself degraded, and the affected fields
+stay empty rather than being filled by a guess.
 
 ## Running on a schedule
 

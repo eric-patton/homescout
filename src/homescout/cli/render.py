@@ -150,6 +150,52 @@ def enrichment(outcome: Any) -> str:
     return "\n".join(lines)
 
 
+def extraction(outcome: Any) -> str:
+    """What the model pass did, for somebody watching it rather than parsing it."""
+    if outcome.skipped and not outcome.asked and not outcome.cached:
+        return f"Nothing asked: {outcome.skipped}"
+    lines = [
+        f"{outcome.descriptions} distinct descriptions, "
+        f"{outcome.cached} already answered, {outcome.asked} asked about"
+    ]
+    if outcome.recorded:
+        lines.append(f"  {outcome.recorded} values recorded")
+    if outcome.truncated:
+        lines.append(f"  {outcome.truncated} descriptions were too long and were cut")
+    if outcome.rejected:
+        lines.append(f"  {len(outcome.rejected)} answers rejected:")
+        lines.extend(f"    {reason}" for reason in outcome.rejected[:5])
+        if len(outcome.rejected) > 5:
+            lines.append(f"    and {len(outcome.rejected) - 5} more")
+    for failure in outcome.failures[:5]:
+        lines.append(f"  could not be processed: {failure}")
+    if len(outcome.failures) > 5:
+        lines.append(f"  and {len(outcome.failures) - 5} more could not be processed")
+    if outcome.skipped:
+        lines.append(f"  {outcome.skipped}")
+    return "\n".join(lines)
+
+
+def extracted(listing_id: str, found: Any) -> str:
+    """One property's six recovered fields, how each was determined, and the words it came from.
+
+    The evidence is the point. A value with no visible reason is a value nobody can argue with, and
+    a person who cannot argue with it cannot trust it either.
+    """
+    lines = [f"{listing_id}"]
+    for name, entry in found.items():
+        label = name.replace("_", " ")
+        if entry.conflicted:
+            lines.append(f"  {label}: could not tell, the description says more than one thing")
+        elif entry.value is None:
+            lines.append(f"  {label}: not stated")
+        else:
+            lines.append(f"  {label}: {entry.value}  (from the {entry.provenance})")
+        for quote in entry.evidence:
+            lines.append(f"      {quote}")
+    return "\n".join(lines)
+
+
 def annotation(written: Any) -> str:
     rows = [
         (name.replace("_", " "), getattr(written, name))

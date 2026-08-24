@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -433,6 +433,42 @@ CREATE INDEX merge_contradictions_by_pair ON merge_contradictions (pair_key, not
 """
 
 DECISION_TABLES: tuple[str, ...] = ("merge_decisions", "merge_contradictions")
+
+
+#: Version 6, added by description field extraction (feat-009).
+#:
+#: What a model said about a piece of prose. A cache, like `enrichment_values`, and the second
+#: deliberate exception to this file's append-only rule for the same reason: it holds a copy of
+#: somebody else's answer rather than an observation of ours, so re-asking and overwriting loses
+#: nothing that happened.
+#:
+#: Nothing the deterministic patterns produce is stored. They are regular expressions over at most
+#: four thousand characters and running them costs less than the query that would fetch the answer,
+#: and a cached pattern result would be stale the moment the pattern that wrote it is corrected.
+#:
+#: The key is the digest of the *description* rather than the listing, which is what makes "a
+#: description is processed at most once" true regardless of how many properties or runs carry the
+#: same text. The model is in the key too: a person who tries a small local model, dislikes the
+#: answers and points the setting at a better one must be able to ask again, and a cache nobody can
+#: invalidate is a trap rather than a saving.
+#:
+#: A row with a null `value` means the model was asked and determined nothing. That is a real
+#: answer, it is what stops the same question being paid for every night, and it is why absence of
+#: a row and a row with no value are different things here.
+SCHEMA_V6 = """
+CREATE TABLE extracted_values (
+    digest       TEXT NOT NULL,
+    model        TEXT NOT NULL,
+    -- The field, as the rule engine's namespace calls it, so a criterion and a cached row agree.
+    name         TEXT NOT NULL,
+    value        TEXT,
+    -- The quote from the description the value was attributed to. Never model prose: an answer
+    -- that could not be attributed to the text was rejected before it reached here.
+    evidence     TEXT,
+    extracted_at TEXT NOT NULL,
+    PRIMARY KEY (digest, model, name)
+);
+"""
 
 
 def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:

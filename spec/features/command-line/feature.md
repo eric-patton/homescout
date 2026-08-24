@@ -167,3 +167,18 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   person's decision. Always present, zero until there is more than one source, and never a failure:
   it is a number of judgments waiting, which is a thing to do rather than a thing that went wrong.
   The terminal renderer prints a line pointing at `homescout matches list` when it is not zero.
+
+- **2026-08-24, description field extraction (feat-009).** One new command, with two shapes.
+
+  `homescout extract` runs the optional model pass on its own, for a store that was filled before
+  anybody turned the setting on. `--search` narrows it, `--limit` bounds a first pass and names what
+  it left rather than truncating silently, and the exit code is degraded rather than failed when a
+  model could not be reached, on the same principle as a provider being down.
+
+  `homescout extract --listing ID` answers a different question: what was read out of one property,
+  how each value was determined, and the sentence it came from. The spec's third user story ("I want
+  to know how each value was determined") had no surface without it, and a value with no visible
+  reason is a value nobody can argue with.
+
+  `api.extract` and `api.extracted_for` are the facade halves, so the browser interface reaches the
+  same two answers when it arrives.

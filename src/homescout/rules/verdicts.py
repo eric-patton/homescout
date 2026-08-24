@@ -43,6 +43,7 @@ def values_for(
     at: str | None = None,
     snapshot: Snapshot | None = None,
     enriched: Mapping[str, Any] | None = None,
+    extracted: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Everything a criterion may ask about one property, gathered once.
 
@@ -63,6 +64,10 @@ def values_for(
     if enriched is None and snapshot is not None:
         enriched = _enriched(store, snapshot.fields.latitude, snapshot.fields.longitude)
     values.update(enriched or {})
+
+    if extracted is None and snapshot is not None:
+        extracted = _extracted(snapshot)
+    values.update(extracted or {})
 
     history = store.history(listing_id, as_of=at)
     prices = [entry.price for entry in history.prices if entry.price is not None]
@@ -90,6 +95,21 @@ def _enriched(store: Store, latitude: float | None, longitude: float | None) -> 
     from ..enrich.registry import create
 
     return known_values(enriched_values_for(store, create(), latitude, longitude))
+
+
+def _extracted(snapshot: Snapshot, model: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """What this property's own description says about the six recovered fields.
+
+    Computed here rather than read from a table, because the deterministic patterns are regular
+    expressions over at most four thousand characters and running them costs less than the query
+    that would fetch a cached answer, and because a cached pattern result is stale the moment the
+    pattern that wrote it is corrected. What *is* cached is a model's answers, and those arrive
+    through `model` from the one bulk query the caller made.
+    """
+    from ..extract import known_values
+    from ..extract import values_for as extracted_values_for
+
+    return known_values(extracted_values_for(snapshot.fields, model=model))
 
 
 def _raised_after(history: ListingHistory) -> int | None:
@@ -121,6 +141,7 @@ def evaluate_run(
     at = run.finished_at or run.started_at
     snapshots = store.snapshots_for_run(run_id)
     enriched = _enriched_for_all(store, snapshots)
+    from_model = _model_values_for_all(store, snapshots)
     found: list[RuleVerdict] = []
     for snapshot in snapshots:
         values = values_for(
@@ -130,6 +151,7 @@ def evaluate_run(
             at=at,
             snapshot=snapshot,
             enriched=enriched.get(snapshot.listing_id, {}),
+            extracted=_extracted(snapshot, from_model.get(snapshot.listing_id)),
         )
         for rule in rules:
             answer, missing = verdict(rule.expression, values)
@@ -144,6 +166,19 @@ def evaluate_run(
                 )
             )
     return tuple(found)
+
+
+def _model_values_for_all(
+    store: Store, snapshots: Sequence[Snapshot]
+) -> dict[str, dict[str, Any]]:
+    """Every property's cached model answers, in one query rather than one per property.
+
+    Empty, and free, on an installation with no model configured, which is the default and is the
+    common case: nothing here reads a credential to discover there is none.
+    """
+    from ..extract.pass_ import model_values
+
+    return model_values(store, snapshots, root=store.path.parent)
 
 
 def _enriched_for_all(store: Store, snapshots: Sequence[Snapshot]) -> dict[str, dict[str, Any]]:

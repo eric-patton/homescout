@@ -173,6 +173,19 @@ def build_parser() -> argparse.ArgumentParser:
     enrich.add_argument("--stale", action="store_true", help="only values past their lifetime")
     enrich.add_argument("--search", metavar="NAME", help="only properties in this saved search")
 
+    extract = commands.add_parser(
+        "extract", parents=[common], help="ask the configured model about listing descriptions"
+    )
+    extract.add_argument("--search", metavar="NAME", help="only properties in this saved search")
+    extract.add_argument(
+        "--limit", type=int, metavar="N", help="ask about at most this many descriptions"
+    )
+    extract.add_argument(
+        "--listing",
+        metavar="ID",
+        help="show what was read out of one property, and the words it was read from",
+    )
+
     export = commands.add_parser("export", parents=[common], help="write a spreadsheet")
     export.add_argument("--search", metavar="NAME")
 
@@ -343,6 +356,52 @@ def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> An
     return Answer(document, render.enrichment(outcome), code)
 
 
+def _extract(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    if args.listing:
+        return _extracted_for(workspace, args.listing)
+    outcome = api.extract(
+        workspace, search=args.search, limit=args.limit, progress=note
+    )
+    document = digest.envelope(
+        "extraction",
+        descriptions=outcome.descriptions,
+        cached=outcome.cached,
+        asked=outcome.asked,
+        recorded=outcome.recorded,
+        truncated=outcome.truncated,
+        rejected=list(outcome.rejected),
+        failures=list(outcome.failures),
+        skipped=outcome.skipped,
+    )
+    # Degraded, not failed, on the same principle as a provider being down: a model this tool could
+    # not reach costs the fields it would have filled and nothing else, and the deterministic values
+    # never involved it.
+    code = ExitCode.DEGRADED if outcome.degraded else ExitCode.SUCCESS
+    return Answer(document, render.extraction(outcome), code)
+
+
+def _extracted_for(workspace: api.Workspace, listing_id: str) -> Answer:
+    """What was recovered from one property's description, and where it says so.
+
+    The answer to "why does this column say well", which is a question somebody will ask the first
+    time a value surprises them. Both surfaces read the same thing (product invariant 5); this is
+    the command line's half.
+    """
+    found = api.extracted_for(workspace, listing_id)
+    payload = [
+        {
+            "field": name,
+            "value": entry.value,
+            "provenance": entry.provenance,
+            "evidence": list(entry.evidence),
+            "conflicted": entry.conflicted,
+        }
+        for name, entry in found.items()
+    ]
+    document = digest.envelope("extracted", listing_id=listing_id, fields=payload)
+    return Answer(document, render.extracted(listing_id, found))
+
+
 def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     values = {
         name: getattr(args, name)
@@ -404,6 +463,8 @@ def _dispatch(
         return _annotate(workspace, args)
     if args.command == "matches":
         return _matches(workspace, args)
+    if args.command == "extract":
+        return _extract(workspace, args, note)
     if args.command == "enrich":
         return _enrich(workspace, args, note)
     if args.command == "export":

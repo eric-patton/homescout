@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .errors import InvalidInput
+from .extract.pass_ import for_run as extraction_pass
 from .merge.pass_ import run_pass as merge_pass
 from .records import ListingFields, SourceRow
 from .rules.verdicts import record as record_verdicts
@@ -106,11 +107,22 @@ class RunOutcome:
     #: What address matching did after the run: what it joined, and what it wants a person to
     #: settle. `None` on a path that did not run it.
     merge: Any = None
+    #: What the optional model extraction pass did, or `None` when this search did not ask for one.
+    #: `None` and an empty outcome are different things: off, against on and found nothing.
+    extraction: Any = None
 
     @property
     def degraded(self) -> bool:
-        """At least one source failed or was unavailable. The run still happened."""
-        return any(s.outcome != "ok" for s in self.sources)
+        """At least one source failed, or a model could not be reached. The run still happened.
+
+        Extraction is in here for the same reason a source is: it is an external service that can
+        be down, and a run that quietly reported success while six columns went unfilled would be
+        the observability minimum broken. What it is not is a failure: the run recorded everything
+        it observed and the deterministic values are all still there.
+        """
+        if any(s.outcome != "ok" for s in self.sources):
+            return True
+        return bool(getattr(self.extraction, "degraded", False))
 
 
 def _extension_for(preview: Preview) -> str:
@@ -347,6 +359,17 @@ def run_search(
             say(f"{name}: {outcome}, {len(kept)} listings{unplaced_text}")
 
         completed = store.complete_run(run.id)
+
+        # Before the criteria and after the run, in that order and for that reason. A rule naming
+        # `sewer` has to see this run's extracted value rather than last night's, and extraction
+        # cannot happen during the run because it reads the descriptions the run just recorded.
+        # Off unless this saved search turned it on, in which case none of it is reached at all.
+        extraction = extraction_pass(
+            store, definition, root=store.path.parent, progress=progress
+        )
+        if extraction is not None and extraction.skipped:
+            say(f"extract: {extraction.skipped}")
+
         # After the run, never during it. A criterion decides what a person is shown, and nothing
         # about what is recorded: a property a rule drops is still observed, still snapshotted, and
         # still comparable, or the store would read the exclusion as a disappearance.
@@ -366,5 +389,9 @@ def run_search(
         raise
 
     return RunOutcome(
-        run=completed, comparison=comparison, sources=tuple(reports), merge=merging
+        run=completed,
+        comparison=comparison,
+        sources=tuple(reports),
+        merge=merging,
+        extraction=extraction,
     )

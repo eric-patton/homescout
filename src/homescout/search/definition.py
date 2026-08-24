@@ -125,6 +125,9 @@ class FileSearch:
         self.export_template = reading.export_template
         #: Parsed once, when the file is read, so a run never re-reads the grammar per property.
         self.rules = reading.rules
+        #: Whether this search asks for the optional model extraction pass. Off unless the file
+        #: turned it on, and off is what makes the whole tool work with no model configured.
+        self.model_extraction = reading.model_extraction
 
     # -- the contract --------------------------------------------------------
 

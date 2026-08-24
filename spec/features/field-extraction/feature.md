@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-009"
 slug: "field-extraction"
 title: "Description field extraction"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -14,12 +14,16 @@ readiness:
   research: ready
   design:   n/a
   spec:     ready
-  plan:     none
-  tasks:    none
+  plan:     ready
+  tasks:    ready
 gate:
-  analyze: not-run
-  product_global_hash: ""
-  constitution_hash: ""
+  analyze: pass
+  product_global_hash: "sha256:869c75445341"
+  constitution_hash: "sha256:7ed19648690b"
+converge:
+  last_run: 2026-08-24
+  open: 3
+  contradicts: 0
 human_signoff: []
 open_decisions: []
 overrides: []
