@@ -14,12 +14,12 @@ readiness:
   research: ready
   design:   n/a
   spec:     ready
-  plan:     none
+  plan:     ready
   tasks:    none
 gate:
-  analyze: not-run
-  product_global_hash: ""
-  constitution_hash: ""
+  analyze: pass
+  product_global_hash: "sha256:869c75445341"
+  constitution_hash: "sha256:7ed19648690b"
 human_signoff: []
 open_decisions:
   - id: od-1
@@ -29,7 +29,16 @@ open_decisions:
       defers to whatever this feature decides, so it must be settled here before either is planned,
       or the two plans will assume opposite answers.
     owner: eric-patton
-    resolved: false
+    resolved: true
+    decision: >-
+      Decline. The second run stops before fetching anything, names the run already in progress and
+      when it started, and exits with the precondition code (AC-3, "valid but cannot proceed yet").
+      A scheduled task reads that code and simply runs again on its next tick. Waiting was rejected
+      because a manual run interrupted by the machine sleeping would block the nightly task
+      indefinitely, and because two runs back to back fetch the same listings twice for almost no
+      new information, against non-negotiable 10.
+    decided_by: eric-patton
+    decided_at: 2026-08-23
 overrides: []
 extends: []
 ---

@@ -95,6 +95,17 @@ moved. The problem brief is in `research.md`.
   - Then the specific problems are reported with enough location detail to fix them by hand, and
     the command exits with the invalid-input code without running anything
 
+- **Scenario: one bad definition among many**
+  - Given several saved searches, one of which fails validation
+  - When all of them are run
+  - Then the failing one is reported and skipped, the others run and record their observations, and
+    the command exits with the invalid-input code
+
+- **Scenario: an image already stored is not fetched again**
+  - Given a property whose preview image was stored by an earlier run
+  - When the search is run again
+  - Then no request is made for that property's image, and the stored copy is left as it is
+
 - **Scenario: machine output is separable from everything else**
   - Given any command run with machine output requested
   - When its output streams are captured separately
@@ -147,13 +158,19 @@ moved. The problem brief is in `research.md`.
       separate sets. The newly flagged set is always present and is empty for a search with no
       criteria configured, so the digest's shape does not depend on the rule engine existing.
 - [ ] AC-13: A comparison can be requested against the previous completed run or against a date, and
-      the same request repeated later returns the same result.
+      the same request repeated later returns the same result. Later runs of the same search do not
+      change a past answer. Only the time the answer was produced differs between two identical
+      requests.
 - [ ] AC-14: A comparison with no baseline reports that fact and exits with the precondition code.
       It never reports every property as new.
 - [ ] AC-15: An unknown saved search name is reported as unknown, the existing names are listed, and
       the exit code is invalid input.
 - [ ] AC-16: A saved search that fails validation is reported with the specific failures and enough
-      location detail to correct the file by hand, and nothing is run.
+      location detail to correct the file by hand, and it is not run. When every saved search is run
+      at once, each definition is validated on its own: the ones that fail are reported and skipped,
+      the ones that pass still run, and the exit code is invalid input. A missed observation can
+      never be made up later, so one unreadable file does not cost a night of history for the
+      searches that were fine.
 - [ ] AC-17: With an output path given, the structured output is written there, and a failure to
       write it is reported and reflected in the exit code rather than silently swallowed.
 - [ ] AC-18: Every operation the command line performs is a call into the core library. A test
@@ -175,17 +192,40 @@ moved. The problem brief is in `research.md`.
       together, and the resulting stored annotation is identical to the one the browser interface
       would have written for the same values.
 - [ ] AC-24: Queued ambiguous matches can be listed with the signals that agreed and conflicted, and
-      resolved as the same property or as different properties, from the command line. A resolution
-      made this way is indistinguishable in the store from one made in the browser interface, and is
-      honored by later runs identically.
+      resolved as the same property or as different properties, from the command line. Both surfaces
+      resolve through one core operation, so a resolution made from the command line is
+      indistinguishable in the store from one made in the browser: resolving as the same property
+      writes a merge that every later run follows, and resolving as different records that verdict
+      against the queue rather than in either surface. Where the queue keeps its records, and
+      therefore how a "different" verdict survives a restart, belongs to the feature that fills the
+      queue.
 - [ ] AC-25: Both of the above accept machine output and return the same exit codes as every other
       command, so an unattended caller can drain the ambiguous queue without a browser.
+- [ ] AC-26: A run of a saved search that is already running declines before making any request,
+      reports which run is in progress and when it started, and exits with the precondition code.
+      It never waits, and the run already in progress is unaffected. A stale claim left behind by a
+      killed process does not block the next run forever.
+- [ ] AC-27: A preview image is retrieved once for a property and is not retrieved again while a copy
+      is stored, so a nightly run does not re-download pictures it already has. Retrieving images can
+      be skipped for a run, and skipping them changes nothing else about what that run records.
+- [ ] AC-28: A filter the tool applies locally never removes a property whose value for that field
+      is absent. The tool does not report that a property failed a test it could not run.
+- [ ] AC-29: A property returned by two of one search's areas is recorded once, because the overlap
+      is the tool's own doing. A property returned twice inside one source response is recorded
+      twice, because that is the source contradicting itself and both halves are evidence.
+- [ ] AC-30: The delay between requests to one source can be set when a run is started, within the
+      permitted range, and a value outside that range is reported as invalid input before anything
+      is fetched. Unset, the shipped default applies.
+- [ ] AC-31: No command-line option accepts a credential, because arguments are visible to other
+      processes and are stored in scheduler configuration. A test asserts that the parser defines no
+      such option.
 
 ## Edge cases & errors
 
 - Two runs of the same saved search are started concurrently, which a scheduled task and a manual
-  run can easily do on Windows. The second either waits or refuses with a clear message. It does
-  not interleave observations into one run.
+  run can easily do on Windows. The second declines before fetching anything, naming the run
+  already in progress and when it started, and exits with the precondition code. It does not wait,
+  and it does not interleave observations into one run.
 - A run is interrupted by the machine sleeping or the task being killed. The partial run is not
   usable as a comparison baseline, per the store's rules, and the next run compares against the
   last completed one.
@@ -196,8 +236,13 @@ moved. The problem brief is in `research.md`.
 - Machine output is requested and the result contains characters outside the ASCII range, which
   property descriptions routinely do. Output is UTF-8 encoded and parses correctly on Windows,
   where the console's default encoding is not UTF-8.
-- The output path's directory does not exist. The command reports it rather than creating an
-  arbitrary directory tree.
+- The output path's directory does not exist. The command reports it as invalid input before any
+  work is done, rather than creating an arbitrary directory tree or discovering the problem after an
+  hour of throttled requests.
+- The output path exists but cannot be written when the moment comes, because the disk is full or
+  the file is held open. The failure is reported and reflected in the exit code. Nothing is written
+  to the primary stream that would not have been written anyway, so a command asked for readable
+  output does not suddenly emit a structured document.
 - A comparison is requested for a date in the future. It is reported as invalid input.
 - The store is locked by the browser interface. The command reports the lock in terms the user can
   act on, naming the likely cause.
@@ -215,5 +260,6 @@ moved. The problem brief is in `research.md`.
 
 ## Open questions
 
-- Whether concurrent runs of one saved search wait or refuse is a plan decision. Both satisfy the
-  edge case above; they differ in how a scheduled task behaves when a manual run is already going.
+None. Whether concurrent runs of one saved search wait or decline (od-1) was settled on 2026-08-23:
+they decline, with the precondition code, so a scheduled task retries on its next tick instead of
+queueing behind a manual run. Scheduling and digests (feat-012) inherits that answer.
