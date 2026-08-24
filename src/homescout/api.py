@@ -375,6 +375,41 @@ def changes(workspace: Workspace, name: str, *, since: str | None = None) -> Com
         return workspace.store.compare(name, since=moment(since) if since else None)
 
 
+# -- delivery --------------------------------------------------------------
+
+
+def delivery_settings(root: Path, environ: Mapping[str, str] | None = None) -> Any:
+    """What this installation has been told about delivery, validated.
+
+    Separate from `deliver` so a surface can check the configuration before a run starts. That is
+    the difference between a scheduled task that says "your mail account has no recipient" in the
+    first second and one that fetches for an hour, records the night correctly, and then discovers
+    it has nobody to tell.
+    """
+    from .deliver import load
+
+    return load(root, environ)
+
+
+def deliver(
+    workspace: Workspace,
+    document: Mapping[str, Any],
+    *,
+    settings: Any = None,
+    transport: Any = None,
+) -> Any:
+    """Write a finished run's digest where it belongs, and send the email if there is one to send.
+
+    Nothing here can reach the run. The document is already built and the store is only appended to,
+    so a mail server that refuses the message costs a report and never a night of history.
+    """
+    from .deliver import deliver as _deliver
+
+    chosen = settings if settings is not None else delivery_settings(workspace.root)
+    with _translating():
+        return _deliver(workspace.store, document, chosen, transport=transport)
+
+
 # -- annotations -----------------------------------------------------------
 
 

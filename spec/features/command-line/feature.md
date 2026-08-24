@@ -114,3 +114,21 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   This is the first of the three reserved commands to arrive, and it is what that reservation was
   for: an automated caller that could already discover the command did not need to learn a version
   number to find out it now works.
+- **2026-08-24, scheduling and digests (feat-012).** Two changes to this feature's surface, both
+  additive.
+
+  **`run --deliver`.** A new flag that writes the digest to the configured path and sends the email
+  digest when a run found something to say. Explicit rather than inferred from a configured mail
+  account, for two reasons: a person running one search at a terminal must never accidentally email
+  themselves, and a Task Scheduler entry should say what it does without somebody having to go and
+  read a `.env` file. With `--json`, the invocation's own answer gains a `delivery` section; the
+  file written to disk is the digest document unchanged, because a file cannot record whether it was
+  written.
+
+  **Exit code 1 widened by one word.** It was "at least one source failed or was unavailable" and is
+  now "at least one source or delivery failed". A mail server that refuses the message is degraded
+  rather than an error: the run's results are complete and stored, and what failed is a report about
+  them. A digest file that could not be written stays code 4, matching what `--output` already
+  returns for the same failure, and deliberately not 1: an agent that reads the file needs to know
+  the file is not there, and 1 would tell it the file is fine and a source was down. This feature's
+  own criteria about the codes are unaffected; the meanings of 0, 2, 3 and 4 did not move.

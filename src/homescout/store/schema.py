@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -353,6 +353,40 @@ CREATE TABLE enrichment_values (
     PRIMARY KEY (provider, cache_key, name)
 );
 """
+
+
+#: Version 4, added by scheduling and digests (feat-012).
+#:
+#: What was reported about a run, as distinct from the run. Append-only like every other history
+#: table here, because "the digest went out on the fourteenth" is an observation and this database
+#: does not rewrite observations.
+#:
+#: It exists as a table rather than as a log line because it answers a question a person actually
+#: asks the morning after: did last night's run mail me and I missed it, or did it decide there was
+#: nothing worth saying? Those are different rows with different outcomes, and a third outcome says
+#: there is no mail account at all.
+#:
+#: `target` is a path or a list of recipients. It is never a credential, and nothing that writes
+#: here has one to write.
+SCHEMA_V4 = """
+CREATE TABLE deliveries (
+    id           TEXT PRIMARY KEY,
+    attempted_at TEXT NOT NULL,
+    -- 'digest' for the file, 'email' for the message.
+    channel      TEXT NOT NULL,
+    target       TEXT,
+    -- 'written' | 'sent' | 'suppressed' | 'skipped' | 'failed'
+    outcome      TEXT NOT NULL,
+    detail       TEXT,
+    -- The runs this delivery reported on, comma separated, so a delivery can be traced back to
+    -- what it was about even after the digest file has been overwritten by the next night.
+    run_ids      TEXT
+);
+
+CREATE INDEX deliveries_by_time ON deliveries (attempted_at);
+"""
+
+DELIVERY_TABLES: tuple[str, ...] = ("deliveries",)
 
 
 def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:

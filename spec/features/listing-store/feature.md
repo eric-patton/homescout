@@ -97,3 +97,11 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   Two methods came with it, `cache_values` and `cached_values`, the second reading in bulk because
   five providers against five thousand properties is twenty-five thousand lookups and a query each
   would spend the whole performance budget on round trips.
+- **2026-08-24, scheduling and digests (feat-012).** Schema version 4: one table, `deliveries`,
+  recording what was reported about a run (the digest file, and the email) and how it went, with the
+  same append-only triggers every other history table carries. It is history rather than a log line
+  because it answers a question a person asks the morning after: did last night's run mail me and I
+  missed it, or did it decide there was nothing worth saying, or does this installation have no mail
+  account at all? Those are three different outcomes on the same table. A second attempt after a
+  failure is a second row, never a correction of the first. Nothing in this feature's own criteria
+  is affected, and the new table holds no listing data and no credential.

@@ -162,3 +162,18 @@ def matches(pending: Sequence[Any]) -> str:
             for m in pending
         ],
     )
+
+
+def delivery(outcome: Any) -> str:
+    """What was done with the report, for somebody watching rather than parsing.
+
+    Both channels always appear, including the one that did nothing. A person who set up an email
+    digest and got no email needs to be told which of the three silences this was: nothing to say,
+    no account configured, or a server that refused.
+    """
+    lines = []
+    for channel in outcome.channels:
+        detail = f" ({channel.detail})" if channel.detail else ""
+        where = f" {channel.target}" if channel.target else ""
+        lines.append(f"  {channel.channel}: {channel.outcome}{where}{detail}")
+    return "\n".join(lines)

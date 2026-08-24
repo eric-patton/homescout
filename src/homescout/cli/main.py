@@ -39,7 +39,7 @@ VERSION = "0.1.0"
 #: entry should not have to go looking for what 1 means.
 EXIT_CODES = """exit codes:
   0  success
-  1  degraded: it completed, but at least one source failed or was unavailable
+  1  degraded: it completed, but at least one source or delivery failed
   2  invalid input: usage, an unknown name, or a saved search that does not validate
   3  cannot proceed yet: nothing to compare against, a run already going, the database in use,
      or a command whose feature is not built
@@ -124,6 +124,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--all", action="store_true", help="run every saved search")
     run.add_argument(
         "--no-images", action="store_true", help="do not retrieve preview images this run"
+    )
+    run.add_argument(
+        "--deliver",
+        action="store_true",
+        help="write the digest to the configured path and email it if anything changed",
     )
 
     changes = commands.add_parser(
@@ -243,6 +248,42 @@ def _run(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answe
     return Answer(document, render.digest(document), code)
 
 
+def _delivered(workspace: api.Workspace, answer: Answer, settings: Any) -> Answer:
+    """What was done with the report, folded into the answer.
+
+    The document handed to delivery is the one built above, without this section in it. A file
+    cannot record whether it was written, and a reader of the digest wants what the run found
+    rather than an account of how it was told about it. This invocation's own answer is a different
+    question, so the section goes there.
+    """
+    outcome = api.deliver(workspace, answer.document, settings=settings)
+    document = {
+        **answer.document,
+        "delivery": {
+            "moved": outcome.moved,
+            "channels": [
+                {
+                    "channel": channel.channel,
+                    "outcome": channel.outcome,
+                    "target": channel.target,
+                    "detail": channel.detail,
+                }
+                for channel in outcome.channels
+            ],
+        },
+    }
+    codes = [answer.code]
+    if outcome.digest.failed:
+        # Not degraded. A scheduled agent reads the file, and telling it the run was merely
+        # degraded when the file it is about to read is not there would be a lie of exactly the
+        # wrong shape.
+        codes.append(ExitCode.INTERNAL_ERROR)
+    if outcome.email.failed:
+        codes.append(ExitCode.DEGRADED)
+    text = f"{answer.text}\n\ndelivery:\n{render.delivery(outcome)}".lstrip()
+    return Answer(document, text, worst_of(codes))
+
+
 def _changes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     comparison = api.changes(workspace, args.name, since=args.since)
     entry = digest.entry(workspace.store, search_name=args.name, comparison=comparison)
@@ -349,9 +390,12 @@ def _matches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(document, text)
 
 
-def _dispatch(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+def _dispatch(
+    workspace: api.Workspace, args: argparse.Namespace, note: Any, settings: Any = None
+) -> Answer:
     if args.command == "run":
-        return _run(workspace, args, note)
+        answer = _run(workspace, args, note)
+        return _delivered(workspace, answer, settings) if args.deliver else answer
     if args.command == "changes":
         return _changes(workspace, args)
     if args.command == "searches":
@@ -391,6 +435,8 @@ def main(
     def note(message: str) -> None:
         print(message, file=err)
 
+    settings: Any = None
+
     try:
         # Checked before anything is opened or fetched: discovering a missing directory after an
         # hour of throttled requests is the failure this guard exists to prevent.
@@ -402,12 +448,25 @@ def main(
                     f"Create it first; nothing has been run."
                 )
 
+        # The same guard, for the configured digest path, and for the mail account. Reading the
+        # settings here rather than at the end is the whole difference between a scheduled task
+        # that reports a missing recipient in its first second and one that fetches all night
+        # before finding out it has nobody to tell.
+        if getattr(args, "deliver", False):
+            settings = api.delivery_settings(api.database_path(getattr(args, "db", None)).parent)
+            where = settings.digest_path.parent
+            if not where.exists():
+                raise InvalidInput(
+                    f"There is no directory {str(where)!r} to write the digest into. "
+                    f"Create it first; nothing has been run."
+                )
+
         with api.open_workspace(
             getattr(args, "db", None),
             delay=getattr(args, "delay", None),
             images=not getattr(args, "no_images", False),
         ) as workspace:
-            answer = _dispatch(workspace, args, note)
+            answer = _dispatch(workspace, args, note, settings)
     except HomescoutError as failure:
         print(str(failure), file=err)
         return int(code_for(failure))

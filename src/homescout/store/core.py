@@ -36,6 +36,7 @@ from .models import (
     AreaNote,
     CachedValue,
     Comparison,
+    DeliveryRecord,
     ListingEvent,
     ListingHistory,
     ListingRecord,
@@ -844,6 +845,70 @@ class Store:
     def preview_image_path(self, listing_id: str) -> Path | None:
         stored = self.get_preview_image(listing_id)
         return self._path.parent / stored.path if stored else None
+
+    # -- deliveries ---------------------------------------------------------
+
+    def record_delivery(
+        self,
+        channel: str,
+        outcome: str,
+        *,
+        target: str | None = None,
+        detail: str | None = None,
+        run_ids: Sequence[str] = (),
+    ) -> DeliveryRecord:
+        """What was reported about a run, and how it went.
+
+        History, so it is append-only like the rest. A second attempt after a failure is a second
+        row rather than a correction of the first one, which is what makes "it failed twice and
+        then went out" recoverable from the record.
+        """
+        record = DeliveryRecord(
+            id=_new_id(),
+            attempted_at=utc_now(),
+            channel=channel,
+            outcome=outcome,
+            target=target,
+            detail=detail,
+            run_ids=tuple(run_ids),
+        )
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute(
+                "INSERT INTO deliveries "
+                "(id, attempted_at, channel, target, outcome, detail, run_ids) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    record.id,
+                    record.attempted_at,
+                    record.channel,
+                    record.target,
+                    record.outcome,
+                    record.detail,
+                    ",".join(record.run_ids) or None,
+                ),
+            )
+        return record
+
+    def deliveries(self, *, limit: int | None = None) -> list[DeliveryRecord]:
+        """What has been reported, most recent first."""
+        sql = "SELECT * FROM deliveries ORDER BY attempted_at DESC, rowid DESC"
+        params: list[object] = []
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        rows = self._conn.execute(sql, params).fetchall()
+        return [
+            DeliveryRecord(
+                id=row["id"],
+                attempted_at=row["attempted_at"],
+                channel=row["channel"],
+                outcome=row["outcome"],
+                target=row["target"],
+                detail=row["detail"],
+                run_ids=tuple(part for part in (row["run_ids"] or "").split(",") if part),
+            )
+            for row in rows
+        ]
 
     # -- internals ---------------------------------------------------------
 

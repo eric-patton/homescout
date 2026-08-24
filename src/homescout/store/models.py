@@ -238,3 +238,25 @@ class ListingHistory:
     presence: Presence
     prices: tuple[PriceHistoryEntry, ...] = field(default_factory=tuple)
     events: tuple[ListingEvent, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryRecord:
+    """One attempt to tell somebody what a run found.
+
+    Recorded rather than logged, because it answers a question a person asks the morning after: did
+    last night's run mail me and I missed it, or did it decide there was nothing worth saying?
+    `suppressed` and `sent` are different answers, and `skipped` (no mail account on this
+    installation) is a third.
+
+    `target` is a path or a list of recipients. Never a credential: nothing that writes one of these
+    has one to write.
+    """
+
+    id: str
+    attempted_at: str
+    channel: str
+    outcome: str
+    target: str | None = None
+    detail: str | None = None
+    run_ids: tuple[str, ...] = field(default_factory=tuple)

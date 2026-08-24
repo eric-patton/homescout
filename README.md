@@ -41,10 +41,11 @@ append-only, and new, changed and gone are computed here by comparing those reco
 
 ## Status
 
-Early, and it runs. The listing store and its snapshot history, the source adapters with one
-working Realtor.com adapter, the command line with its run loop, and saved searches with their
-geography are built and tested. Address matching, enrichment, criteria, the browser interface,
-spreadsheet export and scheduling are specified and not yet built.
+Early, and it runs unattended. The listing store and its snapshot history, the source adapters
+with one working Realtor.com adapter, the command line with its run loop, saved searches with their
+geography, criteria, public-data enrichment, and scheduling with its digests are built and tested.
+Address matching, more sources, field extraction, the browser interface and spreadsheet export are
+specified and not yet built.
 
 The full specification lives in `spec/`. Each feature has its requirements in
 `spec/features/<name>/spec.md`; the project-wide rules are in `spec/constitution.md` and
@@ -186,6 +187,39 @@ completes, and whatever was already cached stays exactly where it was.
 Endpoints are configuration, because they move: FEMA's had already moved by the time this was built.
 Override any of them with `HOMESCOUT_ENRICH_<PROVIDER>_URL`.
 
+## Running on a schedule
+
+A monitor that has to be remembered is not a monitor. `docs/scheduling.md` has the whole setup for
+Windows Task Scheduler: one command to create the task, one to remove it, and the environment
+mistake that makes a task work by hand and do nothing at three in the morning.
+
+The short version:
+
+```
+homescout run --all --json --deliver
+```
+
+`--deliver` writes the digest to `HOMESCOUT_DIGEST_PATH` (by default `digest.json` beside the
+database) and sends an email. Without the flag a run prints its results and writes nothing, so
+running one by hand never mails you.
+
+**The email only arrives when something happened.** New, changed, gone, back, or newly flagged.
+A digest that arrives every night whether or not anything happened trains you to ignore it, which
+costs more than sending nothing. The file is written either way, because "the run happened and
+found nothing" and "the run did not happen" are different facts and an automated reader needs to
+tell them apart.
+
+Each property in the email carries its price, address, notable criteria, a link, and the preview
+image this tool stored itself, attached to the message rather than loaded from the listing site. So
+it renders whether or not a source permits that, it still renders for a property that has since
+disappeared, and opening the email tells nobody anything.
+
+Email is optional. With no account configured, runs still happen and the digest is still written.
+To turn it on, copy `.env.example` to `.env` beside your database and fill in the mail account.
+**No credential is ever read from a saved search, a committed file, or a command-line argument**,
+and there is no option to pass one: arguments are visible to every other process on the machine,
+and Task Scheduler stores them as plain text.
+
 ## Exit codes
 
 Every command takes `--json` and returns one of five codes. They are a contract: a scheduled task
@@ -194,7 +228,7 @@ decides whether to wake somebody from the number alone, so they do not change ca
 | Code | Meaning |
 | --- | --- |
 | 0 | Success. |
-| 1 | Degraded. It completed and recorded what it saw, but at least one source failed or was unavailable. |
+| 1 | Degraded. It completed and recorded what it saw, but at least one source or delivery failed. |
 | 2 | Invalid input: usage, an unknown name, or a saved search that does not validate. |
 | 3 | Cannot proceed yet: nothing to compare against, a run of that search already going, the database in use, or a command whose feature is not built. |
 | 4 | Internal error. |
