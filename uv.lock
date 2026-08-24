@@ -74,6 +74,7 @@ dependencies = [
     { name = "requests" },
     { name = "ruamel-yaml" },
     { name = "shapely" },
+    { name = "usaddress" },
 ]
 
 [package.dev-dependencies]
@@ -87,6 +88,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32" },
     { name = "ruamel-yaml", specifier = ">=0.18" },
     { name = "shapely", specifier = ">=2.0" },
+    { name = "usaddress", specifier = ">=0.5.16" },
 ]
 
 [package.metadata.requires-dev]
@@ -151,6 +153,15 @@ wheels = [
 ]
 
 [[package]]
+name = "probableparsing"
+version = "0.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/26/5a86ac418ee4cecb127a4a6f98d6b202216b5ac4f6b519328ae81d07ba9e/probableparsing-0.0.1.tar.gz", hash = "sha256:8114bbf889e1f9456fe35946454c96e42a6ee2673a90d4f1f9c46a406f543767", size = 1722, upload-time = "2016-03-28T23:39:54.972Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/6b/91255cbf739a835df41af530a36798397d70342d152b773b5b0fe3001843/probableparsing-0.0.1-py2.py3-none-any.whl", hash = "sha256:509df25fdda4fd7c0b2a100f58cc971bd23daf26f3b3320aebf2616d2e10c69e", size = 3056, upload-time = "2016-12-19T15:04:32.102Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -173,6 +184,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e4/47/b9efed96c114afcfa3c9d3fe98a76a1d14c74a9e266d397cf6eb64be5e01/pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313", size = 1636369, upload-time = "2026-06-19T10:58:32.857Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl", hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c", size = 386536, upload-time = "2026-06-19T10:58:31.347Z" },
+]
+
+[[package]]
+name = "python-crfsuite"
+version = "0.9.12"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/bb/946c0f96b4d3f7916f0558e19245d2248caebb3f470bcffae8fbf8d862e9/python_crfsuite-0.9.12.tar.gz", hash = "sha256:db37fccc3bd8f0c49c28a7697ca79c89d67b3fd5bf119122866169240ac4c480", size = 488298, upload-time = "2025-12-23T19:07:21.423Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/ea/29f9891b22903ab50ca90cc291c886803d519ee04bd62c2b3c601d3da41e/python_crfsuite-0.9.12-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:2048d8768a0b4c6a6d9390e879a2b7a760bb57a7f2ba491316f5dc36f9cfd836", size = 318868, upload-time = "2025-12-23T19:06:51.119Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/74/61ccfdda6f98e8719dabf9fee18cf0660b0a33487cfad222fa5174f489a9/python_crfsuite-0.9.12-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5294008716b65606c4d416c3b2597ca14422359a4a84734ead239b29b95f2780", size = 1207620, upload-time = "2025-12-23T19:06:52.53Z" },
+    { url = "https://files.pythonhosted.org/packages/40/06/8e2219853504de660fb497a2f99e729f69b6dba76e44ffbdbb77035d3695/python_crfsuite-0.9.12-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9f1641b9263c3cd1190711d0383d871b002ad325aa800fcf3c8583ef36f0bb07", size = 1246409, upload-time = "2025-12-23T19:06:54.463Z" },
+    { url = "https://files.pythonhosted.org/packages/66/dc/4c88933a6ab16ce797e8f30ff491f371bee4890ceb9b9a90192fdb278591/python_crfsuite-0.9.12-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:f0e73d0a8859db0c3d1a7a3595a83810efc535d95cb79f2f675eb44ad7a7954a", size = 2166123, upload-time = "2025-12-23T19:06:56.3Z" },
+    { url = "https://files.pythonhosted.org/packages/74/52/f396a51f2089df8efdd8607ce9bdcb5228c0594dfe0e6c7b99fcbdbbc563/python_crfsuite-0.9.12-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:96f27f343ff7e7cb1e29a785d8ed4626a3470f8d42c41cda734dcbaede566722", size = 2267988, upload-time = "2025-12-23T19:06:57.591Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/2e/abcb7d53eda1355c5ef9aff6a620ecc21f527c593d0a7a7aace51a2fd2cd/python_crfsuite-0.9.12-cp313-cp313-win32.whl", hash = "sha256:385fda7f407be778f6a9440dffdeed3cdafc6f6923065a856e45997626283589", size = 282157, upload-time = "2025-12-23T19:06:59.048Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/da/282120f8d88def791610ba8310413c6ae3002f945f008979c3e440a6ad88/python_crfsuite-0.9.12-cp313-cp313-win_amd64.whl", hash = "sha256:21334c298318d4de057eacaad2ed179b7f63640e9cbd0c8141d656f58e7bd3f1", size = 303082, upload-time = "2025-12-23T19:07:00.14Z" },
 ]
 
 [[package]]
@@ -258,4 +284,17 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "usaddress"
+version = "0.5.16"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "probableparsing" },
+    { name = "python-crfsuite" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5e/f9/860e55d404434bba2c5d31ea2052d3aba4ffd32b352ebb9fd400c8ccbec5/usaddress-0.5.16.tar.gz", hash = "sha256:f7e614e2489c159cf85be1b6f86edbfaf329dbeedef4d002a025757afd1ec6c6", size = 914927, upload-time = "2025-08-07T14:53:55.717Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/4a/ffeb924e9a5d51bdbfff2e2309fb938603dc8bee30b01cd0421e8212c95c/usaddress-0.5.16-py3-none-any.whl", hash = "sha256:ce2bd73e3a41176fa29f093e9ad153327a87862430f1b0b121f0cb230c182a6a", size = 70562, upload-time = "2025-08-07T14:53:54.397Z" },
 ]

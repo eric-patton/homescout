@@ -132,3 +132,19 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   returns for the same failure, and deliberately not 1: an agent that reads the file needs to know
   the file is not there, and 1 would tell it the file is fine and a source was down. This feature's
   own criteria about the codes are unaffected; the meanings of 0, 2, 3 and 4 did not move.
+
+- **2026-08-24, defect found by the first real run over three sources.** A property's address was
+  composed in two places, `cli/render.address` and the email's own `address_of`, and both appended
+  the unit unconditionally. Both Realtor.com and Zillow write the unit into the address line *and*
+  into their own unit field, and both adapters record both faithfully, so a real digest printed
+  `1828 Redwine Unit B Unit B` and `1839 S Roosevelt Rd S #7 # 7`.
+
+  Fixed by composing it once, in `digest.address_of`, which both surfaces now call: the digest owns
+  the summary's shape, so it is the right place to decide how one is written out. The unit is
+  appended only when the address line does not already end with it, compared with the decoration
+  (`#`, `Unit`, `Apt`, `Lot`) removed. At the end rather than anywhere, because the digit 2 lives
+  inside the house number 425. Regression tests cite `feat-012/AC-4`.
+
+  Recorded here because it is a change to what this feature's surface prints, and because the
+  general shape is worth remembering: two implementations of one small rendering decision is how a
+  wrong address reaches somebody's inbox.

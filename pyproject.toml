@@ -8,6 +8,7 @@ dependencies = [
     "requests>=2.32",
     "ruamel.yaml>=0.18",
     "shapely>=2.0",
+    "usaddress>=0.5.16",
 ]
 
 [project.scripts]

@@ -46,10 +46,10 @@ def table(headers: Sequence[str], rows: Iterable[Sequence[Any]]) -> str:
 
 
 def address(summary: dict[str, Any]) -> str:
-    line = summary.get("address_line") or "(no address)"
-    unit = summary.get("unit")
-    town = ", ".join(str(p) for p in (summary.get("city"), summary.get("state")) if p)
-    return f"{line}{' ' + str(unit) if unit else ''}{', ' + town if town else ''}"
+    """One property's address. The composing is the digest's, so both surfaces say it the same."""
+    from ..digest import address_of
+
+    return address_of(summary) or "(no address)"
 
 
 def _properties(title: str, rows: Sequence[dict[str, Any]]) -> list[str]:

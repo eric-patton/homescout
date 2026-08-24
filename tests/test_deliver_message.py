@@ -326,3 +326,50 @@ def test_a_new_property_carries_its_criteria_on_its_own_row(store: Store) -> Non
     assert found["text"].count("Example Road") == 1
     assert "Newly flagged" not in found["text"]
     assert found["text"].index("in-the-floodplain") > found["text"].index("New:")
+
+
+def test_a_unit_already_written_into_the_address_is_not_repeated(store: Store) -> None:
+    """feat-012/AC-4: found by reading the output of the first real run over three sources.
+
+    Both Realtor.com and Zillow write the unit into the address line *and* into their own unit
+    field, faithfully recorded by both adapters. Appending it unconditionally produced
+    `1828 Redwine Unit B Unit B` and `1839 S Roosevelt Rd S #7 # 7` in a real digest.
+    """
+    from homescout.digest import address_of
+
+    assert address_of({"address_line": "1828 Redwine Unit B", "unit": "Unit B"}) == (
+        "1828 Redwine Unit B"
+    )
+    assert address_of({"address_line": "1839 S Roosevelt Rd S #7", "unit": "# 7"}) == (
+        "1839 S Roosevelt Rd S #7"
+    )
+    assert address_of({"address_line": "Bigler Addition Block 2 Lot 3", "unit": "Lot 3"}) == (
+        "Bigler Addition Block 2 Lot 3"
+    )
+    # And a unit that genuinely is not there is still added. The digit 2 lives inside 425, which is
+    # why this comparison looks at the end of the line rather than anywhere in it.
+    assert address_of({"address_line": "425 Monticello Pkwy", "unit": "2"}) == (
+        "425 Monticello Pkwy 2"
+    )
+
+
+def test_both_surfaces_write_an_address_the_same_way(store: Store) -> None:
+    """feat-012/AC-4: one implementation, because two is how the doubling got in.
+
+    The terminal and the email are thin wrappers over one core (non-negotiable 8), and an address
+    is exactly the sort of small rendering decision that quietly forks between them.
+    """
+    from homescout.cli import render
+    from homescout.deliver.message import address_of as in_email
+    from homescout.digest import address_of
+
+    summary = {
+        "address_line": "1828 Redwine Unit B",
+        "unit": "Unit B",
+        "city": "Portales",
+        "state": "NM",
+    }
+
+    assert render.address(summary) == in_email(summary) == address_of(summary)
+    assert render.address({}) == "(no address)", "each still has its own word for nothing"
+    assert in_email({}) == "an address this listing did not give"

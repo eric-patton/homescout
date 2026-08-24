@@ -15,7 +15,7 @@ renders the email from these per-property summaries and their stored image paths
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from .records import ListingFields
@@ -40,6 +40,47 @@ SUMMARY_FIELDS: tuple[str, ...] = (
     "listing_status",
     "listing_url",
 )
+
+
+def _same_unit(line: str, unit: str) -> bool:
+    """Is this unit already written into the address line?
+
+    Compared loosely, because the two fields are written by the same source in the same breath and
+    it decorates them differently: `1839 S Roosevelt Rd S #7` carries the unit `# 7`, and
+    `1828 Redwine Unit B` carries `Unit B`. Everything but the letters and digits is thrown away
+    before comparing, so `#7`, `# 7`, `Unit B` and `UNIT B` all match what is already there.
+    """
+    def bare(text: str) -> str:
+        stripped = text.lower()
+        for word in ("unit", "apt", "apartment", "suite", "ste", "lot", "#"):
+            stripped = stripped.replace(word, " ")
+        return "".join(character for character in stripped if character.isalnum())
+
+    reduced = bare(unit)
+    # At the end, not anywhere: a unit written into the address line is written at the end of it,
+    # and looking anywhere finds the `2` of unit 2 inside the `425` of the house number.
+    return bool(reduced) and bare(line).endswith(reduced)
+
+
+def address_of(summary: Mapping[str, Any]) -> str:
+    """One property's postal address, from whichever parts a summary carries.
+
+    The one place that decides this, because there are two surfaces that show an address and having
+    two answers is how `1828 Redwine Unit B Unit B` reaches somebody's inbox. Both sources that
+    supply a unit also write it into the address line, so appending it unconditionally doubles it,
+    which was exactly what the first real run over three sources printed.
+    """
+    line = str(summary.get("address_line") or "").strip()
+    unit = str(summary.get("unit") or "").strip()
+    if unit and not _same_unit(line, unit):
+        line = f"{line} {unit}".strip()
+    town = ", ".join(str(part) for part in (summary.get("city"), summary.get("state")) if part)
+    postal = summary.get("postal_code")
+
+    whole = ", ".join(part for part in (line, town) if part)
+    if postal:
+        whole = f"{whole} {postal}" if whole else str(postal)
+    return whole.strip()
 
 
 def _summary(store: Store, listing_id: str, *run_ids: str | None) -> dict[str, Any]:

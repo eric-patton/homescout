@@ -111,19 +111,15 @@ def one_line(value: Any) -> str:
 
 
 def address_of(summary: Mapping[str, Any]) -> str:
-    """A postal address from the parts a summary carries, skipping the ones it does not."""
-    line = summary.get("address_line") or ""
-    unit = summary.get("unit")
-    if unit:
-        line = f"{line} #{unit}"
-    tail = ", ".join(
-        part for part in (summary.get("city"), summary.get("state")) if part
-    )
-    postal = summary.get("postal_code")
-    whole = ", ".join(part for part in (line, tail) if part)
-    if postal:
-        whole = f"{whole} {postal}" if whole else str(postal)
-    return whole.strip() or "an address this listing did not give"
+    """A postal address from the parts a summary carries.
+
+    Composed by the digest, so the email and the terminal say it the same way. That matters more
+    than it sounds: two implementations of this is how `1828 Redwine Unit B Unit B` reaches an
+    inbox, which is what the first real run over three sources printed.
+    """
+    from ..digest import address_of as compose
+
+    return compose(summary) or "an address this listing did not give"
 
 
 def facts(summary: Mapping[str, Any]) -> str:
