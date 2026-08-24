@@ -141,6 +141,7 @@ def entry(
                 other_changes.append({**summarize(event), "fields": others})
 
     matched = counts["new"] + counts["changed"] + counts["unchanged"] + counts["returned"]
+    flagged, excluded = _criteria(store, target, baseline)
     sources = [
         {
             "source": report.source,
@@ -169,9 +170,9 @@ def entry(
             "changed": counts["changed"],
             "gone": counts["gone"],
             "returned": counts["returned"],
-            # Always present and always empty until the rule engine exists, so that the shape of
-            # this document never depends on whether that feature has been built.
-            "flagged": 0,
+            # Always present, and empty for a search that states no criteria, so the shape of this
+            # document never depends on whether any are configured.
+            "flagged": len(flagged),
         },
         "new": new,
         "price_changes": price_changes,
@@ -179,8 +180,34 @@ def entry(
         "other_changes": other_changes,
         "gone": gone,
         "returned": returned,
-        "flagged": [],
+        "flagged": flagged,
+        # How many properties each criterion removed. Beside the counts rather than inside them,
+        # because an empty result with no explanation reads as a market that emptied out.
+        "excluded": excluded,
     }
+
+
+def _criteria(
+    store: Store, target: str, baseline: str | None
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """What the search's criteria did to this run: what is newly badged, and what was removed.
+
+    Newly, not currently. A property that has carried the same badge for a month is not news; one
+    that acquired it last night is the whole reason to read a digest.
+    """
+    from .rules.results import exclusion_counts, newly_fired
+
+    fresh = newly_fired(store, target, baseline)
+    by_listing: dict[str, list[str]] = {}
+    for rule_id, listing_ids in fresh.items():
+        for listing_id in listing_ids:
+            by_listing.setdefault(listing_id, []).append(rule_id)
+
+    flagged = [
+        {**_summary(store, listing_id, target, baseline), "rules": sorted(rules)}
+        for listing_id, rules in sorted(by_listing.items())
+    ]
+    return flagged, exclusion_counts(store, target)
 
 
 def envelope(kind: str, *, generated_at: str | None = None, **payload: Any) -> dict[str, Any]:

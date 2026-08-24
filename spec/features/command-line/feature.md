@@ -89,3 +89,18 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   `problem` makes a definition invalid or refuses a run. A search whose exclusions cover all of its
   areas is valid, matches nothing, and has to be able to say which of those two it is. `validate`
   reports both and exits successfully when only notices are present.
+
+- **2026-08-23, rule engine (feat-008).** Two further changes to the same contract.
+
+  `SearchDefinition` gained `rules`, defaulting to empty, so the run loop can ask a search for its
+  criteria rather than reaching back to the file. After a run completes, the loop evaluates them and
+  records the verdicts. Deliberately after, and never during: a criterion decides what a person is
+  shown and nothing about what is recorded, because a property a rule drops is still observed, still
+  snapshotted and still comparable, and excluding it from the recording would make the store read
+  the exclusion as a disappearance.
+
+  The digest's flagged set, which this feature deliberately shipped as always empty so its shape
+  would not depend on the rule engine existing, is now filled: the properties that newly tripped a
+  criterion since the baseline run, with the criteria they tripped. A per-rule `excluded` count sits
+  beside it, so a run that dropped everything says why rather than looking like a market that
+  emptied out.

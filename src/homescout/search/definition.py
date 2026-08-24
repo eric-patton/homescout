@@ -123,6 +123,8 @@ class FileSearch:
         self.exclusions: tuple[SearchArea, ...] = tuple(a for a in reading.areas if a.excluded)
         self.freshness_days = reading.freshness_days
         self.export_template = reading.export_template
+        #: Parsed once, when the file is read, so a run never re-reads the grammar per property.
+        self.rules = reading.rules
 
     # -- the contract --------------------------------------------------------
 

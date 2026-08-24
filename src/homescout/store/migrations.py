@@ -11,11 +11,14 @@ import sqlite3
 
 from .db import schema_version
 from .errors import SchemaTooNewError
-from .schema import SCHEMA_V1, SCHEMA_VERSION, append_only_triggers
+from .schema import SCHEMA_V1, SCHEMA_V2, SCHEMA_VERSION, VERDICT_TABLES, append_only_triggers
 
 # Index i produces version i + 1. Never reorder, and never rewrite an entry that has shipped: a
 # migration that has run on someone's real database is history too.
-MIGRATIONS: tuple[str, ...] = (SCHEMA_V1 + "\n" + append_only_triggers(),)
+MIGRATIONS: tuple[str, ...] = (
+    SCHEMA_V1 + "\n" + append_only_triggers(),
+    SCHEMA_V2 + "\n" + append_only_triggers(VERDICT_TABLES),
+)
 
 
 def _apply(conn: sqlite3.Connection, sql: str, target: int) -> None:

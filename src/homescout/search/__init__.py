@@ -102,6 +102,10 @@ class SearchDefinition(Protocol):
     name: str
     #: Which adapters this search asks, by registered name.
     sources: tuple[str, ...]
+    #: The criteria this search applies, parsed and checked (feat-008). Empty is the honest answer
+    #: for a search that states none, and is what every definition carried before the rule engine
+    #: existed.
+    rules: tuple[Any, ...]
     #: One entry per geographic component, in this tool's own vocabulary rather than any source's
     #: (`search.areas.SearchArea` for a definition read from a file). Source-independent, so it is
     #: what a surface counts and names; the source layer's own area types appear only inside
@@ -153,6 +157,7 @@ class InMemorySearch:
     faults: tuple[SearchProblem, ...] = ()
     where: Callable[[ListingFields], Placement] | None = None
     covers: tuple[Any, ...] | None = None
+    rules: tuple[Any, ...] = ()
 
     @property
     def areas(self) -> tuple[Any, ...]:

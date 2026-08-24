@@ -119,6 +119,37 @@ Two details worth knowing:
   Filtering a run by freshness would stop recording older properties, and a property that stops
   being recorded is one this tool can only later describe as having disappeared.
 
+## Criteria
+
+A saved search can carry criteria: your own judgments, written as data, applied to every property in
+every run.
+
+```yaml
+rules:
+  - {id: stale-listing, when: "dom > 180", severity: flag}
+  - {id: price-raised-late, when: "price_raised_after_days > 120", severity: flag}
+  - {id: unreliable-water, when: "water_source == 'well' and not over_principal_aquifer", severity: flag}
+  - {id: no-fiber, when: "upload_mbps < 100", severity: drop}
+  - {id: acreage, when: "lot_sqft > 200000", severity: boost}
+```
+
+Four severities. `drop` excludes a property from results without deleting it, and you can always ask
+what was dropped and by which criterion. `flag` badges it. `boost` and `demote` move it up or down
+the default order, which is boosts minus demotes, ties broken by first sighting.
+
+**A value nobody knows is not a failure.** A criterion that depends on something unfetched is
+*undetermined*: it does not fire, it excludes nothing, it changes no ordering, and the run reports
+which field was missing. That is the difference between "this house has slow internet" and "nobody
+has looked".
+
+The expression language has comparisons, `and` / `or` / `not`, arithmetic, `in` over a literal list,
+and `is null` to ask whether a value is known at all. It has no function calls, no attributes, no
+indexing, and no assignment, because it is not a programming language and nothing you write in it
+becomes code. Names come from a fixed list: the listing fields, values derived from this tool's own
+history (`dom`, `is_new`, `price_cut`, `price_raised_after_days`), and the enriched and extracted
+values that arrive with later features. A criterion naming something else is refused before the run,
+with the available names listed.
+
 ## Exit codes
 
 Every command takes `--json` and returns one of five codes. They are a contract: a scheduled task

@@ -18,6 +18,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..rules.definition import Rule
+from ..rules.definition import read as read_rules
 from . import Severity
 from . import geometry as geo
 from .areas import AreaError, SearchArea
@@ -75,6 +77,7 @@ class Reading:
     statuses: tuple[str, ...] = ("for_sale",)
     freshness_days: int | None = None
     export_template: str | None = None
+    rules: tuple[Rule, ...] = ()
     found: list[tuple[str, str, str]] = field(default_factory=list)
 
     def say(self, location: str, message: str, severity: Severity = "problem") -> None:
@@ -296,15 +299,25 @@ def _sources(document: Document, reading: Reading, known: Sequence[str]) -> None
 
 
 def _rules_and_export(document: Document, reading: Reading) -> None:
-    """Two sections this feature carries and does not read.
+    """Two sections whose contents belong elsewhere.
 
-    Rules belong to the rule engine and export templates to the spreadsheet export. Checking their
-    shape here keeps a list from being written as a string; checking their contents would put two
-    features' knowledge in one place.
+    Rules are read by the rule engine, which owns the grammar and the field namespace; export
+    templates belong to the spreadsheet export. What is checked here is the shape each section takes
+    in the document, and where in the file to point when something inside one is wrong.
     """
     rules = document.data.get("rules")
     if rules is not None and (isinstance(rules, str) or not isinstance(rules, Sequence)):
         reading.say(document.at("rules"), "rules has to be a list")
+    elif rules:
+        # The section's place in the document belongs here; what is inside an entry belongs to the
+        # rule engine, which is where the grammar and the field namespace live. A second copy of
+        # either one in this module is how they would come to disagree.
+        made, problems = read_rules(rules)
+        reading.rules = made
+        for problem in problems:
+            reading.say(
+                document.at("rules", *problem.where), problem.message, problem.severity
+            )
 
     export = document.data.get("export")
     if export is None:

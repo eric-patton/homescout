@@ -70,3 +70,15 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   in the run loop, which is the one rule this project cannot afford to have two of. The distinct
   list is `dict.fromkeys` away for any caller that wants it. Covered by a test here citing
   `feat-001/AC-4`. The now-unused private identity helper was removed with it.
+- **2026-08-23, rule engine (feat-008).** Schema version 2: one table, `rule_verdicts`, recording
+  what each criterion decided about each property in each run, with the same append-only triggers
+  every other history table carries. Verdicts are recorded rather than recomputed because
+  re-evaluating an edited criterion against an old snapshot would change what that run decided,
+  which non-negotiable 1 forbids, and because every digest already sent would then disagree with
+  the database it came from.
+
+  The trigger generator now takes the list of tables to protect rather than reading the module-level
+  one, so that each schema version protects the tables it creates. Version 1's migration text is
+  byte-for-byte unchanged, which is the rule that matters here: a migration that has run on
+  somebody's real database is history too. Three read and write methods were added alongside it
+  (`record_verdicts`, `verdicts`, `fired`), keeping every statement of SQL behind this package.

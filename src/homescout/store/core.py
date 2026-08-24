@@ -39,6 +39,7 @@ from .models import (
     ListingHistory,
     ListingRecord,
     PriceHistoryEntry,
+    RuleVerdict,
     RunRecord,
     Snapshot,
     SourceLink,
@@ -445,6 +446,72 @@ class Store:
             (run_id,),
         ).fetchall()
         return [self._snapshot_from(r) for r in rows]
+
+    # -- rule verdicts ------------------------------------------------------
+
+    def record_verdicts(self, run_id: str, verdicts: Sequence[RuleVerdict]) -> None:
+        """What every criterion decided about every property this run saw.
+
+        Written once, after the run has completed, in one transaction. Nothing here can be written
+        twice for the same run, property and rule: the table's own key says so, and a second attempt
+        is a bug rather than a correction.
+        """
+        if not verdicts:
+            return
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.executemany(
+                "INSERT INTO rule_verdicts "
+                "(run_id, listing_id, rule_id, severity, verdict, missing) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        run_id,
+                        v.listing_id,
+                        v.rule_id,
+                        v.severity,
+                        v.verdict,
+                        ",".join(v.missing) or None,
+                    )
+                    for v in verdicts
+                ],
+            )
+
+    def verdicts(self, run_id: str, *, listing_id: str | None = None) -> list[RuleVerdict]:
+        """Every verdict a run recorded, in a stable order."""
+        sql = "SELECT * FROM rule_verdicts WHERE run_id = ?"
+        params: list[object] = [run_id]
+        if listing_id is not None:
+            sql += " AND listing_id = ?"
+            params.append(listing_id)
+        sql += " ORDER BY listing_id, rule_id"
+        return [
+            RuleVerdict(
+                run_id=r["run_id"],
+                listing_id=r["listing_id"],
+                rule_id=r["rule_id"],
+                severity=r["severity"],
+                verdict=r["verdict"],
+                missing=tuple(r["missing"].split(",")) if r["missing"] else (),
+            )
+            for r in self._conn.execute(sql, params)
+        ]
+
+    def fired(
+        self, run_id: str, rule_id: str | None = None, *, severities: Sequence[str] | None = None
+    ) -> dict[str, set[str]]:
+        """Which properties fired which rules in one run, as rule to listing identifiers."""
+        sql = "SELECT rule_id, listing_id FROM rule_verdicts WHERE run_id = ? AND verdict = 'fired'"
+        params: list[object] = [run_id]
+        if rule_id is not None:
+            sql += " AND rule_id = ?"
+            params.append(rule_id)
+        if severities is not None:
+            sql += f" AND severity IN ({', '.join('?' * len(severities))})"
+            params.extend(severities)
+        found: dict[str, set[str]] = {}
+        for row in self._conn.execute(sql, params):
+            found.setdefault(row["rule_id"], set()).add(row["listing_id"])
+        return found
 
     def events(self, listing_id: str) -> list[ListingEvent]:
         rows = self._conn.execute(

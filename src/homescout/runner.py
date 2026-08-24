@@ -30,6 +30,7 @@ from typing import Any
 
 from .errors import InvalidInput
 from .records import ListingFields, SourceRow
+from .rules.verdicts import record as record_verdicts
 from .search import Placement, SearchDefinition
 from .sources.base import Preview, SearchQuery, SearchResult, Source
 from .store import Comparison, RunRecord, SourceOutcome, Store
@@ -341,6 +342,12 @@ def run_search(
             say(f"{name}: {outcome}, {len(kept)} listings{unplaced_text}")
 
         completed = store.complete_run(run.id)
+        # After the run, never during it. A criterion decides what a person is shown, and nothing
+        # about what is recorded: a property a rule drops is still observed, still snapshotted, and
+        # still comparable, or the store would read the exclusion as a disappearance.
+        rules = getattr(definition, "rules", ())
+        if rules:
+            record_verdicts(store, rules, run.id)
         comparison = store.compare(definition.name, target_run_id=run.id)
     except Exception:
         store.fail_run(run.id)

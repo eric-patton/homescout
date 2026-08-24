@@ -176,6 +176,26 @@ class AreaNote:
 
 
 @dataclass(frozen=True, slots=True)
+class RuleVerdict:
+    """What one criterion decided about one property in one run.
+
+    Recorded rather than recomputed, and never rewritten. Re-evaluating an edited criterion against
+    an old snapshot would change what that run decided, and a run's decisions are history.
+
+    `missing` is the names that were unknown, and it is only ever populated for an undetermined
+    verdict: "not checked" and "checked and passed" are different answers and the difference is the
+    point.
+    """
+
+    run_id: str
+    listing_id: str
+    rule_id: str
+    severity: str
+    verdict: str
+    missing: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class StoredImage:
     listing_id: str
     path: str

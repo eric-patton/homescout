@@ -13,9 +13,11 @@ reconstruction across two tables that can disagree with each other. That costs s
 one property this whole product rests on.
 """
 
+from collections.abc import Sequence
+
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -66,7 +68,10 @@ if set(SNAPSHOT_FIELDS) != set(FIELD_NAMES):
         f"unaccounted for {missing}, not on the record {unknown}"
     )
 
-# Tables where a recorded row is never edited or removed.
+# Tables where a recorded row is never edited or removed. These are version 1's; a later version
+# adds its own and protects them the same way, which is why the trigger generator takes a list
+# rather than reading this one. Rewriting what version 1 creates is not allowed: a migration that
+# has run on somebody's real database is history too.
 APPEND_ONLY_TABLES: tuple[str, ...] = (
     "run_sources",
     "raw_listings",
@@ -299,14 +304,40 @@ CREATE TABLE listing_images (
 """
 
 
-def append_only_triggers() -> str:
+#: Version 2, added by the rule engine (feat-008).
+#:
+#: A run's verdicts are recorded rather than recomputed. Re-evaluating today's criteria against an
+#: old snapshot would silently rewrite what that run decided the moment somebody edited a rule,
+#: which is the one thing this database is built not to allow. So verdicts are history, and they are
+#: append-only like every other kind.
+SCHEMA_V2 = """
+CREATE TABLE rule_verdicts (
+    run_id     TEXT NOT NULL REFERENCES runs (id),
+    listing_id TEXT NOT NULL REFERENCES listings (id),
+    rule_id    TEXT NOT NULL,
+    severity   TEXT NOT NULL,
+    verdict    TEXT NOT NULL,
+    -- The names that were unknown, sorted, when the verdict is undetermined. Sorted because a
+    -- recorded fact that varies with dictionary order is not reproducible.
+    missing    TEXT,
+    PRIMARY KEY (run_id, listing_id, rule_id)
+);
+
+CREATE INDEX rule_verdicts_by_rule ON rule_verdicts (run_id, rule_id, verdict);
+"""
+
+VERDICT_TABLES: tuple[str, ...] = ("rule_verdicts",)
+
+
+def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:
     """Triggers that make a recorded row physically unrewritable.
 
-    Generated rather than written out so that a table added to APPEND_ONLY_TABLES cannot be
-    accidentally left unprotected.
+    Generated rather than written out so that a table added to the list cannot be accidentally left
+    unprotected. The list is a parameter because each schema version protects the tables it creates,
+    and a version cannot create a trigger for a table that does not exist yet.
     """
     statements = []
-    for table in APPEND_ONLY_TABLES:
+    for table in tables:
         statements.append(
             f"CREATE TRIGGER {table}_no_update BEFORE UPDATE ON {table}\n"
             f"BEGIN\n"

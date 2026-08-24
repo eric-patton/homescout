@@ -44,3 +44,17 @@ Brief section 6.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes by other features
+
+- **2026-08-23, rule engine (feat-008).** The `rules` section is now read rather than only
+  shape-checked. `search/validate.py` hands it to the rule engine, which parses and checks each
+  criterion and returns located problems in the shape this feature already carries; the file format
+  still owns where the section sits in the document and where to point when something in it is
+  wrong. A file-backed definition parses its criteria once when it loads, so a run never re-reads
+  the grammar per property.
+
+  A direct call rather than a fourth registry. The catalog, the boundary provider and the merge
+  queue are ports because their implementations genuinely vary; the rule engine is not optional and
+  has no second implementation, so a registry would model a state the product never occupies and
+  would let a search with unreadable criteria validate cleanly whenever somebody forgot to register.
