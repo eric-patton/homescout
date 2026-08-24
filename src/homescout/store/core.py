@@ -86,11 +86,22 @@ class Store:
 
     @classmethod
     def open(
-        cls, path: str | Path, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
+        cls,
+        path: str | Path,
+        *,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        shared: bool = False,
     ) -> Store:
+        """Open the database, migrating it forward if it was written by an older build.
+
+        `shared` is for the one caller that needs it and is documented at `db.connect`: a web server
+        hands requests to worker threads, and the browser interface holds a lock around every one of
+        them. Nothing else passes it, and SQLite's own thread check stays a real guard everywhere
+        else in this product.
+        """
         path = Path(path)
         with translating_errors(path, timeout):
-            conn = connect(path, timeout=timeout)
+            conn = connect(path, timeout=timeout, shared=shared)
             migrate(conn)
         return cls(conn, path, timeout)
 

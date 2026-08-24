@@ -143,3 +143,14 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   being stuck with a cache nobody can invalidate. A row with a null value means the model was asked
   and determined nothing, which is a real answer and is what stops the same question being paid for
   every night.
+
+- **2026-08-24, browser interface (feat-010).** No schema change, and one flag with a narrow reason.
+
+  `Store.open(shared=True)` lifts SQLite's refusal to be used from a thread other than the one that
+  opened it. Exactly one caller passes it, and only because a web server hands requests to a pool of
+  worker threads: the interface holds a lock around every request, and around the thread a run goes
+  into, which is what makes lifting the check safe. Everything else in this product is one thread,
+  leaves it alone, and keeps the check as a real guard rather than a formality.
+
+  Found by running the real server rather than by reading. The tests had been reaching for a shared
+  store explicitly, so the first thing that hit it was the actual `homescout serve`.

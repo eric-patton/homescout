@@ -44,8 +44,8 @@ append-only, and new, changed and gone are computed here by comparing those reco
 Early, and it runs unattended. The listing store and its snapshot history, three source adapters
 (Realtor.com, Zillow, Redfin), the command line with its run loop, saved searches with their
 geography, criteria, public-data enrichment, address matching, scheduling with its digests,
-description field extraction, and spreadsheet export are built and tested. The browser interface is
-specified and not yet built.
+description field extraction, spreadsheet export, and the browser interface are built and tested.
+That is all twelve features.
 
 The full specification lives in `spec/`. Each feature has its requirements in
 `spec/features/<name>/spec.md`; the project-wide rules are in `spec/constitution.md` and
@@ -435,6 +435,70 @@ is available, and a template naming a column that does not exist is refused when
 the message naming it and listing what does. Some columns exist and are not in the default set on
 purpose, including `Wildfire Hazard`, `Elevation (ft)`, `Description`, `Flags`, `Sources` and
 `Notes`.
+
+## The browser interface
+
+```
+homescout serve
+```
+
+Six pages on `http://127.0.0.1:8765`: the saved searches, the map and search builder, the results
+table, one property in full, what changed since an earlier run, and the matches waiting for a
+decision. Plain HTML and JavaScript served as the files they are, no framework and no build step,
+because a personal tool has to still start in five years.
+
+**The table is where the work happens.** Every column, sorted and filtered in the browser, and your
+rank, verdict, red flags, summary and next step typed straight onto the row you are reading. That is
+what makes this a replacement for the spreadsheet rather than another producer of one. A save that
+fails says so on the row, keeps what you typed, and never shows an unsaved edit as saved.
+
+It stays quick at five thousand rows because only the rows in view are in the page. That was
+measured before it was designed: rebuilding a five thousand row table after a sort takes about four
+seconds, and redrawing sixty rows takes twenty-five milliseconds.
+
+Everything is reachable by keyboard, including the table, which is a grid you walk with the arrow
+keys and edit with Enter. Nothing is conveyed by colour alone: every badge, status and difference
+carries a word as well.
+
+### About the security of a local server
+
+There is no authentication, by design: one person, one machine, bound to `127.0.0.1` and refusing
+any other address. That settles who can use it and says nothing about **what** can, so there is a
+guard as well, because any page you have open in any tab can send a request to a loopback port:
+
+- a request naming a host that is not this machine is refused, which is what stops a domain that
+  resolves to `127.0.0.1` from reading your data
+- a request from another site's page is refused
+- anything that changes something has to carry a header a form cannot set
+
+You will never see any of it unless you change the port and forget, in which case it says which
+check refused you.
+
+### The map
+
+The map library (Leaflet and Leaflet.draw) is committed under `src/homescout/web/vendor` with a
+manifest recording each file's version, origin and SHA-256, and a test that checks every byte
+against it. That is deliberate: fetching it from a content network at page load would mean a
+localhost tool needs the internet to draw a polygon.
+
+**There is no map background unless you configure one**, because asking a tile server for tiles
+tells that server which part of the world you are looking at, and this tool's whole privacy position
+is that the only traffic it makes is to listing sites, public data services, an optional model and
+your mail server. Drawing works without a background. To add one:
+
+```
+HOMESCOUT_MAP_TILES=https://tile.example.org/{z}/{x}/{y}.png
+HOMESCOUT_MAP_ATTRIBUTION=Whoever the tiles belong to
+```
+
+### Two commands the interface brought with it
+
+Because every capability is reachable from both surfaces:
+
+```
+homescout show <listing-id>     # one property in full, including how the record was assembled
+homescout areas --set city:Portales --notes "Good water, long drive to a hospital"
+```
 
 ## Exit codes
 

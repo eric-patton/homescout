@@ -5,11 +5,14 @@ description = "A local-first property search monitor."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
     "openpyxl>=3.1",
     "requests>=2.32",
     "ruamel.yaml>=0.18",
     "shapely>=2.0",
     "usaddress>=0.5.16",
+    "uvicorn>=0.52.4",
 ]
 
 [project.scripts]
@@ -26,6 +29,7 @@ packages = ["src/homescout"]
 dev = [
     "pytest>=8.3",
     "ruff>=0.8",
+    "websocket-client>=1.9.0",
 ]
 
 [tool.pytest.ini_options]

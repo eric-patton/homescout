@@ -205,8 +205,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--templates", action="store_true", help="list the column sets available and stop"
     )
 
+    show = commands.add_parser(
+        "show", parents=[common], help="everything known about one property"
+    )
+    show.add_argument("listing_id")
+
+    areas = commands.add_parser(
+        "areas", parents=[common], help="notes about a town or region rather than a property"
+    )
+    areas.add_argument("--set", metavar="KIND:PLACE", help="write a note about this place")
+    areas.add_argument("--notes", metavar="TEXT", help="what to write")
+
     serve = commands.add_parser("serve", parents=[common], help="start the local browser interface")
     serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument("--open", action="store_true", help="open a browser at it")
+    # Deliberately no --host. The constitution binds this to localhost, `serve.serve` refuses
+    # anything else at runtime, and an option that can only ever hold one value is a knob for
+    # something that is not on offer. A test in `test_cli_contract.py` keeps it that way.
 
     return parser
 
@@ -447,6 +462,35 @@ def _export(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(document, render.export(written))
 
 
+def _show(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    """One property's full picture, which is the terminal half of the browser's detail surface.
+
+    Product invariant 5: every capability is reachable from both surfaces. This one arrived with the
+    browser interface, so it arrived here at the same time.
+    """
+    found = api.listing(workspace, args.listing_id)
+    return Answer(digest.envelope("listing", listing=found), render.listing(found))
+
+
+def _areas(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.set:
+        kind, _, place = args.set.partition(":")
+        if not place:
+            raise InvalidInput("--set wants KIND:PLACE, such as city:Portales.")
+        api.set_area_note(workspace, kind.strip(), place.strip(), args.notes)
+    found = api.area_notes(workspace)
+    payload = [
+        {
+            "area_type": note.area_type,
+            "area_value": note.area_value,
+            "notes": note.notes,
+            "updated_at": note.updated_at,
+        }
+        for note in found
+    ]
+    return Answer(digest.envelope("areas", areas=payload), render.areas(found))
+
+
 def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     values = {
         name: getattr(args, name)
@@ -514,8 +558,13 @@ def _dispatch(
         return _extract(workspace, args, note)
     if args.command == "enrich":
         return _enrich(workspace, args, note)
+    if args.command == "show":
+        return _show(workspace, args)
+    if args.command == "areas":
+        return _areas(workspace, args)
     if args.command == "serve":
-        api.serve(workspace, port=args.port)
+        api.serve(workspace, port=args.port, open_browser=args.open)
+        return Answer(digest.envelope("served"), "")
     raise InvalidInput(f"No command named {args.command!r}.")
 
 
@@ -571,6 +620,11 @@ def main(
             getattr(args, "db", None),
             delay=getattr(args, "delay", None),
             images=not getattr(args, "no_images", False),
+            # The one command that needs it. A web server hands requests to worker threads and
+            # SQLite refuses a connection used from a thread other than the one that opened it; the
+            # interface holds a lock around every request, which is what makes lifting that check
+            # safe. Every other command is one thread and keeps the check as a real guard.
+            shared=args.command == "serve",
         ) as workspace:
             answer = _dispatch(workspace, args, note, settings)
     except HomescoutError as failure:

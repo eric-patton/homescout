@@ -198,3 +198,19 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   three possible answers, and no way to tell which they have.
 
   `api.export` and `api.export_templates` are the facade halves.
+
+- **2026-08-24, browser interface (feat-010).** `serve` stopped reporting itself unbuilt, which was
+  the last one, and two commands arrived with it.
+
+  `homescout show <listing-id>` prints one property in full: what the listing says, what the
+  description gave up, what the public record says about where it is, its price history, the source
+  rows it was assembled from with the signal that joined them, and your own judgment.
+  `homescout areas` lists and writes notes about towns and regions.
+
+  Neither is a convenience. This feature introduced five capabilities the core did not have, and
+  product invariant 5 says every capability is reachable from both surfaces; without these two, the
+  browser would have become the only way to see a property in full or to write a note about a place.
+
+  `serve` deliberately has **no `--host`**. The constitution binds this to localhost, the server
+  refuses any other address at runtime, and an option that can only ever hold one value is a knob
+  for something that is not on offer. A test keeps it that way.

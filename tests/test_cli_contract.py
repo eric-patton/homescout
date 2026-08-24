@@ -228,15 +228,17 @@ def test_a_write_that_fails_is_reported_without_changing_the_primary_stream(
         ["enrich", "--stale", "--search", "portales"],
         ["export"],
         ["export", "--search", "portales"],
-        ["serve"],
-        ["serve", "--port", "9000"],
+        ["show", "nobody"],
+        ["areas"],
     ],
 )
 def test_every_command_in_the_brief_is_reachable(command, db_path: Path) -> None:
     """feat-003/AC-20: the surface is the contract, so all of it exists from the first release.
 
-    A command whose feature is not built reports the precondition code and says what is missing. An
-    automated caller can therefore discover what this tool does without keeping a version matrix.
+    Every one of them now has a body, which is what this criterion describes arriving at: a command
+    is reachable from the first release and grows one later, without an automated caller having to
+    keep a version matrix. `serve` is absent from this list for one reason only: it blocks until it
+    is stopped, which is what a server does.
     """
     with wired([search()], {"fake": FakeSource(rows=[row("a")])}):
         code, out, err = invoke([*command, "--json"], db=db_path)
@@ -245,19 +247,24 @@ def test_every_command_in_the_brief_is_reachable(command, db_path: Path) -> None
     assert code != ExitCode.INTERNAL_ERROR, err
 
 
-@pytest.mark.parametrize("command", [["serve"]])
-def test_a_command_whose_feature_is_unbuilt_says_so(command, db_path: Path) -> None:
-    """feat-003/AC-20: not built is a precondition, not a crash and not a lie.
+def test_every_command_the_parser_knows_is_built() -> None:
+    """feat-003/AC-20, arrived at: every command in the surface now has a body.
 
-    One left. Export used to be here and grew a body with spreadsheet export (feat-011), which is
-    what this criterion describes happening: the command was reachable from the first release and
-    became real later, without an automated caller having to know which release it was.
+    Enrichment used to report itself unbuilt, then export, then the browser interface. This
+    criterion describes exactly that happening: a command is reachable from the first release and
+    grows a body later, without an automated caller having to know which release it was. The check
+    that remains is that none of them still reports itself unbuilt.
     """
-    code, out, err = invoke(command, db=db_path)
+    from homescout import api
 
-    assert code == ExitCode.PRECONDITION
-    assert "not built yet" in err
-    assert "arrives with" in err
+    unbuilt = [
+        name
+        for name, value in vars(api).items()
+        if callable(value)
+        and getattr(value, "__module__", "") == "homescout.api"
+        and "NotYetBuilt" in (value.__code__.co_names if hasattr(value, "__code__") else ())
+    ]
+    assert unbuilt == []
 
 
 # -- pacing ----------------------------------------------------------------

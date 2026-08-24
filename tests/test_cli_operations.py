@@ -547,6 +547,12 @@ def test_the_facade_is_the_whole_surface() -> None:
         "deliver",
         "delivery_settings",
         "export",
+        "listing",
+        "preview_image",
+        "results",
+        "run_status",
+        "area_notes",
+        "set_area_note",
         "serve",
         "database_path",
         "moment",
@@ -562,15 +568,26 @@ def test_the_facade_is_the_whole_surface() -> None:
     assert public == expected
 
 
-def test_asking_for_something_not_built_is_a_precondition_not_a_failure() -> None:
-    """feat-003/AC-20: a command whose body arrives with its own feature says so.
+def test_nothing_in_the_surface_reports_itself_unbuilt_any_more() -> None:
+    """feat-003/AC-20, arrived at: every command in the contract now has a body.
 
-    One left. Enrichment used to be here, then export, and neither is now, which is what this
-    criterion describes happening: a command is reachable from the first release and grows a body
-    later, without an automated caller having to know which release it was.
+    Enrichment was the first to stop being a stub, then extraction, then export, then the browser
+    interface. That is exactly what this criterion describes: the surface is the contract, every
+    command in it is reachable from the first release, and each grows a body without an automated
+    caller having to know which release it was.
     """
-    with pytest.raises(PreconditionNotMet, match="browser interface"):
-        api.serve(None)  # type: ignore[arg-type]
+    from homescout.api import NotYetBuilt
+
+    assert issubclass(NotYetBuilt, PreconditionNotMet), "the mechanism is kept for the next one"
+    unbuilt = [
+        name
+        for name, value in vars(api).items()
+        if callable(value)
+        and getattr(value, "__module__", "") == "homescout.api"
+        and hasattr(value, "__code__")
+        and "NotYetBuilt" in value.__code__.co_names
+    ]
+    assert unbuilt == []
 
 
 def test_editing_a_definition_wants_a_key_and_a_value(store: Store, db_path) -> None:

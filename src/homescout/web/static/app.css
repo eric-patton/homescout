@@ -1,0 +1,200 @@
+/* One stylesheet, system fonts, no dependency.
+ *
+ * Two rules run through it. Nothing is conveyed by colour alone: every state that has a colour also
+ * has a word, and the colour is a second signal rather than the signal (AC-18). And the focus style
+ * is an outline rather than a colour change, because a colour change is invisible to somebody who
+ * cannot see the colour (AC-17).
+ */
+
+:root {
+  --ink: #1c1c1c;
+  --dim: #666;
+  --line: #d8d8d8;
+  --paper: #fff;
+  --shade: #f7f7f6;
+  --good: #1a6b32;
+  --warn: #8a5a00;
+  --bad: #a02020;
+  --link: #14508c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+a { color: var(--link); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid #14508c;
+  outline-offset: 1px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  position: static;
+  left: auto;
+  margin-right: 1rem;
+}
+
+#nav {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--shade);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+#nav .here { font-weight: 600; text-decoration: none; }
+
+#banner:not(:empty) { padding: 0 1rem; }
+#main { padding: 1rem; }
+
+h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+p.lede { color: var(--dim); margin: 0 0 1rem; }
+
+.notice {
+  border-left: 4px solid var(--dim);
+  padding: 0.5rem 0.75rem;
+  background: var(--shade);
+  margin: 0.5rem 0;
+}
+.notice-problem { border-left-color: var(--bad); }
+.notice-good { border-left-color: var(--good); }
+
+/* -- values ------------------------------------------------------------ */
+
+.unknown { color: var(--dim); font-style: italic; }
+.negative { color: var(--warn); }
+
+.badge {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 0.35rem;
+  margin-right: 0.25rem;
+  font-size: 0.82rem;
+  background: var(--shade);
+  white-space: nowrap;
+}
+.badge-flag { border-color: var(--warn); }
+.badge-good { border-color: var(--good); }
+.badge-bad { border-color: var(--bad); }
+
+/* -- lists ------------------------------------------------------------- */
+
+.cards { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); }
+.card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem 0.9rem;
+}
+.card h3 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+.card .meta { color: var(--dim); font-size: 0.9rem; }
+.card .actions { margin-top: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper);
+  cursor: pointer;
+}
+button:hover { background: var(--shade); }
+button[disabled] { color: var(--dim); cursor: default; }
+
+/* -- the results table ------------------------------------------------- */
+
+.controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.controls input[type="search"] { font: inherit; padding: 0.3rem 0.5rem; min-width: 18rem; }
+.counts { color: var(--dim); }
+
+#scroller {
+  height: calc(100vh - 12rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  position: relative;
+}
+#sizer { position: relative; }
+table.grid { border-collapse: separate; border-spacing: 0; font-size: 0.86rem; table-layout: fixed; }
+table.grid th, table.grid td {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0.15rem 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 11rem;
+  height: 22px;
+}
+table.grid thead th {
+  position: sticky;
+  top: 0;
+  background: var(--shade);
+  z-index: 2;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+table.grid tbody tr:hover td { background: #fbfbf8; }
+table.grid td.editable { cursor: text; background: #fffef5; }
+table.grid td[aria-selected="true"] { outline: 2px solid var(--link); outline-offset: -2px; }
+table.grid tr.gone td:first-child::before { content: "gone · "; color: var(--warn); }
+table.grid td.saving { background: #fff8e0; }
+table.grid td.saved { background: #eef7ee; }
+table.grid td.unsaved { background: #fdeaea; outline: 2px solid var(--bad); outline-offset: -2px; }
+.rowstate { font-size: 0.8rem; color: var(--dim); }
+.rowstate.problem { color: var(--bad); }
+
+/* -- one property ------------------------------------------------------ */
+
+.detail { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+@media (max-width: 60rem) { .detail { grid-template-columns: 1fr; } }
+.detail img.preview { max-width: 100%; border: 1px solid var(--line); border-radius: 3px; }
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
+dl.facts dt { color: var(--dim); }
+dl.facts dd { margin: 0; }
+table.plain { border-collapse: collapse; width: 100%; }
+table.plain th, table.plain td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+pre.prose { white-space: pre-wrap; font: inherit; margin: 0; }
+
+/* -- the map ----------------------------------------------------------- */
+
+#map { height: 28rem; border: 1px solid var(--line); background: var(--shade); }
+#map.plain { display: grid; place-items: center; color: var(--dim); }
+.field { display: grid; gap: 0.2rem; margin-bottom: 0.6rem; max-width: 34rem; }
+.field input, .field select, .field textarea { font: inherit; padding: 0.3rem 0.4rem; }
+.field label { color: var(--dim); font-size: 0.9rem; }
+
+.progress {
+  font: 0.85rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--shade);
+  border: 1px solid var(--line);
+  padding: 0.5rem;
+  max-height: 14rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}

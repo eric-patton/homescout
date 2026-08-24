@@ -55,17 +55,30 @@ def _next_after(stamp: str) -> str:
     return to_utc_text(moment + timedelta(microseconds=1))
 
 
-def connect(path: str | Path, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> sqlite3.Connection:
+def connect(
+    path: str | Path,
+    *,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    shared: bool = False,
+) -> sqlite3.Connection:
     """Open the database file, creating the directory if needed.
 
     Write-ahead logging and an explicit busy timeout, because on the target platform the browser
     interface and a scheduled command routinely hold this file at the same time, and the default
     behavior there is to fail immediately.
+
+    `shared` lifts SQLite's own refusal to be used from a thread other than the one that opened it.
+    **It is only safe when the caller serializes access**, and there is exactly one caller that
+    does: the browser interface, where a web server hands requests to worker threads and holds a
+    lock around every one of them. Everything else in this product is one thread, leaves this alone,
+    and keeps SQLite's check as a real guard rather than a formality.
     """
     path = Path(path)
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=timeout, isolation_level=None)
+    conn = sqlite3.connect(
+        str(path), timeout=timeout, isolation_level=None, check_same_thread=not shared
+    )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")

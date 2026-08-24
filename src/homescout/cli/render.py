@@ -247,3 +247,75 @@ def delivery(outcome: Any) -> str:
         where = f" {channel.target}" if channel.target else ""
         lines.append(f"  {channel.channel}: {channel.outcome}{where}{detail}")
     return "\n".join(lines)
+
+
+def listing(found: Any) -> str:
+    """One property's full picture, for a terminal.
+
+    The provenance at the end is the part worth having: a merged record is source rows joined by a
+    signal, and the only way to tell a real record from a bad merge is to see both.
+    """
+    fields = found.get("fields") or {}
+    address = ", ".join(
+        str(fields[name])
+        for name in ("address_line", "unit", "city", "state", "postal_code")
+        if fields.get(name)
+    )
+    lines = [address or found["listing_id"], ""]
+
+    for label, name in (
+        ("price", "price"),
+        ("status", "listing_status"),
+        ("beds", "beds"),
+        ("baths", "baths"),
+        ("sq ft", "sqft"),
+        ("year built", "year_built"),
+        ("type", "property_type"),
+        ("county", "county"),
+    ):
+        lines.append(f"  {label:<14} {_cell(fields.get(name))}")
+    lines.append(f"  {'days on market':<14} {_cell(found.get('days_on_market'))}")
+    lines.append(f"  {'first seen':<14} {_cell(found.get('first_observed_at'))}")
+    lines.append(f"  {'presence':<14} {_cell(found.get('presence'))}")
+
+    extracted = {k: v for k, v in (found.get("extracted") or {}).items() if v.get("value")}
+    if extracted:
+        lines += ["", "read out of the description:"]
+        for name, entry in sorted(extracted.items()):
+            lines.append(f"  {name.replace('_', ' '):<14} {entry['value']} ({entry['provenance']})")
+
+    enrichment = {k: v for k, v in (found.get("enrichment") or {}).items() if v is not None}
+    if enrichment:
+        lines += ["", "where it is:"]
+        for name, held in sorted(enrichment.items()):
+            lines.append(f"  {name.replace('_', ' '):<24} {_cell(held)}")
+
+    sources = found.get("sources") or []
+    if sources:
+        lines += ["", "assembled from:"]
+        for link in sources:
+            why = f", joined on {link['join_signal']}" if link.get("join_signal") else ""
+            seen = link.get("times_seen") or 1
+            times = f", seen in {seen} runs" if seen > 1 else ""
+            lines.append(f"  {link['source']} {link.get('source_listing_id') or ''}{why}{times}")
+
+    annotation = {k: v for k, v in (found.get("annotation") or {}).items() if v not in (None, "")}
+    if annotation:
+        lines += ["", "your own judgment:"]
+        for name, held in annotation.items():
+            lines.append(f"  {name.replace('_', ' '):<14} {_cell(held)}")
+
+    return "\n".join(lines)
+
+
+def areas(notes: Sequence[Any]) -> str:
+    """Notes about places rather than about properties."""
+    if not notes:
+        return "No notes about any area yet."
+    return table(
+        ["Area", "Place", "Notes"],
+        [
+            [note.area_type, note.area_value, (note.notes or "").replace("\n", " ")]
+            for note in notes
+        ],
+    )

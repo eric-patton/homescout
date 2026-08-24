@@ -83,3 +83,15 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   With the key absent or false, nothing in that feature reads a credential, resolves an address or
   opens a connection. No credential ever goes in a saved search, which is the constitution's rule
   and is why this setting is a switch rather than a configuration block.
+
+- **2026-08-24, browser interface (feat-010).** No change to this feature, and one thing it is now
+  measured by.
+
+  Drawing an area on a map and saving it goes through `catalog.edit`, the same operation
+  `homescout searches edit --set` uses, so the round-tripping document layer does the writing. A test
+  in the interface's own suite writes a polygon into a file that carries a comment and a filter the
+  interface never touched, and asserts both survive; and asserts that a refused edit leaves the file
+  byte for byte as it was.
+
+  That is the reason the interface can only change what this feature's edit operation can change,
+  and it is stated on the screen rather than hidden: what it cannot edit, it shows read-only.

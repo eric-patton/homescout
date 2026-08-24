@@ -25,6 +25,7 @@ from typing import Any
 from .claim import claim_run
 from .errors import HomescoutError, InvalidInput, PreconditionNotMet
 from .matches import AmbiguousMatch, MergeQueue, default_queue
+from .records import FIELD_NAMES as _FIELD_NAMES
 from .runner import RunOutcome
 from .runner import run_search as _run_search
 from .search import (
@@ -188,8 +189,13 @@ def open_workspace(
     sources: Mapping[str, Any] | None = None,
     delay: float | None = None,
     images: bool = True,
+    shared: bool = False,
 ) -> Workspace:
     """Open the database and assemble everything that reads it.
+
+    `shared` lifts SQLite's thread check, and exactly one caller passes it: the browser interface,
+    where a web server hands requests to worker threads and holds a lock around every one of them.
+    See `store.db.connect` for why that is the only place it is safe.
 
     The pacing delay is validated here, through the source layer's own policy, so that the permitted
     range lives in one place and an impossible value is refused before anything is fetched.
@@ -204,7 +210,7 @@ def open_workspace(
 
     path = database_path(db)
     with _translating():
-        store = Store.open(path)
+        store = Store.open(path, shared=shared)
 
     # Saved searches asks something to turn a place name into a shape, and this is where that
     # something is supplied. Cache-only: a boundary this workspace has not already fetched answers
@@ -607,5 +613,274 @@ def export_templates(workspace: Workspace) -> tuple[str, ...]:
     return templates.available(workspace.root)
 
 
-def serve(workspace: Workspace, *, port: int = 8765) -> None:
-    raise NotYetBuilt("The local server", "the browser interface")
+# -- what a screen needs, and therefore what both surfaces get ------------
+#
+# Five operations the browser interface needed and no surface had asked for. They live here rather
+# than in that feature, because non-negotiable 8 says both surfaces are thin wrappers over one
+# library and product invariant 5 says every capability is reachable from both. Two of them got a
+# command as well, for exactly that reason.
+
+#: Every field a property carries, for the detail answer. Read from the record rather than restated.
+_LISTING_FIELDS: tuple[str, ...] = tuple(_FIELD_NAMES)
+
+
+def results(
+    workspace: Workspace,
+    name: str,
+    *,
+    run_id: str | None = None,
+    include_dropped: bool = False,
+) -> dict[str, Any]:
+    """One run's properties as rows, with the columns they are rows of.
+
+    The same rows and the same column declarations the spreadsheet is made of, so the table on a
+    screen and the sheet in a file cannot disagree about what a column is called or where its value
+    comes from. Served in one answer, because sending five thousand rows once and sorting them in
+    the browser is what makes an interaction after that cost nothing.
+    """
+    from .export import cols, latest_run, rows_of
+
+    with _translating():
+        wanted = run_id or latest_run(workspace.store, name)
+        rows = list(
+            rows_of(workspace.store, wanted, include_dropped=include_dropped, root=workspace.root)
+        )
+        rows.extend(_disappeared(workspace, wanted, {row.listing_id for row in rows}))
+
+    columns = [
+        {"name": column.name, "kind": column.kind, "origin": column.origin, "links": column.links}
+        for column in cols.COLUMNS
+    ]
+    return {
+        "search": name,
+        "run_id": wanted,
+        "columns": columns,
+        "rows": [_row_document(row, cols.COLUMNS) for row in rows],
+    }
+
+
+def _disappeared(workspace: Workspace, run_id: str, already: set[str]) -> list[Any]:
+    """The properties this run did not see and nobody has seen sold.
+
+    The spreadsheet leaves these out, because a sheet is what a run found. A table does not, because
+    a person catching up wants to know a house they were watching has stopped appearing, and
+    "stopped appearing" is a status rather than a deletion. Hidden by default on the screen and
+    shown by a filter that says how many it is hiding.
+    """
+    from .export.rows import Row
+
+    store = workspace.store
+    made: list[Row] = []
+    for listing_id, snapshot in store.latest_snapshots().items():
+        if listing_id in already:
+            continue
+        record = store.get_listing(listing_id)
+        if record.presence != "disappeared" or record.superseded_by or record.retracted:
+            continue
+        made.append(
+            Row(
+                listing_id=listing_id,
+                fields=snapshot.fields,
+                history=store.history(listing_id),
+                presence="disappeared",
+            )
+        )
+    return made
+
+
+def _row_document(row: Any, columns: Sequence[Any]) -> dict[str, Any]:
+    """One property, as a screen reads it: its values, its identity and its badges."""
+    return {
+        "listing_id": row.listing_id,
+        "presence": row.presence,
+        "flags": list(row.flags),
+        "sources": list(row.sources),
+        "listing_url": row.fields.listing_url,
+        "latitude": row.fields.latitude,
+        "longitude": row.fields.longitude,
+        "values": {column.name: column.value(row) for column in columns},
+    }
+
+
+def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
+    """Everything known about one property, in one answer.
+
+    Its current values, its whole price and status history, the source rows it was built from, what
+    the public record says about where it is, what its description gave up, and the person's own
+    judgment. A screen showing a property needs all of it and a terminal command printing one needs
+    the same, so it is assembled once, here.
+    """
+    store = workspace.store
+    with _translating():
+        record = store.get_listing(listing_id)
+        history = store.history(listing_id)
+        snapshot = None
+        if history.prices:
+            snapshot = store.snapshot_at(listing_id, history.prices[-1].run_id)
+        links = store.source_links(listing_id)
+        events = store.events(listing_id)
+        annotation = store.get_annotation(listing_id)
+        image = store.get_preview_image(listing_id)
+
+    fields = snapshot.fields if snapshot is not None else None
+    extracted = extracted_for(workspace, listing_id) if fields is not None else {}
+    return {
+        "listing_id": listing_id,
+        "presence": record.presence,
+        "first_observed_at": history.first_observed_at,
+        "days_on_market": history.days_on_market,
+        "superseded_by": record.superseded_by,
+        "fields": (
+            {name: getattr(fields, name, None) for name in _LISTING_FIELDS}
+            if fields is not None
+            else {}
+        ),
+        "photo_urls": list(getattr(fields, "photo_urls", None) or ()),
+        "has_image": image is not None,
+        "prices": [
+            {"price": entry.price, "observed_at": entry.observed_at, "run_id": entry.run_id}
+            for entry in history.prices
+        ],
+        "events": [
+            {"kind": event.kind, "occurred_at": event.occurred_at, "detail": event.detail}
+            for event in events
+        ],
+        "sources": _distinct_sources(links),
+        "enrichment": _enrichment_for(workspace, fields),
+        "extracted": {
+            field: {
+                "value": entry.value,
+                "provenance": entry.provenance,
+                "evidence": list(entry.evidence),
+                "conflicted": entry.conflicted,
+            }
+            for field, entry in extracted.items()
+        },
+        "annotation": annotation.content() if annotation else {},
+        "annotation_updated_at": annotation.updated_at if annotation else None,
+    }
+
+
+def _distinct_sources(links: Sequence[Any]) -> list[dict[str, Any]]:
+    """One entry per source row, rather than one per time that row was linked.
+
+    A property seen on twenty consecutive nights has twenty link records for the same source row,
+    which is correct in the store and wrong on a screen: this list is what a person reads to tell a
+    real record from a bad merge, and the same row appearing twice is exactly what a bad merge looks
+    like. Earliest link kept, because that is when this record first became that source's.
+    """
+    found: dict[tuple[str, str | None], dict[str, Any]] = {}
+    for link in links:
+        key = (link.source, link.source_listing_id)
+        entry = {
+            "source": link.source,
+            "source_listing_id": link.source_listing_id,
+            "join_signal": link.join_signal,
+            "linked_at": link.linked_at,
+            "times_seen": 1,
+        }
+        if key in found:
+            found[key]["times_seen"] += 1
+            if link.linked_at and link.linked_at < found[key]["linked_at"]:
+                found[key]["linked_at"] = link.linked_at
+            continue
+        found[key] = entry
+    return list(found.values())
+
+
+def _enrichment_for(workspace: Workspace, fields: Any) -> dict[str, Any]:
+    if fields is None or fields.latitude is None or fields.longitude is None:
+        return {}
+    from .enrich.cache import known_values, values_for
+    from .enrich.registry import create
+
+    return known_values(values_for(workspace.store, create(), fields.latitude, fields.longitude))
+
+
+def preview_image(workspace: Workspace, listing_id: str) -> tuple[bytes, str] | None:
+    """The thumbnail this tool stored itself, and what kind of picture it is.
+
+    Stored rather than fetched, which is why a digest renders for a property that has since
+    disappeared and why opening one tells the listing site nothing.
+    """
+    with _translating():
+        # The store keeps a path relative to the database, so that a workspace can be moved without
+        # every image record becoming a lie. `preview_image_path` is the one place that resolves it.
+        path = workspace.store.preview_image_path(listing_id)
+    if path is None or not path.is_file():
+        return None
+    return path.read_bytes(), IMAGE_TYPES.get(path.suffix.lower().lstrip("."), "image/jpeg")
+
+
+#: What a stored preview's extension means. A short closed list rather than the system's own guess:
+#: what is served here is only ever an image this tool retrieved and wrote itself, and the point of
+#: naming the type is that a browser must never be free to decide it is something else.
+IMAGE_TYPES: dict[str, str] = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
+    "gif": "image/gif",
+}
+
+
+def area_notes(workspace: Workspace) -> tuple[Any, ...]:
+    """What the person has written about places rather than about properties."""
+    with _translating():
+        return tuple(workspace.store.area_notes())
+
+
+AREA_KINDS: tuple[str, ...] = ("city", "county", "zip", "state", "region")
+
+
+def set_area_note(workspace: Workspace, area_type: str, area_value: str, notes: str | None) -> Any:
+    """Write a note about a place. The same notes the spreadsheet's second sheet carries."""
+    if area_type not in AREA_KINDS:
+        raise InvalidInput(
+            f"{area_type!r} is not a kind of area. Use one of: {', '.join(AREA_KINDS)}."
+        )
+    if not (area_value or "").strip():
+        raise InvalidInput("A note has to be about a named place.")
+    with _translating():
+        return workspace.store.set_area_note(area_type, area_value.strip(), notes)
+
+
+def run_status(workspace: Workspace, name: str) -> dict[str, Any]:
+    """Whether a run of this search is under way, and what the last completed one found.
+
+    Read from the store rather than from anything this process happens to be holding, so the answer
+    is the same whoever asks: a run started from a terminal is visible to a browser, and a run
+    started from a browser is visible to a terminal.
+    """
+    store = workspace.store
+    with _translating():
+        every = store.runs(name)
+    completed = [run for run in every if run.status == "completed"]
+    running = [run for run in every if run.status == "running"]
+    latest = completed[-1] if completed else None
+    return {
+        "search": name,
+        "running": bool(running),
+        "started_at": running[-1].started_at if running else None,
+        "last_completed_run": latest.id if latest else None,
+        "last_completed_at": latest.finished_at if latest else None,
+        "runs": len(completed),
+    }
+
+
+def serve(
+    workspace: Workspace,
+    *,
+    port: int = 8765,
+    host: str = "127.0.0.1",
+    open_browser: bool = False,
+) -> None:
+    """Start the local interface.
+
+    Bound to the loopback address by default. There is no authentication, by design and by the
+    constitution, which is exactly why the bind address is a parameter with a safe default rather
+    than something buried where it can be forgotten.
+    """
+    from .web.serve import serve as start
+
+    start(workspace, host=host, port=port, open_browser=open_browser)
