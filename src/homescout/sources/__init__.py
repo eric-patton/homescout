@@ -50,9 +50,17 @@ from .politeness import (
 )
 from .realtor import RealtorSource
 from .realtor import factory as _realtor_factory
+from .redfin import RedfinSource
+from .redfin import factory as _redfin_factory
 from .registry import create, register, registered, unregister
+from .zillow import ZillowSource
+from .zillow import factory as _zillow_factory
 
+# Registration is the whole of what adding a source costs. Nothing below this line, and nothing in
+# the store, the run loop or the politeness layer, knows how many sources there are.
 register("realtor", _realtor_factory, replace=True)
+register("zillow", _zillow_factory, replace=True)
+register("redfin", _redfin_factory, replace=True)
 
 USER_AGENT = "homescout/0.1.0 (personal listing monitor)"
 
@@ -90,6 +98,7 @@ __all__ = [
     "PostalCode",
     "Preview",
     "RealtorSource",
+    "RedfinSource",
     "Request",
     "SearchQuery",
     "SearchResult",
@@ -100,6 +109,7 @@ __all__ = [
     "SourceUnavailable",
     "State",
     "Truncation",
+    "ZillowSource",
     "collect",
     "create",
     "default_session",

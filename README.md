@@ -41,11 +41,12 @@ append-only, and new, changed and gone are computed here by comparing those reco
 
 ## Status
 
-Early, and it runs unattended. The listing store and its snapshot history, the source adapters
-with one working Realtor.com adapter, the command line with its run loop, saved searches with their
+Early, and it runs unattended. The listing store and its snapshot history, three source adapters
+(Realtor.com, Zillow, Redfin), the command line with its run loop, saved searches with their
 geography, criteria, public-data enrichment, and scheduling with its digests are built and tested.
-Address matching, more sources, field extraction, the browser interface and spreadsheet export are
-specified and not yet built.
+Address matching, field extraction, the browser interface and spreadsheet export are specified and
+not yet built. Until address matching lands, a property listed on more than one site appears more
+than once.
 
 The full specification lives in `spec/`. Each feature has its requirements in
 `spec/features/<name>/spec.md`; the project-wide rules are in `spec/constitution.md` and
@@ -96,7 +97,7 @@ filters:
   property_type: [single_family, farm]
   listing_type: [for_sale, pending]
   listed_within_days: 30
-sources: [realtor]
+sources: [realtor, zillow, redfin]
 rules: []
 export:
   template: default
@@ -119,6 +120,40 @@ Two details worth knowing:
   source's own field, and it never removes anything from a run. It narrows what you are shown.
   Filtering a run by freshness would stop recording older properties, and a property that stops
   being recorded is one this tool can only later describe as having disappeared.
+
+## Sources
+
+Three, and they behave differently enough that the differences are worth knowing before you write a
+search.
+
+| | What it accepts | Cap per query | Filters it will not do for you |
+| --- | --- | --- | --- |
+| `realtor` | named places, and a radius around a point | 10,000 | none |
+| `zillow` | a bounding box | ~500 | none |
+| `redfin` | a bounding box | 350 | **lot size** |
+
+**A cap is worked around, not ignored.** When a query matches more than a source will hand over, it
+is cut in half and each half asked separately, until every piece comes back complete. Realtor.com is
+cut by listing date; the other two by geography. If a piece is still over the cap when it cannot be
+cut any further, you get what was retrieved, flagged as incomplete, with the reason.
+
+**Two things about Redfin are worth knowing before you rely on it.**
+
+It will not narrow by lot size. Every parameter for it was tried and none works, so an acreage
+search spends Redfin's 350 rows on properties that are then discarded locally. Your results are
+correct; there are just fewer of them from this source than there could be.
+
+And it never says when a region's multiple listing service forbids downloads. Every response, in
+every region, carries the same line about local rules: a metro-sized box in Springfield, Illinois
+returns two properties where a town of twelve thousand in New Mexico returns sixty-one. The
+restriction is real and invisible, so every Redfin result carries a standing note that its
+contribution is incomplete. It is not a warning about your search; it is a fact about the source.
+
+Redfin also carries no photographs, so a property only Redfin knows about appears in the email
+without a picture.
+
+None of the three needs a credential, a key, or a login, and none of the adapters has anywhere to
+put one.
 
 ## Criteria
 

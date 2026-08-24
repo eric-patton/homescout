@@ -62,10 +62,12 @@ def test_every_problem_is_reported_at_once_and_each_one_has_a_line(tmp_path: Pat
 
 def test_the_four_named_refusals(tmp_path: Path) -> None:
     """feat-004/AC-10: an unknown source, a broken shape, a backwards range, an unknown type."""
+    # Deliberately a name no adapter will ever have. This read `zillow` until that became a real
+    # source (feat-005), at which point the test was checking nothing.
     unknown_source = problems_of(
-        tmp_path, "s", 'name: s\nareas:\n  - {type: zip, value: "88130"}\nsources: [zillow]\n'
+        tmp_path, "s", 'name: s\nareas:\n  - {type: zip, value: "88130"}\nsources: [craigslist]\n'
     )
-    assert "there is no source named 'zillow'" in messages(unknown_source)
+    assert "there is no source named 'craigslist'" in messages(unknown_source)
 
     figure_of_eight = problems_of(
         tmp_path,

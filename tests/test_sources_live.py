@@ -20,6 +20,7 @@ import json
 import pytest
 
 from homescout.sources import (
+    BoundingBox,
     City,
     PolitenessConfig,
     SearchQuery,
@@ -137,3 +138,98 @@ def test_a_real_preview_image_comes_back_as_a_picture() -> None:
     for preview in previews:
         assert preview.content_type.startswith("image/")
         assert len(preview.data) > 1_000, "a redirect page rather than a picture"
+
+
+# -- the two sources added by feat-005 ---------------------------------------
+
+#: A box around Portales, New Mexico. Small enough that both sources answer it completely, so these
+#: cost one request each and pull a few dozen rows.
+PORTALES_BOX = BoundingBox(south=34.10, west=-103.45, north=34.30, east=-103.25)
+
+
+def test_zillow_still_answers_a_client_that_identifies_itself() -> None:
+    """feat-005/AC-2: the endpoint, the method, and the shape, against the real site.
+
+    This is the test that catches the failure the whole plan was built around. The address every
+    write-up names was already dead when this adapter was written; the one here answers today. When
+    this starts failing, read it as news about the site rather than about the code, and remember
+    that the address is configuration.
+    """
+    source = create("zillow", default_session())
+
+    result = source.search(SearchQuery(area=PORTALES_BOX))
+
+    assert result.outcome == "ok", result.detail
+    assert result.rows, "a town of twelve thousand has properties for sale in it"
+    row = result.rows[0]
+    assert row.fields.latitude and 34.0 < row.fields.latitude < 34.4
+    assert row.fields.city
+    assert row.fields.price and row.fields.price > 1_000
+    assert row.source_listing_id
+
+
+def test_zillow_still_caps_a_query_where_we_think_it_does() -> None:
+    """feat-005/AC-3: the count is the true one even when the rows are capped.
+
+    That asymmetry is the only reason splitting can work at all, so it is worth checking against the
+    real site rather than only against a fake. One request, and the rows behind the count are never
+    fetched.
+    """
+    from homescout.sources.zillow import queries as zillow_queries
+
+    source = create("zillow", default_session())
+    state_sized = BoundingBox(south=31.3, west=-109.1, north=37.0, east=-103.0)
+
+    page = source._page(SearchQuery(area=state_sized), 0)
+
+    assert page.total > zillow_queries.RESULT_CEILING * 4, page.total
+    assert len(page.rows) <= zillow_queries.RESULT_CEILING + 10, "the cap moved"
+    assert len(page.rows) < page.total, "the site still reports more than it hands over"
+
+
+def test_redfin_still_takes_a_polygon_and_still_says_nothing_about_its_cap() -> None:
+    """feat-005/AC-9: both halves of what makes this adapter's arithmetic necessary.
+
+    A ring is accepted with no region id, and the download carries no count, which is why exactly
+    the cap has to be read as "there are more".
+    """
+    from homescout.sources.redfin import normalize as redfin_normalize
+
+    source = create("redfin", default_session())
+
+    result = source.search(SearchQuery(area=PORTALES_BOX))
+
+    assert result.outcome == "ok", result.detail
+    assert result.rows, "a town of twelve thousand has properties for sale in it"
+    assert result.detail and "incomplete" in result.detail, "the standing caveat rides along"
+    row = result.rows[0]
+    assert row.fields.address_line and row.fields.city
+    assert row.fields.latitude and 34.0 < row.fields.latitude < 34.4
+    assert row.source_listing_id and ":" in row.source_listing_id
+    assert redfin_normalize.MLS_NOTICE, "still the line the adapter knows to skip"
+
+
+def test_redfin_still_refuses_to_narrow_by_lot_size() -> None:
+    """feat-005/AC-1: the declaration says it does not, and this is why.
+
+    If this test ever fails, that is good news and the fix is to declare the filter. Until then, an
+    acreage search over this source spends its cap on properties the local test will discard, and
+    the capability declaration says so honestly.
+    """
+    from homescout.sources.redfin import queries as redfin_queries
+
+    assert "lot_sqft_min" not in redfin_queries.APPLIES
+
+    source = create("redfin", default_session())
+    metro = BoundingBox(south=35.0, west=-106.8, north=35.25, east=-106.4)
+
+    unfiltered = source._page(SearchQuery(area=metro), 0)
+    asked = source._page(SearchQuery(area=metro, lot_sqft_min=43_560), 0)
+
+    smallest = [
+        row.fields.lot_sqft for row in asked.rows if row.fields.lot_sqft is not None
+    ]
+    assert smallest and min(smallest) < 43_560, (
+        "the site started honouring a lot-size filter; declare it and delete this test"
+    )
+    assert len(asked.rows) == len(unfiltered.rows)

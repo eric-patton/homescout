@@ -222,3 +222,30 @@ class StubSource(BaseSource):
         return Preview(
             source_url="https://stub.invalid/i.jpg", content_type="image/jpeg", data=b"x"
         )
+
+
+def code_of(module: Any) -> str:
+    """One module's source with its comments and docstrings removed.
+
+    For tests that assert what an adapter does not do. Scanning the raw file finds the word in the
+    docstring that explains why the thing is absent, which is exactly backwards: the prose saying
+    "no cookie, no login" would fail a test looking for the word "cookie".
+    """
+    import ast
+    import pathlib
+
+    tree = ast.parse(pathlib.Path(module.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list) or not body:
+            continue
+        first = body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            body.pop(0)
+            if not body:
+                body.append(ast.Pass())
+    return ast.unparse(ast.fix_missing_locations(tree))
