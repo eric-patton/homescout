@@ -132,6 +132,16 @@ def build(workspace: api.Workspace) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        # Said out loud rather than left to a heuristic. With no `Cache-Control` at all a browser
+        # gets to guess a lifetime from the last-modified date, and the guess is wrong in the way
+        # that matters here: this tool is updated in place under a running browser, and a page that
+        # holds a script from before the update runs half of one version and half of another. The
+        # answer is not "never cache" but "always ask", which over loopback with an etag costs a
+        # 304 and nothing else. Anything carrying the person's own data is not stored at all.
+        response.headers.setdefault(
+            "Cache-Control",
+            "no-cache" if request.url.path.startswith(("/static/", "/vendor/")) else "no-store",
+        )
         return response
 
     @app.exception_handler(HomescoutError)

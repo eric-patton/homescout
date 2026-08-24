@@ -439,6 +439,41 @@ def test_saving_a_search_unchanged_changes_nothing_at_all(filed) -> None:
     assert (where / "portales.yaml").read_bytes() == before
 
 
+def test_nothing_is_cached_without_asking_first(store: Store, db_path: Path) -> None:
+    """feat-010/AC-16: the served assets are the files as committed, in a live browser too.
+
+    Found by updating a script under a browser that had the old one and watching the page run it.
+    With no `Cache-Control` a browser guesses a lifetime from the last-modified date, and this tool
+    is updated in place: the page that results runs half of one version and half of another. A
+    script revalidates every time, which over loopback is a 304; anything carrying the person's own
+    data is not stored at all.
+    """
+    with client(held_workspace(shared_store(db_path))) as browser:
+        asset = browser.get("/static/common.js", headers=reading())
+        assert asset.headers["cache-control"] == "no-cache"
+        assert asset.headers.get("etag"), "revalidating needs something to revalidate against"
+
+        page = browser.get("/", headers=reading())
+        assert page.headers["cache-control"] == "no-store"
+
+        data = browser.get("/api/searches", headers=reading())
+        assert data.headers["cache-control"] == "no-store"
+
+
+def test_the_archived_toggle_survives_the_last_one_being_brought_back() -> None:
+    """feat-010/AC-23: the state and the control that holds it cannot get out of step.
+
+    Found by clicking: with "show archived" ticked, bringing the last archived search back removed
+    the checkbox while the state stayed on, and the redraw threw on the element that was no longer
+    there. Asserted against the script, because the failure is in how it decides to draw one.
+    """
+    body = (STATIC / "searches.js").read_text(encoding="utf-8")
+    assert "(archived || showArchived)" in body, (
+        "the toggle has to survive the count reaching nothing, or the state cannot be turned off"
+    )
+    assert "if (toggle) toggle.checked" in body, "the element is looked up before it is set"
+
+
 def test_the_area_table_edits_the_name_and_the_sense(filed) -> None:
     """feat-010/AC-2: the interface half, asserted against the script that draws it."""
     body = (STATIC / "search.js").read_text(encoding="utf-8")

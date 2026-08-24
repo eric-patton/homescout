@@ -76,7 +76,7 @@ function facts(held, fields) {
     ["Type", value(fields.property_type)],
     ["County", value(fields.county)],
     ["Days on market", value(held.days_on_market)],
-    ["First seen", value(held.first_observed_at)],
+    ["First seen", moment(held.first_observed_at)],
   ];
   return el("section", {},
     el("h2", {}, "What the listing says"),
@@ -114,10 +114,10 @@ function timeline(held) {
       )),
       el("tbody", {},
         prices.map((entry) => el("tr", {},
-          el("td", {}, entry.observed_at),
+          el("td", {}, moment(entry.observed_at)),
           el("td", {}, entry.price === null ? value(null) : money(entry.price)))),
         events.map((event) => el("tr", {},
-          el("td", {}, event.occurred_at),
+          el("td", {}, moment(event.occurred_at)),
           el("td", {},
             badge(event.kind, "plain"), " ",
             detailOf(event.detail)))),
@@ -156,7 +156,7 @@ function provenance(held) {
         el("td", {}, value(link_.source_listing_id)),
         el("td", {}, value(link_.join_signal)),
         el("td", {},
-          value(link_.linked_at),
+          moment(link_.linked_at),
           link_.times_seen > 1
             ? el("span", {class: "rowstate"}, ` seen in ${link_.times_seen} runs`)
             : null),
@@ -228,4 +228,15 @@ function judgment(held) {
       ? el("p", {class: "meta"}, `last written ${held.annotation_updated_at}`)
       : null,
   );
+}
+
+/* A stored timestamp, said readably and keeping the exact one where a pointer can find it.
+ *
+ * The store keeps UTC to the microsecond, which is right for the store and is not what somebody
+ * reading a history wants. The precise value is still there, in the title, because on this surface
+ * the difference between two runs a minute apart is sometimes the whole question.
+ */
+function moment(text) {
+  if (!text) return value(null);
+  return el("span", {title: text}, when(text));
 }

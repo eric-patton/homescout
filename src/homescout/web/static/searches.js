@@ -45,14 +45,18 @@ function draw() {
       el("button", {type: "button", disabled: !visible.length ? true : null, onclick: runAll},
         "Run all of them"),
       link("/settings", "Settings and tools"),
-      archived
+      /* Shown while it is ticked even once the count reaches nothing, because bringing the last
+       * archived search back would otherwise take the control away with the state still on, and
+       * there would be no way to turn it off. */
+      (archived || showArchived)
         ? el("label", {},
             el("input", {
               type: "checkbox",
               id: "showarchived",
               onchange: (event) => { showArchived = event.target.checked; draw(); },
             }),
-            ` show ${archived} archived`)
+            archived ? ` show ${count(archived, "archived search", "archived searches")}`
+                     : " show archived searches (there are none)")
         : null,
     ),
     el("div", {id: "allprogress"}),
@@ -60,7 +64,8 @@ function draw() {
       ? el("div", {class: "cards"}, visible.map(card))
       : el("p", {class: "unknown"}, "nothing to show"),
   );
-  if (showArchived) document.getElementById("showarchived").checked = true;
+  const toggle = document.getElementById("showarchived");
+  if (toggle) toggle.checked = showArchived;
 }
 
 function card(entry) {
