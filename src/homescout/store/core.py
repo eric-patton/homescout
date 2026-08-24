@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from ..records import ListingFields, SourceRow
 from . import diff as _diff
 from .db import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -35,7 +36,6 @@ from .models import (
     AreaNote,
     Comparison,
     ListingEvent,
-    ListingFields,
     ListingHistory,
     ListingRecord,
     PriceHistoryEntry,
@@ -43,7 +43,6 @@ from .models import (
     Snapshot,
     SourceLink,
     SourceOutcome,
-    SourceRow,
     StoredImage,
 )
 from .schema import SNAPSHOT_FIELDS

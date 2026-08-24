@@ -123,8 +123,17 @@ So the walk lives in `sources/ceiling.py`, parameterized by an adapter-declared 
 `Splittable` the adapter provides. This is what keeps non-negotiable 9 honest: Zillow and Redfin
 (feat-005) supply a different `Splittable` and change nothing here.
 
-The recursion is depth-bounded and every probe goes through the paced session, so a pathological
-split cannot become a request storm.
+Every probe goes through the paced session, and the walk carries a **budget on total requests**, not
+merely a recursion depth. This distinction was found by a test that hung rather than by reasoning:
+depth bounds nothing on its own, because the number of branches doubles at every level, so a depth
+of twenty permits a million requests. A source reporting the same oversized count for every piece it
+is handed, which is what a broken or hostile one looks like, descends into tens of thousands of
+requests before any depth limit notices.
+
+The budget is 2,000 requests per query. At the three-second floor that is over an hour and a half,
+well past any legitimate run (a state-wide query of a hundred thousand listings needs roughly eight
+hundred), so it only ever trips on behavior that is already wrong. Exhausting it is a third route to
+the same honest truncation.
 
 Truncation has two causes and one flag. A piece that stays over the ceiling when it can no longer be
 divided is one. A source that starts refusing partway through, after some pieces have already been

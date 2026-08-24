@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import sqlite3
 
+from ..records import ListingFields
 from .models import (
     Comparison,
     DifferenceEvent,
     FieldChange,
-    ListingFields,
     PriceChange,
     RunRecord,
 )

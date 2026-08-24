@@ -10,6 +10,7 @@ abort an update or a delete on any history table. Corrections are new rows.
 success and none of them returned it. If any source failed, its silence means nothing.
 """
 
+from ..records import ListingFields, SourceRow
 from .core import Store
 from .db import to_utc_text, utc_now
 from .errors import (
@@ -28,7 +29,6 @@ from .models import (
     DifferenceEvent,
     FieldChange,
     ListingEvent,
-    ListingFields,
     ListingHistory,
     ListingRecord,
     PriceChange,
@@ -37,7 +37,6 @@ from .models import (
     Snapshot,
     SourceLink,
     SourceOutcome,
-    SourceRow,
     StoredImage,
 )
 from .schema import COMPARED_FIELDS, SCHEMA_VERSION, SNAPSHOT_FIELDS

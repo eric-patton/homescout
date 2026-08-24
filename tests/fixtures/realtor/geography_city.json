@@ -1,0 +1,248 @@
+{
+ "data": {
+  "search_suggestions": {
+   "geo_results": [
+    {
+     "text": "Portales, NM",
+     "geo": {
+      "area_type": "city",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.177289,
+       "lon": -103.3550835
+      }
+     }
+    },
+    {
+     "text": "Portales High School, Portales, NM",
+     "geo": {
+      "area_type": "school",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.187229,
+       "lon": -103.322451
+      }
+     }
+    },
+    {
+     "text": "Portales De Las Piedras, PR",
+     "geo": {
+      "area_type": "city",
+      "city": "Portales De Las Piedras",
+      "state_code": "PR",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 18.187566974343657,
+       "lon": -65.86927131463436
+      }
+     }
+    },
+    {
+     "text": "Portales Jr High School, Portales, NM",
+     "geo": {
+      "area_type": "school",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.185722,
+       "lon": -103.332152
+      }
+     }
+    },
+    {
+     "text": "Portales Municipal Schools, Portales, NM",
+     "geo": {
+      "area_type": "school_district",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.184311,
+       "lon": -103.332611
+      }
+     }
+    },
+    {
+     "text": "Portales del Sol, Scottsdale, AZ",
+     "geo": {
+      "area_type": "neighborhood",
+      "city": "Scottsdale",
+      "state_code": "AZ",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 33.59299,
+       "lon": -111.916213
+      }
+     }
+    },
+    {
+     "text": "Portales Townhome Condominiums, Phoenix, AZ",
+     "geo": {
+      "area_type": "neighborhood",
+      "city": "Phoenix",
+      "state_code": "AZ",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 33.682867,
+       "lon": -112.13724
+      }
+     }
+    },
+    {
+     "text": "Eastern New Mexico University, Portales, NM",
+     "geo": {
+      "area_type": "university",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.1775552,
+       "lon": -103.3520568
+      }
+     }
+    },
+    {
+     "text": "Los Portales del Alamo, San Luis, AZ",
+     "geo": {
+      "area_type": "neighborhood",
+      "city": "San Luis",
+      "state_code": "AZ",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 32.498852,
+       "lon": -114.790808
+      }
+     }
+    },
+    {
+     "text": "Los Portales, Casa Grande, AZ",
+     "geo": {
+      "area_type": "neighborhood",
+      "city": "Casa Grande",
+      "state_code": "AZ",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 32.910565,
+       "lon": -111.766952
+      }
+     }
+    },
+    {
+     "text": "Los Portales, Santa Fe, NM",
+     "geo": {
+      "area_type": "neighborhood",
+      "city": "Santa Fe",
+      "state_code": "NM",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 35.626909,
+       "lon": -106.037386
+      }
+     }
+    },
+    {
+     "text": "Recreation Complex, Portales, NM",
+     "geo": {
+      "area_type": "park",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": null,
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.1791559478,
+       "lon": -103.372523679
+      }
+     }
+    },
+    {
+     "text": "88130, Portales, NM",
+     "geo": {
+      "area_type": "postal_code",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.115414,
+       "lon": -103.31188
+      }
+     }
+    },
+    {
+     "text": "Lindsey-Steiner Elementary School, Portales, NM",
+     "geo": {
+      "area_type": "school",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.190609,
+       "lon": -103.348549
+      }
+     }
+    },
+    {
+     "text": "New Mexico Christian Academy, Portales, NM",
+     "geo": {
+      "area_type": "school",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.181599,
+       "lon": -103.335197
+      }
+     }
+    },
+    {
+     "text": "Faith Triumph Christian School, Portales, NM",
+     "geo": {
+      "area_type": "school",
+      "city": "Portales",
+      "state_code": "NM",
+      "postal_code": "88130",
+      "county": null,
+      "mpr_id": null,
+      "centroid": {
+       "lat": 34.181072,
+       "lon": -103.339554
+      }
+     }
+    }
+   ]
+  }
+ }
+}

@@ -13,6 +13,8 @@ reconstruction across two tables that can disagree with each other. That costs s
 one property this whole product rests on.
 """
 
+from ..records import FIELD_NAMES
+
 SCHEMA_VERSION = 1
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
@@ -51,6 +53,18 @@ INFORMATIONAL_FIELDS: tuple[str, ...] = (
 )
 
 SNAPSHOT_FIELDS: tuple[str, ...] = COMPARED_FIELDS + INFORMATIONAL_FIELDS
+
+# Which fields exist is the record's business; which of them are compared is this package's. The
+# two must still partition each other exactly. A field added to the record and to neither set here
+# would be silently dropped from every snapshot, which is the sort of loss no later run can undo,
+# so it fails at import rather than at midnight three months from now.
+if set(SNAPSHOT_FIELDS) != set(FIELD_NAMES):
+    missing = sorted(set(FIELD_NAMES) - set(SNAPSHOT_FIELDS))
+    unknown = sorted(set(SNAPSHOT_FIELDS) - set(FIELD_NAMES))
+    raise RuntimeError(
+        "the compared and informational sets must together account for every listing field: "
+        f"unaccounted for {missing}, not on the record {unknown}"
+    )
 
 # Tables where a recorded row is never edited or removed.
 APPEND_ONLY_TABLES: tuple[str, ...] = (

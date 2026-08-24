@@ -46,3 +46,17 @@ Brief sections 3, 5.3. Decisions D3, D4, D5.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes by other features
+
+- **2026-08-23, source adapters (feat-002).** `ListingFields` and `SourceRow` moved out of
+  `homescout.store.models` into `homescout/records.py`, and `homescout.store` re-exports both. An
+  adapter's output *is* a `SourceRow`, and the architecture runs `sources` before `store`, so
+  leaving the definition here would have made the sources layer import backwards through the
+  product to describe its own return value. Behavior-preserving: the public names, this feature's
+  tests, and the audit already on record all stand. Recorded here so a later audit reads it as
+  deliberate rather than as unexplained drift.
+- On the way, `ListingFields.from_row` stopped reading a hand-maintained tuple of column names and
+  now reads the dataclass's own fields, so the two can no longer disagree. The store keeps a check
+  at import that its compared and informational sets together account for every field on the
+  record.
