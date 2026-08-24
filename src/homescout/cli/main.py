@@ -217,7 +217,9 @@ def build_parser() -> argparse.ArgumentParser:
     areas.add_argument("--notes", metavar="TEXT", help="what to write")
 
     serve = commands.add_parser("serve", parents=[common], help="start the local browser interface")
-    serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument(
+        "--port", type=int, default=None, help="default: HOMESCOUT_PORT, else 8765"
+    )
     serve.add_argument("--open", action="store_true", help="open a browser at it")
     # Deliberately no --host. The constitution binds this to localhost, `serve.serve` refuses
     # anything else at runtime, and an option that can only ever hold one value is a knob for

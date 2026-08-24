@@ -10,10 +10,10 @@ a page and an automated caller read the same thing.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from .. import api
+from . import settings
 
 #: Which file is which surface. One page per surface, reloadable and bookmarkable, rather than one
 #: application with routes: a failure on one cannot then take the others with it.
@@ -26,11 +26,9 @@ PAGES: dict[str, str] = {
     "/matches": "matches.html",
 }
 
-#: A tile source, if the person configured one. Empty by default and deliberately so: asking a tile
-#: server for tiles tells it which part of the world is being looked at, and `product-global.md`
-#: lists exactly four kinds of outbound traffic this product makes, none of which is that.
-TILES_VARIABLE = "HOMESCOUT_MAP_TILES"
-TILES_ATTRIBUTION_VARIABLE = "HOMESCOUT_MAP_ATTRIBUTION"
+#: Kept as names here because the pages read them, and defined once in `settings`.
+TILES_VARIABLE = settings.TILES_VARIABLE
+TILES_ATTRIBUTION_VARIABLE = settings.TILES_ATTRIBUTION_VARIABLE
 
 
 def searches(workspace: api.Workspace) -> list[dict[str, Any]]:
@@ -130,20 +128,19 @@ def areas(workspace: api.Workspace) -> list[dict[str, Any]]:
     ]
 
 
-def settings(workspace: api.Workspace) -> dict[str, Any]:
+def installation(workspace: api.Workspace) -> dict[str, Any]:
     """What the pages need to know about this installation.
 
-    The map's tile source is the only interesting one, and its default is nothing at all. See
-    `TILES_VARIABLE`.
-    """
-    from ..deliver.settings import environment
+    Named for what it answers rather than for the module it reads, because `settings` here would
+    shadow `web.settings` and resolve differently depending on what was imported first.
 
-    values = environment(workspace.root)
-    tiles = (values.get(TILES_VARIABLE) or "").strip()
+    The map's tile source is the only interesting one, and its default is nothing at all.
+    """
+    source, attribution = settings.tiles(workspace.root)
     return {
         "map": {
-            "tiles": tiles or None,
-            "attribution": (values.get(TILES_ATTRIBUTION_VARIABLE) or "").strip() or None,
+            "tiles": source,
+            "attribution": attribution,
             "variable": TILES_VARIABLE,
         },
         "area_kinds": list(api.AREA_KINDS),
@@ -151,7 +148,4 @@ def settings(workspace: api.Workspace) -> dict[str, Any]:
 
 
 def tile_source(root: Any, environ: Any = None) -> str | None:
-    from ..deliver.settings import environment
-
-    values = environment(root, environ if environ is not None else os.environ)
-    return (values.get(TILES_VARIABLE) or "").strip() or None
+    return settings.tiles(root, environ)[0]

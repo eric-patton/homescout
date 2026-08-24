@@ -14,7 +14,7 @@ from typing import Any
 from ..errors import InvalidInput
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8765
+DEFAULT_PORT = 8765  # also `settings.DEFAULT_PORT`, and overridden by HOMESCOUT_PORT
 
 
 def is_loopback(host: str) -> bool:
@@ -37,7 +37,7 @@ def serve(
     workspace: Any,
     *,
     host: str = DEFAULT_HOST,
-    port: int = DEFAULT_PORT,
+    port: int | None = None,
     open_browser: bool = False,
 ) -> None:
     """Run the interface until it is stopped.
@@ -49,16 +49,24 @@ def serve(
     if not is_loopback(host):
         raise InvalidInput(
             f"{host!r} is not an address on this machine. This interface has no authentication by "
-            "design, so it is only ever served to the machine it runs on. Use 127.0.0.1."
+            "design, so it is only ever served to the machine it runs on. Use 127.0.0.1. "
+            "To reach it from elsewhere, put a reverse proxy on this machine in front of it and "
+            "name that proxy in HOMESCOUT_ALLOWED_HOSTS. See docs/tailscale.md."
         )
 
     import uvicorn
 
+    from . import settings as web_settings
+
+    port = port if port is not None else web_settings.port(workspace.root)
+    named = web_settings.allowed_hosts(workspace.root)
     app = build(workspace)
     where = f"http://{host}:{port}/"
     if open_browser:
         import webbrowser
 
         webbrowser.open(where)
-    print(f"HomeScout is at {where}  (this machine only; Ctrl+C to stop)")
+
+    reach = f"; also answering to {', '.join(named)}" if named else "; this machine only"
+    print(f"HomeScout is at {where}  (Ctrl+C to stop{reach})")
     uvicorn.run(app, host=host, port=port, log_level="warning", access_log=False)

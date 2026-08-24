@@ -94,6 +94,12 @@ in five years. The problem brief is in `research.md`.
   - When a connection is attempted from another machine on the network
   - Then it is refused, because the server is bound to the local interface only
 
+- **Scenario: reached through a proxy on the same machine**
+  - Given a reverse proxy on this machine forwarding to the interface, and its name configured
+  - When a request arrives through it
+  - Then it is answered, the server having listened on the local interface throughout, and a request
+    naming any other host is still refused
+
 ## Acceptance criteria
 
 - [ ] AC-1: Six surfaces exist and are reachable: map and search builder, saved search list, results
@@ -140,6 +146,12 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
       default and are shown by an explicit filter, which is always available and reports how many
       are hidden.
+- [ ] AC-21: The server answers to the loopback names and to no others, unless a name is explicitly
+      configured. A configured name is how a reverse proxy running on the same machine reaches it,
+      and it changes nothing about where the server listens. A name that was not configured is
+      refused, and so is a request from another site's page and one that changes something without
+      the header a form cannot set. A test exercises a configured proxy name, an unconfigured one,
+      and the default, which is loopback and nothing else.
 
 ## Edge cases & errors
 
@@ -169,7 +181,9 @@ in five years. The problem brief is in `research.md`.
   or filtering it responds within 200 milliseconds without contacting the server.
 - Security: bound to the local interface, single user, no authentication by design. Every value
   originating from a source or from a user note is rendered as text and never as markup, so no
-  listing description can inject content into the page.
+  listing description can inject content into the page. No authentication by design means whatever
+  can reach the interface can use it, so putting a proxy in front of it is a decision about who can
+  reach that proxy, and the interface says so where the decision is taken rather than assuming it.
 - Reliability: an interface error affects the surface being used and never leaves an annotation
   half-written or a saved search partially overwritten.
 - Accessibility: fully keyboard operable, legible at default zoom, and conveying nothing by color

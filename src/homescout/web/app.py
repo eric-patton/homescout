@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .. import api, digest
 from ..errors import HomescoutError, InvalidInput, PreconditionNotMet
-from . import runs, wire
+from . import runs, settings, wire
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
@@ -40,18 +40,28 @@ VENDOR = HERE / "vendor"
 #: cannot set one without a preflight, and a preflight is refused by the host and origin checks.
 GUARD_HEADER = "x-homescout"
 
-#: The only hosts this will answer to. A page on `evil.invalid` whose DNS points here still sends
-#: `Host: evil.invalid`, which is what stops rebinding.
+#: The hosts this answers to with no configuration at all. A page on `evil.invalid` whose DNS points
+#: here still sends `Host: evil.invalid`, which is what stops rebinding.
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]", "::1")
 
 CHANGES_THINGS = ("POST", "PUT", "PATCH", "DELETE")
 
 
-def _host_is_loopback(header: str | None) -> bool:
+def _host_is_allowed(header: str | None, also: tuple[str, ...] = ()) -> bool:
+    """Is this a name this server answers to?
+
+    Loopback always, plus whatever `HOMESCOUT_ALLOWED_HOSTS` names, which is how a reverse proxy on
+    this machine reaches it: the request arrives on loopback either way, and only the `Host` the
+    browser sent differs. A list rather than the removal of the check, so a name nobody put there is
+    still refused and rebinding is still refused with it.
+    """
     if not header:
         return False
-    host = header.rsplit(":", 1)[0] if header.count(":") == 1 else header
-    return host.strip().casefold() in LOOPBACK_HOSTS or header.strip().casefold() in LOOPBACK_HOSTS
+    said = header.strip().casefold()
+    bare = said.rsplit(":", 1)[0] if said.count(":") == 1 else said
+    if bare in LOOPBACK_HOSTS or said in LOOPBACK_HOSTS:
+        return True
+    return said in also or bare in also
 
 
 def _origin_is_ours(origin: str | None, host: str | None) -> bool:
@@ -94,14 +104,17 @@ def build(workspace: api.Workspace) -> FastAPI:
     # connection per thread, which would put five copies of a write-ahead log in play to serve a
     # single user.
     app.state.lock = threading.RLock()
+    app.state.allowed_hosts = settings.allowed_hosts(workspace.root)
 
     @app.middleware("http")
     async def guard(request: Request, call_next: Any) -> Response:
         host = request.headers.get("host")
-        if not _host_is_loopback(host):
+        if not _host_is_allowed(host, app.state.allowed_hosts):
             return refusal(
-                "This server answers on this machine only, and the request named a different host. "
-                "Open it as http://127.0.0.1 rather than by any other name."
+                f"This server does not answer to the name {host!r}. It answers on this machine, "
+                f"and to whatever {settings.ALLOWED_HOSTS_VARIABLE} names, which is how a reverse "
+                "proxy such as Tailscale reaches it. Refusing a name nobody put there is what "
+                "stops a domain that points here from reading your data."
             )
         if not _origin_is_ours(request.headers.get("origin"), host):
             return refusal(
@@ -254,8 +267,10 @@ def build(workspace: api.Workspace) -> FastAPI:
     # -- the pages themselves ----------------------------------------------
 
     @app.get("/api/settings")
-    def settings() -> dict[str, Any]:
-        return answer("settings", **wire.settings(held()))
+    def installation() -> dict[str, Any]:
+        # Not called `settings`: this whole function body is one scope, and a local of that name
+        # would shadow the `settings` module the guard above reads.
+        return answer("settings", **wire.installation(held()))
 
     for path, page in wire.PAGES.items():
         _serve_page(app, path, page)

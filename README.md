@@ -460,6 +460,21 @@ Everything is reachable by keyboard, including the table, which is a grid you wa
 keys and edit with Enter. Nothing is conveyed by colour alone: every badge, status and difference
 carries a word as well.
 
+### Reaching it from your phone
+
+The interface listens on `127.0.0.1` and there is no setting that changes that. To reach it from
+elsewhere, put a reverse proxy on the same machine in front of it, and tell the guard the name that
+proxy answers to:
+
+```
+HOMESCOUT_PORT=47823
+HOMESCOUT_ALLOWED_HOSTS=your-machine.your-tailnet.ts.net:10000
+```
+
+The list is a list rather than a switch: a name that is not in it is still refused, so the defence
+against a domain that points at your machine is intact. `docs/tailscale.md` has the whole setup for
+Tailscale, including what it does not add, which is authentication.
+
 ### About the security of a local server
 
 There is no authentication, by design: one person, one machine, bound to `127.0.0.1` and refusing

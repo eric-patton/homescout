@@ -131,3 +131,51 @@ verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)
   one panel that exists to tell a real record from a bad merge; and an enriched boolean printed as
   `False` in the terminal instead of `no`. Neither was caught by any test, and both were obvious in
   one reading.
+
+## run 2 — 2026-08-24
+
+baseline: spec sha256:97f675ac1c1b · plan sha256:5dfe647eb36f · tasks sha256:bc462849a49b
+
+Run because this feature's behaviour changed after it was marked done, at the owner's request: the
+interface is now reachable from a phone over Tailscale.
+
+implemented: AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14,
+AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21
+
+- confirmed gap-001 [partial] a drawn area still cannot be named or have its included-or-excluded
+  sense changed without redrawing it
+- confirmed gap-002 [partial] filters and criteria are still shown read-only and edited in the file
+
+- closed gap-003 in part, and reclassed the rest
+
+  The guard and the tile setting were recorded as `unrequested` because the spec asked for neither.
+  The guard is now **requested**: `spec.md` gained AC-21 and a scenario for the reverse-proxy case,
+  so the three checks and the list of names they consult are specified rather than incidental. The
+  `homescout show` and `homescout areas` commands and the store's `shared` flag remain what run 1
+  called them, which is the cost of the feature rather than the feature.
+
+- opened gap-004 [unrequested] code:"`HOMESCOUT_ALLOWED_HOSTS`, and what it does not do"
+
+  Evidence: `web/settings.py` `allowed_hosts`; `web/app.py` `_host_is_allowed`; `docs/tailscale.md`.
+
+  A list of names the guard will answer to besides the loopback ones, empty by default. It exists
+  because a reverse proxy on this machine forwards to the loopback port carrying the `Host` the
+  browser asked for, and the guard refuses an unfamiliar `Host` by design.
+
+  **The server still binds to loopback and only loopback**, which is why AC-15 is untouched rather
+  than weakened: `serve.serve` refuses a routable bind address, a test tries four of them, and
+  nothing about this setting reaches that code. What changed is one header check, and it changed
+  from "loopback" to "loopback, plus names a person deliberately wrote down". A name nobody wrote
+  down is still refused, so DNS rebinding is still refused, which a test attacks with four spellings
+  including `<the real name>.evil.invalid`.
+
+  What it does **not** do, stated because this is the thing to get wrong: it adds no authentication,
+  because there is none. Whatever can reach the proxy can use the interface. On this installation
+  that is a Tailscale tailnet with a device belonging to a second account on it, which is recorded
+  in `docs/tailscale.md` along with the access rule that would narrow it. Tailnet only; Funnel is
+  not configured and was not offered.
+
+  Routed: covered by AC-21 as of this run, so this is a note about scope rather than an open
+  question. Recorded because a setting that widens a security check deserves to be findable.
+
+verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)

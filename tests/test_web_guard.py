@@ -99,7 +99,7 @@ def test_a_request_naming_another_host_is_refused(host: str, browser) -> None:
     """
     response = browser.get("/api/searches", headers={"Host": host})
     assert response.status_code == 403
-    assert "this machine only" in response.json()["error"]
+    assert "does not answer to the name" in response.json()["error"]
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1:8765", "localhost:8765", "127.0.0.1"])
@@ -194,3 +194,97 @@ def test_nothing_here_may_be_framed_sniffed_or_leaked_as_a_referrer(browser) -> 
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Referrer-Policy"] == "no-referrer"
+
+
+# ---------------------------------------------------------------------------
+# A reverse proxy on this machine
+# ---------------------------------------------------------------------------
+#
+# The shape `tailscale serve` takes: the request still arrives on the loopback port, because that is
+# the only place this listens, and it carries the `Host` the browser sent. The guard has to accept
+# that name and no other, which is a list rather than the removal of the check.
+
+
+PROXY = "ursine-blue.example.ts.net"
+
+
+@pytest.fixture
+def behind_a_proxy(store: Store, db_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from homescout.web import settings as web_settings
+
+    monkeypatch.setenv(web_settings.ALLOWED_HOSTS_VARIABLE, f"{PROXY}, {PROXY}:10000")
+    load(store, [listing("a")])
+    with client(held_workspace(shared_store(db_path))) as opened:
+        yield opened
+
+
+def test_a_configured_proxy_name_is_answered(behind_a_proxy) -> None:
+    """feat-010/AC-21: reachable through a proxy here, without listening anywhere else."""
+    response = behind_a_proxy.get(
+        "/api/searches",
+        headers={"Host": PROXY, "Origin": f"https://{PROXY}"},
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_a_write_through_a_configured_proxy_still_needs_the_header(behind_a_proxy) -> None:
+    assert behind_a_proxy.post(
+        "/api/areas", json={}, headers={"Host": PROXY, "Origin": f"https://{PROXY}"}
+    ).status_code == 403
+
+    answered = behind_a_proxy.post(
+        "/api/areas",
+        json={"area_type": "city", "area_value": "Portales", "notes": "through the proxy"},
+        headers={"Host": PROXY, "Origin": f"https://{PROXY}", "X-Homescout": "1"},
+    )
+    assert answered.status_code == 200, answered.text
+
+
+def test_a_name_nobody_configured_is_still_refused(behind_a_proxy) -> None:
+    """feat-010/AC-21: a list rather than a switch, so rebinding is still refused."""
+    for hostile in (
+        "evil.invalid",
+        f"{PROXY}.evil.invalid",
+        "ursine-blue.example.ts.net.evil.invalid",
+        "other-machine.example.ts.net",
+    ):
+        response = behind_a_proxy.get("/api/searches", headers={"Host": hostile})
+        assert response.status_code == 403, hostile
+
+
+def test_another_sites_page_is_refused_even_through_the_proxy(behind_a_proxy) -> None:
+    response = behind_a_proxy.get(
+        "/api/searches", headers={"Host": PROXY, "Origin": "https://evil.invalid"}
+    )
+    assert response.status_code == 403
+
+
+def test_loopback_still_works_with_a_proxy_configured(behind_a_proxy) -> None:
+    """Adding a name adds a name. It does not take the local one away."""
+    assert behind_a_proxy.get("/api/searches", headers=reading()).status_code == 200
+
+
+def test_nothing_is_answered_by_default(store: Store, db_path: Path) -> None:
+    """feat-010/AC-21: the default is loopback and nothing else, which makes this opt-in."""
+    from homescout.web import settings as web_settings
+
+    assert web_settings.allowed_hosts(db_path.parent) == ()
+    load(store, [listing("a")])
+    with client(held_workspace(shared_store(db_path))) as browser:
+        assert browser.get("/api/searches", headers={"Host": PROXY}).status_code == 403
+
+
+def test_the_server_still_refuses_to_listen_anywhere_but_this_machine(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-21: the setting is about a name in a header, not a way to bind to a network.
+
+    That distinction is the whole design: the proxy takes the connection, this listens on loopback,
+    and nothing about `HOMESCOUT_ALLOWED_HOSTS` changes the second half.
+    """
+    from homescout.errors import InvalidInput
+    from homescout.web import serve as serving
+
+    for host in ("0.0.0.0", "100.101.33.74", PROXY):
+        with pytest.raises(InvalidInput):
+            serving.serve(held_workspace(shared_store(db_path)), host=host)
