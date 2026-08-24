@@ -12,11 +12,13 @@ import sqlite3
 from .db import schema_version
 from .errors import SchemaTooNewError
 from .schema import (
+    DECISION_TABLES,
     DELIVERY_TABLES,
     SCHEMA_V1,
     SCHEMA_V2,
     SCHEMA_V3,
     SCHEMA_V4,
+    SCHEMA_V5,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -29,6 +31,7 @@ MIGRATIONS: tuple[str, ...] = (
     SCHEMA_V2 + "\n" + append_only_triggers(VERDICT_TABLES),
     SCHEMA_V3,
     SCHEMA_V4 + "\n" + append_only_triggers(DELIVERY_TABLES),
+    SCHEMA_V5 + "\n" + append_only_triggers(DECISION_TABLES),
 )
 
 

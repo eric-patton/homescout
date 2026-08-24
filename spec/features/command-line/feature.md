@@ -148,3 +148,22 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   Recorded here because it is a change to what this feature's surface prints, and because the
   general shape is worth remembering: two implementations of one small rendering decision is how a
   wrong address reaches somebody's inbox.
+- **2026-08-24, address matching and merge review (feat-006).** Three changes, all of them things
+  this feature's surface was built to accommodate.
+
+  **The merge queue port grew two methods.** `MergeQueue` declared `pending`, `get` and `record`,
+  which is what a surface does with a queue; it now also declares `offer` and `clear`, which is what
+  fills one. They are on the same protocol rather than a second one because a queue that cannot be
+  filled is not a queue. `matches list` and `matches resolve` are unchanged and now have something
+  to list.
+
+  **The run loop runs the merge pass**, after the run completes and before the comparison is
+  computed. That ordering is deliberate: a comparison computed across a merge would have to reason
+  about records changing identity, and computed before it, a run's comparison is about the records
+  that run actually observed. The next run's comparison follows the merge, because the store already
+  resolves a superseded record to the one that replaced it.
+
+  **The digest gained one count**, `counts.waiting_for_review`: how many pairs of records need a
+  person's decision. Always present, zero until there is more than one source, and never a failure:
+  it is a number of judgments waiting, which is a thing to do rather than a thing that went wrong.
+  The terminal renderer prints a line pointing at `homescout matches list` when it is not zero.

@@ -16,6 +16,7 @@ import sqlite3
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Literal
 
@@ -40,6 +41,8 @@ from .models import (
     ListingEvent,
     ListingHistory,
     ListingRecord,
+    MergeContradiction,
+    MergeDecision,
     PriceHistoryEntry,
     RuleVerdict,
     RunRecord,
@@ -56,6 +59,15 @@ _SNAPSHOT_PLACEHOLDERS = ", ".join(f":{name}" for name in SNAPSHOT_FIELDS)
 
 def _new_id() -> str:
     return uuid.uuid4().hex
+
+
+def pair_key(listing_ids: Iterable[str]) -> str:
+    """The identity of a pair, whichever order it is met in.
+
+    Sorted, because a later run comparing the same two records has no reason to meet them the same
+    way round, and a decision that could not be found again would be a decision lost.
+    """
+    return ",".join(sorted(set(listing_ids)))
 
 
 class Store:
@@ -448,6 +460,28 @@ class Store:
             (run_id,),
         ).fetchall()
         return [self._snapshot_from(r) for r in rows]
+
+    def latest_snapshots(self) -> dict[str, Snapshot]:
+        """The most recent snapshot of every live canonical listing, in one query.
+
+        What address matching compares. One query rather than one per listing, because a county is
+        several thousand of them and the merge pass runs after every run.
+
+        Ordered by insertion, so the last row seen for a listing is its newest: `seq` on the run is
+        the only ordering in this database that cannot tie, which is why comparisons use it too.
+        """
+        rows = self._conn.execute(
+            f"SELECT s.run_id, s.listing_id, s.observed_at, {_SNAPSHOT_COLUMNS} "
+            f"FROM listing_snapshots s "
+            f"JOIN listings l ON l.id = s.listing_id "
+            f"JOIN runs r ON r.id = s.run_id "
+            f"WHERE l.retracted = 0 AND l.superseded_by IS NULL "
+            f"ORDER BY s.listing_id, r.seq"
+        ).fetchall()
+        found: dict[str, Snapshot] = {}
+        for row in rows:
+            found[row["listing_id"]] = self._snapshot_from(row)
+        return found
 
     # -- cached public data about places -------------------------------------
 
@@ -845,6 +879,134 @@ class Store:
     def preview_image_path(self, listing_id: str) -> Path | None:
         stored = self.get_preview_image(listing_id)
         return self._path.parent / stored.path if stored else None
+
+    # -- merge decisions ----------------------------------------------------
+
+    def record_merge_decision(
+        self,
+        listing_ids: Sequence[str],
+        verdict: str,
+        *,
+        decided_by: str = "human",
+        merged_id: str | None = None,
+        note: str | None = None,
+    ) -> list[MergeDecision]:
+        """What a person decided about a set of records, kept for as long as this database exists.
+
+        **One row per pair**, even when the person answered about a group of three. The comparison
+        that will consult this works pairwise, so a group-level answer that could not be found by a
+        pairwise lookup would be an answer quietly lost. Saying "keep these three apart" means each
+        of the three pairs is apart, which is the conservative reading and the one a person means.
+
+        Append-only, and a change of mind is a new row rather than an edit. Losing a user's judgment
+        is the one failure this tool cannot have, so the question is never asked twice and the whole
+        sequence of answers stays readable.
+        """
+        if verdict not in ("same", "different"):
+            raise ValueError(f"A merge decision is 'same' or 'different', not {verdict!r}.")
+        ordered = tuple(sorted(set(listing_ids)))
+        if len(ordered) < 2:
+            raise ValueError("A merge decision is about at least two listings.")
+
+        at = utc_now()
+        written = [
+            MergeDecision(
+                id=_new_id(),
+                pair_key=pair_key(pair),
+                listing_ids=ordered,
+                verdict=verdict,
+                decided_at=at,
+                decided_by=decided_by,
+                merged_id=merged_id,
+                note=note,
+            )
+            for pair in combinations(ordered, 2)
+        ]
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.executemany(
+                "INSERT INTO merge_decisions "
+                "(id, pair_key, listing_ids, verdict, decided_at, decided_by, merged_id, note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        decision.id,
+                        decision.pair_key,
+                        ",".join(decision.listing_ids),
+                        decision.verdict,
+                        decision.decided_at,
+                        decision.decided_by,
+                        decision.merged_id,
+                        decision.note,
+                    )
+                    for decision in written
+                ],
+            )
+        return written
+
+    def merge_decisions(self) -> dict[str, MergeDecision]:
+        """The standing decision for every pair somebody has ruled on, latest answer per pair."""
+        rows = self._conn.execute(
+            "SELECT * FROM merge_decisions ORDER BY decided_at, rowid"
+        ).fetchall()
+        standing: dict[str, MergeDecision] = {}
+        for row in rows:
+            standing[row["pair_key"]] = MergeDecision(
+                id=row["id"],
+                pair_key=row["pair_key"],
+                listing_ids=tuple(row["listing_ids"].split(",")),
+                verdict=row["verdict"],
+                decided_at=row["decided_at"],
+                decided_by=row["decided_by"],
+                merged_id=row["merged_id"],
+                note=row["note"],
+            )
+        return standing
+
+    def record_contradiction(
+        self, listing_ids: Sequence[str], detail: str, *, run_id: str | None = None
+    ) -> MergeContradiction | None:
+        """Evidence that disagrees with a decision somebody made. Recorded, never acted on.
+
+        The same disagreement noticed again is not news. A pair a person decided about is compared
+        on every run, so a contradiction that recorded itself each time would bury the one that
+        turned up last night under three hundred copies of the one from March.
+        """
+        key = pair_key(sorted(set(listing_ids)))
+        already = self._conn.execute(
+            "SELECT 1 FROM merge_contradictions WHERE pair_key = ? AND detail = ?",
+            (key, detail),
+        ).fetchone()
+        if already is not None:
+            return None
+        found = MergeContradiction(
+            id=_new_id(),
+            pair_key=key,
+            noticed_at=utc_now(),
+            detail=detail,
+            run_id=run_id,
+        )
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute(
+                "INSERT INTO merge_contradictions (id, pair_key, noticed_at, run_id, detail) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (found.id, found.pair_key, found.noticed_at, found.run_id, found.detail),
+            )
+        return found
+
+    def contradictions(self) -> list[MergeContradiction]:
+        rows = self._conn.execute(
+            "SELECT * FROM merge_contradictions ORDER BY noticed_at DESC, rowid DESC"
+        ).fetchall()
+        return [
+            MergeContradiction(
+                id=row["id"],
+                pair_key=row["pair_key"],
+                noticed_at=row["noticed_at"],
+                detail=row["detail"],
+                run_id=row["run_id"],
+            )
+            for row in rows
+        ]
 
     # -- deliveries ---------------------------------------------------------
 

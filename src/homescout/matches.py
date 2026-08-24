@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from .errors import InvalidInput
 
@@ -39,7 +39,12 @@ class UnknownMatch(InvalidInput):
 
 @runtime_checkable
 class MergeQueue(Protocol):
-    """Where matches waiting for a human live."""
+    """Where matches waiting for a human live.
+
+    Five things, in two groups. The first three are what a surface does with a queue: read it, look
+    at one, answer one. The last two are what fills it, and they are on the same protocol rather
+    than on a second one because a queue that cannot be filled is not a queue.
+    """
 
     def pending(self) -> tuple[AmbiguousMatch, ...]: ...
 
@@ -47,6 +52,18 @@ class MergeQueue(Protocol):
 
     def record(self, match_id: str, verdict: str, merged_listing_id: str | None) -> None:
         """Note that a human decided this one, so nothing queues it again."""
+        ...
+
+    def offer(self, queued: Any) -> AmbiguousMatch | None:
+        """Put a pair in front of a person, unless one has already ruled on it."""
+        ...
+
+    def clear(self) -> None:
+        """Forget the questions, keeping every answer.
+
+        A run works its own questions out from what it observed, so carrying last night's forward
+        would show a person a pair whose evidence has since changed.
+        """
         ...
 
 
@@ -73,6 +90,30 @@ class InMemoryQueue:
     def record(self, match_id: str, verdict: str, merged_listing_id: str | None) -> None:
         self.verdicts[match_id] = (verdict, merged_listing_id)
 
+    def offer(self, queued: Any) -> AmbiguousMatch | None:
+        """Accept a pair, so that a test can drive the real merge pass against this.
+
+        The identity is the sorted pair, matching the real queue, so the same pair offered twice is
+        one question rather than two.
+        """
+        identifier = ",".join(sorted(set(queued.listing_ids)))
+        if identifier in self.verdicts:
+            return None
+        match = AmbiguousMatch(
+            id=identifier,
+            listing_ids=tuple(sorted(set(queued.listing_ids))),
+            agreed=tuple(getattr(queued, "agreed", ())),
+            conflicted=tuple(getattr(queued, "conflicted", ())),
+        )
+        self.matches[identifier] = match
+        return match
+
+    def clear(self) -> None:
+        self.matches.clear()
+
+    def filled(self) -> None:
+        """Nothing to do: this queue is told its contents rather than working them out."""
+
 
 #: How a queue is built for a store. Address matching registers the one that persists.
 QueueFactory = Callable[[object], MergeQueue]
@@ -91,4 +132,15 @@ def unregister_queue() -> None:
 
 
 def default_queue(store: object) -> MergeQueue:
-    return _FACTORY(store) if _FACTORY is not None else InMemoryQueue(())
+    """The queue this installation uses.
+
+    A registered one wins, which is how a test substitutes it. Otherwise the real one, backed by the
+    database, which works its questions out from what is recorded rather than reading them from a
+    table: a stored question can go stale, and a stale question is one nobody can answer.
+    """
+    if _FACTORY is not None:
+        return _FACTORY(store)
+    from .merge.queue import StoreQueue
+    from .store import Store
+
+    return StoreQueue(store) if isinstance(store, Store) else InMemoryQueue(())

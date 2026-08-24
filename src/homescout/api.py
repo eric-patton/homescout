@@ -285,6 +285,7 @@ def run_search(
             images=workspace.images,
             progress=progress,
             started=lambda run: claim.announce(run_id=run.id, started_at=run.started_at),
+            queue=workspace.queue,
         )
 
 

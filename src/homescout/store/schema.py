@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -387,6 +387,52 @@ CREATE INDEX deliveries_by_time ON deliveries (attempted_at);
 """
 
 DELIVERY_TABLES: tuple[str, ...] = ("deliveries",)
+
+
+#: Version 5, added by address matching and merge review (feat-006).
+#:
+#: What a person decided about two records, which outranks every automatic signal for as long as the
+#: database exists. Non-negotiable 6 says an ambiguous merge is flagged for a human and never
+#: guessed; this is where the human's answer lives, and non-negotiable 7 is why it is append-only:
+#: losing a user's judgment is the one failure this tool cannot have, because it is what the tool
+#: replaces.
+#:
+#: A person changing their mind is a new row, not an edit. The latest row for a pair is the one that
+#: counts, and "they said different in March and the same in June" stays readable, which matters
+#: when somebody is working out why a record looks wrong.
+#:
+#: The pair key is the two listing ids sorted, so the same decision is found whichever order a later
+#: run happens to compare them in.
+SCHEMA_V5 = """
+CREATE TABLE merge_decisions (
+    id          TEXT PRIMARY KEY,
+    pair_key    TEXT NOT NULL,
+    listing_ids TEXT NOT NULL,
+    -- 'same' | 'different'
+    verdict     TEXT NOT NULL,
+    decided_at  TEXT NOT NULL,
+    decided_by  TEXT NOT NULL DEFAULT 'human',
+    -- The record the merge produced, when the verdict was 'same'.
+    merged_id   TEXT,
+    note        TEXT
+);
+
+CREATE INDEX merge_decisions_by_pair ON merge_decisions (pair_key, decided_at);
+
+-- A pair somebody decided about, later observed disagreeing with itself. Recorded and shown; acted
+-- on by nobody. A person's decision is not overruled by evidence, it is questioned by it.
+CREATE TABLE merge_contradictions (
+    id         TEXT PRIMARY KEY,
+    pair_key   TEXT NOT NULL,
+    noticed_at TEXT NOT NULL,
+    run_id     TEXT,
+    detail     TEXT NOT NULL
+);
+
+CREATE INDEX merge_contradictions_by_pair ON merge_contradictions (pair_key, noticed_at);
+"""
+
+DECISION_TABLES: tuple[str, ...] = ("merge_decisions", "merge_contradictions")
 
 
 def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:

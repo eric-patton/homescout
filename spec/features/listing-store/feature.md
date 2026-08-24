@@ -105,3 +105,22 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   account at all? Those are three different outcomes on the same table. A second attempt after a
   failure is a second row, never a correction of the first. Nothing in this feature's own criteria
   is affected, and the new table holds no listing data and no credential.
+- **2026-08-24, address matching and merge review (feat-006).** Schema version 5: two tables, and
+  one read.
+
+  `merge_decisions` records what a person decided about two records, and it is the load-bearing one:
+  non-negotiable 6 says an ambiguous merge is flagged for a human and never guessed, and
+  non-negotiable 7 says losing a user's judgment is the one failure this tool cannot have. **One row
+  per pair**, even when the person answered about a group of three, because the comparison that
+  consults it works pairwise and a group-level answer that a pairwise lookup could not find would be
+  an answer quietly lost. Append-only, so a change of mind is a new row and the sequence of answers
+  stays readable.
+
+  `merge_contradictions` records evidence that turned up later and disagrees with a decision. Shown,
+  never acted on: a decision is not overruled by evidence, it is questioned by it. The same
+  disagreement noticed again is not recorded twice, because a pair somebody decided about is
+  compared on every run and three hundred copies of March's disagreement would bury last night's.
+
+  `Store.latest_snapshots()` came with them: the most recent snapshot of every live listing in one
+  query, which is what the merge pass compares. One query rather than one per listing, because a
+  county is several thousand of them and this runs after every run.

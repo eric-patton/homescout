@@ -80,6 +80,12 @@ def digest(document: dict[str, Any]) -> str:
         if search.get("outcome"):
             headline += f" [{search['outcome']}]"
         lines.append(headline)
+        waiting = counts.get("waiting_for_review") or 0
+        if waiting:
+            lines.append(
+                f"  {waiting} pair{'s' if waiting != 1 else ''} of records need a decision: "
+                f"run `homescout matches list`"
+            )
         for source in search.get("sources", []):
             note = f", {source['detail']}" if source.get("detail") else ""
             applied = ", ".join(source["applied_by_source"]) or "nothing"

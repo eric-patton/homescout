@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .errors import InvalidInput
+from .merge.pass_ import run_pass as merge_pass
 from .records import ListingFields, SourceRow
 from .rules.verdicts import record as record_verdicts
 from .search import Placement, SearchDefinition
@@ -102,6 +103,9 @@ class RunOutcome:
     run: RunRecord
     comparison: Comparison
     sources: tuple[SourceReport, ...] = ()
+    #: What address matching did after the run: what it joined, and what it wants a person to
+    #: settle. `None` on a path that did not run it.
+    merge: Any = None
 
     @property
     def degraded(self) -> bool:
@@ -251,6 +255,7 @@ def run_search(
     images: bool = True,
     progress: Callable[[str], None] | None = None,
     started: Callable[[RunRecord], None] | None = None,
+    queue: Any = None,
 ) -> RunOutcome:
     """Run one saved search across its configured sources.
 
@@ -348,9 +353,18 @@ def run_search(
         rules = getattr(definition, "rules", ())
         if rules:
             record_verdicts(store, rules, run.id)
+
+        # Also after, and for a related reason. Merging changes which record a property is, and a
+        # comparison computed across a merge would have to reason about that; computed before it,
+        # this run's comparison is about the records this run actually observed. The next run's
+        # comparison follows the merge, because the store resolves a superseded record to the one
+        # that replaced it.
+        merging = merge_pass(store, queue=queue, run_id=run.id, progress=progress)
         comparison = store.compare(definition.name, target_run_id=run.id)
     except Exception:
         store.fail_run(run.id)
         raise
 
-    return RunOutcome(run=completed, comparison=comparison, sources=tuple(reports))
+    return RunOutcome(
+        run=completed, comparison=comparison, sources=tuple(reports), merge=merging
+    )

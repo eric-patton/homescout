@@ -11,7 +11,7 @@ success and none of them returned it. If any source failed, its silence means no
 """
 
 from ..records import ListingFields, SourceRow
-from .core import Store
+from .core import Store, pair_key
 from .db import to_utc_text, utc_now
 from .errors import (
     HistoryIsAppendOnlyError,
@@ -33,6 +33,8 @@ from .models import (
     ListingEvent,
     ListingHistory,
     ListingRecord,
+    MergeContradiction,
+    MergeDecision,
     PriceChange,
     PriceHistoryEntry,
     RuleVerdict,
@@ -60,6 +62,8 @@ __all__ = [
     "ListingFields",
     "ListingHistory",
     "ListingRecord",
+    "MergeContradiction",
+    "MergeDecision",
     "NoBaselineError",
     "PriceChange",
     "PriceHistoryEntry",
@@ -72,6 +76,7 @@ __all__ = [
     "SourceOutcome",
     "SourceRow",
     "Store",
+    "pair_key",
     "StoreError",
     "StoreLockedError",
     "StoredImage",

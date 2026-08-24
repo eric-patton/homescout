@@ -43,10 +43,9 @@ append-only, and new, changed and gone are computed here by comparing those reco
 
 Early, and it runs unattended. The listing store and its snapshot history, three source adapters
 (Realtor.com, Zillow, Redfin), the command line with its run loop, saved searches with their
-geography, criteria, public-data enrichment, and scheduling with its digests are built and tested.
-Address matching, field extraction, the browser interface and spreadsheet export are specified and
-not yet built. Until address matching lands, a property listed on more than one site appears more
-than once.
+geography, criteria, public-data enrichment, address matching, and scheduling with its digests are
+built and tested. Field extraction, the browser interface and spreadsheet export are specified and
+not yet built.
 
 The full specification lives in `spec/`. Each feature has its requirements in
 `spec/features/<name>/spec.md`; the project-wide rules are in `spec/constitution.md` and
@@ -154,6 +153,47 @@ without a picture.
 
 None of the three needs a credential, a key, or a login, and none of the adapters has anywhere to
 put one.
+
+## One property, not three listings
+
+A house on all three sources is three rows arriving and one property in your table. Working out
+which rows are the same house is the messiest part of this tool, and the reason is an asymmetry
+worth knowing about before you trust it:
+
+**Failing to merge two rows costs a duplicate line. Merging them wrongly fuses two properties into
+one record whose price history is fiction.** So merging is narrow, and anything short of convincing
+is put in front of you instead:
+
+```
+homescout matches list                    # pairs waiting on a decision, and why
+homescout matches resolve <id> --same     # one property: merge them
+homescout matches resolve <id> --different # two properties: keep them apart
+```
+
+**Your answer is permanent.** It outranks every automatic signal, in both directions, for as long
+as the database exists, and the same pair is never put in front of you twice. If later evidence
+disagrees with something you decided, that is recorded and shown, and nothing moves: you knew
+something the signals did not, which is why you were asked.
+
+What merges on its own: the same parcel number, or the same house number, street name, unit and ZIP
+with coordinates that agree to within fifty metres. Street types and compass points are
+*corroborating*, never deciding, because the sources genuinely disagree about them. In one real run
+over one town, three sources called the same house `Sable Ave`, `Sable St` and `Sable St`, another
+was `Gable` on one site and `Gable Cir` on the other two, and a third was `Halstead Parkway Dr`
+against `Halstead Pkwy`. Comparing normalized strings gets all three wrong, silently, in the
+direction of duplicates.
+
+What never merges on its own:
+
+- **Land with no street address.** Coordinates alone are not evidence on a parcel measured in acres,
+  because the middle of one and the middle of its neighbour are metres apart. You are asked.
+- **Different units of one building.** Unit 4 and unit 5 are two properties whatever else agrees.
+- **A chain that does not hold together.** If A matches B and B matches C but A and C do not, none
+  of them merge: that is one question about three records, not two merges and a mystery.
+
+Nothing is ever destroyed. A merge writes a new record over the old ones and leaves them exactly
+where they were, so undoing one recovers rather than reconstructs, and your notes on either property
+survive both.
 
 ## Criteria
 

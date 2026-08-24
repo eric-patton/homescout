@@ -260,3 +260,40 @@ class DeliveryRecord:
     target: str | None = None
     detail: str | None = None
     run_ids: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class MergeDecision:
+    """What a person decided about two records, and when.
+
+    Outranks every automatic signal for as long as the database exists (non-negotiable 6), and is
+    never edited: a person changing their mind is a new row, and the latest one for a pair counts.
+    """
+
+    id: str
+    pair_key: str
+    listing_ids: tuple[str, ...]
+    verdict: str
+    decided_at: str
+    decided_by: str = "human"
+    merged_id: str | None = None
+    note: str | None = None
+
+    @property
+    def same(self) -> bool:
+        return self.verdict == "same"
+
+
+@dataclass(frozen=True, slots=True)
+class MergeContradiction:
+    """Evidence that turned up later and disagrees with what a person decided.
+
+    Recorded and shown; acted on by nobody. A person's decision is not overruled by evidence, it is
+    questioned by it, and the questioning is this.
+    """
+
+    id: str
+    pair_key: str
+    noticed_at: str
+    detail: str
+    run_id: str | None = None

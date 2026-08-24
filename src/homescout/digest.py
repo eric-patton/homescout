@@ -214,6 +214,10 @@ def entry(
             # Always present, and empty for a search that states no criteria, so the shape of this
             # document never depends on whether any are configured.
             "flagged": len(flagged),
+            # How many pairs of records address matching could not settle on its own. Zero until
+            # there is more than one source, and never a failure: it is the number of judgments
+            # waiting for a person, which is a thing to do rather than a thing that went wrong.
+            "waiting_for_review": _waiting(outcome),
         },
         "new": new,
         "price_changes": price_changes,
@@ -226,6 +230,12 @@ def entry(
         # because an empty result with no explanation reads as a market that emptied out.
         "excluded": excluded,
     }
+
+
+def _waiting(outcome: RunOutcome | None) -> int:
+    """How many pairs this run put in front of a person."""
+    merge = getattr(outcome, "merge", None) if outcome else None
+    return int(getattr(merge, "waiting", 0) or 0)
 
 
 def _criteria(
