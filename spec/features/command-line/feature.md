@@ -182,3 +182,19 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
 
   `api.extract` and `api.extracted_for` are the facade halves, so the browser interface reaches the
   same two answers when it arrives.
+
+- **2026-08-24, spreadsheet export (feat-011).** The `export` command stopped reporting itself
+  unbuilt and grew a body, which leaves `serve` as the last one.
+
+  `--to`, `--format`, `--template`, `--force`, `--include-dropped` and `--templates`, all of them
+  optional, with the default writing a workbook to `exports/<search>.xlsx` beside the database. It
+  refuses a path that already exists and says `--force` will replace it, which is the readable half
+  of "re-exporting is safe": the tool stops rather than being careful.
+
+  What it prints afterwards is the part worth keeping. Eleven of the default sheet's thirty-two
+  columns come out blank on a fresh store for three unrelated reasons, so the command groups them
+  and names each reason: run the enrichment pass, write some notes, or nothing in this tool fills
+  that column. A person opening a sheet with eleven blank columns otherwise has one question and
+  three possible answers, and no way to tell which they have.
+
+  `api.export` and `api.export_templates` are the facade halves.

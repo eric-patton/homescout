@@ -25,3 +25,9 @@ exports/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Exports are collected listing data, which never goes in git. The directory is one place they land;
+# these two patterns are the rest, because `homescout export --to` will write wherever it is told.
+*.xlsx
+*.csv
+!tests/fixtures/**/*.csv

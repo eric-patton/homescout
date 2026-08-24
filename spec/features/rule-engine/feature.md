@@ -74,3 +74,11 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   rather than false, which is what stops a house being excluded for having a quiet listing. Observed
   on a live run over Portales: of 83 properties, a well criterion fired on 2, was false for 2, and
   was undetermined for 79.
+
+- **2026-08-24, spreadsheet export (feat-011).** No change, and one use worth recording.
+
+  A sheet is what a run's criteria kept: `results()` decides which rows appear, so a property a
+  `drop` rule removed is absent from the workbook unless `--include-dropped` asks for it, and the
+  `flag` badges are available as a column outside the default set. Nothing about the sheet
+  re-evaluates a criterion; it reads the verdicts the run recorded, which is why exporting last
+  week's run still produces last week's answer.

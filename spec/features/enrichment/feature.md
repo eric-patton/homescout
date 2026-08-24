@@ -58,3 +58,16 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   environment. That is the shape the constitution already uses for every other secret, and product
   invariant 9 already says an optional component absent by default leaves the tool fully functional.
   Recorded here because a requirement that quietly changes to match what was built is worth nothing.
+
+- **2026-08-24, spreadsheet export (feat-011).** No change to this feature, and one thing it is now
+  measured by.
+
+  Four of the default sheet's columns come from here: FEMA Flood Zone, Principal Aquifer, Internet,
+  and (as columns outside the default set) Wildfire Hazard and Elevation. On a live run over
+  Portales, after `homescout enrich`, flood zone, elevation, aquifer and wildfire each answered for
+  all 83 properties, and Internet answered for none, because the FCC map needs a token this
+  installation has not got. That is the shape this feature always promised: a provider that needs
+  something nobody supplied is skipped and says so, rather than failing.
+
+  The export reports an empty enriched column as "the enrichment pass has not been run for these
+  properties", which is the first place in the product where a person is told to run this.

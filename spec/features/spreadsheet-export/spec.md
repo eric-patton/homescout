@@ -13,6 +13,18 @@ problem brief is in `research.md`.
 - The **properties sheet** carries one row per canonical listing. The **areas sheet** carries the
   user's notes about towns and regions rather than about individual properties.
 
+### The default column list
+
+Reproduced here rather than referred to, because AC-1 is a comparison and a criterion whose target
+lives outside the spec cannot be checked. Thirty-two columns, in this order, as the hand-built sheet
+has them:
+
+> Rank, Status, Property, Town/Area, County/Region, Price, $/sq ft, Price History & DOM, Beds,
+> Baths, Sq Ft, Year Built, Acres, Construction/Roof/Features, Garage/Outbuildings, HVAC/Heat,
+> Water Source, Sewer/Septic, Gas, FEMA Flood Zone, Internet, Principal Aquifer, Annual Taxes,
+> Crime/Safety, Fire/Egress/Terrain, Sewage & Reclaimed-Water Exposure, Town Analysis Notes,
+> Red Flags, Summary, Verdict, Next Step, Listing URL
+
 ## User stories
 
 - As the person running searches, I want the familiar consolidated sheet generated from current
@@ -115,9 +127,11 @@ problem brief is in `research.md`.
   between sources show the canonical value rather than a concatenation.
 - A property whose price is unknown. The price cell is empty and the derived price per square foot
   cell is also empty, rather than zero.
-- The default column set includes crime and safety, and fire, egress and terrain. No free national
-  source supplies either, so those columns are structurally empty and are filled only by the user's
-  own notes. They remain in the default set because the sheet must stay recognizable.
+- Five of the default columns are structurally empty: Garage/Outbuildings, Annual Taxes,
+  Crime/Safety, Fire/Egress/Terrain, and Sewage & Reclaimed-Water Exposure. No free national source
+  supplies any of them and description extraction does not recover them, so they are filled only by
+  the user's own notes. They remain in the default set because the sheet must stay recognizable, and
+  nothing writes a machine's opinion into a column the user keeps notes in.
 
 ## Non-functional requirements
 

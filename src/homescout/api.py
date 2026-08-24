@@ -559,8 +559,52 @@ def extracted_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
     return values_for(snapshot.fields, model=held.get(listing_id))
 
 
-def export(workspace: Workspace, *, search: str | None = None) -> None:
-    raise NotYetBuilt("Export", "spreadsheet export")
+def export(
+    workspace: Workspace,
+    *,
+    search: str | None = None,
+    to: str | Path | None = None,
+    template: str | None = None,
+    format: str = "xlsx",
+    force: bool = False,
+    include_dropped: bool = False,
+) -> Any:
+    """Write one saved search's latest results as a spreadsheet.
+
+    Reads and writes one file. Nothing in the store changes, and nothing is ever read back from a
+    spreadsheet: the app is where edits are made and this is an output.
+    """
+    from .export import default_path, export_run, latest_run
+
+    if search is None:
+        names = list_searches(workspace)
+        if len(names) != 1:
+            raise InvalidInput(
+                "Say which saved search to export with --search. "
+                f"Available: {', '.join(names) or 'none'}."
+            )
+        search = names[0]
+
+    with _translating():
+        run_id = latest_run(workspace.store, search)
+        destination = Path(to) if to else default_path(workspace.root, search, format)
+        return export_run(
+            workspace.store,
+            run_id,
+            destination,
+            root=workspace.root,
+            template=template,
+            format=format,
+            force=force,
+            include_dropped=include_dropped,
+        )
+
+
+def export_templates(workspace: Workspace) -> tuple[str, ...]:
+    """Every column set that can be asked for, the built-in one first."""
+    from .export import templates
+
+    return templates.available(workspace.root)
 
 
 def serve(workspace: Workspace, *, port: int = 8765) -> None:

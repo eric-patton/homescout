@@ -184,10 +184,14 @@ CLAIMS: dict[str, tuple[Claim, ...]] = {
             "refrigerated",
         ),
         Claim(re.compile(r"\b (?: evaporative \w* | swamp \s+ coolers? ) \b", X), "evaporative"),
+        # `heat \w*` and the slash both come from reading a real export rather than from the
+        # corpus. `central heating and air conditioning` is how listings usually write it, and an
+        # earlier version that wanted `heat and air` exactly recorded the heating and lost the
+        # cooling on the same sentence. `forced central heat/air` is the other real spelling.
         Claim(
             re.compile(
-                r"\b central \s+ (?: air \b | a/?c \b | cooling \b"
-                r"  | heat \s* (?: & | and ) \s* air \b )",
+                r"\b central \s+ (?: air \b | a/?c \b | cool \w* \b"
+                r"  | heat \w* \s* (?: & | and | / ) \s* (?: air | a/?c | cool \w* ) \b )",
                 X,
             ),
             "central",

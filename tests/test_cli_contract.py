@@ -45,7 +45,12 @@ def options_of(parser, seen=None):
 
 
 def _choices(action):
-    for name, sub in (getattr(action, "choices", None) or {}).items():
+    # `choices` is a mapping of names to parsers on a subcommand action, and a plain sequence of
+    # allowed values on an ordinary option. Only the first kind has parsers to walk into.
+    found = getattr(action, "choices", None)
+    if not isinstance(found, dict):
+        return
+    for name, sub in found.items():
         if hasattr(sub, "_actions"):
             yield name, sub
 
@@ -240,9 +245,14 @@ def test_every_command_in_the_brief_is_reachable(command, db_path: Path) -> None
     assert code != ExitCode.INTERNAL_ERROR, err
 
 
-@pytest.mark.parametrize("command", [["export"], ["serve"]])
+@pytest.mark.parametrize("command", [["serve"]])
 def test_a_command_whose_feature_is_unbuilt_says_so(command, db_path: Path) -> None:
-    """feat-003/AC-20: not built is a precondition, not a crash and not a lie."""
+    """feat-003/AC-20: not built is a precondition, not a crash and not a lie.
+
+    One left. Export used to be here and grew a body with spreadsheet export (feat-011), which is
+    what this criterion describes happening: the command was reachable from the first release and
+    became real later, without an automated caller having to know which release it was.
+    """
     code, out, err = invoke(command, db=db_path)
 
     assert code == ExitCode.PRECONDITION

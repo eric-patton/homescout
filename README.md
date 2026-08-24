@@ -43,8 +43,8 @@ append-only, and new, changed and gone are computed here by comparing those reco
 
 Early, and it runs unattended. The listing store and its snapshot history, three source adapters
 (Realtor.com, Zillow, Redfin), the command line with its run loop, saved searches with their
-geography, criteria, public-data enrichment, address matching, scheduling with its digests, and
-description field extraction are built and tested. The browser interface and spreadsheet export are
+geography, criteria, public-data enrichment, address matching, scheduling with its digests,
+description field extraction, and spreadsheet export are built and tested. The browser interface is
 specified and not yet built.
 
 The full specification lives in `spec/`. Each feature has its requirements in
@@ -375,6 +375,66 @@ To turn it on, copy `.env.example` to `.env` beside your database and fill in th
 **No credential is ever read from a saved search, a committed file, or a command-line argument**,
 and there is no option to pass one: arguments are visible to every other process on the machine,
 and Task Scheduler stores them as plain text.
+
+## The spreadsheet
+
+This tool both replaces the spreadsheet and feeds it. Feeding it is `homescout export`:
+
+```
+homescout export --search portales
+homescout export --search portales --format csv --to somewhere/else.csv
+```
+
+The default column set is the hand-built consolidated sheet, exactly, in its own order, so what
+comes out is recognizable as the same document rather than as a new one. The address cell links to
+the listing. A second sheet carries the notes you have written about towns and regions, and each
+property's row carries its own town's note as well, so it is visible while you are looking at a row.
+
+**A cell nobody could determine is empty.** No placeholder, no default, no zero: a property with no
+price has no price and no price per square foot, rather than a zero that sorts to the top.
+
+**Nothing it writes will be evaluated.** A description beginning `=cmd|'/c calc'!A1` is a real
+thing to worry about in a format where text can be an instruction, so every text cell is written as
+text, deliberately and without exception. In the comma-separated form, which has no cell types, such
+a value gets a leading apostrophe instead. That is the only place the two formats differ.
+
+**Re-exporting is safe because it refuses.** An export to a path that already exists says so and
+stops; `--force` replaces it. The file is written beside its destination and moved into place, so a
+failure halfway through leaves the previous one intact. Nothing in the database changes, ever, and
+there is no import path: the app is where edits are made and the spreadsheet is an output.
+
+### Which columns are blank, and why
+
+The default sheet has thirty-two columns and several of them come out empty, for three completely
+different reasons. The export says which is which rather than leaving you to guess:
+
+```
+83 properties written to exports/portales.xlsx
+  template default, 32 columns
+  empty because the enrichment pass has not been run for these properties: Internet
+  empty because nothing has been written about these properties yet: Rank, Verdict, Next Step, ...
+  empty because no listing description said so: Gas
+  empty because nothing in this tool fills them: Garage/Outbuildings, Annual Taxes, Crime/Safety,
+      Fire/Egress/Terrain, Sewage & Reclaimed-Water Exposure
+```
+
+Those last five have no free national source and description extraction does not recover them. They
+stay in the default set because the sheet has to stay recognizable, and because they are columns you
+write your own notes in. Nothing here fills a notes column with a machine's opinion.
+
+### A different column set
+
+Templates are configuration. Put a file at `templates/land.yaml` beside the database:
+
+```yaml
+columns: [Property, Town/Area, Price, Acres, Water Source, Sewer/Septic, Wildfire Hazard, Verdict]
+```
+
+then `homescout export --search portales --template land`. `homescout export --templates` lists what
+is available, and a template naming a column that does not exist is refused when it is loaded, with
+the message naming it and listing what does. Some columns exist and are not in the default set on
+purpose, including `Wildfire Hazard`, `Elevation (ft)`, `Description`, `Flags`, `Sources` and
+`Notes`.
 
 ## Exit codes
 

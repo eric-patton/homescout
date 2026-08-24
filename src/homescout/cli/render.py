@@ -176,6 +176,24 @@ def extraction(outcome: Any) -> str:
     return "\n".join(lines)
 
 
+def export(written: Any) -> str:
+    """What was written, and which columns came out empty and why.
+
+    The second half is the point. A person opening a thirty-two column sheet with eleven blank
+    columns has three different questions, and telling them which kind of blank each one is saves an
+    afternoon spent looking for a bug in this tool.
+    """
+    lines = [
+        f"{written.properties} properties written to {written.path}",
+        f"  template {written.template}, {len(written.columns)} columns",
+    ]
+    if written.format == "xlsx":
+        lines.append(f"  a second sheet carries {written.areas} area notes")
+    for reason in written.reasons():
+        lines.append(f"  empty because {reason}")
+    return "\n".join(lines)
+
+
 def extracted(listing_id: str, found: Any) -> str:
     """One property's six recovered fields, how each was determined, and the words it came from.
 

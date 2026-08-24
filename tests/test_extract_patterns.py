@@ -285,3 +285,36 @@ def test_matching_is_settled_by_specificity_rather_than_by_order() -> None:
     """`irrigation well` is one claim, not an irrigation well and a well arguing with each other."""
     assert patterns.CLAIMS["water_source"][0].value == "irrigation"
     assert value("Irrigation well.", "water_source") == "irrigation"
+
+
+# ---------------------------------------------------------------------------
+# Defects found by reading real output
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # Found in an exported sheet: this recorded the heating and lost the cooling, because the
+        # pattern wanted "heat and air" exactly and listings write "heating and air conditioning".
+        "The 3-bedroom, 2-bath mobile home features central heating and air conditioning.",
+        "Additional features include central heating and cooling, energy-efficient windows.",
+        "Central heating and cooling provide year-round comfort.",
+        "Stay comfortable year-round with forced central heat/air and ceiling fans.",
+        "Additional highlights include a spacious 3-car garage, central heating and air.",
+        "Central heat & air with ceiling fans throughout.",
+        "Home also includes Central Heat & Air, a 1 Car Garage, Fireplace and Fenced Yard.",
+    ],
+)
+def test_one_sentence_about_both_fills_both(sentence: str) -> None:
+    """feat-009/AC-2: a house with central heat and central air has both, not one of them."""
+    found = one(sentence)
+    assert found["heating"].value == "central", sentence
+    assert found["cooling"].value == "central", sentence
+
+
+def test_a_sentence_about_only_cooling_fills_only_cooling() -> None:
+    """feat-009/AC-2, the other direction: the fix must not invent a heating system."""
+    found = one("Both homes are equipped with central air conditioning.")
+    assert found["cooling"].value == "central"
+    assert found["heating"].value is None

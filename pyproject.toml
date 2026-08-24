@@ -5,6 +5,7 @@ description = "A local-first property search monitor."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "openpyxl>=3.1",
     "requests>=2.32",
     "ruamel.yaml>=0.18",
     "shapely>=2.0",

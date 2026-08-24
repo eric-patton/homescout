@@ -118,3 +118,44 @@ verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)
   for 79. Undetermined is not false, so nothing was dropped for want of a description.
 - **Two statements about one field is not a value, and a person can see why.** Observed twice in
   that same live run, and `homescout extract --listing` shows both sentences.
+
+## run 2 — 2026-08-24
+
+baseline: spec sha256:1ecf9e3eacf5 · plan sha256:6c57091b98a3 · tasks sha256:5a1b9258d87f
+
+Run because this feature's behaviour changed after it was marked done. Spreadsheet export
+(feat-011) is the first thing that shows all six recovered fields side by side, and reading a real
+exported sheet found a defect that nothing in this feature's own tests had caught.
+
+implemented: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13,
+AC-14
+
+- confirmed gap-001 [partial] the neighbour case, still unenforced and still not present in any
+  corpus this project holds
+- confirmed gap-002 [partial] a canonical listing still carries one description, because Realtor.com
+  is still the only shipped source that returns prose
+- confirmed gap-003 [unrequested] `homescout extract --limit N` is still there and still a decision
+  waiting on a person. Spreadsheet export gave it a second use in the meantime: it is how somebody
+  tries the model pass on ten descriptions and looks at the resulting sheet before spending a county.
+
+- fixed defect: `central heating and air conditioning` recorded the heating and lost the cooling
+
+  Found by exporting a real run over Portales and reading the sheet: two properties on the same road
+  came out with `heat: central` and `cool: central` respectively, and the first one's description
+  said both. `extract/patterns.py`'s cooling claim wanted `heat` followed by `and` followed by
+  `air`, and the phrase real listings use is `heating and air conditioning`. `central heating and
+  cooling` and `forced central heat/air` were missing for the same reason.
+
+  This is AC-2 not being met for a field the description does state, which is a fidelity defect
+  rather than a spec question: the spec asks for cooling to be recovered and it was not. Fixed
+  rather than routed, with a regression test citing `feat-009/AC-2` naming all five real spellings,
+  plus one asserting the opposite direction, that a sentence about cooling alone does not invent a
+  heating system. Corpus coverage for cooling went from 32 determined to 37 out of 263.
+
+  Worth noting how it was found. This feature's own tests are 88 assertions over real prose and none
+  of them caught it, because every one of them was written by reading the corpus for phrases and
+  this phrase was there in a form the reader's eye had already filed as covered. Rendering the
+  output and reading it caught it in one pass. That is the third time in this project that reading
+  real output has found something no assertion did.
+
+verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)

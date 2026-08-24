@@ -188,6 +188,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     export = commands.add_parser("export", parents=[common], help="write a spreadsheet")
     export.add_argument("--search", metavar="NAME")
+    export.add_argument("--to", metavar="PATH", help="where to write it")
+    export.add_argument(
+        "--format", choices=("xlsx", "csv"), default="xlsx", help="spreadsheet or plain text"
+    )
+    export.add_argument("--template", metavar="NAME", help="which column set (default: default)")
+    export.add_argument(
+        "--force", action="store_true", help="replace the file if it is already there"
+    )
+    export.add_argument(
+        "--include-dropped",
+        action="store_true",
+        help="include properties a drop rule removed",
+    )
+    export.add_argument(
+        "--templates", action="store_true", help="list the column sets available and stop"
+    )
 
     serve = commands.add_parser("serve", parents=[common], help="start the local browser interface")
     serve.add_argument("--port", type=int, default=8765)
@@ -402,6 +418,35 @@ def _extracted_for(workspace: api.Workspace, listing_id: str) -> Answer:
     return Answer(document, render.extracted(listing_id, found))
 
 
+def _export(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.templates:
+        found = api.export_templates(workspace)
+        return Answer(
+            digest.envelope("templates", templates=list(found)),
+            "\n".join(found),
+        )
+    written = api.export(
+        workspace,
+        search=args.search,
+        to=args.to,
+        template=args.template,
+        format=args.format,
+        force=args.force,
+        include_dropped=args.include_dropped,
+    )
+    document = digest.envelope(
+        "export",
+        path=str(written.path),
+        format=written.format,
+        template=written.template,
+        properties=written.properties,
+        areas=written.areas,
+        columns=list(written.columns),
+        empty_columns={origin: list(names) for origin, names in written.empty.items()},
+    )
+    return Answer(document, render.export(written))
+
+
 def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     values = {
         name: getattr(args, name)
@@ -463,12 +508,12 @@ def _dispatch(
         return _annotate(workspace, args)
     if args.command == "matches":
         return _matches(workspace, args)
+    if args.command == "export":
+        return _export(workspace, args)
     if args.command == "extract":
         return _extract(workspace, args, note)
     if args.command == "enrich":
         return _enrich(workspace, args, note)
-    if args.command == "export":
-        api.export(workspace, search=args.search)
     if args.command == "serve":
         api.serve(workspace, port=args.port)
     raise InvalidInput(f"No command named {args.command!r}.")
