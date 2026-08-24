@@ -110,6 +110,29 @@ function money(held) {
   return el("span", {}, "$" + Number(held).toLocaleString());
 }
 
+/* A stored timestamp, said the way somebody would say it.
+ *
+ * Everything is stored in UTC to the microsecond, which is right for the store and unreadable on a
+ * card. Recent times are said in relation to now, because "three hours ago" is what the question
+ * "has this run today" actually wants; anything older gets its date, in this machine's own zone.
+ */
+function when(text) {
+  if (!text) return null;
+  const at = new Date(text);
+  if (isNaN(at)) return text;
+  const seconds = (Date.now() - at.getTime()) / 1000;
+  if (seconds < 90) return "just now";
+  if (seconds < 5400) return `${Math.round(seconds / 60)} minutes ago`;
+  if (seconds < 79200) return `${Math.round(seconds / 3600)} hours ago`;
+  if (seconds < 6 * 86400) return `${Math.round(seconds / 86400)} days ago`;
+  return at.toLocaleDateString(undefined, {year: "numeric", month: "short", day: "numeric"});
+}
+
+/** A count with its noun, singular when it is one of them. */
+function count(many, one, plural) {
+  return `${many} ${many === 1 ? one : (plural || one + "s")}`;
+}
+
 /** A badge. Always carries its text, because nothing here is conveyed by colour alone (AC-18). */
 function badge(text, kind) {
   return el("span", {class: "badge badge-" + (kind || "plain")}, text);
@@ -143,6 +166,7 @@ function nav(active) {
   const links = [
     ["/", "Searches"],
     ["/matches", "Matches to review"],
+    ["/settings", "Settings and tools"],
   ];
   where.replaceChildren(
     skipLink(),
@@ -151,6 +175,43 @@ function nav(active) {
       link(href, text, {class: href === active ? "here" : null,
                         "aria-current": href === active ? "page" : null}))
   );
+}
+
+/* Watching something that takes minutes.
+ *
+ * A run of everything, an enrichment pass, extraction and a digest are all slow for the same
+ * reason: politeness is a requirement rather than a nicety. So each is started, and the page asks
+ * how it is going, showing the same words the terminal prints because it is the same callback.
+ */
+function watchBackgroundTask(task, where, label, done) {
+  let timer = null;
+  const tick = async () => {
+    let status;
+    try {
+      status = await ask(`/api/tasks/${encodeURIComponent(task)}`);
+    } catch (error) {
+      if (timer) clearInterval(timer);
+      fail(error);
+      return;
+    }
+    where.replaceChildren(
+      el("pre", {class: "progress", role: "log", "aria-live": "polite"},
+        (status.progress || []).join("\n") || "starting…"));
+
+    if (status.finished) {
+      if (timer) clearInterval(timer);
+      if (status.failed) {
+        say(`${label}: could not finish. ${status.failed}`, "problem");
+      } else {
+        const outcome = status.outcome || {};
+        say(`${label}: ${outcome.summary || "done"}`, outcome.degraded ? "problem" : "good");
+      }
+      if (done) done();
+    }
+  };
+  tick();
+  timer = setInterval(tick, 1500);
+  return () => { if (timer) clearInterval(timer); };
 }
 
 /** What is in the address bar, since these are six pages rather than one application. */

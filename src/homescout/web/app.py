@@ -172,6 +172,24 @@ def build(workspace: api.Workspace) -> FastAPI:
         api.edit_search(held(), name, dict(changes))
         return answer("search", search=wire.search(held(), name))
 
+    @app.post("/api/searches/{name}/standing")
+    async def standing(name: str, request: Request) -> dict[str, Any]:
+        """Pause, resume, put away, bring back. Never delete: a search is a file somebody wrote."""
+        body = await _body(request)
+        api.set_standing(
+            held(),
+            name,
+            paused=body.get("paused"),
+            archived=body.get("archived"),
+        )
+        return answer("search", search=wire.search(held(), name))
+
+    @app.post("/api/searches/{name}/duplicate")
+    async def duplicate(name: str, request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        made = api.duplicate_search(held(), name, str(body.get("name") or ""))
+        return answer("search", search=wire.search(held(), made.name))
+
     # -- runs --------------------------------------------------------------
 
     @app.post("/api/searches/{name}/run")
@@ -182,6 +200,91 @@ def build(workspace: api.Workspace) -> FastAPI:
     @app.get("/api/runs/{name}/status")
     def status(name: str) -> dict[str, Any]:
         return answer("run-status", **app.state.runs.status(held(), name))
+
+    @app.post("/api/run-all")
+    async def start_all(request: Request) -> dict[str, Any]:
+        started = app.state.runs.start_all(held(), app.state.lock)
+        return answer("run-started", **started)
+
+    # -- the passes and the spreadsheet, which are workspace-wide ----------
+
+    @app.post("/api/enrich")
+    async def enrich(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        started = app.state.runs.start_task(
+            "enrich",
+            lambda say: api.enrich(
+                held(), stale_only=bool(body.get("stale")), search=body.get("search"), progress=say
+            ),
+            app.state.lock,
+        )
+        return answer("task-started", **started)
+
+    @app.post("/api/extract")
+    async def extract(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        started = app.state.runs.start_task(
+            "extract",
+            lambda say: api.extract(
+                held(), search=body.get("search"), limit=body.get("limit"), progress=say
+            ),
+            app.state.lock,
+        )
+        return answer("task-started", **started)
+
+    @app.post("/api/deliver")
+    async def deliver(request: Request) -> dict[str, Any]:
+        started = app.state.runs.start_task(
+            "deliver",
+            lambda say: api.deliver(held(), progress=say),
+            app.state.lock,
+        )
+        return answer("task-started", **started)
+
+    @app.post("/api/export")
+    async def export(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        written = api.export(
+            held(),
+            search=body.get("search"),
+            template=body.get("template"),
+            format=str(body.get("format") or "xlsx"),
+            force=bool(body.get("force")),
+            include_dropped=bool(body.get("include_dropped")),
+        )
+        return answer(
+            "export",
+            path=str(written.path),
+            format=written.format,
+            template=written.template,
+            properties=written.properties,
+            areas=written.areas,
+            columns=list(written.columns),
+            empty_columns={o: list(names) for o, names in written.empty.items()},
+            reasons=written.reasons(),
+        )
+
+    @app.get("/api/tasks/{name}")
+    def task_status(name: str) -> dict[str, Any]:
+        return answer("task-status", **app.state.runs.task_status(name))
+
+    # -- what this installation has set up ---------------------------------
+
+    @app.get("/api/configuration")
+    def configuration() -> dict[str, Any]:
+        return answer("configuration", **api.configuration(held()))
+
+    @app.post("/api/configuration")
+    async def write_configuration(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        values = body.get("set")
+        if not isinstance(values, Mapping) or not values:
+            raise InvalidInput('Nothing to change: send {"set": {...}}.')
+        return answer("configuration", **api.set_configuration(held(), dict(values)))
+
+    @app.get("/api/export/templates")
+    def templates() -> dict[str, Any]:
+        return answer("templates", templates=list(api.export_templates(held())))
 
     # -- results -----------------------------------------------------------
 

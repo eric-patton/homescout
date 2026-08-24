@@ -98,11 +98,28 @@ def test_a_property_that_disappeared_is_marked_in_text() -> None:
     assert "disappeared" in source(STATIC / "results.js")
 
 
+def attributes_after(text: str, at: int) -> str:
+    """The `{...}` starting at `at`, counting braces.
+
+    Not `[^}]*`: an accessible name is often built from a template literal, `${label}, minimum`,
+    and a non-counting match stops inside it and reports the label it just read as missing.
+    """
+    depth = 0
+    for index in range(at, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[at : index + 1]
+    return text[at:]
+
+
 def test_every_input_carries_a_label_or_an_accessible_name() -> None:
     for script in SCRIPTS:
         text = source(script)
-        for match in re.finditer(r'el\("(input|select|textarea)",\s*\{([^}]*)\}', text, re.S):
-            attributes = match.group(2)
+        for match in re.finditer(r'el\("(input|select|textarea)",\s*(\{)', text, re.S):
+            attributes = attributes_after(text, match.start(2))
             named = (
                 "aria-label" in attributes
                 or ("id:" in attributes and f'for: "{_id_of(attributes)}"' in text)

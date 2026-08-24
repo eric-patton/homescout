@@ -217,6 +217,52 @@ def test_changing_one_filter_changes_one_line(tmp_path: Path) -> None:
     assert edited.reading.filters["price_max"] == 800_000
 
 
+def test_a_file_written_on_windows_keeps_its_line_endings(tmp_path: Path) -> None:
+    """feat-004/AC-12: an edit confined to the edit, on a file Notepad wrote.
+
+    Normalizing line endings on the way out turns a one-line change into a diff touching every
+    line, which is the same failure the comments and the key order are protected from.
+    """
+    directory = tmp_path / "searches"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "windows.yaml"
+    path.write_bytes(
+        b"# a comment\r\n"
+        b"name: windows\r\n"
+        b"areas:\r\n"
+        b'  - {type: city, value: "Portales, NM"}\r\n'
+        b"filters:\r\n"
+        b"  price: {max: 700000}\r\n"
+        b"sources: [fake]\r\n"
+    )
+
+    catalog(directory).edit("windows", {"filters.price.max": "800000"})
+
+    after = path.read_bytes()
+    assert b"\r\n" in after, "the file was rewritten with the other operating system's endings"
+    assert after.count(b"\r\n") == after.count(b"\n"), "the file ended up with a mix of both"
+    assert b"800000" in after
+
+
+def test_an_edit_that_changes_nothing_writes_nothing(tmp_path: Path) -> None:
+    """feat-004/AC-12: assigning a value a key already has must not restyle it.
+
+    The map surface hands over the whole areas list on every save, so this is the ordinary case:
+    open a search, press save, and a flow map written on one line should still be on one line.
+    """
+    directory = tmp_path / "searches"
+    before = write(directory, "same", text=(
+        "name: same\n"
+        "areas:\n"
+        '  - {type: city, value: "Portales, NM"}\n'
+        "sources: [fake]\n"
+    )).read_bytes()
+
+    catalog(directory).edit("same", {"areas": [{"type": "city", "value": "Portales, NM"}]})
+
+    assert (directory / "same.yaml").read_bytes() == before
+
+
 def test_an_edit_that_would_break_the_file_is_refused_before_it_is_written(tmp_path: Path) -> None:
     """feat-004/AC-12: a slip at the command line never leaves a definition that will not run."""
     from homescout.search import InvalidSearch

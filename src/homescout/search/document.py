@@ -25,7 +25,7 @@ library in wide use.
 from __future__ import annotations
 
 import io
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -123,10 +123,15 @@ class Document:
         *,
         style: tuple[int, int] = (4, 2),
         foreign: tuple[tuple[str, int, int], ...] = (),
+        newline: str = "\n",
     ) -> None:
         self.path = path
         self.data = data
         self.style = style
+        #: How this particular file ends its lines. Kept because a file written in Notepad ends
+        #: them with a carriage return too, and rewriting the whole file to this tool's preference
+        #: the first time somebody changes a price is exactly the diff AC-3 exists to prevent.
+        self.newline = newline
         #: Tags found in the file that ask for something other than plain data, with their lines.
         #: Reported by validation; never acted on.
         self.foreign = foreign
@@ -136,13 +141,20 @@ class Document:
     @classmethod
     def read(cls, path: Path) -> Document:
         try:
-            text = path.read_text(encoding="utf-8")
+            raw = path.read_bytes()
         except OSError as exc:
             raise DocumentError(str(path), f"could not be read: {exc}") from None
-        return cls.parse(text, path)
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise DocumentError(str(path), f"is not UTF-8 text: {exc}") from None
+        # Read as bytes on purpose: `read_text` translates line endings on the way in, which is
+        # exactly the fact this needs to know before it is lost.
+        newline = "\r\n" if b"\r\n" in raw else "\n"
+        return cls.parse(text.replace("\r\n", "\n"), path, newline=newline)
 
     @classmethod
-    def parse(cls, text: str, path: Path) -> Document:
+    def parse(cls, text: str, path: Path, *, newline: str = "\n") -> Document:
         style = _sequence_indent(text)
         foreign = _foreign_tags(text)
         try:
@@ -156,7 +168,7 @@ class Document:
                 str(path),
                 f"expected a definition object with a name and areas, got {type(data).__name__}",
             )
-        return cls(path, data, style=style, foreign=foreign)
+        return cls(path, data, style=style, foreign=foreign, newline=newline)
 
     # -- locations -----------------------------------------------------------
 
@@ -189,7 +201,7 @@ class Document:
     def write(self, path: Path | None = None) -> None:
         target = path or self.path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(self.dumps(), encoding="utf-8", newline="\n")
+        target.write_text(self.dumps(), encoding="utf-8", newline=self.newline)
 
     def assign(self, path: Sequence[Any], value: Any) -> None:
         """Set one value, creating only the containers on the way to it.
@@ -205,7 +217,48 @@ class Document:
                 nxt = {}
                 node[step] = nxt
             node = nxt
+        if _same(node, path[-1], value):
+            # An assignment that changes nothing changes nothing, including the style it is
+            # written in. The parsed nodes carry their own formatting, so replacing a list with an
+            # equal list would rewrite it flush or wrapped according to this tool's taste rather
+            # than the file's. The map surface saves the whole areas list on every save, so
+            # without this, opening a search and pressing save restyles a list nobody edited.
+            return
         node[path[-1]] = value
+
+    def remove(self, path: Sequence[Any]) -> bool:
+        """Take one key out, if it is there, and leave everything around it alone.
+
+        The counterpart to `assign`, and it exists because a setting returning to its default should
+        leave no trace: a search that was paused and resumed reads `paused: false` forever
+        otherwise, which is two lines of nothing in a file somebody edits by hand. Missing is the
+        same state as false here, so removing it says exactly as much and says it more quietly.
+        """
+        node: Any = self.data
+        for step in path[:-1]:
+            node = _descend(node, step)
+            if node is None:
+                return False
+        if not isinstance(node, MutableMapping) or path[-1] not in node:
+            return False
+        del node[path[-1]]
+        return True
+
+
+def _same(node: Any, step: Any, value: Any) -> bool:
+    """Is this key already exactly this value?
+
+    The round-trip types compare equal to the plain ones they stand for, so a `CommentedSeq` of two
+    maps equals the list of dicts that would replace it. That equality is what makes this safe:
+    "equal" here means the document would say the same thing, not that the objects are the same.
+    """
+    held = _descend(node, step)
+    if held is None:
+        return False
+    try:
+        return bool(held == value)
+    except Exception:  # noqa: BLE001 - a type that refuses comparison is simply not the same
+        return False
 
 
 def _descend(node: Any, step: Any) -> Any:

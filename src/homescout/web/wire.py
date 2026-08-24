@@ -17,8 +17,13 @@ from . import settings
 
 #: Which file is which surface. One page per surface, reloadable and bookmarkable, rather than one
 #: application with routes: a failure on one cannot then take the others with it.
+#:
+#: Seven now. The spec named six screens; the seventh is where a person finds out what this
+#: installation has set up and what it has not, which the six had no home for and which a person
+#: otherwise discovers by reading a file.
 PAGES: dict[str, str] = {
     "/": "searches.html",
+    "/settings": "settings.html",
     "/search/{name}": "search.html",
     "/results/{name}": "results.html",
     "/listing/{listing_id}": "listing.html",
@@ -41,6 +46,11 @@ def searches(workspace: api.Workspace) -> list[dict[str, Any]]:
             entry["description"] = getattr(definition, "description", None)
             entry["sources"] = list(getattr(definition, "sources", ()))
             entry["areas"] = len(getattr(definition, "areas", ()))
+            # Both are properties of the file, and the list is the only place they are visible.
+            # Without them the card cannot say a search is set aside, and pausing one from here
+            # looks like it did nothing at all.
+            entry["paused"] = bool(getattr(definition, "paused", False))
+            entry["archived"] = bool(getattr(definition, "archived", False))
             entry["problems"] = [
                 {"location": p.location, "message": p.message, "severity": p.severity}
                 for p in definition.problems()
@@ -53,45 +63,8 @@ def searches(workspace: api.Workspace) -> list[dict[str, Any]]:
 
 
 def search(workspace: api.Workspace, name: str) -> dict[str, Any]:
-    """One saved search, as the builder reads it."""
-    definition = api.show_search(workspace, name)
-    return {
-        "name": name,
-        "description": getattr(definition, "description", None),
-        "sources": list(getattr(definition, "sources", ())),
-        "areas": [_area(area) for area in getattr(definition, "areas", ())],
-        "exclusions": [_area(area) for area in getattr(definition, "exclusions", ())],
-        "problems": [
-            {"location": p.location, "message": p.message, "severity": p.severity}
-            for p in definition.problems()
-        ],
-        "model_extraction": bool(getattr(definition, "model_extraction", False)),
-    }
-
-
-def _area(area: Any) -> dict[str, Any]:
-    """One geographic component, in this tool's own vocabulary rather than any map library's."""
-    shape = getattr(area, "geometry", None) or getattr(area, "shape", None)
-    return {
-        "kind": getattr(area, "kind", None),
-        "name": getattr(area, "name", None),
-        "value": getattr(area, "value", None),
-        "excluded": bool(getattr(area, "excluded", False)),
-        "geometry": _geojson(shape),
-    }
-
-
-def _geojson(shape: Any) -> Any:
-    """A drawn shape as GeoJSON, or nothing when the area is a named place."""
-    if shape is None:
-        return None
-    for attribute in ("geojson", "as_geojson", "__geo_interface__"):
-        found = getattr(shape, attribute, None)
-        if callable(found):
-            return found()
-        if found is not None:
-            return found
-    return None
+    """One saved search, as the builder reads it. Assembled by the core; passed through here."""
+    return api.search_document(workspace, name)
 
 
 def comparison(workspace: api.Workspace, name: str, since: str | None) -> dict[str, Any]:
@@ -143,7 +116,8 @@ def installation(workspace: api.Workspace) -> dict[str, Any]:
             "attribution": attribution,
             "variable": TILES_VARIABLE,
         },
-        "area_kinds": list(api.AREA_KINDS),
+        **api.vocabulary(),
+        "model": api.configuration(workspace)["model"],
     }
 
 

@@ -128,6 +128,10 @@ class FileSearch:
         #: Whether this search asks for the optional model extraction pass. Off unless the file
         #: turned it on, and off is what makes the whole tool work with no model configured.
         self.model_extraction = reading.model_extraction
+        #: Skipped by a run of everything. Still run when asked for by name.
+        self.paused = reading.paused
+        #: Put away: not listed by default, and skipped by a run of everything. Never deleted.
+        self.archived = reading.archived
 
     # -- the contract --------------------------------------------------------
 
@@ -223,6 +227,12 @@ def _broken(path: Path, exc: DocumentError) -> FileSearch:
     return FileSearch(None, reading, path)
 
 
+#: Keys whose default is the same state as being absent, so an edit that sets one back to its
+#: default takes the key out instead of writing it. Only for keys where that is genuinely true:
+#: a filter set to its widest value is not the same as no filter, and is not listed here.
+DEFAULTS_OUT: dict[str, Any] = {"paused": False, "archived": False, "exclude_areas": []}
+
+
 class FileCatalog:
     """The `searches/` directory beside the database: one file per saved search."""
 
@@ -283,12 +293,43 @@ class FileCatalog:
         path.write_text(TEMPLATE.format(name=name), encoding="utf-8", newline="\n")
         return self.load(name)
 
+    def duplicate(self, name: str, new_name: str) -> FileSearch:
+        """Copy one definition under a new name.
+
+        The bytes, not a re-serialization: a duplicate that lost the original's comments and its
+        ordering would be a different file that happens to run the same, and the comments are
+        usually the part explaining why an area is shaped the way it is.
+
+        The `name:` key is the one thing rewritten, because a definition whose name disagrees with
+        its file name is a definition one of the two ways of finding it cannot see.
+        """
+        source = self._path(name)
+        if not source.exists():
+            raise UnknownSearch(name, self.names())
+        target = safe_path(self.directory, new_name)
+        if target.exists() or self._path(new_name).exists():
+            raise InvalidInput(f"A saved search named {new_name!r} already exists.")
+
+        text = source.read_text(encoding="utf-8")
+        copied = re.sub(
+            r"^name:\s*.*$", f"name: {new_name}", text, count=1, flags=re.MULTILINE
+        )
+        if copied == text:
+            copied = f"name: {new_name}\n{text}"
+        self.directory.mkdir(parents=True, exist_ok=True)
+        target.write_text(copied, encoding="utf-8", newline="\n")
+        return self.load(new_name)
+
     def edit(self, name: str, changes: Mapping[str, object]) -> FileSearch:
         """Change named keys and write the file back, touching nothing else.
 
         Keys are dotted paths into the definition (`filters.price.max`), and values are read as YAML
         so that a number stays a number and a list stays a list. The file is only written when what
         results is valid, so a slip at the command line cannot leave a definition that will not run.
+
+        A key in `DEFAULTS_OUT` set back to its default is removed rather than written. Absent and
+        default are the same state for those, and a search paused and resumed twice should not end
+        up carrying two lines that say nothing in a file somebody reads.
         """
         definition = self.load(name)
         document = definition.document
@@ -299,7 +340,10 @@ class FileCatalog:
 
         for key, value in changes.items():
             path = _key_path(key)
-            document.assign(path, _value(value))
+            if key in DEFAULTS_OUT and _value(value) == DEFAULTS_OUT[key]:
+                document.remove(path)
+            else:
+                document.assign(path, _value(value))
 
         reading = examine(document, known_sources=_known_sources())
         stopping = blocking(

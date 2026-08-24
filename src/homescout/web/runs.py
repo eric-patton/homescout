@@ -65,6 +65,7 @@ class Tracker:
 
     def __init__(self) -> None:
         self._held: dict[str, Progress] = {}
+        self._tasks: dict[str, Progress] = {}
         self._lock = threading.Lock()
 
     def start(self, workspace: api.Workspace, name: str, guard: Any = None) -> dict[str, Any]:
@@ -104,6 +105,56 @@ class Tracker:
         threading.Thread(target=go, name=f"homescout-run-{name}", daemon=True).start()
         return {"search": name, "already_running": False}
 
+    def start_all(self, workspace: api.Workspace, guard: Any = None) -> dict[str, Any]:
+        """Run every saved search, which is what a scheduled night does.
+
+        Paused and archived ones are left alone by the core, and reported by it as skipped rather
+        than passed over in silence.
+        """
+        return self.start_task(
+            "run-all", lambda say: api.run_all(workspace, progress=say), guard
+        )
+
+    def start_task(self, name: str, work: Any, guard: Any = None) -> dict[str, Any]:
+        """Anything that takes minutes: every search, an enrichment pass, extraction, a digest.
+
+        The same shape as a run and for the same reason: politeness makes these slow, and an HTTP
+        request that takes minutes is one a browser gives up on. What comes back is a token to ask
+        about, and what it says is whatever the operation's own progress callback said, which is the
+        same text the terminal prints.
+        """
+        with self._lock:
+            existing = self._tasks.get(name)
+            if existing is not None and not existing.finished:
+                return {"task": name, "already_running": True}
+            held = Progress(search=name)
+            self._tasks[name] = held
+
+        def go() -> None:
+            try:
+                with (guard if guard is not None else _nothing()):
+                    outcome = work(held.say)
+                held.outcome = _describe(outcome)
+                if not held.lines:
+                    held.say("done")
+            except Exception as exc:  # noqa: BLE001 - a failure is an answer, not a crash here
+                held.failed = str(exc)
+                held.say(f"could not finish: {exc}")
+            finally:
+                held.finished = True
+
+        threading.Thread(target=go, name=f"homescout-{name}", daemon=True).start()
+        return {"task": name, "already_running": False}
+
+    def task_status(self, name: str) -> dict[str, Any]:
+        held = self._tasks.get(name)
+        if held is None:
+            return {"task": name, "running": False, "progress": [], "finished": True,
+                    "failed": None, "outcome": None, "started": False}
+        found = held.snapshot()
+        found.update({"task": name, "running": not held.finished, "started": True})
+        return found
+
     def status(self, workspace: api.Workspace, name: str) -> dict[str, Any]:  # noqa: D401
         """What this process's run is doing, on top of what the store knows about any run.
 
@@ -128,3 +179,24 @@ class Tracker:
 def _nothing() -> Any:
     """No lock at all, for a caller that has already taken one or has no threads to worry about."""
     yield
+
+
+def _describe(outcome: Any) -> dict[str, Any] | None:
+    """What an operation produced, in the shape a page can read without knowing which one it was.
+
+    Deliberately shallow. Each of these already has a proper document elsewhere; what a progress
+    panel needs is a sentence and whether anything went wrong.
+    """
+    if outcome is None:
+        return None
+    degraded = bool(getattr(outcome, "degraded", False))
+    said: list[str] = []
+    for name in ("properties", "descriptions", "asked", "recorded", "cached"):
+        value = getattr(outcome, name, None)
+        if value:
+            said.append(f"{value} {name.replace('_', ' ')}")
+    for name in ("outcomes", "skipped", "failures"):
+        value = getattr(outcome, name, None)
+        if isinstance(value, tuple | list) and value:
+            said.append(f"{len(value)} {name}")
+    return {"summary": ", ".join(said) or "done", "degraded": degraded}

@@ -27,6 +27,12 @@ in five years. The problem brief is in `research.md`.
   record was assembled from sources, so that I can tell a real record from a bad merge.
 - As the person running searches, I want to see what changed since any earlier run, so that I can
   catch up after being away.
+- As the person running searches, I want to make a new search, copy one, and set one aside without
+  deleting it, so that the browser is somewhere I can keep the set of searches rather than only look
+  at it.
+- As the person running searches, I want to set up the optional parts (a model to read descriptions,
+  a background for the map) from the screen that tells me they are off, so that turning one on does
+  not mean finding a file and knowing its variable names.
 - As the person running searches, I want to resolve the matches the tool refused to guess at, so
   that its uncertainty becomes my decision rather than a silent error.
 - As the person running searches, I want a search edited here to be the same file I can edit by
@@ -100,6 +106,24 @@ in five years. The problem brief is in `research.md`.
   - Then it is answered, the server having listened on the local interface throughout, and a request
     naming any other host is still refused
 
+- **Scenario: setting a search aside**
+  - Given a saved search that is not being watched at the moment
+  - When it is paused, or archived, from the list
+  - Then nothing about it is deleted, a run of everything leaves it alone and says so, and running it
+    by name still runs it
+
+- **Scenario: turning on something that is off**
+  - Given the interface reporting that descriptions are not being read by a model
+  - When a model's address and name are given on the settings surface
+  - Then they are written to the uncommitted file beside the database, they take effect without a
+    restart, and a credential is not asked for and cannot be written from here
+
+- **Scenario: a map with nothing behind it**
+  - Given no tile server configured, which is the default
+  - When the map is opened
+  - Then it draws a labelled coordinate grid that can be drawn over, says what is missing, and offers
+    to turn a background on with what that costs stated beside the offer
+
 ## Acceptance criteria
 
 - [ ] AC-1: Six surfaces exist and are reachable: map and search builder, saved search list, results
@@ -152,6 +176,23 @@ in five years. The problem brief is in `research.md`.
       refused, and so is a request from another site's page and one that changes something without
       the header a form cannot set. A test exercises a configured proxy name, an unconfigured one,
       and the default, which is loopback and nothing else.
+- [ ] AC-22: Everything the command line can do is reachable from here. A test enumerates the
+      command line's commands and asserts each one has a route that reaches the same core operation,
+      so a capability added to one surface cannot quietly be missing from the other.
+- [ ] AC-23: A saved search can be created, copied, paused, resumed, archived, and brought back from
+      the interface. None of these deletes anything. A paused or archived search is skipped by a run
+      of everything, which reports that it skipped it, and still runs when asked for by name.
+- [ ] AC-24: The parts of a saved search this interface edits (its description, its sources, its
+      filters, whether a model reads its descriptions, and its criteria) are editable here, and
+      AC-3's guarantee holds for every edit made through them.
+- [ ] AC-25: The optional configuration (which model reads descriptions, where the map's tiles come
+      from, where the digest is written) is editable here and written to the uncommitted file beside
+      the database, taking effect without a restart and leaving the rest of that file, comments
+      included, exactly as it was. A setting whose name looks like a credential is refused, and no
+      credential is ever displayed.
+- [ ] AC-26: With no tile server configured, the map draws a labelled coordinate grid, says what is
+      missing, and offers to turn a background on with the privacy cost stated beside the offer
+      rather than in a document.
 
 ## Edge cases & errors
 

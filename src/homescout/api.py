@@ -254,9 +254,7 @@ def create_search(workspace: Workspace, name: str) -> SearchDefinition:
     return workspace.catalog.create(name)
 
 
-def edit_search(
-    workspace: Workspace, name: str, changes: Mapping[str, object]
-) -> SearchDefinition:
+def edit_search(workspace: Workspace, name: str, changes: Mapping[str, object]) -> SearchDefinition:
     return workspace.catalog.edit(name, changes)
 
 
@@ -327,6 +325,22 @@ def run_all(workspace: Workspace, *, progress: Any = None) -> RunAll:
     skipped: list[SkippedSearch] = []
     for name in workspace.catalog.names():
         try:
+            standing = _standing_of(workspace, name)
+            if standing:
+                # Paused or put away. Reported rather than passed over in silence, because a
+                # scheduled run that quietly stops covering a town is the kind of absence this
+                # whole product exists to make visible.
+                skipped.append(
+                    SkippedSearch(
+                        name=name,
+                        reason=standing,
+                        detail=(
+                            f"{name} is {standing}, so a run of everything leaves it alone. "
+                            f"Run it by name to run it anyway."
+                        ),
+                    )
+                )
+                continue
             outcomes.append(run_search(workspace, name, progress=progress))
         except InvalidSearch as exc:
             skipped.append(
@@ -342,6 +356,56 @@ def run_all(workspace: Workspace, *, progress: Any = None) -> RunAll:
             # would cost every remaining search's night as well.
             skipped.append(SkippedSearch(name=name, reason="in progress", detail=str(exc)))
     return RunAll(outcomes=tuple(outcomes), skipped=tuple(skipped))
+
+
+def _standing_of(workspace: Workspace, name: str) -> str | None:
+    """`paused`, `archived`, or nothing at all, without letting a bad file decide anything.
+
+    A definition that cannot be read is not paused; it is broken, and the loop below reports it as
+    that. So an unreadable file falls through here rather than being quietly skipped as put away.
+    """
+    try:
+        definition = workspace.catalog.load(name)
+    except HomescoutError:
+        return None
+    if getattr(definition, "archived", False):
+        return "archived"
+    if getattr(definition, "paused", False):
+        return "paused"
+    return None
+
+
+def set_standing(
+    workspace: Workspace,
+    name: str,
+    *,
+    paused: bool | None = None,
+    archived: bool | None = None,
+) -> SearchDefinition:
+    """Pause, resume, put away or bring back one saved search.
+
+    Both are properties of the file, so both go through the same edit operation everything else
+    does and the file keeps its comments and its shape. Neither deletes anything: a search is
+    something somebody wrote, and the tool's job is to stop running it, not to lose it.
+    """
+    changes: dict[str, object] = {}
+    if paused is not None:
+        changes["paused"] = bool(paused)
+    if archived is not None:
+        changes["archived"] = bool(archived)
+    if not changes:
+        return show_search(workspace, name)
+    return edit_search(workspace, name, changes)
+
+
+def duplicate_search(workspace: Workspace, name: str, new_name: str) -> SearchDefinition:
+    """Copy a saved search under a new name, so a variation starts from something that works.
+
+    A copy of the file, byte for byte apart from its own name, which is what makes it a duplicate
+    rather than a new search that happens to look similar: the comments, the ordering and every
+    filter come with it.
+    """
+    return workspace.catalog.duplicate(name, new_name)
 
 
 def moment(text: str) -> str:
@@ -843,6 +907,286 @@ def set_area_note(workspace: Workspace, area_type: str, area_value: str, notes: 
         raise InvalidInput("A note has to be about a named place.")
     with _translating():
         return workspace.store.set_area_note(area_type, area_value.strip(), notes)
+
+
+def search_document(workspace: Workspace, name: str) -> dict[str, Any]:
+    """One saved search in the shape a person edits it, rather than the shape a source is asked.
+
+    A definition holds `price_min` and `price_max`, because that is what a query carries. A person
+    edits `price: {min, max}`, because that is what a range is. The conversion is here rather than
+    in a surface, so both surfaces show a range the same way and neither has to know the query
+    vocabulary.
+    """
+    from .search.validate import RANGES, SQUARE_FEET_PER_ACRE
+
+    definition = show_search(workspace, name)
+    reading = getattr(definition, "reading", None)
+    query = dict(getattr(reading, "filters", {}) or {})
+
+    filters: dict[str, Any] = {}
+    for field_name, (low, high) in RANGES.items():
+        bounds: dict[str, Any] = {}
+        if query.get(low) is not None:
+            bounds["min"] = query[low]
+        if query.get(high) is not None:
+            bounds["max"] = query[high]
+        if field_name == "lot_acres":
+            bounds = {
+                edge: round(value / SQUARE_FEET_PER_ACRE, 4) for edge, value in bounds.items()
+            }
+        if bounds:
+            filters[field_name] = bounds
+    if query.get("property_types"):
+        filters["property_type"] = list(query["property_types"])
+    statuses = tuple(getattr(reading, "statuses", ()) or ())
+    if statuses and statuses != ("for_sale",):
+        filters["listing_type"] = list(statuses)
+
+    return {
+        "name": name,
+        "description": getattr(definition, "description", None),
+        "sources": list(getattr(definition, "sources", ())),
+        "areas": [_area_document(area) for area in getattr(definition, "areas", ())],
+        "exclusions": [_area_document(area) for area in getattr(definition, "exclusions", ())],
+        "filters": filters,
+        "rules": [
+            {"id": rule.id, "severity": rule.severity, "when": rule.when}
+            for rule in getattr(definition, "rules", ())
+        ],
+        "model_extraction": bool(getattr(definition, "model_extraction", False)),
+        "paused": bool(getattr(definition, "paused", False)),
+        "archived": bool(getattr(definition, "archived", False)),
+        "problems": [
+            {"location": p.location, "message": p.message, "severity": p.severity}
+            for p in definition.problems()
+        ],
+    }
+
+
+def _area_document(area: Any) -> dict[str, Any]:
+    """One geographic component, in this tool's own vocabulary rather than any map library's."""
+    shape = getattr(area, "geometry", None) or getattr(area, "shape", None)
+    geometry = None
+    if shape is not None:
+        for attribute in ("geojson", "as_geojson", "__geo_interface__"):
+            found = getattr(shape, attribute, None)
+            if callable(found):
+                geometry = found()
+                break
+            if found is not None:
+                geometry = found
+                break
+    return {
+        "kind": getattr(area, "kind", None),
+        "name": getattr(area, "name", None),
+        "value": getattr(area, "value", None),
+        "excluded": bool(getattr(area, "excluded", False)),
+        "geometry": geometry,
+    }
+
+
+def vocabulary() -> dict[str, Any]:
+    """What a person editing a saved search may name: the sources, and the criteria's fields.
+
+    Read from the registries rather than restated, so a source added tomorrow appears without
+    anything being edited, and a criterion cannot be offered a field the evaluator does not have.
+    """
+    from .rules import namespace
+    from .sources import registered
+
+    return {
+        "sources": list(registered()),
+        "rule_fields": list(namespace.names()),
+        "severities": ["drop", "flag", "boost", "demote"],
+        "area_kinds": list(AREA_KINDS),
+    }
+
+
+def _model_needs(named: str | None, credential: bool, address: str, model: Any) -> str | None:
+    """The one thing still to do before a model can be asked anything, in a sentence."""
+    if not (named or "").strip():
+        if credential:
+            return (
+                "A credential is already in your environment, so naming a model is all that is "
+                "left. Something like 'gpt-4o-mini' for a hosted service, or whatever a local "
+                "server calls the model it has loaded."
+            )
+        return (
+            "Name a model below. A local server needs nothing else; a hosted one also needs a "
+            "credential, which goes in your environment and never on this page."
+        )
+    if not credential and not model._loopback(address):
+        return (
+            f"{address} is not on this machine, so it needs a credential. Put one in "
+            f"{model.API_KEY} or {model.FALLBACK_API_KEY} in your environment, or by hand in the "
+            ".env file beside the database."
+        )
+    return None
+
+
+def configuration(workspace: Workspace) -> dict[str, Any]:
+    """What this installation has set up, and what it has not.
+
+    So a person can find out whether the optional parts are working without opening a file or
+    reading a traceback. **No value here is ever a secret.** Whether a credential is present is a
+    fact somebody needs; the credential itself is not, so this reports the first and never the
+    second, and there is no endpoint anywhere that returns one.
+    """
+    from .deliver import settings as mail
+    from .enrich import settings as enrich_settings
+    from .extract import settings as model
+    from .web import settings as web
+
+    root = workspace.root
+    found = mail.environment(root)
+
+    account: Any = None
+    trouble: str | None = None
+    try:
+        account = model.account(root)
+    except model.ExtractionMisconfigured as exc:
+        trouble = str(exc)
+
+    # Asked of the environment rather than of the account, because the account does not exist until
+    # everything is set up and this is exactly the fact somebody needs while it is not: "the key is
+    # already there, naming a model is all that is left" is a different next step from "find a key".
+    credential = bool(found.get(model.API_KEY) or found.get(model.FALLBACK_API_KEY))
+    address = (found.get(model.BASE_URL) or model.DEFAULT_BASE_URL).strip()
+
+    return {
+        "workspace": str(root),
+        "database": str(workspace.store.path),
+        "model": {
+            "configured": account is not None,
+            "model": account.model if account else (found.get(model.MODEL) or None),
+            "base_url": account.base_url if account else address,
+            "credential": credential,
+            "local": model._loopback(account.base_url if account else address),
+            "why_not": trouble,
+            # `why_not` is the message a run would raise, written for somebody who turned the model
+            # pass on for a search. On a settings page, before any of that, what is wanted is the
+            # thing still to do, so this says that instead and leaves the other for the detail.
+            "needs": _model_needs(found.get(model.MODEL), credential, address, model),
+            "variables": list(model.VARIABLES),
+        },
+        "mail": {
+            "configured": bool(found.get(mail.MAIL_TO) and found.get(mail.SMTP_HOST)),
+            "to": found.get(mail.MAIL_TO) or None,
+            "host": found.get(mail.SMTP_HOST) or None,
+            "digest_path": found.get(mail.DIGEST_PATH) or None,
+            "variables": list(mail.VARIABLES),
+        },
+        "broadband": {
+            "configured": bool(found.get(enrich_settings.BROADBAND_TOKEN)),
+            "variable": enrich_settings.BROADBAND_TOKEN,
+        },
+        "map": {
+            "tiles": web.tiles(root)[0],
+            "variable": web.TILES_VARIABLE,
+        },
+        "interface": {
+            "port": web.port(root),
+            "allowed_hosts": list(web.allowed_hosts(root)),
+            "variables": [web.PORT_VARIABLE, web.ALLOWED_HOSTS_VARIABLE],
+        },
+    }
+
+
+def set_configuration(workspace: Workspace, values: Mapping[str, str]) -> dict[str, Any]:
+    """Write settings into the `.env` beside the database, and refuse to write a secret there.
+
+    A person turning the map on or naming a local model should not have to find a file. A person
+    typing an API key into a web page should be stopped, which is what the refusal below is: the
+    constitution says a credential comes from the environment or an uncommitted file and never from
+    anywhere a surface can put it, and a page that accepted one would be that anywhere.
+    """
+    from .deliver.settings import ENV_FILE
+
+    forbidden = {
+        name
+        for name in values
+        if any(word in name.upper() for word in ("KEY", "TOKEN", "PASSWORD", "SECRET"))
+    }
+    if forbidden:
+        raise InvalidInput(
+            f"{', '.join(sorted(forbidden))} holds a credential, and this will not write one. "
+            "Set it in your environment, or by hand in the .env file beside the database, which is "
+            "never committed. Nothing that can be reached from a browser writes a secret."
+        )
+
+    allowed = set(_WRITABLE_SETTINGS)
+    unknown = [name for name in values if name not in allowed]
+    if unknown:
+        raise InvalidInput(
+            f"{', '.join(sorted(unknown))} is not a setting this writes. "
+            f"It writes: {', '.join(sorted(allowed))}."
+        )
+
+    path = workspace.root / ENV_FILE
+    body = _env_file_with(path, {name: str(value) for name, value in values.items()})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    staging = path.with_name(path.name + ".partial")
+    staging.write_text(body, encoding="utf-8", newline="\n")
+    os.replace(staging, path)
+
+    # The file is what survives a restart; this is what makes the change true right now. Everything
+    # that reads these settings reads the environment, and a page that said "saved" while the map
+    # stayed blank until somebody restarted the server would be lying about what it had done.
+    for name, value in values.items():
+        if str(value):
+            os.environ[name] = str(value)
+        else:
+            os.environ.pop(name, None)
+    return configuration(workspace)
+
+
+def _env_file_with(path: Path, values: Mapping[str, str]) -> str:
+    """The file as it stands, with these names changed, and everything else left exactly alone.
+
+    Rewriting the file from the values it parses out would be four lines shorter and would throw
+    away every comment in it. This file is one a person is told to edit by hand, for the credentials
+    nothing else may write, so the notes they leave themselves in it are part of it. A setting
+    changed from a browser edits its own line and touches nothing else; one set to nothing has its
+    line removed rather than left as an empty assignment.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    remaining = dict(values)
+    kept: list[str] = []
+
+    for line in lines:
+        name = line.split("=", 1)[0].strip() if "=" in line else None
+        if name is None or name not in remaining:
+            kept.append(line)
+            continue
+        value = remaining.pop(name)
+        if value:
+            kept.append(f"{name}={value}")
+        # An empty value means the line goes, so that turning something off leaves no trace of it.
+
+    added = [f"{name}={value}" for name, value in remaining.items() if value]
+    if added:
+        if not lines:
+            kept += [
+                "# HomeScout settings for this workspace. Never committed.",
+                "# See .env.example for everything it reads, including the ones only you can set.",
+            ]
+        if kept and kept[-1].strip():
+            kept.append("")
+        kept += sorted(added)
+
+    return "\n".join(kept).rstrip("\n") + "\n"
+
+
+#: The settings a surface may write. Everything else is a credential or a path, and both belong to
+#: whoever runs the machine rather than to a page.
+_WRITABLE_SETTINGS: tuple[str, ...] = (
+    "HOMESCOUT_MAP_TILES",
+    "HOMESCOUT_MAP_ATTRIBUTION",
+    "HOMESCOUT_EXTRACT_BASE_URL",
+    "HOMESCOUT_EXTRACT_MODEL",
+    "HOMESCOUT_DIGEST_PATH",
+    "HOMESCOUT_EMAIL_MAX_NEW",
+)
 
 
 def run_status(workspace: Workspace, name: str) -> dict[str, Any]:

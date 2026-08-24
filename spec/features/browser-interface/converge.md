@@ -179,3 +179,112 @@ AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21
   question. Recorded because a setting that widens a security check deserves to be findable.
 
 verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)
+
+## run 3 — 2026-08-24
+
+baseline: spec sha256:560d62f9df99 · plan sha256:5dfe647eb36f · tasks sha256:bc462849a49b
+
+Run because the owner opened the interface and could not find how to add a search, pause one,
+archive one, or set up the model, and the map was blank. Feature parity with the command line was
+stated as the requirement, so this run audits the code against `spec.md` as extended by AC-22
+through AC-26.
+
+implemented: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13,
+AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26
+
+- closed gap-001 [was partial] AC-2's three verbs are all three now
+
+  Evidence: `web/static/search.js` `areaList`, `areaRow`, `addPlace`, `saveAreas`, and the
+  `__name` / `__excluded` properties carried on the map layer; `tests/test_web_parity.py`
+  `test_a_drawn_area_can_be_named_and_moved_in_or_out` and
+  `test_the_area_table_edits_the_name_and_the_sense`.
+
+  **Named**: every area, drawn or typed, has a name field in the table under the map, and a name
+  reaches the file as the `name` on the entry.
+
+  **Edited**: the same table has a searched-or-left-out control per row, so a shape's sense changes
+  without redrawing it, and a Remove button per row. A town, a county or a postal code can be added
+  by typing it, which is the half of "add an area" that never needed the map.
+
+  The name and the sense live on the map layer rather than on the row showing them, which is what
+  makes the two editable independently of the geometry: the row edits the layer, and one save reads
+  every layer back out.
+
+- closed gap-002 [was partial] filters are editable, and criteria are editable in the honest way
+
+  Evidence: `web/static/search.js` `settingsPanel`, `range_`, `criteriaPanel`; `api.search_document`
+  and `api.vocabulary`, which is where the field names and the severities come from.
+
+  **Filters**: six numeric ranges and two lists, each sending one dotted path to the core's own edit
+  operation. This is what run 1 recommended and it is built.
+
+  **Criteria**: a text area, one criterion per line as `id | severity | expression`, which run 1
+  called "honest and unhelpful". It is still that, and it is recorded as that rather than as a
+  criterion editor. What it does buy is that adding a rule no longer means leaving the interface,
+  and the parser's complaint comes back on the page instead of at the next run. An editor that
+  understood the field namespace and the three-valued logic is still not built and is still the
+  right thing to build if criteria turn out to be edited often.
+
+- confirmed gap-004 [unrequested] `HOMESCOUT_ALLOWED_HOSTS`, unchanged by this run
+
+  Still a list of names the guard answers to besides the loopback ones, still empty by default,
+  still adding no authentication. AC-21 covers it. Recorded again because it is the setting in this
+  feature most worth being able to find.
+
+- opened gap-005 [unrequested] code:"three changes to how a saved search file is written"
+
+  Evidence: `search/document.py` `remove`, `_same`, and `Document.newline`;
+  `search/definition.py` `DEFAULTS_OUT`; `tests/test_searches_document.py`
+  `test_a_file_written_on_windows_keeps_its_line_endings` and
+  `test_an_edit_that_changes_nothing_writes_nothing`.
+
+  Three behaviours the saved-search feature's spec does not state, all forced by this surface and
+  all changes to a file format another feature owns:
+
+  **A key set back to its default is removed rather than written.** Pausing and resuming a search
+  otherwise leaves `paused: false` in the file forever, and archiving and bringing it back leaves
+  two such lines. Absent and default are the same state for `paused`, `archived` and
+  `exclude_areas`, and only for those: a filter at its widest value is not the same as no filter,
+  and is deliberately not on that list.
+
+  **An assignment that changes nothing changes nothing.** The map hands the core the whole areas
+  list on every save, so without this, opening a search and pressing save rewrote a flow map written
+  on one line into a block map written on three. Nobody edited it; it just passed through.
+
+  **Line endings survive.** A file written on Windows ends its lines with a carriage return, and
+  every save was normalizing the whole file to the other convention, which turns a one-line change
+  into a diff touching every line.
+
+  Routed: a human decision, and the recommendation is to legitimize all three as additions to the
+  saved-search feature's round-trip criterion rather than to leave them recorded only here. They are
+  the same promise that feature already makes, applied to three cases nobody had hit yet. Recorded,
+  not self-applied.
+
+verdict: open 2 (missing 0, partial 0, contradicts 0, unrequested 2)
+
+## What was checked and found clean, run 3
+
+- **Parity is a test rather than a claim.** The command line's own parser is walked, every command
+  it exposes is looked up in a table naming the route that reaches the same core operation, and the
+  test fails both ways: a command with no entry, and an entry for a command that no longer exists.
+  Sixteen commands, sixteen entries, plus the four capabilities the terminal carries as a flag.
+- **Nothing new was added to the browser that the core did not gain first.** The import scan that
+  enforces non-negotiable 8 still passes with the seventh surface in place, which means pause,
+  archive, duplicate, run-everything, the settings write and the export form are all operations on
+  `api` and the command line reaches every one of them.
+- **The settings surface cannot write a credential and does not display one.** The refusal is on
+  any name containing KEY, TOKEN, PASSWORD or SECRET, tested from inside and over HTTP, and the
+  report says whether a credential is present without ever carrying its value. The writable set is
+  a fixed list of six names.
+- **Three defects were found by using the thing rather than by testing it.** The settings write
+  went to a staging file that was never renamed, so every save from the interface was lost in
+  silence while the page said "Saved"; the same write only reached the file, so a setting would not
+  have taken effect until somebody restarted the server; and the saved-search list never reported
+  `paused` or `archived`, so pausing a search from the list correctly stopped it running and
+  visibly did nothing at all. The first two are why `test_a_setting_written_here_lands_in_the_file_and_takes_effect`
+  asserts both halves; the third is why the list's payload is now asserted.
+- **The map's default was wrong and the owner said so.** It drew no background by default, for a
+  privacy reason that is real and is still stated, and the result was a blank grey box. The default
+  is unchanged; what changed is that the box now says what is missing, draws a labelled coordinate
+  grid to work over, and offers the one click that fixes it with the cost stated beside the offer.
+  The trade is the same trade; the person making it can now see it.

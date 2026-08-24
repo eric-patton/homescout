@@ -38,6 +38,8 @@ TOP_LEVEL = (
     "rules",
     "export",
     "extract",
+    "paused",
+    "archived",
 )
 
 #: Filter names, and the query field each becomes. `lot_acres` is the one that changes units: a file
@@ -82,6 +84,13 @@ class Reading:
     #: Whether this search has turned the optional model extraction pass on. Off unless the file
     #: says otherwise, which is product invariant 9: an optional component is absent by default.
     model_extraction: bool = False
+    #: Paused: still a search, still runnable by name, simply not swept up by `run --all`. The
+    #: seasonal case, where somebody stops watching a town for a while without losing what they
+    #: know about it.
+    paused: bool = False
+    #: Archived: out of the way. Not listed, not run by `--all`, and still there, because a search
+    #: is a file somebody wrote and deleting one is their business rather than a button's.
+    archived: bool = False
     found: list[tuple[str, str, str]] = field(default_factory=list)
 
     def say(self, location: str, message: str, severity: Severity = "problem") -> None:
@@ -114,6 +123,7 @@ def examine(document: Document, *, known_sources: Sequence[str]) -> Reading:
     _sources(document, reading, known_sources)
     _rules_and_export(document, reading)
     _extraction(document, reading)
+    _standing(document, reading)
     _notices(document, reading)
     return reading
 
@@ -371,6 +381,28 @@ def _extraction(document: Document, reading: Reading) -> None:
         )
         return
     reading.model_extraction = wanted
+
+
+def _standing(document: Document, reading: Reading) -> None:
+    """Whether this search is being swept up by a run of everything, and whether it is put away.
+
+    Both are true-or-false and both default to absent, which is the ordinary state. Neither deletes
+    anything or stops the search being run by name: a paused search is one nobody is watching this
+    month, and an archived one is one nobody is watching at all, and both are still a file with
+    everything in it.
+    """
+    for key, name in (("paused", "paused"), ("archived", "archived")):
+        value = document.data.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, bool):
+            reading.say(
+                document.at(key),
+                f"{key} is true or false. A {name} search is skipped by a run of everything and is "
+                "still run when you ask for it by name.",
+            )
+            continue
+        setattr(reading, name, value)
 
 
 def _notices(document: Document, reading: Reading) -> None:

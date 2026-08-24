@@ -141,6 +141,8 @@ class SearchCatalog(Protocol):
 
     def edit(self, name: str, changes: Mapping[str, object]) -> SearchDefinition: ...
 
+    def duplicate(self, name: str, new_name: str) -> SearchDefinition: ...
+
 
 @dataclass
 class InMemorySearch:
@@ -213,6 +215,15 @@ class InMemoryCatalog:
         if "sources" in changes:
             definition.sources = tuple(changes["sources"])  # type: ignore[arg-type,call-overload]
         return definition
+
+    def duplicate(self, name: str, new_name: str) -> SearchDefinition:
+        from dataclasses import replace
+
+        if new_name in self.searches:
+            raise InvalidInput(f"A saved search named {new_name!r} already exists.")
+        made = replace(self.load(name), name=new_name)  # type: ignore[type-var]
+        self.searches[new_name] = made
+        return made
 
 
 #: How a catalog is built for a given directory. Registering one replaces the file-backed default,

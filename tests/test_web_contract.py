@@ -118,7 +118,7 @@ def test_every_surface_is_a_file_that_exists() -> None:
     """feat-010/AC-1: six surfaces, and each of them one page."""
     from homescout.web.wire import PAGES
 
-    assert len(PAGES) == 6
+    assert len(PAGES) == 7, "six surfaces from the spec, plus settings"
     for page in PAGES.values():
         assert (STATIC / page).is_file(), page
         assert (STATIC / page.replace(".html", ".js")).is_file(), page

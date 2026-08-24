@@ -442,10 +442,14 @@ purpose, including `Wildfire Hazard`, `Elevation (ft)`, `Description`, `Flags`, 
 homescout serve
 ```
 
-Six pages on `http://127.0.0.1:8765`: the saved searches, the map and search builder, the results
-table, one property in full, what changed since an earlier run, and the matches waiting for a
-decision. Plain HTML and JavaScript served as the files they are, no framework and no build step,
-because a personal tool has to still start in five years.
+Seven pages on `http://127.0.0.1:8765`: the saved searches, the map and search builder, the results
+table, one property in full, what changed since an earlier run, the matches waiting for a decision,
+and the settings. Plain HTML and JavaScript served as the files they are, no framework and no build
+step, because a personal tool has to still start in five years.
+
+**Everything the terminal can do, the browser can do.** That is a test rather than a promise: the
+command line's own parser is walked and every command in it has to name the route that reaches the
+same operation, so a capability added to one surface cannot quietly be missing from the other.
 
 **The table is where the work happens.** Every column, sorted and filtered in the browser, and your
 rank, verdict, red flags, summary and next step typed straight onto the row you are reading. That is
@@ -496,15 +500,45 @@ manifest recording each file's version, origin and SHA-256, and a test that chec
 against it. That is deliberate: fetching it from a content network at page load would mean a
 localhost tool needs the internet to draw a polygon.
 
-**There is no map background unless you configure one**, because asking a tile server for tiles
-tells that server which part of the world you are looking at, and this tool's whole privacy position
-is that the only traffic it makes is to listing sites, public data services, an optional model and
-your mail server. Drawing works without a background. To add one:
+**There is no map background unless you turn one on**, because asking a tile server for tiles tells
+that server which part of the world you are looking at, and this tool's whole privacy position is
+that the only traffic it makes is to listing sites, public data services, an optional model and your
+mail server.
+
+With none configured the map draws a labelled coordinate grid, says what is missing, and offers one
+button that turns OpenStreetMap on, with what that costs stated beside the button. Drawing works
+either way and is much easier with a background. The same choice is on the settings page, along with
+a field for a different tile server. By hand it is:
 
 ```
 HOMESCOUT_MAP_TILES=https://tile.example.org/{z}/{x}/{y}.png
 HOMESCOUT_MAP_ATTRIBUTION=Whoever the tiles belong to
 ```
+
+### The settings page
+
+`/settings` reports what this installation has set up and what it has not: whether a model is
+configured to read descriptions, whether the map has a background, whether the nightly email has an
+account, whether the broadband token is there. The plain choices are editable there and are written
+to the `.env` beside the database, keeping the rest of that file and its comments exactly as they
+were, and taking effect without a restart.
+
+**It will not accept a credential and the server refuses to write one.** A setting whose name looks
+like a secret (`KEY`, `TOKEN`, `PASSWORD`, `SECRET`) is refused, and the page says whether a
+credential is present without ever saying what it is. A key comes from your environment, or from
+that file by your own hand, which is the constitution's rule and the reason there is no box to type
+one into.
+
+The same page runs the things that are not part of a nightly run: attaching public data, asking the
+model about descriptions, writing the digest, and writing a spreadsheet.
+
+### Keeping a search without running it
+
+A saved search can be paused or archived from the list, and neither deletes anything. A paused
+search is skipped by "run all of them", which says that it skipped it, and still runs when you ask
+for it by name. An archived one is also out of the list until you ask to see archived searches.
+Duplicating one copies the file, comments and all, which is how a variation starts from something
+that already works.
 
 ### Two commands the interface brought with it
 
