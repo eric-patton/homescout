@@ -60,3 +60,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   now reads the dataclass's own fields, so the two can no longer disagree. The store keeps a check
   at import that its compared and informational sets together account for every field on the
   record.
+- **2026-08-23, command line and run orchestration (feat-003).** `Store.record_observations` now
+  returns one canonical listing id per input row, in input order, rather than the distinct ids with
+  repeats collapsed. Nothing about what is written changed, and no acceptance criterion here spoke
+  to the return value. The reason is the run loop: it holds the rows in memory and has to know which
+  property each one became, so it can retrieve a preview image for a property that has none. Zipping
+  a collapsed list against the original rows would attach images to the wrong properties from the
+  first repeat onward, and the alternative was to reimplement this feature's private identity rule
+  in the run loop, which is the one rule this project cannot afford to have two of. The distinct
+  list is `dict.fromkeys` away for any caller that wants it. Covered by a test here citing
+  `feat-001/AC-4`. The now-unused private identity helper was removed with it.

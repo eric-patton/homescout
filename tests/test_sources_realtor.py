@@ -470,3 +470,22 @@ def test_an_image_failure_is_confined_to_that_row() -> None:
 
     assert first is None
     assert second is not None
+
+
+def test_a_plaintext_image_address_is_asked_for_over_https() -> None:
+    """feat-002/AC-23: the source's own image addresses are unusable exactly as given.
+
+    Found by the first live run of the command line: the source hands out `http://` addresses, its
+    image host answers each one with a 301 to the identical `https` address, and image fetches do
+    not follow redirects. Taken literally, every preview in the product was a 167-byte redirect page
+    and no property ever got a picture. Asking for `https` is not following the redirect; it is
+    declining to make the plaintext request in the first place.
+    """
+    from homescout.sources.realtor import normalize
+
+    plain = {"primary_photo": {"href": "http://ap.rdcpix.com/abc-m123s.jpg"}}
+    secure = {"primary_photo": {"href": "https://ap.rdcpix.com/abc-m123s.jpg"}}
+
+    assert normalize.preview_url(plain) == "https://ap.rdcpix.com/abc-m123s.jpg"
+    assert normalize.preview_url(secure) == "https://ap.rdcpix.com/abc-m123s.jpg"
+    assert normalize.preview_url({}) is None

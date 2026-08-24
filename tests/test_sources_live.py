@@ -1,9 +1,10 @@
-"""The two questions only the real source can answer.
+"""The questions only the real source can answer.
 
 Everything else in this feature is proved offline, which is what keeps the suite fast and keeps the
-tool from pointing traffic at a site purely to check itself. These two are here because no fixture
-can answer them: does the endpoint still accept a client that identifies itself honestly, and is the
-result cap still where we think it is.
+tool from pointing traffic at a site purely to check itself. These are here because no fixture can
+answer them: does the endpoint still accept a client that identifies itself honestly, is the result
+cap still where we think it is, and does an image address the source gives out actually yield a
+picture.
 
 Marked slow and excluded from the default run. They are deliberately cheap: the second one reads the
 counts the source reports for the ranges the split produces, and never fetches the rows behind them.
@@ -18,7 +19,14 @@ import json
 
 import pytest
 
-from homescout.sources import City, PolitenessConfig, SearchQuery, State, default_session
+from homescout.sources import (
+    City,
+    PolitenessConfig,
+    SearchQuery,
+    State,
+    create,
+    default_session,
+)
 from homescout.sources.realtor import (
     RESULT_CEILING,
     RealtorSource,
@@ -106,3 +114,26 @@ def _reported_total(source: RealtorSource, place: object, query: SearchQuery) ->
         Request(url=queries.ENDPOINT, method="POST", body=body, headers=source._headers),
     )
     return int(json.loads(fetched.body)["data"]["homeSearch"]["total"])
+
+
+def test_a_real_preview_image_comes_back_as_a_picture() -> None:
+    """feat-002/AC-23: the obligation this feature put on the interface, against the real site.
+
+    The offline tests could only prove that an image the transport returns is stored. They could not
+    catch the source handing out addresses that redirect, which is what it does, and which made
+    preview retrieval a no-op for every property until the first live run of a command found it.
+    """
+    source = create("realtor", default_session())
+    result = source.search(SearchQuery(area=City("Portales", "NM"), price_max=200_000))
+    assert result.outcome == "ok" and result.rows
+
+    previews = []
+    for row in result.rows[:2]:
+        preview = source.preview(row)
+        if preview is not None:
+            previews.append(preview)
+
+    assert previews, "the source offered no usable image for any of the first rows"
+    for preview in previews:
+        assert preview.content_type.startswith("image/")
+        assert len(preview.data) > 1_000, "a redirect page rather than a picture"

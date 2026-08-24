@@ -141,7 +141,17 @@ def to_row(home: Mapping[str, Any], *, fetched_at: str) -> SourceRow:
 
 
 def preview_url(home: Mapping[str, Any]) -> str | None:
-    """The small image the source offers, if it offers one."""
+    """The small image the source offers, if it offers one.
+
+    The source gives these as plaintext `http://` addresses and its image host answers every one of
+    them with a redirect to the same address over `https`. Image fetches deliberately do not follow
+    redirects, so taking the address as given retrieves a 167-byte redirect page instead of a
+    picture, every time, for every property. Asking for `https` directly is not following the
+    redirect, it is declining to make the plaintext request the redirect exists to correct.
+    """
     photo = _mapping(home.get("primary_photo"), "primary_photo")
     href = photo.get("href")
-    return str(href) if href else None
+    if not href:
+        return None
+    address = str(href)
+    return f"https://{address[len('http://'):]}" if address.startswith("http://") else address

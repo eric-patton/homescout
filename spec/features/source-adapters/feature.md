@@ -45,3 +45,18 @@ Brief section 5.1. Constitution non-negotiables 9 and 10.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes by other features
+
+- **2026-08-23, command line and run orchestration (feat-003), defect.** Preview retrieval never
+  returned a picture from the real source. Realtor.com gives its image addresses as plaintext
+  `http://`, its image host answers every one of them with a 301 to the identical `https` address,
+  and image fetches deliberately do not follow redirects, so every preview in the product was a
+  167-byte redirect page. The offline tests could not catch it, because a fake transport returns
+  whatever it is told to; the first live run of a command found it immediately.
+
+  Fixed in `realtor/normalize.py`: an `http://` address is asked for over `https` instead. That is
+  not following the redirect, it is declining to make the plaintext request the redirect exists to
+  correct, and it costs one request rather than two. A traced regression fix against `AC-23`, with
+  an offline test (`test_a_plaintext_image_address_is_asked_for_over_https`) and a live one
+  (`test_a_real_preview_image_comes_back_as_a_picture`) both citing it.

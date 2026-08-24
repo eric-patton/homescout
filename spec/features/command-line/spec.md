@@ -101,6 +101,12 @@ moved. The problem brief is in `research.md`.
   - Then the failing one is reported and skipped, the others run and record their observations, and
     the command exits with the invalid-input code
 
+- **Scenario: a property leaves the market**
+  - Given a saved search for what is for sale, and a source that does not filter on status
+  - When a property it returned last time comes back marked as pending
+  - Then the property is recorded with its new status and reported as changed, rather than being
+    filtered away and reported as having disappeared
+
 - **Scenario: an image already stored is not fetched again**
   - Given a property whose preview image was stored by an earlier run
   - When the search is run again
@@ -219,6 +225,12 @@ moved. The problem brief is in `research.md`.
 - [ ] AC-31: No command-line option accepts a credential, because arguments are visible to other
       processes and are stored in scheduler configuration. A test asserts that the parser defines no
       such option.
+- [ ] AC-32: Two filters are pushed to a source that will apply them and are never applied by the
+      tool afterwards, and neither is reported as applied locally. The freshness filter, because
+      freshness is computed from local history and a local test would have nothing honest to read.
+      The listing status, because a property whose status just changed is the most interesting thing
+      a run can find, and removing its row would replace the source's own evidence with an absence
+      the tool could then only report as an unexplained disappearance.
 
 ## Edge cases & errors
 

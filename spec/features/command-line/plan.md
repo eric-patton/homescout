@@ -85,8 +85,15 @@ when it is not.
 
 The facade is deliberately small: `open_workspace`, `run_search`, `run_all`, `changes`,
 `list_searches`, `show_search`, `validate_search`, `create_search`, `edit_search`, `annotate`,
-`pending_matches`, `resolve_match`. Nothing else. A command that needs something outside that list
-is a sign the logic is drifting upward into the surface.
+`pending_matches`, `resolve_match`, plus `enrich`, `export` and `serve` for the three commands whose
+features are not built (D-5) and two helpers a surface needs to ask a question with, `database_path`
+and `moment`. Nothing else, and a test holds it to exactly that list: a command that needs something
+outside it is logic drifting upward into the surface.
+
+The facade also translates the store's own errors into the two deliberate kinds, so the command
+layer never imports the store to find out what went wrong. That is what lets the exit-code mapping
+know only about `InvalidInput` and `PreconditionNotMet`, and it is what makes the import ban in D-16
+absolute rather than nearly absolute.
 
 ### D-3 — Saved searches arrive through a port, not a file format
 
@@ -161,9 +168,14 @@ and an unknown search name land in the same class without fighting the parser. T
 avoid the shell's reserved range (126 and above).
 
 Precedence when one invocation produces several, which `run --all` can: internal error, then invalid
-input, then degraded, then success. Invalid input beats degraded deliberately: a source that failed
-is weather, a definition that does not parse is a file a human must edit, and the second deserves to
-wake someone.
+input, then precondition, then degraded, then success. Invalid input beats degraded deliberately: a
+source that failed is weather, a definition that does not parse is a file a human must edit, and the
+second deserves to wake someone. Precondition sits above degraded for the same reason at one remove:
+a search that did not run at all is worse news than one that ran with a source down.
+
+The order is asserted to account for every code. The first draft of this list left the precondition
+code out of it, and a code missing from the order falls through to success, which is how a run of
+every saved search that managed none of them could have reported that everything was fine.
 
 The mapping lives in one place. The core raises `InvalidInput` or `PreconditionNotMet` (new, in
 `errors.py`), the store's existing `NoBaselineError` and `StoreLockedError` map to precondition, and
@@ -220,6 +232,14 @@ under a price filter) and correctable; the alternative is invisible.
 This is the same family as feat-004's "not locatable" rule for a property with no coordinates, which
 formalizes the marking. Until then, the row is kept unmarked. AC-28 states the rule, so it is a
 promise rather than an implementation detail.
+
+Two filters are never applied here at all, and are pushed or not applied (AC-32). The freshness
+filter, because freshness is computed from local history and a local test on it would have nothing
+honest to read. And the **listing status**, which the first run of the loop found the hard way: a
+saved search asks for what is for sale, a source that cannot apply that returns everything, and a
+local status test then drops the very property that just went pending. The store would see nothing
+where the source had told us something, and could only report it as an unexplained disappearance.
+A status filter shapes what is asked for; it must never hide what came back.
 
 ### D-10 — Recording observations returns one listing id per row
 
@@ -282,6 +302,10 @@ comparison, so an automated reader parses one thing:
       "new": [...], "price_changes": [...], "status_changes": [...],
       "other_changes": [...], "gone": [...], "returned": [...], "flagged": [] } ] }
 ```
+
+Alongside `searches` the document carries `skipped`: the saved searches that did not validate, each
+with its problems and their locations. That is what makes AC-16's answer for a run of everything
+readable rather than inferred from a missing entry.
 
 Every key is always present, so a reader never branches on shape. For a comparison, `sources` is
 empty and `outcome` is null.
@@ -496,6 +520,7 @@ Every criterion, the seam its test enters through, and the token that test carri
 | AC-29 | `runner` with two overlapping areas | One record for the property both areas returned; two for the property one response returned twice |
 | AC-30 | `main([..., "--delay", ...])` | The delay reaches the session; a value outside the permitted range is invalid input and nothing is fetched |
 | AC-31 | the parser | Every option name in every subcommand is checked against a list of credential-shaped words |
+| AC-32 | `runner` with a stub | A freshness filter and a status filter a source does not apply appear in neither list; a property that went pending is recorded as changed rather than gone |
 
 Test files live under `tests/` per `spec/.spec-flow.md` (`tests/**/test_*.py`), and every test names
 its criterion as `feat-003/AC-N` in the test name or a comment. The commands:

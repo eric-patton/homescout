@@ -7,23 +7,24 @@ Decisions referenced below are the `D-N` sections of `plan.md`.
 
 ## Core vocabulary
 
-- [ ] **T1 — Failure kinds.** `src/homescout/errors.py`: `HomescoutError`, `InvalidInput`,
+- [x] **T1 — Failure kinds.** `src/homescout/errors.py`: `HomescoutError`, `InvalidInput`,
       `PreconditionNotMet`, each carrying an actionable message. Nothing else. (D-6)
-- [ ] **T2 — Exit codes.** `src/homescout/cli/codes.py`: `ExitCode` as an `IntEnum` (success 0,
+- [x] **T2 — Exit codes.** `src/homescout/cli/codes.py`: `ExitCode` as an `IntEnum` (success 0,
       degraded 1, invalid input 2, precondition 3, internal error 4), `code_for(exception)` mapping
-      the two core errors plus the store's `NoBaselineError` and `StoreLockedError`, and
-      `worst_of(codes)` implementing the precedence rule. (D-6)
+      the two core errors, and `worst_of(codes)` implementing the precedence rule. The store's own
+      errors are translated by the facade before they reach this layer, which is what lets this
+      module import nothing but the error definitions and makes the import ban absolute. (D-6)
 
 ## Ports
 
-- [ ] **T3 [P] — The saved-search port.** `src/homescout/search.py`: `SearchProblem(location,
+- [x] **T3 [P] — The saved-search port.** `src/homescout/search.py`: `SearchProblem(location,
       message)`, the `SearchDefinition` and `SearchCatalog` protocols, `InMemorySearch` and
       `InMemoryCatalog`, and `register_catalog` / `catalog_for` mirroring the source registry.
       `InMemorySearch.keeps` keeps everything. (D-3)
-- [ ] **T4 [P] — The ambiguous-match port.** `src/homescout/matches.py`: `AmbiguousMatch(id,
+- [x] **T4 [P] — The ambiguous-match port.** `src/homescout/matches.py`: `AmbiguousMatch(id,
       listing_ids, agreed, conflicted, noticed_at)`, the `MergeQueue` protocol (`pending`, `get`,
       `record`), `InMemoryQueue`, and its registry. No resolution logic here. (D-4)
-- [ ] **T5 [P] — One run at a time.** `src/homescout/claim.py`: `claim_run(directory, search_name,
+- [x] **T5 [P] — One run at a time.** `src/homescout/claim.py`: `claim_run(directory, search_name,
       run_id)` as a context manager over `msvcrt.locking` on Windows and `fcntl.flock` elsewhere.
       Byte 0 is the lock; the holder's run id and start time are written after it and are readable
       by a process that failed to take the lock. Failure raises `RunInProgress(PreconditionNotMet)`
@@ -31,35 +32,36 @@ Decisions referenced below are the `D-N` sections of `plan.md`.
 
 ## The loop
 
-- [ ] **T6 — Pair a row with the property it became.** Widen `Store.record_observations` to return
+- [x] **T6 — Pair a row with the property it became.** Widen `Store.record_observations` to return
       one canonical listing id per input row, in input order. Update the docstring, add a test in
       `tests/test_store_history.py` citing `feat-001/AC-4` for a response repeating one identifier,
       and record the change under "Later changes by other features" in
       `spec/features/listing-store/feature.md`. (D-10)
-- [ ] **T7 — The run loop.** `src/homescout/runner.py`: for each configured source, read its
+- [x] **T7 — The run loop.** `src/homescout/runner.py`: for each configured source, read its
       capabilities, ask one query per area, drop a repeat across areas but never inside one
       response, apply the undeclared filters locally (keeping a row whose field is absent), apply
       the definition's exact test, record observations, record the per-source outcome. Then complete
       the run and compare. Returns `RunOutcome(run, comparison, sources)` where each source entry
       carries its outcome, row count, truncation, and its applied-by-source and applied-locally
-      field lists. Covers AC-28 and AC-29. (D-9, D-12, D-14)
-- [ ] **T8 — Preview images.** Inside the loop: for each recorded property with no stored image,
+      field lists. Covers AC-28, AC-29 and AC-32. (D-9, D-12, D-14)
+- [x] **T8 — Preview images.** Inside the loop: for each recorded property with no stored image,
       call the adapter's `preview` and hand the bytes to `Store.store_preview_image`, and for no
       other property. Skipped entirely under `--no-images`. One image in memory at a time. Covers
       AC-27. (D-11)
-- [ ] **T9 — The digest.** `src/homescout/digest.py`: the document of D-13 from a `RunOutcome` or a
-      `Comparison`, with every key always present, the per-property summary, and days on market read
-      from the store's local history. (D-13)
-- [ ] **T10 — The facade.** `src/homescout/api.py`: `open_workspace`, `run_search`, `run_all`,
+- [x] **T9 — The digest.** `src/homescout/digest.py`: the document of D-13 from a `RunOutcome` or a
+      `Comparison`, with every key always present, the per-property summary, the definitions that
+      were skipped, and days on market read from the store's local history. (D-13)
+- [x] **T10 — The facade.** `src/homescout/api.py`: `open_workspace`, `run_search`, `run_all`,
       `changes`, `list_searches`, `show_search`, `validate_search`, `create_search`, `edit_search`,
-      `annotate`, `pending_matches`, `resolve_match`. `resolve_match` supersedes for "same" and
-      records the verdict either way. Nothing else in this module. (D-2, D-4)
+      `annotate`, `pending_matches`, `resolve_match`, the three not-built-yet commands, and the two
+      helpers a surface asks with. `resolve_match` supersedes for "same" and records the verdict
+      either way. The store's errors are translated here. Nothing else in this module. (D-2, D-4)
 
 ## The surface
 
-- [ ] **T11 — Human rendering.** `src/homescout/cli/render.py`: one function per result the facade
+- [x] **T11 — Human rendering.** `src/homescout/cli/render.py`: one function per result the facade
       returns. Plain text, computed column widths, no colour, no dependency. (D-17)
-- [ ] **T12 — The command line.** `src/homescout/cli/main.py`: the parser and every subcommand of
+- [x] **T12 — The command line.** `src/homescout/cli/main.py`: the parser and every subcommand of
       AC-20 (`run`, `changes`, `searches list|show|validate|create|edit`, `annotate`,
       `matches list|resolve`, `enrich [--stale] [--search NAME]`, `export [--search NAME]`,
       `serve [--port N]`), the global `--db`, `--json`, `--output`, `--delay` and `--version`, UTF-8
@@ -72,35 +74,61 @@ Decisions referenced below are the `D-N` sections of `plan.md`.
 
 ## Tests
 
-- [ ] **T13 [P] — Fakes.** `tests/cli_fakes.py`: an in-memory catalog builder over feat-002's
+- [x] **T13 [P] — Fakes.** `tests/cli_fakes.py`: an in-memory catalog builder over feat-002's
       `StubSource`, a temporary-store fixture, and `invoke(args, ...)` returning
       `(exit_code, stdout, stderr)`. (D-18)
-- [ ] **T14 — The loop.** `tests/test_run_loop.py`: AC-4 through AC-9 — the filter split and its
+- [x] **T14 — The loop.** `tests/test_run_loop.py`: AC-4 through AC-9 — the filter split and its
       report, a row kept when its field is absent, the cross-area repeat rule against the
       within-response rule, previews fetched once and not re-fetched, a degraded run that still
       records, an all-failed run that marks nothing gone, and the run record's contents.
-- [ ] **T15 [P] — The digest.** `tests/test_digest.py`: AC-10 through AC-12 — one entry per search,
+- [x] **T15 [P] — The digest.** `tests/test_digest.py`: AC-10 through AC-12 — one entry per search,
       the separate change sets, price direction, flagged present and empty, and size as a function
       of what changed rather than of how much matched.
-- [ ] **T16 [P] — The claim.** `tests/test_run_claim.py`: AC-26 — a second run declines with the
+- [x] **T16 [P] — The claim.** `tests/test_run_claim.py`: AC-26 — a second run declines with the
       precondition code while a real subprocess holds the lock, the message names the run in
       progress and its start time, and the next run proceeds after that process is killed.
-- [ ] **T17 — The machine contract.** `tests/test_cli_contract.py`: AC-1 through AC-3, AC-17, AC-20,
+- [x] **T17 — The machine contract.** `tests/test_cli_contract.py`: AC-1 through AC-3, AC-17, AC-20,
       AC-21 — machine output parses, streams stay separate, the codes are stable, non-ASCII survives
       on Windows, `--output` behaves in all three cases, human output is the default, every command
       is reachable, AC-30's delay reaches the session and its out-of-range value is refused, AC-31's
       parser carries no credential option, and importing the command module neither loads `requests`
       nor costs more than the measured budget.
-- [ ] **T18 — The operations.** `tests/test_cli_operations.py`: AC-13 through AC-16, AC-18, AC-19,
+- [x] **T18 — The operations.** `tests/test_cli_operations.py`: AC-13 through AC-16, AC-18, AC-19,
       AC-22 through AC-25 — comparisons and their reproducibility, no baseline, unknown name,
       one bad definition among many that does not stop the good ones, annotation through both
       surfaces, ambiguous matches through both surfaces, the identical-store-state test, the import
       ban and syntax-tree check, and the internal-error path leaving the previous run usable.
-- [ ] **T19 — Live.** `tests/test_cli_live.py`, marked `slow`: one real search over a real place run
+- [x] **T19 — Live.** `tests/test_cli_live.py`, marked `slow`: one real search over a real place run
       twice through `main(["run", ...])`, asserting the second digest reports no new properties and
       the run record names the source's outcome.
 
 ## Finish
 
-- [ ] **T20 — Gate.** `uv run ruff check .`, `uv run pytest -q`, `uv run pytest -m slow -q`, then
+- [x] **T20 — Gate.** `uv run ruff check .`, `uv run pytest -q`, `uv run pytest -m slow -q`, then
       `node scripts/validate.mjs`. Then the code-against-spec audit (`/spec-flow:converge`).
+
+## Found while building
+
+- [x] **T21 — The preview image was never actually retrieved.** The first live run of the command
+      line showed that Realtor.com hands out `http://` image addresses, that its image host answers
+      each one with a 301 to the identical `https` address, and that image fetches deliberately do
+      not follow redirects. Every preview in the product was a 167-byte redirect page. Fixed in the
+      adapter by asking for `https` directly, which is not following the redirect but declining to
+      make the plaintext request it exists to correct. A traced regression fix against the source
+      adapters, with an offline test and a live test both citing `feat-002/AC-23`, and recorded in
+      that feature's manifest.
+
+## Found by the code-against-spec audit
+
+- [x] **T22 — gap-001: the exit codes are documented nowhere a user reads.** They are stable and
+      commented in the source, but the contract a scheduled task is built on has to be readable
+      without opening the source. Put them in the command line's own help, and in the README.
+- [x] **T23 — gap-002: running everything stops at the first search it cannot start.** A saved
+      search that is already running, or that names an unregistered source, raises past the loop and
+      costs every remaining search its night. Skip it, report it with its reason, and carry on, the
+      way an unreadable definition already is. Regression test citing `feat-003/AC-16`.
+- [x] **T24 — gap-003: the precondition code is missing from the precedence order.** An invocation
+      whose only outcome was "cannot proceed yet" settles on success, which is the one thing the
+      exit-code contract exists to prevent. Add it, above degraded, and assert that the order
+      accounts for every code so a sixth one cannot be forgotten. Regression test citing
+      `feat-003/AC-3`.

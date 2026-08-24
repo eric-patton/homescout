@@ -1,0 +1,414 @@
+"""The command line.
+
+Every command does the same three things: parse, call :mod:`homescout.api`, format. It holds no
+decision about a listing, and it cannot: nothing in this package may import the store or the
+sources, so there is no listing here to decide anything about.
+
+Two contracts are kept here and nowhere else. **The primary stream belongs to the structured
+document**: with machine output requested, one document reaches it and every progress line,
+warning and diagnostic goes to the secondary stream, so an unattended caller never has to
+disentangle them. **The exit code is stable**, and it is translated in exactly one place from the
+kind of error the core raised.
+
+Both streams are re-wrapped as UTF-8, because Windows is the primary platform, its console encoding
+is not UTF-8, and property descriptions carry characters outside ASCII as a matter of course.
+"""
+
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import sys
+from collections.abc import Sequence
+from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, TextIO
+
+from .. import api, digest
+from ..errors import HomescoutError, InvalidInput
+from . import render
+from .codes import ExitCode, code_for, worst_of
+
+VERSION = "0.1.0"
+
+#: Printed at the end of `homescout --help`. The codes are the contract a scheduled task is built
+#: on, so they have to be readable without opening the source: someone writing a Task Scheduler
+#: entry should not have to go looking for what 1 means.
+EXIT_CODES = """exit codes:
+  0  success
+  1  degraded: it completed, but at least one source failed or was unavailable
+  2  invalid input: usage, an unknown name, or a saved search that does not validate
+  3  cannot proceed yet: nothing to compare against, a run already going, the database in use,
+     or a command whose feature is not built
+  4  internal error
+
+  One invocation that produces several settles on the worst: 4, then 2, then 3, then 1, then 0.
+"""
+
+
+@dataclass
+class Answer:
+    """One command's result, in both renderings.
+
+    Two renderings of one computation, never two computations. That is the whole reason this type
+    exists rather than each command deciding for itself what to print.
+    """
+
+    document: dict[str, Any] = field(default_factory=dict)
+    text: str = ""
+    code: ExitCode = ExitCode.SUCCESS
+
+
+def _utf8(stream: TextIO) -> TextIO:
+    buffer = getattr(stream, "buffer", None)
+    if buffer is None:
+        return stream
+    return io.TextIOWrapper(buffer, encoding="utf-8", newline="\n", write_through=True)
+
+
+def common_options() -> argparse.ArgumentParser:
+    """The options every command takes.
+
+    Attached to the top-level parser and to every subcommand, with suppressed defaults so that
+    whichever side names one wins and the other does not overwrite it with a default. That is what
+    makes both `homescout --json run x` and `homescout run x --json` work.
+
+    No option here or anywhere else accepts a credential. Arguments are visible to other processes
+    and Windows Task Scheduler stores them in plain text, so secrets come from the environment.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--db",
+        default=argparse.SUPPRESS,
+        help="the database file (default: HOMESCOUT_DB, else ./homescout.db)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="emit one structured document on the primary stream and nothing else",
+    )
+    parser.add_argument(
+        "--output",
+        default=argparse.SUPPRESS,
+        metavar="PATH",
+        help="also write the structured document to this file",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=argparse.SUPPRESS,
+        metavar="SECONDS",
+        help="seconds to wait between requests to one source (default: the shipped value)",
+    )
+    return parser
+
+
+def build_parser() -> argparse.ArgumentParser:
+    common = common_options()
+    parser = argparse.ArgumentParser(
+        prog="homescout",
+        description="A local-first property search monitor.",
+        epilog=EXIT_CODES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[common],
+    )
+    parser.add_argument("--version", action="version", version=f"homescout {VERSION}")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    run = commands.add_parser("run", parents=[common], help="run a saved search")
+    run.add_argument("name", nargs="?", help="the saved search to run")
+    run.add_argument("--all", action="store_true", help="run every saved search")
+    run.add_argument(
+        "--no-images", action="store_true", help="do not retrieve preview images this run"
+    )
+
+    changes = commands.add_parser(
+        "changes", parents=[common], help="what changed since an earlier point"
+    )
+    changes.add_argument("name")
+    changes.add_argument(
+        "--since", metavar="DATE", help="compare against the last run at or before this date"
+    )
+
+    searches = commands.add_parser("searches", parents=[common], help="manage saved searches")
+    which = searches.add_subparsers(dest="action", required=True)
+    which.add_parser("list", parents=[common], help="list saved searches")
+    which.add_parser("show", parents=[common], help="show one saved search").add_argument("name")
+    which.add_parser("validate", parents=[common], help="check one definition").add_argument("name")
+    which.add_parser("create", parents=[common], help="start a new definition").add_argument("name")
+    edit = which.add_parser("edit", parents=[common], help="change one definition")
+    edit.add_argument("name")
+    edit.add_argument(
+        "--set", action="append", default=[], metavar="KEY=VALUE", dest="assignments"
+    )
+
+    annotate = commands.add_parser(
+        "annotate", parents=[common], help="record your own judgment about a property"
+    )
+    annotate.add_argument("listing_id")
+    for option in ("rank", "verdict", "red-flags", "summary", "next-step", "notes"):
+        annotate.add_argument(f"--{option}", default=None)
+
+    matches = commands.add_parser(
+        "matches", parents=[common], help="review property matches that need a human"
+    )
+    review = matches.add_subparsers(dest="action", required=True)
+    review.add_parser("list", parents=[common], help="matches waiting for review")
+    resolve = review.add_parser("resolve", parents=[common], help="settle one match")
+    resolve.add_argument("match_id")
+    verdict = resolve.add_mutually_exclusive_group(required=True)
+    verdict.add_argument("--same", action="store_true", help="one property, so merge them")
+    verdict.add_argument("--different", action="store_true", help="two properties, so keep both")
+
+    enrich = commands.add_parser("enrich", parents=[common], help="attach public data to locations")
+    enrich.add_argument("--stale", action="store_true", help="only values past their lifetime")
+    enrich.add_argument("--search", metavar="NAME", help="only properties in this saved search")
+
+    export = commands.add_parser("export", parents=[common], help="write a spreadsheet")
+    export.add_argument("--search", metavar="NAME")
+
+    serve = commands.add_parser("serve", parents=[common], help="start the local browser interface")
+    serve.add_argument("--port", type=int, default=8765)
+
+    return parser
+
+
+def _assignments(pairs: Sequence[str]) -> dict[str, object]:
+    changes: dict[str, object] = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep:
+            raise InvalidInput(f"--set wants KEY=VALUE, got {pair!r}.")
+        changes[key.strip()] = value.strip()
+    return changes
+
+
+def _summary_of(search: Any) -> dict[str, Any]:
+    return {"name": search.name, "sources": list(search.sources), "areas": len(search.queries())}
+
+
+def _problems(found: Sequence[Any]) -> list[dict[str, str]]:
+    return [{"location": p.location, "message": p.message} for p in found]
+
+
+def _run(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    if args.all:
+        result = api.run_all(workspace, progress=note)
+        entries = [
+            digest.entry(
+                workspace.store,
+                search_name=outcome.run.search_name,
+                comparison=outcome.comparison,
+                outcome=outcome,
+            )
+            for outcome in result.outcomes
+        ]
+        skipped = [
+            {
+                "name": s.name,
+                "reason": s.reason,
+                "detail": s.detail,
+                "problems": _problems(s.problems),
+            }
+            for s in result.skipped
+        ]
+        document = digest.build(entries, kind="run", skipped=skipped)
+        codes = [
+            ExitCode.DEGRADED if outcome.degraded else ExitCode.SUCCESS
+            for outcome in result.outcomes
+        ]
+        codes.extend(
+            ExitCode.INVALID_INPUT if s.reason == "invalid" else ExitCode.PRECONDITION
+            for s in result.skipped
+        )
+        return Answer(document, render.digest(document), worst_of(codes))
+
+    if not args.name:
+        raise InvalidInput("Name a saved search to run, or pass --all to run every one of them.")
+    outcome = api.run_search(workspace, args.name, progress=note)
+    entry = digest.entry(
+        workspace.store,
+        search_name=args.name,
+        comparison=outcome.comparison,
+        outcome=outcome,
+    )
+    document = digest.build([entry], kind="run")
+    code = ExitCode.DEGRADED if outcome.degraded else ExitCode.SUCCESS
+    return Answer(document, render.digest(document), code)
+
+
+def _changes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    comparison = api.changes(workspace, args.name, since=args.since)
+    entry = digest.entry(workspace.store, search_name=args.name, comparison=comparison)
+    document = digest.build([entry], kind="comparison")
+    return Answer(document, render.digest(document))
+
+
+def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.action == "list":
+        names = api.list_searches(workspace)
+        return Answer(digest.envelope("searches", searches=list(names)), render.searches(names))
+    if args.action == "show":
+        found = api.show_search(workspace, args.name)
+        return Answer(
+            digest.envelope("search", search=_summary_of(found)), render.definition(found)
+        )
+    if args.action == "validate":
+        problems = api.validate_search(workspace, args.name)
+        document = digest.envelope(
+            "validation",
+            name=args.name,
+            valid=not problems,
+            problems=_problems(problems),
+        )
+        code = ExitCode.INVALID_INPUT if problems else ExitCode.SUCCESS
+        return Answer(document, render.problems(args.name, problems), code)
+    if args.action == "create":
+        made = api.create_search(workspace, args.name)
+        return Answer(digest.envelope("search", search=_summary_of(made)), render.definition(made))
+    edited = api.edit_search(workspace, args.name, _assignments(args.assignments))
+    return Answer(digest.envelope("search", search=_summary_of(edited)), render.definition(edited))
+
+
+def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    values = {
+        name: getattr(args, name)
+        for name in ("rank", "verdict", "red_flags", "summary", "next_step", "notes")
+        if getattr(args, name) is not None
+    }
+    if not values:
+        raise InvalidInput("Give at least one thing to record, such as --verdict or --notes.")
+    if "rank" in values:
+        try:
+            values["rank"] = int(values["rank"])
+        except ValueError:
+            raise InvalidInput(f"--rank wants a whole number, got {values['rank']!r}.") from None
+    written = api.annotate(workspace, args.listing_id, **values)
+    payload = {
+        "listing_id": written.listing_id,
+        "updated_at": written.updated_at,
+        **written.content(),
+    }
+    return Answer(digest.envelope("annotation", annotation=payload), render.annotation(written))
+
+
+def _matches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.action == "list":
+        pending = api.pending_matches(workspace)
+        payload = [
+            {
+                "id": m.id,
+                "listing_ids": list(m.listing_ids),
+                "agreed": list(m.agreed),
+                "conflicted": list(m.conflicted),
+                "noticed_at": m.noticed_at,
+            }
+            for m in pending
+        ]
+        return Answer(digest.envelope("matches", matches=payload), render.matches(pending))
+    merged = api.resolve_match(workspace, args.match_id, same=args.same)
+    verdict = "same" if args.same else "different"
+    document = digest.envelope(
+        "resolution", match_id=args.match_id, verdict=verdict, merged_listing_id=merged
+    )
+    text = (
+        f"Merged into {merged}." if merged else "Recorded as different properties."
+    )
+    return Answer(document, text)
+
+
+def _dispatch(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    if args.command == "run":
+        return _run(workspace, args, note)
+    if args.command == "changes":
+        return _changes(workspace, args)
+    if args.command == "searches":
+        return _searches(workspace, args)
+    if args.command == "annotate":
+        return _annotate(workspace, args)
+    if args.command == "matches":
+        return _matches(workspace, args)
+    if args.command == "enrich":
+        api.enrich(workspace, stale_only=args.stale, search=args.search)
+    if args.command == "export":
+        api.export(workspace, search=args.search)
+    if args.command == "serve":
+        api.serve(workspace, port=args.port)
+    raise InvalidInput(f"No command named {args.command!r}.")
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
+) -> int:
+    out = stdout if stdout is not None else _utf8(sys.stdout)
+    err = stderr if stderr is not None else _utf8(sys.stderr)
+    parser = build_parser()
+
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            args = parser.parse_args(argv)
+    except SystemExit as stop:  # --help and usage errors both arrive here
+        return int(stop.code or 0)
+
+    wants_json = getattr(args, "json", False)
+    output = getattr(args, "output", None)
+
+    def note(message: str) -> None:
+        print(message, file=err)
+
+    try:
+        # Checked before anything is opened or fetched: discovering a missing directory after an
+        # hour of throttled requests is the failure this guard exists to prevent.
+        if output is not None:
+            parent = Path(output).parent
+            if not parent.exists():
+                raise InvalidInput(
+                    f"There is no directory {str(parent)!r} to write {output!r} into. "
+                    f"Create it first; nothing has been run."
+                )
+
+        with api.open_workspace(
+            getattr(args, "db", None),
+            delay=getattr(args, "delay", None),
+            images=not getattr(args, "no_images", False),
+        ) as workspace:
+            answer = _dispatch(workspace, args, note)
+    except HomescoutError as failure:
+        print(str(failure), file=err)
+        return int(code_for(failure))
+    except Exception as failure:  # noqa: BLE001 - the end of the line, and it says so
+        print(f"homescout failed unexpectedly: {failure}", file=err)
+        return int(ExitCode.INTERNAL_ERROR)
+
+    rendered = json.dumps(answer.document, ensure_ascii=False, indent=2)
+    if wants_json:
+        print(rendered, file=out)
+    else:
+        print(answer.text, file=out)
+
+    if output is not None:
+        try:
+            Path(output).write_text(rendered + "\n", encoding="utf-8")
+        except OSError as failure:
+            # Reported, and reflected in the code, but the primary stream is left exactly as it
+            # would have been: a command asked for readable output does not start emitting a
+            # structured document because a file could not be opened.
+            print(f"Could not write {output!r}: {failure}", file=err)
+            return int(ExitCode.INTERNAL_ERROR)
+
+    return int(answer.code)
+
+
+def run() -> None:
+    """The console entry point, which is what Windows Task Scheduler invokes."""
+    sys.exit(main())
+
+
+if __name__ == "__main__":  # pragma: no cover
+    run()

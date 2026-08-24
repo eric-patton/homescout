@@ -8,6 +8,9 @@ dependencies = [
     "requests>=2.32",
 ]
 
+[project.scripts]
+homescout = "homescout.cli.main:run"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

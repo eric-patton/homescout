@@ -165,12 +165,15 @@ class Store:
         source row. What collapses is the property, not the row, so the repeat joins the same
         canonical listing and the run still holds one snapshot of it.
 
-        Returns the canonical listing ids the rows resolved to, in input order, with repeats of one
-        property collapsed.
+        Returns one canonical listing id per input row, in input order, so a caller can pair a row
+        it still holds with the property that row became. Two rows that collapsed onto one property
+        therefore yield that property's id twice, and the distinct set is `dict.fromkeys` away.
+        Returning the collapsed list instead would leave a caller with no sound way to do the
+        pairing short of reimplementing the identity rule above, which is the one rule this project
+        cannot afford to have two of.
         """
         observed_at = utc_now()
         listing_ids: list[str] = []
-        seen_keys: set[tuple[Any, ...]] = set()
 
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             for row in rows:
@@ -194,10 +197,7 @@ class Store:
                 )
 
                 listing_id, is_new = self._resolve_listing(conn, source, row, run_id, observed_at)
-                key = self._identity_key(source, row)
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    listing_ids.append(listing_id)
+                listing_ids.append(listing_id)
 
                 conn.execute(
                     "INSERT OR IGNORE INTO listing_sources "
@@ -726,18 +726,6 @@ class Store:
         return self._path.parent / stored.path if stored else None
 
     # -- internals ---------------------------------------------------------
-
-    @staticmethod
-    def _identity_key(source: str, row: SourceRow) -> tuple[Any, ...]:
-        if row.source_listing_id is not None:
-            return (source, row.source_listing_id)
-        fields = row.fields
-        return (
-            source,
-            (fields.address_line or "").strip().casefold(),
-            (fields.unit or "").strip().casefold(),
-            (fields.postal_code or "").strip(),
-        )
 
     def _resolve_listing(
         self,
