@@ -91,7 +91,8 @@ service must cost one column rather than a run. The problem brief is in `researc
 - [ ] AC-11: Providers for flood zone, broadband service, principal aquifer, wildfire hazard,
       elevation, and boundary resolution exist and are individually enableable.
 - [ ] AC-12: Every provider covers the whole country. A test asserts a successful lookup at
-      locations in geographically distant states.
+      locations in geographically distant states, for every provider this installation can run. A
+      provider that is not configured is skipped by name rather than silently passed over.
 - [ ] AC-13: Outbound requests are paced per provider with backoff on throttling, in the same
       spirit as listing sources.
 - [ ] AC-14: Endpoint addresses are configuration rather than embedded constants, so a service that
@@ -115,6 +116,9 @@ service must cost one column rather than a run. The problem brief is in `researc
 - The rules refer to an enriched value for a search where that provider is not enabled. Reported by
   the rule engine as a value that will never be populated, which is why the distinction in AC-7
   matters.
+- The broadband provider has no token. It reports itself as not configured, makes no request, and
+  its values read as missing rather than as a provider failure, because nobody asked and nothing
+  broke.
 - Crime and school data are referenced by the export template but have no national free source.
   They are left blank rather than filled from a source that only covers part of the country.
 
@@ -122,7 +126,12 @@ service must cost one column rather than a run. The problem brief is in `researc
 
 - Performance: enriching a fully cached area of 5,000 properties completes in under five seconds
   and makes no network requests. A cold pass is bounded by provider pacing, not by local work.
-- Security: no credentials. Responses are data, never evaluated, and never used to construct paths.
+- Security: no credentials are required, and none is embedded. Five of the six providers are
+  keyless public services. Broadband is the exception and was not one when this was written: the
+  FCC's national map now requires an API token, so that provider is absent by default, makes no
+  request without one, and is enabled by putting a token in the environment or the `.env` file,
+  where every other secret in this product lives. The tool is fully functional with no token, which
+  is product invariant 9. Responses are data, never evaluated, and never used to construct paths.
 - Reliability: any provider failing leaves every cached value intact and every other provider's
   results usable.
 - Accessibility: none. No user-facing surface.

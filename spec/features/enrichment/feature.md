@@ -14,12 +14,12 @@ readiness:
   research: ready
   design:   n/a
   spec:     ready
-  plan:     none
+  plan:     ready
   tasks:    none
 gate:
-  analyze: not-run
-  product_global_hash: ""
-  constitution_hash: ""
+  analyze: pass
+  product_global_hash: "sha256:869c75445341"
+  constitution_hash: "sha256:7ed19648690b"
 human_signoff: []
 open_decisions: []
 overrides: []
@@ -41,3 +41,16 @@ Brief section 5.4.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Later changes to this feature's own spec
+
+- **2026-08-23, during planning.** The security requirement read "no credentials". Verifying the
+  endpoints showed the FCC's national broadband map is now keyed, and the keyless one it replaced
+  covered mobile service only and is gone. Two criteria collided: AC-11 wants a broadband provider
+  to exist, and the requirement wanted no credentials anywhere.
+
+  Settled by narrowing the requirement rather than dropping the provider: no credential is
+  *required*, none is embedded, and broadband is absent by default and enabled by a token in the
+  environment. That is the shape the constitution already uses for every other secret, and product
+  invariant 9 already says an optional component absent by default leaves the tool fully functional.
+  Recorded here because a requirement that quietly changes to match what was built is worth nothing.
