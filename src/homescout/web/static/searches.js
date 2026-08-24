@@ -18,6 +18,10 @@ let polling = null;
 let showArchived = false;
 let held = [];
 let summary = {};
+let gone = [];
+/* Which card is asking "really?". A second click on the same button rather than a browser dialog:
+ * a dialog is a modal somebody dismisses by reflex, and this puts the consequence in the button. */
+let confirming = null;
 
 whenReady(() => {
   nav("/");
@@ -28,6 +32,7 @@ async function load() {
   const found = await ask("/api/searches");
   held = found.searches;
   summary = found.overview || {};
+  gone = (await ask("/api/deleted")).searches || [];
   draw();
 }
 
@@ -66,6 +71,7 @@ function draw() {
     visible.length
       ? el("div", {class: "cards"}, visible.map(card))
       : el("p", {class: "unknown"}, "nothing to show"),
+    deletedPanel(),
   );
   const toggle = document.getElementById("showarchived");
   if (toggle) toggle.checked = showArchived;
@@ -158,7 +164,27 @@ function card(entry) {
         onclick: () => standingOf(entry.name, {archived: !entry.archived}),
       }, entry.archived ? "Bring back" : "Archive"),
       el("button", {type: "button", onclick: () => duplicate(entry.name)}, "Duplicate"),
+      confirming === entry.name
+        ? el("button", {
+            type: "button",
+            class: "danger",
+            onclick: () => remove(entry.name),
+          }, `Yes, delete ${entry.name}`)
+        : el("button", {
+            type: "button",
+            class: "quiet",
+            onclick: () => { confirming = entry.name; draw(); },
+          }, "Delete"),
+      confirming === entry.name
+        ? el("button", {type: "button", onclick: () => { confirming = null; draw(); }}, "Cancel")
+        : null,
     ),
+    confirming === entry.name
+      ? el("p", {class: "notice notice-flag"},
+          "This takes it out of the list and out of a run of everything. The file is kept, so it " +
+          "can be brought back. Everything the runs already found stays in the store: recorded " +
+          "history is never deleted.")
+      : null,
     el("p", {class: "meta"},
       entry.archived
         ? "Archived: out of the list and skipped by a run of everything. Nothing is deleted."
@@ -172,6 +198,50 @@ function card(entry) {
 /* ------------------------------------------------------------------ */
 /* Making and changing searches                                        */
 /* ------------------------------------------------------------------ */
+
+async function remove(name) {
+  try {
+    const answered = await ask(`/api/searches/${encodeURIComponent(name)}`, {method: "DELETE"});
+    confirming = null;
+    say(
+      `${name} is no longer a saved search. ` +
+      (answered.runs_kept
+        ? `Its ${answered.runs_kept} runs and everything they found are still here. `
+        : "") +
+      "Bring it back from the bottom of this page.",
+      "good");
+  } catch (error) {
+    fail(error);
+    return;
+  }
+  await load();
+}
+
+async function restore(name) {
+  try {
+    await send(`/api/searches/${encodeURIComponent(name)}/restore`, {});
+  } catch (error) {
+    fail(error);
+    return;
+  }
+  say(`${name} is a saved search again, exactly as it was.`, "good");
+  await load();
+}
+
+/* What was deleted, and the way back. Below the list rather than in it, because these are not
+ * saved searches any more and showing them as though they were would be a lie about the state. */
+function deletedPanel() {
+  if (!gone.length) return null;
+  return el("section", {},
+    el("h2", {}, "Deleted"),
+    el("p", {class: "meta"},
+      "Not saved searches any more, and not thrown away either. The file is kept with its areas " +
+      "and its comments, and everything the runs found is still in the store."),
+    el("div", {class: "actions"},
+      gone.map((name) =>
+        el("button", {type: "button", onclick: () => restore(name)}, `Bring back ${name}`))),
+  );
+}
 
 async function askForName() {
   const name = window.prompt(

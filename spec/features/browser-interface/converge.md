@@ -288,3 +288,54 @@ verdict: open 2 (missing 0, partial 0, contradicts 0, unrequested 2)
   is unchanged; what changed is that the box now says what is missing, draws a labelled coordinate
   grid to work over, and offers the one click that fixes it with the cost stated beside the offer.
   The trade is the same trade; the person making it can now see it.
+## run 4 — 2026-08-24
+
+baseline: spec sha256:699770ba51b7 · plan sha256:5dfe647eb36f · tasks sha256:bc462849a49b
+
+Run because the owner asked for a way to delete a saved search, which the spec had until now
+promised nothing would do.
+
+implemented: AC-1 through AC-27
+
+- opened gap-006 [unrequested] code:"deletion, and the two things it refuses to delete"
+
+  Evidence: `search/definition.py` `delete`, `restore`, `deleted`, `DELETED`; `api.delete_search`;
+  `web/app.py` `DELETE /api/searches/{name}`; `tests/test_web_parity.py`
+  `test_deleting_a_search_removes_nothing_a_run_recorded`.
+
+  Recorded here rather than counted as ordinary work because deletion is the one operation whose
+  obvious reading collides with a non-negotiable, and the collision is settled in code rather than
+  in a person remembering.
+
+  **What it deletes**: the definition's place in the catalogue. Out of the list, skipped by a run
+  of everything, not found by name. That is the whole of what was asked for.
+
+  **What it will not delete, first**: the definition itself. The file moves to `searches/deleted/`
+  and both surfaces offer it back. A definition is something somebody wrote, the areas are usually
+  the part that took longest, and nothing is gained by making this final.
+
+  **What it cannot delete, second**: anything a run recorded. Non-negotiable 2 and product
+  invariant 1 make snapshot history append-only, so the properties, their price history and any
+  judgment written on them survive, and the answer reports the number of runs kept so nobody
+  believes otherwise. The test asserts the whole database is unchanged, byte for byte, which is the
+  form that cannot rot: a future edit that started deleting rows would fail it.
+
+  Routed: covered by AC-27 as of this run, so this is a note about where a rule was enforced rather
+  than an open question.
+
+verdict: open 3 (missing 0, partial 0, contradicts 0, unrequested 3)
+
+## What was checked and found clean, run 4
+
+- **The refusal to overwrite on restore.** Deleting `portales`, making a new `portales`, then
+  restoring is the sequence that silently destroys work, and it is refused rather than resolved.
+- **Deletion is a capability, so both surfaces have it.** `homescout searches delete` and
+  `searches restore` exist alongside the routes, and the parity test that walks the terminal's own
+  parser covers them the same way it covers everything else.
+- **The confirmation is not a browser dialog.** A modal is dismissed by reflex; the button becomes
+  "Yes, delete <name>" beside a Cancel, with the two limits stated in the panel that appears with
+  it, so the consequence is read at the moment of the decision rather than in this file.
+- **A read never writes.** Prompted by finding `archived: true` in the owner's own definition after
+  a session of clicking: every read operation a page load performs was run against a scratch
+  definition and the file was compared byte for byte afterwards. Unchanged. The stray key was
+  residue from that clicking, not from the tool.

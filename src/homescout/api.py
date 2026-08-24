@@ -398,6 +398,55 @@ def set_standing(
     return edit_search(workspace, name, changes)
 
 
+def delete_search(workspace: Workspace, name: str) -> dict[str, Any]:
+    """Take a saved search out of the catalogue.
+
+    It stops being a saved search at once: out of the list, skipped by a run of everything, and not
+    found when asked for by name. Two things it deliberately does not do.
+
+    **It does not destroy the definition.** The file is moved rather than unlinked, so the areas
+    somebody drew and the comments they wrote can be brought back. Deleting a definition is not an
+    act that needs to be irreversible to be useful.
+
+    **It cannot remove what the runs recorded.** Non-negotiable 2 and product invariant 1 say
+    snapshot history is append-only and no feature may delete a historical row, and this is not the
+    feature that gets to be the exception. The properties this search found stay in the store, keep
+    their price history, and keep whatever judgment was written on them. What the answer reports is
+    exactly that, so nobody is left believing more was removed than was.
+    """
+    catalog = workspace.catalog
+    if not hasattr(catalog, "delete"):
+        raise InvalidInput(
+            "These saved searches are not files, so there is nothing to delete. This happens only "
+            "when a catalog was supplied in place of the searches directory."
+        )
+    with _translating():
+        kept = catalog.delete(name)
+        runs = len(workspace.store.runs(name))
+
+    return {
+        "name": name,
+        "kept_at": str(kept),
+        "runs_kept": runs,
+        "restorable": True,
+    }
+
+
+def restore_search(workspace: Workspace, name: str) -> SearchDefinition:
+    """Bring back a deleted definition, which is why deleting one only moved it."""
+    catalog = workspace.catalog
+    if not hasattr(catalog, "restore"):
+        raise InvalidInput("These saved searches are not files, so there is nothing to restore.")
+    with _translating():
+        return catalog.restore(name)
+
+
+def deleted_searches(workspace: Workspace) -> tuple[str, ...]:
+    """Definitions that were deleted and can be brought back."""
+    catalog = workspace.catalog
+    return tuple(catalog.deleted()) if hasattr(catalog, "deleted") else ()
+
+
 def duplicate_search(workspace: Workspace, name: str, new_name: str) -> SearchDefinition:
     """Copy a saved search under a new name, so a variation starts from something that works.
 

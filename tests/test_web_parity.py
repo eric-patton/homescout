@@ -23,7 +23,15 @@ from homescout import api
 from homescout.errors import InvalidInput
 from homescout.search.definition import FileCatalog
 from homescout.store import Store
-from web_fakes import STATIC, client, held_workspace, ours, reading, shared_store
+from web_fakes import (
+    STATIC,
+    client,
+    fingerprint,
+    held_workspace,
+    ours,
+    reading,
+    shared_store,
+)
 
 # ---------------------------------------------------------------------------
 # feat-010/AC-22: every command the terminal has, reachable here
@@ -39,6 +47,8 @@ REACHES: dict[str, tuple[str, str]] = {
     "searches show": ("GET", "/api/searches/{name}"),
     "searches validate": ("GET", "/api/searches/{name}"),
     "searches create": ("PUT", "/api/searches/{name}"),
+    "searches delete": ("DELETE", "/api/searches/{name}"),
+    "searches restore": ("POST", "/api/searches/{name}/restore"),
     "searches edit": ("POST", "/api/searches/{name}"),
     "annotate": ("POST", "/api/listings/{listing_id}/annotation"),
     "matches list": ("GET", "/api/matches"),
@@ -228,6 +238,84 @@ def test_a_search_that_is_set_aside_still_runs_when_asked_for(filed) -> None:
     assert api.show_search(held, "portales").archived is True
     # Named explicitly, it is a search like any other: this is the load the runner would do.
     assert held.catalog.load("portales").name == "portales"
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-27: deleting one, and the two things that survive it
+# ---------------------------------------------------------------------------
+
+
+def test_a_deleted_search_stops_being_one_at_once(filed) -> None:
+    """feat-010/AC-27: out of the list, out of a run of everything, not found by name."""
+    browser, held, _where = filed
+
+    answer = browser.delete("/api/searches/portales", headers=ours())
+    assert answer.status_code == 200, answer.text
+
+    assert "portales" not in api.list_searches(held)
+    listed = browser.get("/api/searches", headers=reading()).json()["searches"]
+    assert [entry["name"] for entry in listed] == []
+    assert not api.run_all(held).outcomes, "a deleted search was still run by a run of everything"
+
+    missing = browser.get("/api/searches/portales", headers=reading())
+    assert missing.status_code >= 400, "a deleted search was still found by name"
+
+
+def test_deleting_keeps_the_definition_and_offers_it_back(filed) -> None:
+    """feat-010/AC-27: kept rather than unlinked, and restorable with everything in it.
+
+    The areas are usually the part that took longest and the comments are usually the part saying
+    why. Nothing is gained by making this final, so it is not.
+    """
+    browser, held, where = filed
+
+    answer = browser.delete("/api/searches/portales", headers=ours()).json()
+    assert answer["restorable"] is True
+    assert not (where / "portales.yaml").exists(), "it is still in the searches folder"
+
+    kept = Path(answer["kept_at"])
+    assert kept.is_file(), "the definition was unlinked rather than kept"
+    assert "note they left themselves" in kept.read_text(encoding="utf-8")
+
+    assert browser.get("/api/deleted", headers=reading()).json()["searches"] == ["portales"]
+
+    back = browser.post("/api/searches/portales/restore", headers=ours())
+    assert back.status_code == 200, back.text
+    body = (where / "portales.yaml").read_text(encoding="utf-8")
+    assert "note they left themselves" in body, "restoring lost the comments"
+    assert "The one that matters" in body
+    assert api.show_search(held, "portales").name == "portales"
+
+
+def test_deleting_a_search_removes_nothing_a_run_recorded(filed) -> None:
+    """feat-010/AC-27: the constitution's append-only history, enforced at the one place that
+    would most plausibly break it.
+
+    Non-negotiable 2 and product invariant 1 say snapshot history is append-only and no feature may
+    delete a historical row. "Delete this search" is the request most likely to be read as "and
+    everything it found", so this asserts the whole database is byte-for-byte identical afterwards
+    and that the answer says how many runs it kept.
+    """
+    browser, held, _where = filed
+    before = fingerprint(held.store)
+    runs = len(held.store.runs("portales"))
+
+    answer = browser.delete("/api/searches/portales", headers=ours()).json()
+
+    assert fingerprint(held.store) == before, "deleting a search changed the store"
+    assert answer["runs_kept"] == runs, "the answer did not say what it kept"
+
+
+def test_restoring_over_a_search_that_exists_again_is_refused(filed) -> None:
+    """feat-010/AC-27: bringing one back must never overwrite one somebody has since made."""
+    browser, _held, where = filed
+    browser.delete("/api/searches/portales", headers=ours())
+    browser.put("/api/searches/portales", headers=ours())
+    replacement = (where / "portales.yaml").read_bytes()
+
+    refused = browser.post("/api/searches/portales/restore", headers=ours())
+    assert refused.status_code >= 400
+    assert (where / "portales.yaml").read_bytes() == replacement
 
 
 # ---------------------------------------------------------------------------

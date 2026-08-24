@@ -27,9 +27,10 @@ in five years. The problem brief is in `research.md`.
   record was assembled from sources, so that I can tell a real record from a bad merge.
 - As the person running searches, I want to see what changed since any earlier run, so that I can
   catch up after being away.
-- As the person running searches, I want to make a new search, copy one, and set one aside without
-  deleting it, so that the browser is somewhere I can keep the set of searches rather than only look
-  at it.
+- As the person running searches, I want to make a new search, copy one, set one aside without
+  deleting it, and delete one I am truly finished with, so that the browser is somewhere I can keep
+  the set of searches rather than only look at it, and so that a search I no longer want stops
+  cluttering the list without taking the properties it found with it.
 - As the person running searches, I want to set up the optional parts (a model to read descriptions,
   a background for the map) from the screen that tells me they are off, so that turning one on does
   not mean finding a file and knowing its variable names.
@@ -112,6 +113,13 @@ in five years. The problem brief is in `research.md`.
   - Then nothing about it is deleted, a run of everything leaves it alone and says so, and running it
     by name still runs it
 
+- **Scenario: deleting a saved search**
+  - Given a saved search that is no longer wanted
+  - When it is deleted from the list
+  - Then it stops being a saved search at once, its definition is kept where it can be brought back
+    from, everything its runs recorded stays in the store, and the interface says both of those
+    things at the point the deletion is offered
+
 - **Scenario: turning on something that is off**
   - Given the interface reporting that descriptions are not being read by a model
   - When a model's address and name are given on the settings surface
@@ -180,8 +188,8 @@ in five years. The problem brief is in `research.md`.
       command line's commands and asserts each one has a route that reaches the same core operation,
       so a capability added to one surface cannot quietly be missing from the other.
 - [ ] AC-23: A saved search can be created, copied, paused, resumed, archived, and brought back from
-      the interface. None of these deletes anything. A paused or archived search is skipped by a run
-      of everything, which reports that it skipped it, and still runs when asked for by name.
+      the interface. None of these six deletes anything. A paused or archived search is skipped by a
+      run of everything, which reports that it skipped it, and still runs when asked for by name.
 - [ ] AC-24: The parts of a saved search this interface edits (its description, its sources, its
       filters, whether a model reads its descriptions, and its criteria) are editable here, and
       AC-3's guarantee holds for every edit made through them.
@@ -193,6 +201,14 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-26: With no tile server configured, the map draws a labelled coordinate grid, says what is
       missing, and offers to turn a background on with the privacy cost stated beside the offer
       rather than in a document.
+- [ ] AC-27: A saved search can be deleted. It leaves the list at once, is skipped by a run of
+      everything, and is not found when asked for by name. Two limits hold and are stated where the
+      deletion is offered rather than only in a document. The definition is kept rather than
+      unlinked, so it can be restored with its areas and comments intact, and the interface offers
+      that restoration. And nothing a run recorded is removed: the properties, their price history
+      and any judgment written on them survive, because non-negotiable 2 and product invariant 1
+      make snapshot history append-only. The answer reports how many runs were kept, so nobody is
+      left believing more was removed than was.
 
 ## Edge cases & errors
 

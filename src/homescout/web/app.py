@@ -196,6 +196,20 @@ def build(workspace: api.Workspace) -> FastAPI:
         )
         return answer("search", search=wire.search(held(), name))
 
+    @app.delete("/api/searches/{name}")
+    def delete_search(name: str) -> dict[str, Any]:
+        """Out of the catalogue, and still on disk. See `api.delete_search` for why both."""
+        return answer("deleted", **api.delete_search(held(), name))
+
+    @app.post("/api/searches/{name}/restore")
+    def restore_search(name: str) -> dict[str, Any]:
+        made = api.restore_search(held(), name)
+        return answer("search", search=wire.search(held(), made.name))
+
+    @app.get("/api/deleted")
+    def deleted_searches() -> dict[str, Any]:
+        return answer("deleted", searches=list(api.deleted_searches(held())))
+
     @app.post("/api/searches/{name}/duplicate")
     async def duplicate(name: str, request: Request) -> dict[str, Any]:
         body = await _body(request)

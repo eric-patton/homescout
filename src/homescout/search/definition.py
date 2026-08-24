@@ -44,6 +44,11 @@ NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 SUFFIXES = (".yaml", ".yml")
 
+#: Where a deleted definition goes. A directory rather than an unlink, because `names()` already
+#: ignores anything that is not a file directly in the searches folder, so moving one here takes it
+#: out of the catalogue completely while leaving it on disk to be brought back or read.
+DELETED = "deleted"
+
 TEMPLATE = """\
 name: {name}
 description: What this search is for, in your own words
@@ -319,6 +324,67 @@ class FileCatalog:
         self.directory.mkdir(parents=True, exist_ok=True)
         target.write_text(copied, encoding="utf-8", newline="\n")
         return self.load(new_name)
+
+    def delete(self, name: str) -> Path:
+        """Take a saved search out of the catalogue, and keep the file.
+
+        Moved into `deleted/` rather than unlinked, and this is a deliberate refusal to do exactly
+        what was asked. A definition is something a person wrote: the areas are usually the part
+        that took the longest and the comments are usually the part explaining why. It costs a
+        directory entry to be able to undo this, and nothing is gained by making it final.
+
+        It stops being a saved search immediately, which is the whole of what "delete" means here:
+        it leaves the list, a run of everything skips it, and asking for it by name says it is not
+        there. What the runs already recorded is untouched, because the constitution says snapshot
+        history is append-only and this is not the feature that gets to be the exception.
+        """
+        source = self._path(name)
+        if not source.exists():
+            raise UnknownSearch(name, self.names())
+
+        where = self.directory / DELETED
+        where.mkdir(parents=True, exist_ok=True)
+        target = where / source.name
+        if target.exists():
+            # Deleted, restored, deleted again. Keeping both is the point of keeping either.
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+            target = where / f"{source.stem}.{stamp}{source.suffix}"
+
+        source.replace(target)
+        self._loaded.pop(source, None)
+        return target
+
+    def restore(self, name: str) -> FileSearch:
+        """Bring back the most recently deleted definition of that name."""
+        where = self.directory / DELETED
+        kept = sorted(
+            (path for path in where.glob(f"{name}*") if path.suffix in SUFFIXES and path.is_file()),
+            key=lambda path: path.stat().st_mtime,
+        )
+        if not kept:
+            raise UnknownSearch(name, ())
+        target = safe_path(self.directory, name)
+        if target.exists() or self._path(name).exists():
+            raise InvalidInput(
+                f"A saved search named {name!r} exists again, so restoring would overwrite it."
+            )
+        kept[-1].replace(target)
+        return self.load(name)
+
+    def deleted(self) -> tuple[str, ...]:
+        """What is in the deleted folder, so a surface can offer to bring one back."""
+        where = self.directory / DELETED
+        if not where.is_dir():
+            return ()
+        return tuple(
+            sorted(
+                {
+                    path.stem.split(".")[0]
+                    for path in where.iterdir()
+                    if path.suffix in SUFFIXES and path.is_file()
+                }
+            )
+        )
 
     def edit(self, name: str, changes: Mapping[str, object]) -> FileSearch:
         """Change named keys and write the file back, touching nothing else.

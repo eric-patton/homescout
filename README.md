@@ -580,6 +580,22 @@ for it by name. An archived one is also out of the list until you ask to see arc
 Duplicating one copies the file, comments and all, which is how a variation starts from something
 that already works.
 
+Deleting one is also there, and does what it says with two limits worth knowing:
+
+```
+homescout searches delete portales
+homescout searches restore portales
+```
+
+**The definition is kept, not unlinked.** It moves to `searches/deleted/`, so the areas you drew and
+the comments you wrote can be brought back. The list offers that, and so does the command above.
+Nothing is gained by making this final.
+
+**Nothing a run recorded is removed.** The properties, their price history and any judgment you
+wrote on them stay in the store, because the constitution says snapshot history is append-only and
+this is not the feature that gets to be the exception. The answer tells you how many runs it kept,
+so you are never left believing more went than did.
+
 ### Two commands the interface brought with it
 
 Because every capability is reachable from both surfaces:

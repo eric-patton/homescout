@@ -145,6 +145,12 @@ def build_parser() -> argparse.ArgumentParser:
     which.add_parser("show", parents=[common], help="show one saved search").add_argument("name")
     which.add_parser("validate", parents=[common], help="check one definition").add_argument("name")
     which.add_parser("create", parents=[common], help="start a new definition").add_argument("name")
+    which.add_parser(
+        "delete", parents=[common], help="take one out of the catalogue, keeping the file"
+    ).add_argument("name")
+    which.add_parser(
+        "restore", parents=[common], help="bring back a deleted definition"
+    ).add_argument("name")
     edit = which.add_parser("edit", parents=[common], help="change one definition")
     edit.add_argument("name")
     edit.add_argument(
@@ -364,6 +370,12 @@ def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     if args.action == "create":
         made = api.create_search(workspace, args.name)
         return Answer(digest.envelope("search", search=_summary_of(made)), render.definition(made))
+    if args.action == "delete":
+        gone = api.delete_search(workspace, args.name)
+        return Answer(digest.envelope("deleted", **gone), render.deleted(gone))
+    if args.action == "restore":
+        back = api.restore_search(workspace, args.name)
+        return Answer(digest.envelope("search", search=_summary_of(back)), render.definition(back))
     edited = api.edit_search(workspace, args.name, _assignments(args.assignments))
     return Answer(digest.envelope("search", search=_summary_of(edited)), render.definition(edited))
 

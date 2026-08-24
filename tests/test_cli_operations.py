@@ -530,6 +530,9 @@ def test_the_facade_is_the_whole_surface() -> None:
     expected = {
         "open_workspace",
         "overview",
+        "delete_search",
+        "restore_search",
+        "deleted_searches",
         "run_search",
         "run_all",
         "changes",

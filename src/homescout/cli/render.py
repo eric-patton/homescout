@@ -336,3 +336,16 @@ def overview(found: dict[str, Any]) -> str:
     if found.get("searches_with_problems"):
         lines.append(f"{found['searches_with_problems']} searches will not run until fixed")
     return "\n".join(lines)
+
+
+def deleted(gone: dict[str, Any]) -> str:
+    """What a delete did, and just as importantly what it did not do."""
+    lines = [f"{gone['name']} is no longer a saved search."]
+    if gone.get("runs_kept"):
+        lines.append(
+            f"Its {gone['runs_kept']} runs and everything they found are still in the store, "
+            "because recorded history is never deleted."
+        )
+    lines.append(f"The definition is kept at {gone['kept_at']}, so it can be brought back:")
+    lines.append(f"  homescout searches restore {gone['name']}")
+    return "\n".join(lines)
