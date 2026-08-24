@@ -319,3 +319,20 @@ def areas(notes: Sequence[Any]) -> str:
             for note in notes
         ],
     )
+
+
+def overview(found: dict[str, Any]) -> str:
+    """What is in here, in the few numbers worth seeing before anything else."""
+    searches = found["searches"]
+    lines = [
+        f"{found['properties']} properties across {searches} "
+        f"saved search{'' if searches == 1 else 'es'}",
+        f"last run: {found['last_run_at'] or 'never'}",
+    ]
+    if found.get("running"):
+        lines.append(f"running now: {', '.join(found['running'])}")
+    if found.get("waiting_to_review"):
+        lines.append(f"{found['waiting_to_review']} matches waiting for a decision")
+    if found.get("searches_with_problems"):
+        lines.append(f"{found['searches_with_problems']} searches will not run until fixed")
+    return "\n".join(lines)

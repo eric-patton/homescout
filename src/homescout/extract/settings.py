@@ -31,6 +31,9 @@ from ..sources.politeness import PolitenessConfig, SourcePolicy
 
 BASE_URL = "HOMESCOUT_EXTRACT_BASE_URL"
 MODEL = "HOMESCOUT_EXTRACT_MODEL"
+#: How hard a reasoning model should think before answering. Only sent when it is set, because a
+#: server that has never heard of it refuses the whole request rather than ignoring the parameter.
+REASONING_EFFORT = "HOMESCOUT_EXTRACT_REASONING_EFFORT"
 API_KEY = "HOMESCOUT_EXTRACT_API_KEY"
 #: The name the constitution and the decisions log both use. Read second, so an installation that
 #: already has one for something else does not have to duplicate it, and one that wants a different
@@ -39,9 +42,14 @@ FALLBACK_API_KEY = "OPENAI_API_KEY"
 
 #: Every variable this feature reads, named once so the example file, the documentation and the
 #: tests cannot drift apart from the code.
-VARIABLES: tuple[str, ...] = (BASE_URL, MODEL, API_KEY, FALLBACK_API_KEY)
+VARIABLES: tuple[str, ...] = (BASE_URL, MODEL, REASONING_EFFORT, API_KEY, FALLBACK_API_KEY)
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+#: What a reasoning model will accept for how hard to think. Checked here rather than left to the
+#: server, because a typo in a setting should be a sentence at configuration time and not a refused
+#: request per property, five thousand times. Measured against the API in August 2026.
+EFFORTS: tuple[str, ...] = ("none", "low", "medium", "high", "xhigh")
 
 #: Pacing for the model, keyed like a source. Two seconds is slower than a paid service needs and
 #: about right for a local one on the same machine as the run: non-negotiable 10 says default to
@@ -73,6 +81,10 @@ class ModelAccount:
     base_url: str
     model: str
     api_key: str | None = None
+    #: Empty unless somebody set it. A reasoning model takes it; every other model refuses the
+    #: request outright for carrying a parameter it does not know, so it is sent only when asked
+    #: for, and asking for it also settles which dialect the request is written in.
+    effort: str = ""
 
     def __repr__(self) -> str:
         held = "a key" if self.api_key else "no key"
@@ -149,7 +161,14 @@ def account(root: Path, environ: Mapping[str, str] | None = None) -> ModelAccoun
             f"credential. Put one in {API_KEY} or {FALLBACK_API_KEY}, in the environment or in the "
             "uncommitted .env file beside the database. It never goes in a saved search."
         )
-    return ModelAccount(base_url=base_url, model=model, api_key=key)
+
+    effort = (values.get(REASONING_EFFORT) or "").strip().casefold()
+    if effort and effort not in EFFORTS:
+        raise ExtractionMisconfigured(
+            f"{REASONING_EFFORT} is {effort!r}, and a reasoning model takes one of: "
+            f"{', '.join(EFFORTS)}. Leave it empty for a model that does not reason at all."
+        )
+    return ModelAccount(base_url=base_url, model=model, api_key=key, effort=effort)
 
 
 def configured(root: Path, environ: Mapping[str, str] | None = None) -> bool:

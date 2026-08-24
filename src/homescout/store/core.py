@@ -433,6 +433,17 @@ class Store:
         sql += " ORDER BY first_observed_at, id"
         return [self._listing_from(r) for r in self._conn.execute(sql)]
 
+    def listing_count(self, *, include_disappeared: bool = True) -> int:
+        """How many live canonical listings there are, without building any of them.
+
+        The same set `listings` returns, counted in SQL. A surface that only wants the number should
+        not pay for five thousand record objects to find it out.
+        """
+        sql = "SELECT COUNT(*) FROM listings WHERE retracted = 0 AND superseded_by IS NULL"
+        if not include_disappeared:
+            sql += " AND presence = 'observed'"
+        return int(self._conn.execute(sql).fetchone()[0])
+
     def source_links(self, listing_id: str) -> list[SourceLink]:
         """The source rows underneath a canonical listing, and what justified each join."""
         rows = self._conn.execute(

@@ -180,7 +180,7 @@ function areaList() {
       "A name is yours, for reading the file and the exported sheet. Nothing is written until you " +
       "save."),
     addPlace(),
-    el("button", {type: "button", onclick: saveAreas}, "Save the areas"),
+    el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"),
   );
 }
 
@@ -419,7 +419,7 @@ function range_(name, label, current) {
   }
   return el("div", {class: "field"},
     el("label", {for: `${name}-min`}, label),
-    el("span", {}, low, " to ", high));
+    el("span", {class: "pair"}, low, el("span", {class: "to"}, "to"), high));
 }
 
 async function save(changes) {

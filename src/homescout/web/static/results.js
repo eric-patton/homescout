@@ -42,6 +42,9 @@ const state = {
 };
 
 whenReady(() => {
+  /* The table wants every pixel the window has; every other surface reads better bounded to a
+   * comfortable measure. One class rather than a second stylesheet. */
+  document.body.classList.add("wide");
   nav("/");
   state.search = pathParts()[1] || "";
   load().catch(fail);

@@ -9,11 +9,18 @@
  * never what it is, and the server refuses to write anything whose name looks like a secret. A
  * credential comes from your environment or from that file by your own hand, which is the
  * constitution's rule and is the reason there is no box here to type a key into.
+ *
+ * WHERE A THING IS MISSING, IT SAYS WHERE TO GET IT. Telling somebody to set a variable they have
+ * never heard of, and leaving them to find out who issues it, is telling them the name of their
+ * problem rather than the way out of it. Every panel that can be unconfigured carries the page
+ * that issues the thing it wants.
  */
 
 let held = null;
 
 whenReady(() => {
+  /* A page of forms, so it is bounded to a measure rather than stretched across the window. */
+  document.body.classList.add("narrow");
   nav("/settings");
   load().catch(fail);
 });
@@ -30,10 +37,11 @@ function draw() {
       `Everything lives in ${held.workspace}. The optional parts are absent until you set them up, ` +
       "and the tool works without any of them."),
     modelPanel(),
-    mapPanel(),
     mailPanel(),
+    mapPanel(),
     broadbandPanel(),
     toolsPanel(),
+    exportPanel(),
     interfacePanel(),
   );
 }
@@ -54,9 +62,14 @@ function modelPanel() {
   });
   const name = el("input", {
     type: "text", id: "modelname", value: model.model || "",
-    placeholder: "gpt-4o-mini, or whatever your local server calls it",
+    placeholder: "gpt-5.6-luna, or whatever your local server calls it",
     "aria-label": "Which model to ask",
   });
+  const effort = el("select", {id: "effort", "aria-label": "How hard the model should think"},
+    el("option", {value: ""}, "not a reasoning model"),
+    (model.efforts || []).map((one) =>
+      el("option", {value: one}, one === "none" ? "none (answer straight away)" : one)));
+  effort.value = model.effort || "";
 
   return el("section", {},
     el("h2", {}, "Reading descriptions with a model ", present(model.configured, "ready", "off")),
@@ -68,39 +81,143 @@ function modelPanel() {
     model.configured
       ? el("p", {class: "notice notice-good"},
           `Ready: ${model.model} at ${model.base_url}` +
+          (model.effort ? `, thinking at ${model.effort}` : "") +
           (model.local ? ", on this machine, so no credential is needed."
                        : (model.credential ? ", with a credential from your environment."
                                            : ", with no credential.")))
-      : el("p", {class: "notice"}, model.needs || model.why_not || "Not configured."),
+      : el("p", {class: "notice notice-flag"}, model.needs || model.why_not || "Not configured."),
 
-    el("h3", {}, "A model on this machine"),
-    el("p", {class: "meta"},
-      "LM Studio serves an OpenAI-compatible API on http://localhost:1234/v1 and needs no " +
-      "credential. Start it, load a model, then put its address and the model's name below."),
-    el("h3", {}, "A hosted one"),
-    el("p", {class: "meta"},
-      "Leave the address as api.openai.com and name a model. The credential is read from " +
-      "OPENAI_API_KEY or HOMESCOUT_EXTRACT_API_KEY in your environment. " +
-      (model.credential
-        ? "One is already there, so naming a model is all that is left."
-        : "There is none there yet.")),
-
-    el("div", {class: "field"}, el("label", {for: "baseurl"}, "Address"), url),
+    el("div", {class: "field"}, el("label", {for: "baseurl"}, "Address"), url,
+      el("span", {class: "hint"},
+        "Leave it at api.openai.com for a hosted model. LM Studio on this machine serves " +
+        "http://localhost:1234/v1 and needs no credential.")),
     el("div", {class: "field"}, el("label", {for: "modelname"}, "Model"), name),
-    el("button", {
-      type: "button",
-      onclick: () => write({
-        HOMESCOUT_EXTRACT_BASE_URL: url.value.trim(),
-        HOMESCOUT_EXTRACT_MODEL: name.value.trim(),
-      }),
-    }, "Save"),
+    el("div", {class: "field"},
+      el("label", {for: "effort"}, "How hard it thinks"), effort,
+      el("span", {class: "hint"},
+        "Only for models that reason before answering, which is every recent GPT-5. Reading a " +
+        "description is transcription rather than judgment, so low is plenty and none is often " +
+        "enough. A model that does not reason refuses the request outright if this is set, so " +
+        "leave it as it is for a local one.")),
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: "primary",
+        onclick: () => write({
+          HOMESCOUT_EXTRACT_BASE_URL: url.value.trim(),
+          HOMESCOUT_EXTRACT_MODEL: name.value.trim(),
+          HOMESCOUT_EXTRACT_REASONING_EFFORT: effort.value,
+        }),
+      }, "Save")),
 
     el("p", {class: "meta"},
-      "This page will not accept a credential and the server refuses to write one. Set it in your " +
-      "environment, or by hand in the .env file beside the database."),
+      "The credential is read from " + (model.variables || []).slice(-2).join(" or ") +
+      " in your environment. This page will not accept one and the server refuses to write one."),
+    whereToGet(model.where),
     el("p", {class: "meta"},
       "Turn it on for a search on that search's own page. Nothing is asked of a model until one " +
       "does."),
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The nightly email                                                   */
+/* ------------------------------------------------------------------ */
+
+function mailPanel() {
+  const mail = held.mail;
+  const gmail = mail.gmail || {};
+  const usingGmail = (mail.host || "").toLowerCase() === gmail.host;
+
+  const to = el("input", {
+    type: "text", id: "mailto", value: mail.to || "", placeholder: "you@example.com",
+    "aria-label": "Where the nightly email goes",
+  });
+  const host = el("input", {
+    type: "text", id: "mailhost", value: mail.host || "", placeholder: gmail.host,
+    "aria-label": "The outgoing mail server",
+  });
+  const from = el("input", {
+    type: "text", id: "mailfrom", value: mail.sender || "",
+    placeholder: gmail.address || "the account you send as",
+    "aria-label": "The address it is sent from",
+  });
+  const security = el("select", {id: "mailsecurity", "aria-label": "How it connects"},
+    el("option", {value: "starttls"}, "starttls (port 587)"),
+    el("option", {value: "ssl"}, "ssl (port 465)"),
+    el("option", {value: "none"}, "none (port 25)"));
+  security.value = mail.security || "starttls";
+
+  const saveIt = (values) => write(values);
+
+  return el("section", {},
+    el("h2", {}, "The nightly email ", present(mail.configured, "ready", "off")),
+    el("p", {class: "lede"},
+      "Optional. With no account configured, runs still happen and the digest file is still " +
+      "written; only the email is absent. The email goes out only on nights something changed."),
+
+    gmail.credential && !mail.configured
+      ? el("p", {class: "notice notice-good"},
+          `A Google App Password for ${gmail.address || "a Gmail account"} is already in your ` +
+          "environment. Say where the email should go and press the button below, and that is the " +
+          "whole setup.")
+      : null,
+
+    el("div", {class: "field"},
+      el("label", {for: "mailto"}, "Send it to"), to,
+      el("span", {class: "hint"}, "More than one address, separated by commas, is fine.")),
+
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: "primary",
+        onclick: () => {
+          const wanted = to.value.trim();
+          if (!wanted) { say("Say where the email should go first.", "problem"); return; }
+          saveIt({
+            HOMESCOUT_SMTP_HOST: gmail.host,
+            HOMESCOUT_SMTP_SECURITY: "starttls",
+            HOMESCOUT_SMTP_PORT: "587",
+            HOMESCOUT_MAIL_TO: wanted,
+          });
+        },
+      }, usingGmail ? "Save the Gmail setup" : "Set it up through Gmail")),
+
+    el("p", {class: "meta"},
+      "Gmail needs an App Password, which is not your Google password: sixteen characters that can " +
+      "send mail and nothing else, revocable any time. Put it in GMAIL_APP_PASSWORD (which this " +
+      "reads if it is already there for something else) or HOMESCOUT_SMTP_PASSWORD, in your " +
+      "environment or by hand in the .env file. It is never typed on this page."),
+    whereToGet(mail.where),
+
+    el("details", {},
+      el("summary", {}, "A different mail server"),
+      el("div", {class: "field"}, el("label", {for: "mailhost"}, "Server"), host),
+      el("div", {class: "field"}, el("label", {for: "mailfrom"}, "Send from"), from),
+      el("div", {class: "field"}, el("label", {for: "mailsecurity"}, "Connection"), security),
+      el("div", {class: "actions"},
+        el("button", {
+          type: "button",
+          onclick: () => saveIt({
+            HOMESCOUT_SMTP_HOST: host.value.trim(),
+            HOMESCOUT_SMTP_SECURITY: security.value,
+            HOMESCOUT_SMTP_PORT: "",
+            HOMESCOUT_MAIL_FROM: from.value.trim(),
+            HOMESCOUT_SMTP_USERNAME: from.value.trim(),
+            HOMESCOUT_MAIL_TO: to.value.trim(),
+          }),
+        }, "Save this instead")),
+      el("p", {class: "meta"},
+        "Its password goes in HOMESCOUT_SMTP_PASSWORD, the same way and for the same reason.")),
+
+    el("h3", {}, "What is set now"),
+    el("div", {},
+      setting("goes to", value(mail.to)),
+      setting("server", value(mail.host), mail.port ? ` port ${mail.port}` : null,
+              mail.security ? ` over ${mail.security}` : null),
+      setting("sent from", value(mail.sender)),
+      setting("password", present(mail.credential, "found in your environment", "not set")),
+      setting("digest file", value(mail.digest_path))),
   );
 }
 
@@ -128,59 +245,51 @@ function mapPanel() {
     el("p", {class: "meta"},
       "Drawing an area works without a background. It is much easier with one."),
 
-    el("div", {class: "field"}, el("label", {for: "tiles"}, "Tile URL"), source),
     el("div", {class: "actions"},
       el("button", {
         type: "button",
+        class: held.map.tiles ? null : "primary",
         onclick: () => write({
           HOMESCOUT_MAP_TILES: OSM,
           HOMESCOUT_MAP_ATTRIBUTION: OSM_CREDIT,
         }),
       }, "Use OpenStreetMap"),
-      el("button", {
-        type: "button",
-        onclick: () => write({
-          HOMESCOUT_MAP_TILES: source.value.trim(),
-          HOMESCOUT_MAP_ATTRIBUTION: source.value.trim() ? held.map.attribution || "" : "",
-        }),
-      }, "Save what is typed"),
-      el("button", {
-        type: "button",
-        onclick: () => write({HOMESCOUT_MAP_TILES: "", HOMESCOUT_MAP_ATTRIBUTION: ""}),
-      }, "Turn it off"),
+      held.map.tiles
+        ? el("button", {
+            type: "button",
+            class: "danger",
+            onclick: () => write({HOMESCOUT_MAP_TILES: "", HOMESCOUT_MAP_ATTRIBUTION: ""}),
+          }, "Turn it off")
+        : null,
     ),
+    whereToGet(held.map.where),
+
+    el("details", {},
+      el("summary", {}, "A different tile server"),
+      el("div", {class: "field"}, el("label", {for: "tiles"}, "Tile URL"), source),
+      el("div", {class: "actions"},
+        el("button", {
+          type: "button",
+          onclick: () => write({
+            HOMESCOUT_MAP_TILES: source.value.trim(),
+            HOMESCOUT_MAP_ATTRIBUTION: source.value.trim() ? held.map.attribution || "" : "",
+          }),
+        }, "Save what is typed"))),
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* The rest of the configuration                                       */
+/* Broadband                                                           */
 /* ------------------------------------------------------------------ */
-
-function mailPanel() {
-  const mail = held.mail;
-  return el("section", {},
-    el("h2", {}, "The nightly email ", present(mail.configured, "ready", "off")),
-    el("p", {class: "lede"},
-      "Optional. With no account configured, runs still happen and the digest file is still " +
-      "written; only the email is absent. The email goes out only on nights something changed."),
-    el("dl", {class: "facts"},
-      el("dt", {}, "to"), el("dd", {}, value(mail.to)),
-      el("dt", {}, "server"), el("dd", {}, value(mail.host)),
-      el("dt", {}, "digest file"), el("dd", {}, value(mail.digest_path)),
-    ),
-    el("p", {class: "meta"},
-      "A mail password is a credential, so it is set in your environment or by hand in the .env " +
-      "file and never here. The variables are: " + mail.variables.join(", ") + "."),
-  );
-}
 
 function broadbandPanel() {
   return el("section", {},
     el("h2", {}, "Broadband speeds ", present(held.broadband.configured, "ready", "off")),
     el("p", {class: "lede"},
-      "The FCC's national broadband map needs an API token, which is why the Internet column is " +
-      "empty. Every other public data service this uses needs nothing. Set " +
-      held.broadband.variable + " in your environment to turn it on."),
+      "The FCC's national broadband map needs a key, which is why the Internet column is empty. " +
+      "Every other public data service this uses needs nothing. It is free; set " +
+      held.broadband.variable + " in your environment once you have one."),
+    whereToGet(held.broadband.where),
   );
 }
 
@@ -188,12 +297,10 @@ function interfacePanel() {
   const named = held.interface.allowed_hosts || [];
   return el("section", {},
     el("h2", {}, "This interface"),
-    el("dl", {class: "facts"},
-      el("dt", {}, "listening on"), el("dd", {}, `127.0.0.1:${held.interface.port}`),
-      el("dt", {}, "also answers to"),
-      el("dd", {}, named.length ? named.join(", ") : value(null)),
-      el("dt", {}, "database"), el("dd", {}, held.database),
-    ),
+    el("div", {},
+      setting("listening on", `127.0.0.1:${held.interface.port}`),
+      setting("also answers to", named.length ? named.join(", ") : value(null)),
+      setting("database", held.database)),
     el("p", {class: "meta"},
       "The server listens on this machine and nowhere else, always. A name in the second row is a " +
       "reverse proxy on this machine that forwards to it, which is how it is reached from a phone. " +
@@ -246,7 +353,6 @@ function toolsPanel() {
       ),
     ),
     where,
-    exportPanel(),
   );
 }
 
@@ -276,8 +382,8 @@ function exportPanel() {
   const where = el("div", {id: "exportresult"});
 
   return el("section", {},
-    el("h3", {}, "Write a spreadsheet"),
-    el("p", {class: "meta"},
+    el("h2", {}, "Write a spreadsheet"),
+    el("p", {class: "lede"},
       "The default column set is the hand-built consolidated sheet, exactly. It lands in the " +
       "exports folder beside the database unless the file is already there, in which case it says " +
       "so rather than replacing it."),
@@ -288,27 +394,29 @@ function exportPanel() {
       el("label", {for: "exportforce"}, force, " replace it if it is already there")),
     el("div", {class: "field"},
       el("label", {for: "exportdropped"}, dropped, " include properties a criterion removed")),
-    el("button", {
-      type: "button",
-      onclick: async () => {
-        try {
-          const written = await send("/api/export", {
-            search: search.value.trim() || null,
-            template: template.value.trim() || null,
-            format: format.value,
-            force: force.checked,
-            include_dropped: dropped.checked,
-          });
-          where.replaceChildren(
-            el("p", {class: "notice notice-good"},
-              `${written.properties} properties written to ${written.path}`),
-            el("ul", {}, (written.reasons || []).map((r) => el("li", {}, `empty because ${r}`))),
-          );
-        } catch (error) {
-          where.replaceChildren(el("p", {class: "notice notice-problem"}, error.message));
-        }
-      },
-    }, "Write it"),
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: "primary",
+        onclick: async () => {
+          try {
+            const written = await send("/api/export", {
+              search: search.value.trim() || null,
+              template: template.value.trim() || null,
+              format: format.value,
+              force: force.checked,
+              include_dropped: dropped.checked,
+            });
+            where.replaceChildren(
+              el("p", {class: "notice notice-good"},
+                `${written.properties} properties written to ${written.path}`),
+              el("ul", {}, (written.reasons || []).map((r) => el("li", {}, `empty because ${r}`))),
+            );
+          } catch (error) {
+            where.replaceChildren(el("p", {class: "notice notice-problem"}, error.message));
+          }
+        },
+      }, "Write it")),
     where,
   );
 }

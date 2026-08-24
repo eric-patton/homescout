@@ -162,7 +162,9 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     @app.get("/api/searches")
     def list_searches() -> dict[str, Any]:
-        return answer("searches", searches=wire.searches(held()))
+        return answer(
+            "searches", searches=wire.searches(held()), overview=api.overview(held())
+        )
 
     @app.get("/api/searches/{name}")
     def one_search(name: str) -> dict[str, Any]:

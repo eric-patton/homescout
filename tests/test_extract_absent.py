@@ -121,6 +121,7 @@ def test_the_extraction_variables_are_named_in_one_place() -> None:
     assert settings.VARIABLES == (
         "HOMESCOUT_EXTRACT_BASE_URL",
         "HOMESCOUT_EXTRACT_MODEL",
+        "HOMESCOUT_EXTRACT_REASONING_EFFORT",
         "HOMESCOUT_EXTRACT_API_KEY",
         "OPENAI_API_KEY",
     )

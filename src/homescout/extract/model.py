@@ -112,17 +112,55 @@ def instruction(wanted: Sequence[str]) -> str:
     return "\n".join(lines)
 
 
-def body_for(prose: Prose, account: ModelAccount, wanted: Sequence[str]) -> bytes:
+#: The two ways the same API has been spelled. `classic` is what every OpenAI-compatible server
+#: understands, including the one LM Studio runs; `reasoning` is what a model that thinks before
+#: answering requires, and it *refuses* the classic spelling rather than ignoring it:
+#: `max_tokens` comes back "not supported with this model", and any temperature other than the
+#: default comes back "does not support 0". Both measured against gpt-5.6-luna in August 2026.
+CLASSIC = "classic"
+REASONING = "reasoning"
+
+#: Room for the answer. A reasoning model spends tokens thinking before it writes any of it, and
+#: that thinking counts against the same ceiling, so the reasoning dialect gets a larger one. Six
+#: short objects still need only the six hundred.
+REASONING_HEADROOM = 4_000
+
+
+@dataclass
+class Dialect:
+    """Which spelling this server wants, learned once rather than asked per property.
+
+    A pass over five thousand descriptions must not pay a refused request each time, so the shape
+    is settled on the first answer and reused. It starts from the configuration (a reasoning effort
+    set means the reasoning spelling) and corrects itself from the server's own complaint, which
+    names the parameter it refused.
+    """
+
+    shape: str = CLASSIC
+    #: Set once the server has accepted something, so a later unrelated failure cannot flip it back
+    #: and start the negotiation over on every property.
+    settled: bool = False
+
+    @classmethod
+    def for_account(cls, account: ModelAccount) -> Dialect:
+        return cls(shape=REASONING if account.effort else CLASSIC)
+
+
+def body_for(
+    prose: Prose,
+    account: ModelAccount,
+    wanted: Sequence[str],
+    dialect: Dialect | None = None,
+) -> bytes:
     """The request body: an instruction, a vocabulary, and one description.
 
     Takes prose and a vocabulary. Not a listing, not a snapshot, not a store. That is the whole of
     D-13's enforcement and it is structural rather than careful: there is no address in scope here
     to send.
     """
+    shape = (dialect or Dialect.for_account(account)).shape
     payload: dict[str, Any] = {
         "model": account.model,
-        "temperature": TEMPERATURE,
-        "max_tokens": MAX_TOKENS,
         "messages": [
             {"role": "system", "content": instruction(wanted)},
             {
@@ -134,7 +172,32 @@ def body_for(prose: Prose, account: ModelAccount, wanted: Sequence[str]) -> byte
             },
         ],
     }
+    if shape == REASONING:
+        payload["max_completion_tokens"] = MAX_TOKENS + REASONING_HEADROOM
+        if account.effort:
+            payload["reasoning_effort"] = account.effort
+    else:
+        # Zero because this is transcription rather than writing, and a model being creative about
+        # whether a house has a septic tank is not doing the job.
+        payload["temperature"] = TEMPERATURE
+        payload["max_tokens"] = MAX_TOKENS
     return json.dumps(payload).encode("utf-8")
+
+
+#: What the server says when it has been sent the wrong spelling. Matched on the parameter name and
+#: the word, rather than on the whole sentence, because the sentence is somebody else's to change.
+_WRONG_SPELLING = (
+    ("max_tokens", "max_completion_tokens"),
+    ("temperature",),
+)
+
+
+def _is_wrong_spelling(complaint: str) -> bool:
+    """Did the server refuse the request for the shape of it rather than for its contents?"""
+    said = complaint.casefold()
+    if "unsupported" not in said and "not supported" not in said:
+        return False
+    return any(any(name in said for name in group) for group in _WRONG_SPELLING)
 
 
 def ask(
@@ -142,24 +205,42 @@ def ask(
     account: ModelAccount,
     prose: Prose,
     wanted: Sequence[str],
+    dialect: Dialect | None = None,
 ) -> Answer:
     """One description, one request, one checked answer.
 
     Every failure is an `ExtractionFailed` naming what went wrong with the credential taken out of
     it, so a caller records one description's trouble and carries on.
-    """
-    request = Request(
-        url=account.endpoint,
-        method="POST",
-        body=body_for(prose, account, wanted),
-        headers=account.headers(),
-    )
-    try:
-        fetched = session.request(PACING_KEY, request)
-    except SourceError as exc:
-        raise ExtractionFailed(without_credential(str(exc), account)) from None
 
-    return interpret(fetched.body, prose, wanted)
+    A server that refuses the *shape* of the request rather than its contents gets one more try in
+    the other spelling, and the answer is remembered on the `dialect` so the rest of the pass is
+    written the way this server wants. Without that, naming a reasoning model would fail on every
+    property with a message about a parameter nobody set.
+    """
+    settling = dialect if dialect is not None else Dialect.for_account(account)
+
+    for attempt in (1, 2):
+        request = Request(
+            url=account.endpoint,
+            method="POST",
+            body=body_for(prose, account, wanted, settling),
+            headers=account.headers(),
+        )
+        try:
+            fetched = session.request(PACING_KEY, request)
+        except SourceError as exc:
+            said = getattr(exc, "detail", "") or ""
+            if attempt == 1 and not settling.settled and _is_wrong_spelling(said):
+                settling.shape = REASONING if settling.shape == CLASSIC else CLASSIC
+                continue
+            # The server's own words, because "answered 400" alone sends somebody to read a
+            # traceback for a sentence that says which parameter it disliked.
+            whole = f"{exc}{f': {said.strip()}' if said.strip() else ''}"
+            raise ExtractionFailed(without_credential(whole, account)) from None
+        settling.settled = True
+        return interpret(fetched.body, prose, wanted)
+
+    raise AssertionError("unreachable: the loop either returns or raises")  # pragma: no cover
 
 
 def interpret(body: bytes | str, prose: Prose, wanted: Sequence[str]) -> Answer:
@@ -217,7 +298,31 @@ def _one(name: str, entry: Any, prose: Prose) -> tuple[str, str] | Rejected | No
         # The one check that makes AC-13 mechanical. A model that has decided a rural property
         # probably has a well cannot produce a verbatim quote saying so from a text that does not.
         return Rejected(name, value, "the quote is not in the description")
+    if value == fx.NONE and not _denies(quote):
+        # `none` is the one answer a quote cannot ordinarily support, and the one most worth
+        # checking. Every other value says "the text mentions this thing"; `none` says "the text
+        # says this thing is absent", which takes a negation to say. Caught in the wild: a model
+        # answered heating `none` and quoted "kiva style fireplace", which is a fireplace rather
+        # than a statement that there is no heating. Its own instructions forbid that, and this is
+        # the same rule enforced rather than requested.
+        return Rejected(
+            name, value, "nothing in the quote says the property does not have it"
+        )
     return value, " ".join(quote.split())
+
+
+#: What it takes for a quote to deny something. Deliberately plain: this is not parsing English, it
+#: is refusing to accept an absence from a phrase that never mentions one.
+_DENIALS = (
+    "no ", "not ", "none", "never", "without", "lack", "absent", "n/a", "neither", "nor ",
+    "isn't", "aren't", "doesn't", "don't", "hasn't", "haven't", "won't", "cannot", "can't",
+    "free of", "off-grid", "off grid", "unheated", "uncooled", "unserved", "unavailable",
+)
+
+
+def _denies(quote: str) -> bool:
+    said = f" {' '.join(quote.split()).casefold()} "
+    return any(word in said for word in _DENIALS)
 
 
 def _content_of(body: bytes | str) -> str:

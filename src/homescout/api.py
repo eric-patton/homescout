@@ -1002,6 +1002,57 @@ def vocabulary() -> dict[str, Any]:
     }
 
 
+#: Where to go to get each of the things this tool cannot get for you, kept beside the report that
+#: says one is missing. Somebody told "set HOMESCOUT_BROADBAND_TOKEN" and left to search for it is
+#: being told the name of their problem rather than the way out of it. Every one of these is a page
+#: a person signs into as themselves; nothing here is fetched, and nothing is fetched for them.
+WHERE: dict[str, list[dict[str, str]]] = {
+    "model": [
+        {
+            "what": "An OpenAI key",
+            "url": "https://platform.openai.com/api-keys",
+            "note": "Create one, then set OPENAI_API_KEY in your environment. Asking a hosted "
+            "model costs money per description; a local one costs nothing.",
+        },
+        {
+            "what": "A model on this machine instead",
+            "url": "https://lmstudio.ai/",
+            "note": "LM Studio serves an OpenAI-compatible API on http://localhost:1234/v1 and "
+            "needs no credential at all.",
+        },
+    ],
+    "gmail": [
+        {
+            "what": "A Google App Password",
+            "url": "https://myaccount.google.com/apppasswords",
+            "note": "Sixteen characters, shown once. Needs 2-Step Verification turned on first. "
+            "It can send mail and nothing else, and you can revoke it any time.",
+        },
+        {
+            "what": "Turn on 2-Step Verification",
+            "url": "https://myaccount.google.com/security",
+            "note": "Only needed if the App Passwords page says it is unavailable.",
+        },
+    ],
+    "broadband": [
+        {
+            "what": "An FCC broadband map key",
+            "url": "https://broadbandmap.fcc.gov/login",
+            "note": "Free. Sign in, then find the API key under your account. Without it the "
+            "Internet column stays empty and everything else still works.",
+        },
+    ],
+    "tiles": [
+        {
+            "what": "About OpenStreetMap's tiles",
+            "url": "https://operations.osmfoundation.org/policies/tiles/",
+            "note": "Free and needs no key. Their policy is worth a minute if this ever runs "
+            "against a whole county at once.",
+        },
+    ],
+}
+
+
 def _model_needs(named: str | None, credential: bool, address: str, model: Any) -> str | None:
     """The one thing still to do before a model can be asked anything, in a sentence."""
     if not (named or "").strip():
@@ -1067,22 +1118,42 @@ def configuration(workspace: Workspace) -> dict[str, Any]:
             # pass on for a search. On a settings page, before any of that, what is wanted is the
             # thing still to do, so this says that instead and leaves the other for the detail.
             "needs": _model_needs(found.get(model.MODEL), credential, address, model),
+            "effort": found.get(model.REASONING_EFFORT) or "",
+            "efforts": list(model.EFFORTS),
             "variables": list(model.VARIABLES),
+            "where": WHERE["model"],
         },
         "mail": {
             "configured": bool(found.get(mail.MAIL_TO) and found.get(mail.SMTP_HOST)),
             "to": found.get(mail.MAIL_TO) or None,
             "host": found.get(mail.SMTP_HOST) or None,
+            "port": found.get(mail.SMTP_PORT) or None,
+            "security": found.get(mail.SMTP_SECURITY) or None,
+            "username": found.get(mail.SMTP_USERNAME) or None,
+            "sender": found.get(mail.MAIL_FROM) or None,
             "digest_path": found.get(mail.DIGEST_PATH) or None,
+            # A password is never reported, only whether one is there, and the Gmail fallback
+            # counts because it is a credential this installation can already use.
+            "credential": bool(found.get(mail.SMTP_PASSWORD) or found.get(mail.GMAIL_APP_PASSWORD)),
+            "gmail": {
+                "host": mail.GMAIL_HOST,
+                "address": found.get(mail.GMAIL_ADDRESS) or None,
+                "credential": bool(found.get(mail.GMAIL_APP_PASSWORD)),
+                "variables": [mail.GMAIL_ADDRESS, mail.GMAIL_APP_PASSWORD],
+            },
             "variables": list(mail.VARIABLES),
+            "where": WHERE["gmail"],
         },
         "broadband": {
             "configured": bool(found.get(enrich_settings.BROADBAND_TOKEN)),
             "variable": enrich_settings.BROADBAND_TOKEN,
+            "where": WHERE["broadband"],
         },
         "map": {
             "tiles": web.tiles(root)[0],
+            "attribution": web.tiles(root)[1],
             "variable": web.TILES_VARIABLE,
+            "where": WHERE["tiles"],
         },
         "interface": {
             "port": web.port(root),
@@ -1177,15 +1248,24 @@ def _env_file_with(path: Path, values: Mapping[str, str]) -> str:
     return "\n".join(kept).rstrip("\n") + "\n"
 
 
-#: The settings a surface may write. Everything else is a credential or a path, and both belong to
-#: whoever runs the machine rather than to a page.
+#: The settings a surface may write. Everything here is a plain choice: an address, a name, a
+#: number, a preference. Every credential is absent, and absent twice: not on this list, and caught
+#: again by the refusal of any name that looks like a secret. A password is never one edit away
+#: from a page, however convenient that would be.
 _WRITABLE_SETTINGS: tuple[str, ...] = (
     "HOMESCOUT_MAP_TILES",
     "HOMESCOUT_MAP_ATTRIBUTION",
     "HOMESCOUT_EXTRACT_BASE_URL",
     "HOMESCOUT_EXTRACT_MODEL",
+    "HOMESCOUT_EXTRACT_REASONING_EFFORT",
     "HOMESCOUT_DIGEST_PATH",
     "HOMESCOUT_EMAIL_MAX_NEW",
+    "HOMESCOUT_SMTP_HOST",
+    "HOMESCOUT_SMTP_PORT",
+    "HOMESCOUT_SMTP_SECURITY",
+    "HOMESCOUT_SMTP_USERNAME",
+    "HOMESCOUT_MAIL_FROM",
+    "HOMESCOUT_MAIL_TO",
 )
 
 
@@ -1209,6 +1289,48 @@ def run_status(workspace: Workspace, name: str) -> dict[str, Any]:
         "last_completed_run": latest.id if latest else None,
         "last_completed_at": latest.finished_at if latest else None,
         "runs": len(completed),
+    }
+
+
+def overview(workspace: Workspace) -> dict[str, Any]:
+    """What is in here, in the few numbers worth seeing before anything else.
+
+    The landing surface used to be a list of searches and nothing more, which answers "what have I
+    set up" and not "is there anything for me today". These are the second question: how much is
+    being watched, what a run last turned up, and what is waiting on a person rather than on the
+    tool.
+    """
+    names = list(list_searches(workspace))
+    running: list[str] = []
+    latest: str | None = None
+    counted = 0
+
+    for name in names:
+        status = run_status(workspace, name)
+        if status["running"]:
+            running.append(name)
+        when = status["last_completed_at"]
+        if when and (latest is None or when > latest):
+            latest = when
+
+    with _translating():
+        counted = workspace.store.listing_count()
+        waiting = len(pending_matches(workspace))
+
+    trouble = 0
+    for name in names:
+        try:
+            trouble += 1 if blocking(show_search(workspace, name).problems()) else 0
+        except HomescoutError:
+            trouble += 1
+
+    return {
+        "searches": len(names),
+        "properties": counted,
+        "running": running,
+        "last_run_at": latest,
+        "waiting_to_review": waiting,
+        "searches_with_problems": trouble,
     }
 
 

@@ -329,8 +329,19 @@ HOMESCOUT_EXTRACT_MODEL=some-local-model
 ```
 
 ```
-HOMESCOUT_EXTRACT_MODEL=gpt-4o-mini                   # hosted, credential from OPENAI_API_KEY
+HOMESCOUT_EXTRACT_MODEL=gpt-5.6-luna                  # hosted, credential from OPENAI_API_KEY
+HOMESCOUT_EXTRACT_REASONING_EFFORT=low                # only for a model that reasons
 ```
+
+**A reasoning model and an ordinary one want the request written differently**, and the ones that
+reason refuse the older spelling outright rather than ignoring it. Setting the effort says which
+you have; leaving it empty is right for a local model. Either way the first refused request is read
+rather than reported: if the server says it will not take a parameter, the shape is switched, that
+one request is retried, and the answer is remembered for the rest of the pass, so a pass over five
+thousand descriptions does not pay for the discovery more than once.
+
+Reading a description is transcription rather than judgment, so `low` is plenty and `none` is often
+enough. The values are `none`, `low`, `medium`, `high` and `xhigh`.
 
 **Only the description is sent.** Not the address, the price, the coordinates, the link, the
 listing's identifier or the name of your search. **And nothing the model says is taken on trust**:
@@ -338,6 +349,12 @@ every value has to be one of the words that field may take, and has to come with
 from the description, which is checked. An answer that cannot be attributed to the text is thrown
 away and counted. That is also why a description containing something that reads like an
 instruction cannot do anything: the worst an obedient model achieves is a word that fails the list.
+
+One value gets a second check. `none` means the description says the property does **not** have the
+thing, and that is the one answer a quote cannot support by merely mentioning something: a real
+model answered heating `none` and quoted "kiva style fireplace", which is a fireplace rather than a
+statement that there is no heating. A `none` whose quote denies nothing is thrown away like any
+other unattributable answer.
 
 A model that is unreachable costs the fields it would have filled and nothing else. The
 deterministic values stand, the run finishes and reports itself degraded, and the affected fields
@@ -371,10 +388,33 @@ it renders whether or not a source permits that, it still renders for a property
 disappeared, and opening the email tells nobody anything.
 
 Email is optional. With no account configured, runs still happen and the digest is still written.
-To turn it on, copy `.env.example` to `.env` beside your database and fill in the mail account.
 **No credential is ever read from a saved search, a committed file, or a command-line argument**,
 and there is no option to pass one: arguments are visible to every other process on the machine,
 and Task Scheduler stores them as plain text.
+
+### Sending it through Gmail
+
+The usual case, and the one the settings page sets up in a single button. Gmail wants an **App
+Password**, which is not your Google password: sixteen characters that can send mail and nothing
+else, revocable at any time, and requiring 2-Step Verification on the account. Get one at
+https://myaccount.google.com/apppasswords.
+
+```
+HOMESCOUT_SMTP_HOST=smtp.gmail.com
+HOMESCOUT_SMTP_SECURITY=starttls
+HOMESCOUT_MAIL_TO=you@example.com
+```
+
+The address to send as and the password are read from `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD` when
+those are already in your environment, the same courtesy `OPENAI_API_KEY` gets: a machine that
+already sends mail through Gmail for something else should not keep a second copy of the same
+secret. **That fallback applies only when the server is Gmail's own**, so a credential cannot
+follow a typo to somebody else's server. Set `HOMESCOUT_SMTP_USERNAME` and
+`HOMESCOUT_SMTP_PASSWORD` to use a different account, and the spaces Google shows the password with
+are stripped either way.
+
+Any other provider works the same: name its server, its security (`starttls`, `ssl` or `none`) and
+the account, and put the password in `HOMESCOUT_SMTP_PASSWORD`.
 
 ## The spreadsheet
 

@@ -163,6 +163,33 @@ def test_a_value_the_description_does_not_support_is_rejected() -> None:
     assert answer.rejected[0].reason == "the quote is not in the description"
 
 
+def test_an_absence_needs_a_quote_that_says_so() -> None:
+    """feat-009/AC-13: `none` is the one answer a quote cannot support by mentioning a thing.
+
+    Found in the wild, against a real model: it answered heating `none` and quoted "kiva style
+    fireplace". The quote was verbatim, so the attribution check passed; a fireplace is simply not
+    a statement that the property has no heating. The instruction already forbids it, and this is
+    the same rule enforced rather than requested.
+    """
+    answer = interpret(
+        content(json.dumps({"heating": {"value": "none", "quote": "kiva style fireplace"}})),
+        prose("Charming adobe with a kiva style fireplace in the living room."),
+        SIX,
+    )
+    assert answer.values == {}
+    assert "does not have it" in answer.rejected[0].reason
+
+
+def test_an_absence_a_quote_does_state_is_kept() -> None:
+    """The other half: a description that says the thing is absent still records it as absent."""
+    answer = interpret(
+        content(json.dumps({"gas": {"value": "none", "quote": "there is no gas service"}})),
+        prose("All electric home. There is no gas service to the property."),
+        SIX,
+    )
+    assert answer.values["gas"] == ("none", "there is no gas service")
+
+
 def test_a_value_with_no_quote_is_rejected() -> None:
     """feat-009/AC-13: attribution is required, so an assertion with no source is not one."""
     answer = interpret(

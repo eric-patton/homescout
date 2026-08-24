@@ -46,6 +46,7 @@ REACHES: dict[str, tuple[str, str]] = {
     "enrich": ("POST", "/api/enrich"),
     "extract": ("POST", "/api/extract"),
     "export": ("POST", "/api/export"),
+    "overview": ("GET", "/api/searches"),
     "show": ("GET", "/api/listings/{listing_id}"),
     "areas": ("GET", "/api/areas"),
     # `serve` is what starts this interface. A route for it would be the interface offering to

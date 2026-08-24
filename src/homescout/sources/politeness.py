@@ -42,6 +42,11 @@ DEFAULT_MAX_IMAGE_BYTES = 4 * 1024 * 1024
 #: Statuses that mean "not now" rather than "no". These are the ones worth waiting out.
 RETRYABLE_STATUSES = frozenset({403, 408, 429, 500, 502, 503, 504})
 
+#: How much of a refusal's body to keep on the error. Enough for an API's error object, which is a
+#: sentence and a parameter name, and far short of a page of HTML from something that refused with
+#: one. Bounded rather than whole because this ends up in a run report a person reads.
+REFUSAL_DETAIL = 600
+
 
 class Response(Protocol):
     """The little that this module needs from whatever performed the request."""
@@ -265,7 +270,11 @@ class PacedSession:
                 continue
 
             if response.status >= 400:
-                raise SourceFailed(f"{source} answered {response.status}")
+                raise SourceFailed(
+                    f"{source} answered {response.status}",
+                    status=response.status,
+                    detail=body[:REFUSAL_DETAIL].decode("utf-8", "replace"),
+                )
 
             return Fetched(
                 status=response.status,

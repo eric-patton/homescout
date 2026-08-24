@@ -205,6 +205,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--templates", action="store_true", help="list the column sets available and stop"
     )
 
+    commands.add_parser(
+        "overview", parents=[common], help="the few numbers worth seeing before anything else"
+    )
+
     show = commands.add_parser(
         "show", parents=[common], help="everything known about one property"
     )
@@ -560,6 +564,9 @@ def _dispatch(
         return _extract(workspace, args, note)
     if args.command == "enrich":
         return _enrich(workspace, args, note)
+    if args.command == "overview":
+        found = api.overview(workspace)
+        return Answer(digest.envelope("overview", **found), render.overview(found))
     if args.command == "show":
         return _show(workspace, args)
     if args.command == "areas":

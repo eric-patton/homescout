@@ -170,11 +170,32 @@ function nav(active) {
   ];
   where.replaceChildren(
     skipLink(),
-    el("strong", {}, "HomeScout"),
+    link("/", "HomeScout", {class: "brand"}),
     ...links.map(([href, text]) =>
       link(href, text, {class: href === active ? "here" : null,
                         "aria-current": href === active ? "page" : null}))
   );
+}
+
+/* A list of places to go and get something this tool cannot get for you.
+ *
+ * Every entry is a page a person signs into as themselves. Nothing here is fetched and nothing is
+ * fetched for them: the tool's job is to stop somebody having to search for the name of the page
+ * that issues the key it just told them was missing.
+ */
+function whereToGet(entries) {
+  if (!entries || !entries.length) return null;
+  return el("ul", {class: "sources"},
+    entries.map((entry) => el("li", {},
+      link(entry.url, entry.what, {class: "what", target: "_blank", rel: "noopener noreferrer"}),
+      entry.note ? el("span", {class: "note"}, entry.note) : null)));
+}
+
+/* A row in a list of settings: what it is called, and what it currently says. */
+function setting(name, ...what) {
+  return el("div", {class: "setting"},
+    el("span", {class: "name"}, name),
+    el("span", {class: "what"}, ...what));
 }
 
 /* Watching something that takes minutes.

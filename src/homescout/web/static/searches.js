@@ -17,6 +17,7 @@
 let polling = null;
 let showArchived = false;
 let held = [];
+let summary = {};
 
 whenReady(() => {
   nav("/");
@@ -26,6 +27,7 @@ whenReady(() => {
 async function load() {
   const found = await ask("/api/searches");
   held = found.searches;
+  summary = found.overview || {};
   draw();
 }
 
@@ -34,14 +36,15 @@ function draw() {
   const archived = held.filter((entry) => entry.archived).length;
 
   shell("Searches",
-    el("h1", {}, "Saved searches"),
+    el("h1", {}, "HomeScout"),
     el("p", {class: "lede"},
       held.length
-        ? `${visible.length} shown of ${held.length}. Running one takes a few minutes.`
-        : "None yet. A saved search is a YAML file; make one here or by hand."),
+        ? "Everything being watched, and what the last run found."
+        : "Nothing is being watched yet. A saved search is a YAML file; make one here or by hand."),
+    overview(),
 
     el("div", {class: "controls"},
-      el("button", {type: "button", onclick: askForName}, "New search"),
+      el("button", {type: "button", class: "primary", onclick: askForName}, "New search"),
       el("button", {type: "button", disabled: !visible.length ? true : null, onclick: runAll},
         "Run all of them"),
       link("/settings", "Settings and tools"),
@@ -68,11 +71,52 @@ function draw() {
   if (toggle) toggle.checked = showArchived;
 }
 
+/* The few numbers worth seeing before the list.
+ *
+ * The list answers "what have I set up". This answers "is there anything for me today", which is
+ * the question somebody opening this in the morning actually has, and it is the one the page used
+ * to make them work the rest of the screen out for themselves.
+ */
+function overview() {
+  if (!held.length) return null;
+  const running = (summary.running || []).length;
+  const waiting = summary.waiting_to_review || 0;
+  const trouble = summary.searches_with_problems || 0;
+
+  return el("div", {class: "overview"},
+    figure({number: summary.properties || 0, label: "properties being watched"}),
+    figure({
+      number: summary.last_run_at ? when(summary.last_run_at) : "never",
+      label: "last run",
+      title: summary.last_run_at,
+    }),
+    waiting
+      ? figure({number: waiting, label: "waiting for your decision",
+                href: "/matches", tone: "flag"})
+      : null,
+    trouble
+      ? figure({number: trouble, label: "to fix before they run", tone: "problem"})
+      : null,
+    running ? figure({number: running, label: "running right now", tone: "flag"}) : null,
+  );
+}
+
+/* One number and what it counts. A link when there is somewhere to go about it, and plain when
+ * there is not: a figure that looks clickable and is not is worse than one that does not. */
+function figure({number, label, title, href, tone}) {
+  const inside = [
+    el("span", {class: "figure-number"}, String(number)),
+    el("span", {class: "figure-label"}, label),
+  ];
+  const attributes = {class: "figure" + (tone ? " figure-" + tone : ""), title: title || null};
+  return href ? link(href, inside, attributes) : el("div", attributes, inside);
+}
+
 function card(entry) {
   const problems = (entry.problems || []).filter((p) => p.severity === "problem");
   const standing = entry.archived ? "archived" : (entry.paused ? "paused" : null);
 
-  return el("div", {class: "card", dataset: {search: entry.name}},
+  return el("div", {class: standing ? "card set-aside" : "card", dataset: {search: entry.name}},
     el("h3", {}, entry.name, standing ? " " : null,
       standing ? badge(standing, standing === "archived" ? "plain" : "flag") : null),
     entry.description ? el("p", {}, entry.description) : null,
@@ -95,6 +139,7 @@ function card(entry) {
     el("div", {class: "actions"},
       el("button", {
         type: "button",
+        class: "primary",
         disabled: problems.length ? true : null,
         onclick: () => run(entry.name),
       }, "Run now"),
@@ -109,6 +154,7 @@ function card(entry) {
       }, entry.paused ? "Resume" : "Pause"),
       el("button", {
         type: "button",
+        class: entry.archived ? null : "danger",
         onclick: () => standingOf(entry.name, {archived: !entry.archived}),
       }, entry.archived ? "Bring back" : "Archive"),
       el("button", {type: "button", onclick: () => duplicate(entry.name)}, "Duplicate"),

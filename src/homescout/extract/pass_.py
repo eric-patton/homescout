@@ -154,9 +154,12 @@ def run_pass(
     failures: list[str] = []
 
     say(f"extract: {len(wanted)} descriptions to ask about, {cached} already answered")
+    # Which spelling this server wants, settled on the first answer and reused. A pass over five
+    # thousand descriptions must not pay a refused request per property to find out.
+    dialect = client.Dialect.for_account(account)
     for listing_id, prose, left in wanted:
         try:
-            answer = client.ask(paced, account, prose, left)
+            answer = client.ask(paced, account, prose, left, dialect)
         except client.ExtractionFailed as exc:
             failures.append(settings.without_credential(f"{listing_id}: {exc}", account))
             continue

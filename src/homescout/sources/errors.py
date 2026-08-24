@@ -20,9 +20,16 @@ class SourceFailed(SourceError):
     written for a person reading a run report, not for a log parser.
     """
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, status: int | None = None, detail: str = "") -> None:
         super().__init__(reason)
         self.reason = reason
+        #: The status, when there was one, and what the server said in the body of its refusal,
+        #: bounded. Kept because "answered 400" is the same sentence whether the request was
+        #: malformed, the credential was wrong, or a parameter has been renamed since this code was
+        #: written, and a caller that could tell those apart can do something about the third.
+        #: Never shown to a person without passing through whatever strips the credential first.
+        self.status = status
+        self.detail = detail
 
 
 class SourceUnavailable(SourceError):

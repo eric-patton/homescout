@@ -529,6 +529,7 @@ def test_the_facade_is_the_whole_surface() -> None:
     """feat-003/AC-18, feat-003/AC-19: a command needing more than this is logic drifting upward."""
     expected = {
         "open_workspace",
+        "overview",
         "run_search",
         "run_all",
         "changes",

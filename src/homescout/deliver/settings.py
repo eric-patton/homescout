@@ -58,6 +58,28 @@ VARIABLES: tuple[str, ...] = (
 #: a home network is a real configuration, not because it is ever a fallback: nothing in this
 #: package downgrades to it, and it is reachable only by asking for it by name.
 SECURITY: dict[str, int] = {"starttls": 587, "ssl": 465, "none": 25}
+
+#: Gmail's own server, and the two variables a machine that already sends through it will already
+#: have. Read as a fallback and only when the host is Gmail's, so the credential cannot follow a
+#: typo to somebody else's server. Named here rather than in the browser interface because the
+#: interface must not be the only place a capability exists.
+GMAIL_HOST = "smtp.gmail.com"
+GMAIL_ADDRESS = "GMAIL_ADDRESS"
+GMAIL_APP_PASSWORD = "GMAIL_APP_PASSWORD"
+
+
+def _is_gmail(host: str) -> bool:
+    return host.strip().casefold() in (GMAIL_HOST, "smtp.googlemail.com")
+
+
+def _app_password(raw: str | None) -> str | None:
+    """A Google App Password, with the spaces Google shows it with taken out.
+
+    Google presents it as four groups of four and people copy it that way, spaces and all. Refusing
+    that would be refusing the only form anybody actually has.
+    """
+    held = (raw or "").replace(" ", "").strip()
+    return held or None
 DEFAULT_SECURITY = "starttls"
 
 #: The cap on how many new properties one email lists. More than any ordinary night produces, few
@@ -204,6 +226,17 @@ def _account(values: Mapping[str, str]) -> tuple[MailAccount | None, str | None]
     )
     username = (values.get(SMTP_USERNAME) or "").strip() or None
     password = values.get(SMTP_PASSWORD) or None
+
+    if _is_gmail(host):
+        # The same courtesy the model pass extends to OPENAI_API_KEY: an installation that already
+        # has a Google App Password for something else should not have to keep a second copy of it
+        # here. Scoped to Gmail's own server on purpose. A credential that followed whatever host
+        # happened to be configured would be a credential sent wherever a typo pointed.
+        sender = sender or (values.get(GMAIL_ADDRESS) or "").strip()
+        username = username or (values.get(GMAIL_ADDRESS) or "").strip() or None
+        # The spaces come out of whichever variable it was found in: Google shows the password in
+        # four groups of four and that is how people paste it.
+        password = _app_password(password) or _app_password(values.get(GMAIL_APP_PASSWORD))
 
     given = {SMTP_HOST: bool(host), MAIL_FROM: bool(sender), MAIL_TO: bool(recipients)}
     if not any(given.values()):
