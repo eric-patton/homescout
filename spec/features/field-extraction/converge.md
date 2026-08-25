@@ -159,3 +159,47 @@ AC-14
   real output has found something no assertion did.
 
 verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)
+
+## run 3 — 2026-08-24
+
+baseline: spec sha256:98f2c0da20ec · plan sha256:eb11976b5d2f · tasks sha256:b0d8b54089ad
+
+Run after the change `changes/model-notes/` was built: a note for the model, one for the
+installation and one per saved search, folded into the instruction the model already receives.
+
+implemented: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13,
+AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21
+
+- confirmed gap-001 [partial] the neighbour case. Unchanged by this run and still absent from the
+  corpus. A note is now a place where somebody could say "a well next door is not this property's
+  well", which is a workaround a person can reach for and is not the check the edge case asks for.
+
+- confirmed gap-002 [partial] a canonical listing still carries one description, because Realtor.com
+  is still the only source that returns prose.
+
+- confirmed gap-003 [unrequested] `homescout extract --limit N` is still there and still a decision
+  nobody has made.
+
+- opened gap-004 [unrequested] code:"`search/definition.py` `PROSE` takes `description` as typed
+  rather than as YAML"
+
+  Evidence: `src/homescout/search/definition.py`, the `PROSE` set, read by `FileCatalog.edit`.
+
+  What the change needed was for `extract.notes` to survive a colon. `searches edit` reads every
+  value the way the file would read it, so that `--set filters.price.max=800000` becomes a number,
+  and a note reading "Community water: a mutual domestic association" would otherwise have become a
+  mapping and been refused. Two keys are now exempt from that reading: `extract.notes`, which this
+  change introduced, and `description`, which it did not.
+
+  `description` was included because it has the same problem for the same reason and had it before
+  this change: a description containing a colon was already being turned into a mapping. That is a
+  fix, and it is also a behaviour change in feat-004's territory that no spec statement asks for.
+  The visible difference is narrow: `--set description=123` used to store the number and now stores
+  the text.
+
+  Routed: a human decision. Either it is legitimized as a spec addition on saved searches (the
+  honest wording being that a key holding prose is stored as prose), or `description` comes back out
+  of `PROSE` and keeps the behaviour it had, colon bug included. Nothing was self-applied beyond the
+  code as it now stands, which is why it is recorded here rather than assumed.
+
+verdict: open 4 (missing 0, partial 2, contradicts 0, unrequested 2)

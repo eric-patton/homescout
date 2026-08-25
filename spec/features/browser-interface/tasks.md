@@ -105,3 +105,12 @@ alongside its peers.
 - [x] T30: Writing a drawn shape back into the file, through the core's edit operation, with the
       comments and the untouched filters surviving and a refused edit leaving the file alone
       (AC-2, AC-3).
+- [x] T31: Two note boxes: the installation's on the settings page, and a search's own on its page,
+      each saying above the box that its text goes to the model with every description (feat-009's
+      change `model-notes`).
+- [x] T32: A defect: a textarea built by the shared element builder with `value=` drew empty,
+      because a textarea holds its text as content rather than in an attribute. The criteria box on
+      a search page was built that way, so a search with three rules showed none, and the "Save the
+      criteria" button under it would have written the empty box back over them. Fixed in the
+      builder rather than at the call site, with a regression test in the real-browser suite
+      (feat-012/AC-9).

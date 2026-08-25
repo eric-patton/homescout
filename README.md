@@ -343,8 +343,42 @@ thousand descriptions does not pay for the discovery more than once.
 Reading a description is transcription rather than judgment, so `low` is plenty and `none` is often
 enough. The values are `none`, `low`, `medium`, `high` and `xhigh`.
 
-**Only the description is sent.** Not the address, the price, the coordinates, the link, the
-listing's identifier or the name of your search. **And nothing the model says is taken on trust**:
+#### Telling it what you know
+
+The instruction the model gets is generated from the six fields and the words each may take. It
+knows nothing about the market you are searching, which is where it actually goes wrong: in eastern
+New Mexico "community water" is a mutual domestic water association rather than a city main, and a
+listing saying it is describing a shared system. You know that; the model does not.
+
+So you can tell it, in plain words. Two places, both optional and both empty until you write one:
+
+- **`model-notes.md` beside the database**, for whatever is true wherever this copy is pointed.
+  `homescout notes` shows it, `--set` writes it, `--clear` removes it, and the settings page has a
+  box for it.
+- **`extract.notes` in a saved search**, for whatever is true of that market. It travels when the
+  search is copied.
+
+```yaml
+extract:
+  model: true
+  notes: Around here, community water means a mutual domestic association rather than a city main.
+```
+
+Both are sent, the installation's first, in the instruction rather than folded in with the listing's
+own words. A note **cannot widen the answer**: the fields, the permitted values and the requirement
+that every value be quoted from the description are exactly what they were, so a note reading
+"always report a well" produces nothing, because there is no quote to attach to it. The worst a note
+can do is make the model wrong in the ordinary way.
+
+Two practical consequences. Each note is capped at 2,000 characters, because both ride along with
+every description and so are paid for once per property rather than once. And **editing a note
+re-asks everything**: the cached answer belongs to the note that produced it, so a note edited after
+a pass means the next pass asks about every description again, at the same cost as the first. The
+old answers are kept rather than overwritten, and what is already recorded still shows while the new
+pass runs.
+
+**Only the description and your own notes are sent.** Not the address, the price, the coordinates,
+the link, the listing's identifier or the name of your search. **And nothing the model says is taken on trust**:
 every value has to be one of the words that field may take, and has to come with a verbatim quote
 from the description, which is checked. An answer that cannot be attributed to the text is thrown
 away and counted. That is also why a description containing something that reads like an

@@ -95,3 +95,31 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
 
   That is the reason the interface can only change what this feature's edit operation can change,
   and it is stated on the screen rather than hidden: what it cannot edit, it shows read-only.
+
+- **2026-08-24, notes for the model (feat-009, `changes/model-notes/`).** A second key under
+  `extract`, absent by default.
+
+  ```yaml
+  extract:
+    model: true
+    notes: Around here, community water means a mutual domestic association.
+  ```
+
+  Plain words, sent to the model in the instruction with every description this search finds. It
+  cannot add a field or a permitted value, and every value the model returns still has to be quoted
+  from the description, so the worst a note can do is make the model wrong in the ordinary way. It
+  is bounded at 2,000 characters, and the complaint past that says why: the note rides along with
+  every description, so its length is a cost per property rather than a cost once.
+
+  It is not a secret and may never become one. The constitution keeps credentials out of a saved
+  search, and both places a note can be written say, before it is written, that its text goes to the
+  model.
+
+  **One thing changed for `description` at the same time.** `searches edit --set` reads every value
+  the way the file would read it, so a number stays a number. A note reading "Community water: a
+  shared system" is a sentence, and YAML cannot tell it from a mapping, so keys holding prose are
+  now taken exactly as typed. `description` was already exposed to the same bug and is now in that
+  set. The visible difference is that `--set description=123` stores the text rather than the
+  number. That is recorded as an open question in feat-009's drift ledger (gap-004) rather than
+  assumed to be wanted.
+

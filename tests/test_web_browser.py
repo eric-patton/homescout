@@ -152,6 +152,43 @@ def evaluate(connection, script: str, message_id: int = 1):
             return result.get("value")
 
 
+def test_a_textarea_built_by_this_page_holds_its_text(served) -> None:
+    """feat-012/AC-9: the box a save is built from has to hold what the code put in it.
+
+    A regression, and the kind only a real browser catches. A textarea keeps its text as content
+    rather than in an attribute, so building one with `value=` set an attribute nothing reads: the
+    box drew empty. The criteria box on a search page was built that way, and the "Save the
+    criteria" button under it built its request from `box.value`. So a search with three criteria
+    showed none, and one click wrote that empty box back over them.
+
+    Asserted on the element builder rather than on one page, because the bug was in the builder and
+    the next textarea would have inherited it.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (typeof el === "function") break;
+                   await new Promise((r) => setTimeout(r, 100));
+                 }
+                 const box = el("textarea", {rows: "4", value: "on-a-well | flag | x == 1"});
+                 return {value: box.value, tag: box.tagName};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found and found["tag"] == "TEXTAREA"
+    assert found["value"] == "on-a-well | flag | x == 1", (
+        "a textarea built with a value drew empty, so any save built from it writes nothing back"
+    )
+
+
 def test_the_table_is_quick_at_five_thousand_rows(served) -> None:
     """feat-010 performance: three seconds to be usable, two hundred milliseconds to respond.
 

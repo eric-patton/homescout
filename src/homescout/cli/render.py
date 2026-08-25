@@ -119,13 +119,17 @@ def searches(names: Sequence[str]) -> str:
 
 
 def definition(search: Any) -> str:
-    return "\n".join(
-        [
-            f"name:    {search.name}",
-            f"sources: {', '.join(search.sources) or DASH}",
-            f"areas:   {len(search.areas)}",
-        ]
-    )
+    lines = [
+        f"name:    {search.name}",
+        f"sources: {', '.join(search.sources) or DASH}",
+        f"areas:   {len(search.areas)}",
+    ]
+    written = str(getattr(search, "extract_notes", "") or "")
+    if written:
+        # Shown because it is sent. Somebody looking at a search should be able to see everything
+        # that leaves with it without opening the file.
+        lines.append(f"notes:   {written}")
+    return "\n".join(lines)
 
 
 def problems(name: str, found: Sequence[Any]) -> str:
@@ -305,6 +309,21 @@ def listing(found: Any) -> str:
         for name, held in annotation.items():
             lines.append(f"  {name.replace('_', ' '):<14} {_cell(held)}")
 
+    return "\n".join(lines)
+
+
+def model_notes(found: dict[str, Any]) -> str:
+    """What this installation tells the model, or the fact that it tells it nothing."""
+    written = str(found.get("notes") or "")
+    where = found.get("path")
+    if not written:
+        return (
+            "Nothing written. What you put here is sent to the model with every description, to "
+            f"say how listings in your market are written.\n  {where}"
+        )
+    lines = [written, "", f"Sent to the model with every description. Kept in {where}."]
+    if found.get("truncated"):
+        lines.insert(1, f"Cut to {found.get('limit')} characters before it is sent.")
     return "\n".join(lines)
 
 

@@ -214,3 +214,14 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   `serve` deliberately has **no `--host`**. The constitution binds this to localhost, the server
   refuses any other address at runtime, and an option that can only ever hold one value is a knob
   for something that is not on offer. A test keeps it that way.
+
+- **2026-08-24, notes for the model (feat-009, `changes/model-notes/`).** One new command.
+
+  `homescout notes` shows what this installation tells the model about reading listings here,
+  `--set TEXT` writes it and `--clear` removes it. It is a file beside the database rather than a
+  setting, because the settings loader reads `KEY=value` lines and a note is a paragraph.
+
+  A saved search's own note needed nothing new: `searches edit --set extract.notes="..."` already
+  reaches it, and `searches show` now prints it, because a note is sent with every description and
+  somebody looking at a search should see everything that leaves with it.
+

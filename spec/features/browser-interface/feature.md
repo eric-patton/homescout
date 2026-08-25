@@ -45,3 +45,22 @@ Brief section 8. This is the one feature that requires a design artifact.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Changes recorded here
+
+- **2026-08-24, notes for the model (feat-009, `changes/model-notes/`).** Two boxes. The settings
+  page gained "What you want the model told", for the installation's note; a search page gained
+  "Notes for the model, for this search". Both say, above the box rather than below it, that the
+  text is sent to the model with every description and that it cannot add a field or a new answer.
+
+- **2026-08-24, a defect found while building that.** The criteria box on a search page was drawing
+  empty on a search that had criteria, and the "Save the criteria" button under it built its request
+  from that box. A search with three rules showed none, and one click would have written the empty
+  box back over them.
+
+  The cause was in the element builder every page shares: a textarea holds its text as content
+  rather than in an attribute, so building one with `value=` set an attribute nothing reads. Fixed
+  in `common.js` rather than at the one call site, because the next textarea would have inherited
+  it, with a regression test in the real-browser suite asserting a textarea built by that helper
+  holds its text.
+

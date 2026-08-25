@@ -281,18 +281,20 @@ truncation here would read as a market where nobody mentions a septic tank.
 The precedence when both have an opinion is `source`, then `pattern`, then `model`, and it almost
 never arises: the model is only ever asked about fields the patterns did not fill.
 
-### D-13: only the description leaves the machine
+### D-13: only the description, and what the operator wrote, leave the machine
 
 The single most sensitive thing this feature does is send text to somebody else's computer, and the
 plan has to say exactly what text. **The request body carries the instruction, the field vocabulary,
-and the description. It carries no address, no coordinates, no price, no listing identifier, no
-search name, and no path.** A hosted provider receiving `1828 Redwine, Portales NM, $185,000` along
+the description, and the notes the person running searches wrote for the model (D-15). It carries no
+address, no coordinates, no price, no listing identifier, no search name, and no path.** A hosted provider receiving `1828 Redwine, Portales NM, $185,000` along
 with the prose would be a disclosure the person never asked for, and the difference between that and
 what this design sends is one line of code that nobody would notice going wrong.
 
-So it is not left to care. The request is built by one function that takes a description and returns
-a body, it has no access to a listing, and a test asserts that the serialized body of a request built
-from a property with a known address, price and identifier contains none of them.
+So it is not left to care. The request is built by one function that takes strings and returns a
+body, it has no access to a listing, and a test asserts that the serialized body of a request built
+from a property with a known address, price and identifier contains none of them. The notes are
+strings too, and they reach that function the same way the description does, so adding them widened
+what a person can deliberately send and widened nothing that could leak by accident.
 
 This is also the answer to "what does a local server change": nothing about what is sent, only where
 it goes. The privacy difference between the two backends is entirely the destination, which is the
@@ -358,6 +360,60 @@ sources agreeing gives one value; two sources disagreeing is a conflict, which l
 with both quotes as evidence, which is exactly what "conflicts visible rather than resolved by
 preference order" asks for. What is not built is the loop over source rows, because building it now
 would mean shipping and testing a path no source can currently exercise.
+
+### D-15: a note is a file and a key, not an environment variable
+
+Two notes, and neither goes where the other settings go. The installation's note is `model-notes.md`
+beside the database; a saved search's note is `extract.notes` inside its own file.
+
+The environment was the obvious place and it is the wrong one for a mechanical reason: the loader
+this product uses reads `KEY=value` lines and says so in its own docstring, with no interpolation,
+no escapes and no multi-line values. A note is a paragraph. Forcing a paragraph through a format
+that cannot hold one produces either an unreadable single line or a second syntax nobody asked for.
+A markdown file beside the database is the same directory, the same backup, the same "yours and not
+committed", and it can hold what a person actually writes.
+
+Putting the per-search note in the search file rather than in a second file is the same argument
+from the other end: a saved search is already the one document that says what this search is, and a
+note about how to read the descriptions this search finds belongs with the areas and the filters
+that decide which descriptions those are. It also travels: copying a search copies its note, which
+is what anybody duplicating a search would expect.
+
+Neither is a secret and neither may become one. Non-negotiable 3 puts credentials in the environment
+or the uncommitted `.env`, and a note is neither: it is the operator's prose, it goes to the model
+with every description, and both interfaces say so where it is written.
+
+**Two thousand characters each, and nothing writes them but a person.** The bound is not about
+abuse, since the only person who can write here is the one running the tool. It is about cost and
+about honesty. Every request carries both notes in full, so a note is not paid for once but once per
+description, and a page that let somebody paste an essay would quietly multiply a pass over five
+thousand properties. Two thousand characters is several paragraphs, which is more than the job
+needs. Past it the text is cut and the person is told, because a note that was silently shortened is
+worse than one that was refused.
+
+The other half of that rule is the direction: no code path ever puts anything in a note. A note is
+typed by a person. If a listing field, a source response or a run outcome could reach a note, the
+note would become a channel for sending exactly the things D-13 exists to keep out of the request,
+and it would do it without anybody noticing. So the notes are read from two places a person edits
+and written from two surfaces a person types into, and nothing else touches them.
+
+### D-16: the cached answer belongs to the note that produced it
+
+Answers are cached against the description (D-2, AC-10), and a note changes the question rather than
+the text. Left alone, editing a note would change nothing for every description already answered,
+which after the first pass is all of them, and the person who edited it would conclude the feature
+does not work. They would be right.
+
+So the note joins the cache identity. The store already keys an answer by `(model, digest)`, and the
+model side of that key becomes the model name plus a short fingerprint of the notes in force. A
+changed note is a different key, so the next pass asks again; an unchanged note is the same key, so
+nothing is re-asked and AC-10 costs what it always did. Rows written under a previous note stay
+exactly where they are, because non-negotiable 2 says snapshots are immutable and corrections are
+new rows, and because an answer given under a different instruction is a fact about what happened
+rather than a mistake to erase.
+
+The fingerprint is over the text actually sent, after truncation, so two notes that differ only past
+the length bound are one key rather than two.
 
 ### D-12: what this feature does not own
 

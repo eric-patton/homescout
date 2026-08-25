@@ -315,10 +315,39 @@ function settingsPanel() {
         }),
         " ask a model about this search's descriptions")),
     modelReadiness(),
+    searchNotes(),
 
     el("h3", {}, "Criteria"),
     criteriaPanel(),
   );
+}
+
+/* What this search wants the model told, on top of whatever the installation says on the settings
+ * page. Both are sent, the general one first. This is where the local knowledge goes: the phrase
+ * that means something different in this county than it does two counties over. */
+function searchNotes() {
+  const limit = 2000;
+  const box = el("textarea", {
+    id: "searchnotes", rows: 4, maxlength: limit,
+    "aria-label": "What you want the model told about listings this search finds",
+    placeholder: "Anything specific to this market. Left empty, only the installation's note is " +
+      "sent.",
+  });
+  box.value = held.search.extract_notes || "";
+
+  return el("div", {},
+    el("div", {class: "field"},
+      el("label", {for: "searchnotes"}, "Notes for the model, for this search"), box,
+      el("span", {class: "hint"},
+        "Added to the note on the settings page, which is sent as well. Sent to the model with " +
+        "every description this search finds, so keep anything private out of it. It cannot add a " +
+        "field or a new answer.")),
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: "quiet",
+        onclick: () => save({"extract.notes": box.value.trim()}),
+      }, "Save the note")));
 }
 
 function modelReadiness() {

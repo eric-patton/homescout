@@ -308,6 +308,15 @@ def build(workspace: api.Workspace) -> FastAPI:
             raise InvalidInput('Nothing to change: send {"set": {...}}.')
         return answer("configuration", **api.set_configuration(held(), dict(values)))
 
+    @app.get("/api/notes")
+    def model_notes() -> dict[str, Any]:
+        return answer("notes", **api.model_notes(held()))
+
+    @app.post("/api/notes")
+    async def write_model_notes(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        return answer("notes", **api.set_model_notes(held(), str(body.get("notes") or "")))
+
     @app.get("/api/export/templates")
     def templates() -> dict[str, Any]:
         return answer("templates", templates=list(api.export_templates(held())))

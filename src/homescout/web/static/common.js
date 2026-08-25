@@ -22,6 +22,13 @@ function el(tag, attributes, ...children) {
       for (const [key, held] of Object.entries(value)) node.dataset[key] = String(held);
       continue;
     }
+    /* A textarea holds its text as content rather than in an attribute, so `value=` on one is
+     * silently ignored: the box renders empty, and a save built from it writes an empty box back
+     * over whatever was there. Set the property instead, which is what the caller meant. */
+    if (name === "value" && tag === "textarea") {
+      node.value = String(value);
+      continue;
+    }
     node.setAttribute(name, value === true ? "" : String(value));
   }
   for (const child of children.flat()) {

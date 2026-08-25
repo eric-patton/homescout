@@ -17,6 +17,9 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
   optional pass did.
 - The **model pass** is the optional extraction backend. It is one client speaking one request
   shape against a configurable address, which is either a hosted service or a local server.
+- A **note for the model** is a short piece of writing by the person running searches, in their own
+  words, describing how listings in their market are written. There are two, one for the
+  installation and one per saved search, and both are optional and absent by default.
 
 ## User stories
 
@@ -32,6 +35,11 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
   paid service, so that I can choose between cost and setup.
 - As the person running searches, I want a description processed at most once, so that re-running a
   search does not re-spend anything.
+- As the person running searches, I want to tell the model in plain language what I know about how
+  listings in my market are written, so that it reads "community water" the way everybody here means
+  it rather than the way the words look.
+- As the person running searches, I want the note I wrote to take effect on the next pass, so that
+  editing it is not silently cancelled by an answer cached under the old one.
 
 ## Behavior & scenarios
 
@@ -81,6 +89,25 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
   - Then the failure is reported, the deterministic values remain, the affected fields stay empty
     rather than being filled by fallback, and the run completes
 
+- **Scenario: a note is written for the market**
+  - Given a note for the installation and a note on the saved search
+  - When a description is processed
+  - Then both are in the instruction, the installation's first, marked as written by the operator
+    rather than found in the listing, and the description itself is unchanged
+
+- **Scenario: a note asks for something the vocabulary does not have**
+  - Given a note instructing the model to report a value outside the closed set, and a model that
+    obeys it
+  - When the answer is processed
+  - Then it is rejected on the same check every other answer meets, and the field stays empty
+
+- **Scenario: a note is edited**
+  - Given descriptions already answered under one note
+  - When the note is changed and the pass runs again
+  - Then those descriptions are asked about again under the new note, the answers given under the
+    old one are kept rather than rewritten, and a value already recorded still shows while the new
+    pass is pending
+
 - **Scenario: the model returns something unusable**
   - Given a model response that does not match the expected shape, or asserts a value the
     description does not contain
@@ -105,8 +132,9 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
       configuration file under version control, or a command-line argument.
 - [ ] AC-9: The model pass is one client against a configurable address, so a hosted service and a
       local server differ only in configuration. A test exercises both through the same client.
-- [ ] AC-10: Model results are cached against the description content, so identical description text
-      is never processed twice regardless of how many properties or runs contain it.
+- [ ] AC-10: Model results are cached against the description content together with the notes in
+      force, so identical description text under unchanged notes is never processed twice regardless
+      of how many properties or runs contain it.
 - [ ] AC-11: A model failure or timeout is reported, leaves deterministic values intact, leaves the
       affected fields empty, and does not fail the run.
 - [ ] AC-12: A model response that does not match the expected shape is rejected and the field is
@@ -115,6 +143,28 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
       requires the value to be attributable to the text.
 - [ ] AC-14: Extracted values are members of the rule engine's field namespace, and an unpopulated
       one yields an undetermined verdict rather than a false one.
+- [ ] AC-15: A note for the model can be written for the installation and for each saved search,
+      both optional, both absent by default, and both in plain language rather than a format.
+- [ ] AC-16: When either note is present it is included in the model request, in the instruction
+      rather than in the description, and marked as coming from the operator rather than from the
+      listing. When both are present both are included, the installation's first.
+- [ ] AC-17: A note cannot widen the answer. The field vocabulary, the closed set of values, and the
+      requirement that every value be quoted from the description are unchanged by any note, and a
+      note asking for a value outside the vocabulary or for a field that does not exist changes
+      nothing about what is accepted.
+- [ ] AC-18: The cached answer for a description is identified by the notes in force when it was
+      produced, so editing either note causes the next pass to ask again rather than reusing an
+      answer given under different instructions. Answers cached under a previous note are kept, not
+      rewritten.
+- [ ] AC-19: Each note is bounded at 2,000 characters. A note longer than that is truncated before
+      the request and the truncation is reported to the person who wrote it, rather than being sent
+      whole or silently cut.
+- [ ] AC-20: With no note written anywhere, the request is identical to what it was before this
+      capability existed. A test asserts the request body is byte-for-byte unchanged, so a person
+      who does not use this pays nothing for it.
+- [ ] AC-21: A note is written by a person and never by the tool. Nothing read from a listing, a
+      source, or a run is ever placed in a note by any code path, and both places a note can be
+      written say before it is written that its text is sent to the model with every description.
 
 ## Edge cases & errors
 
@@ -136,6 +186,13 @@ pass is exactly that, optional, and the tool must be complete without it. The pr
   before the run, rather than as a failure per property.
 - A description contains text that reads like an instruction. It is data. Nothing in a description
   can change what the extraction is asked to do or cause any action outside producing field values.
+  The operator's note is the one piece of writing here that is an instruction, because a person
+  wrote it deliberately on this machine. It is carried in the instruction rather than in the
+  description, and it is subject to the same closed vocabulary and the same quote requirement as
+  everything else, so the worst it can do is make the model wrong in the ordinary way.
+- A note is written and the whole corpus has already been answered. Every description is asked about
+  again, which costs what the first pass cost. That is the price of the note taking effect at all,
+  and it is visible in the pass report rather than discovered on a bill.
 
 ## Non-functional requirements
 

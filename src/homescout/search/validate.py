@@ -84,6 +84,9 @@ class Reading:
     #: Whether this search has turned the optional model extraction pass on. Off unless the file
     #: says otherwise, which is product invariant 9: an optional component is absent by default.
     model_extraction: bool = False
+    #: What this search tells the model about how listings in its market are written. Plain words,
+    #: written by a person, sent with every description. Empty unless somebody wrote one.
+    extract_notes: str = ""
     #: Paused: still a search, still runnable by name, simply not swept up by `run --all`. The
     #: seasonal case, where somebody stops watching a town for a while without losing what they
     #: know about it.
@@ -362,12 +365,15 @@ def _extraction(document: Document, reading: Reading) -> None:
         return
 
     for key in section:
-        if key != "model":
+        if key not in ("model", "notes"):
             reading.say(
                 document.at("extract", key),
-                f"{key!r} is not part of extract. The only setting is 'model', which is true or "
-                "false and is false unless you say otherwise.",
+                f"{key!r} is not part of extract. The settings are 'model', which is true or false "
+                "and is false unless you say otherwise, and 'notes', which is what you want the "
+                "model told about how listings here are written.",
             )
+
+    _extraction_notes(document, reading, section)
 
     wanted = section.get("model")
     if wanted is None:
@@ -381,6 +387,40 @@ def _extraction(document: Document, reading: Reading) -> None:
         )
         return
     reading.model_extraction = wanted
+
+
+def _extraction_notes(document: Document, reading: Reading, section: Mapping[str, Any]) -> None:
+    """What this search wants the model told, in plain words.
+
+    Not a format and not a template: a paragraph a person wrote about how listings in this market
+    are written, sent in the instruction with every description. It cannot add a field or a
+    permitted value, and every value the model returns still has to be quoted from the description,
+    so the worst a note can do is make the model wrong in the ordinary way (feat-009 AC-17).
+
+    Bounded, and the bound is about cost rather than trust: the note rides along with every
+    description, so a long one is paid for once per property rather than once.
+    """
+    from ..extract.notes import LIMIT
+
+    written = section.get("notes")
+    if written is None:
+        return
+    if not isinstance(written, str):
+        reading.say(
+            document.at("extract", "notes"),
+            "extract.notes is what you would tell somebody reading these listings for you, in "
+            "plain words. A line of prose, or several.",
+        )
+        return
+    if len(written.strip()) > LIMIT:
+        reading.say(
+            document.at("extract", "notes"),
+            f"extract.notes is {len(written.strip())} characters and the limit is {LIMIT}. It is "
+            "sent with every description, so a long one is paid for once per property. Past the "
+            "limit it is cut, which is worse than shortening it yourself.",
+            "notice",
+        )
+    reading.extract_notes = written.strip()
 
 
 def _standing(document: Document, reading: Reading) -> None:

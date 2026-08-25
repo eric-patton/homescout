@@ -89,3 +89,38 @@ alongside its peers.
 - [x] T30: `homescout extract --listing ID`: what was read out of one property, how each value was
       determined, and the sentence it came from. The spec's third user story ("I want to know how
       each value was determined") had no surface without it.
+
+## Change: notes for the model (`changes/model-notes/`)
+
+- [x] T31: `extract/notes.py`: the two notes as one value. Read the installation's `model-notes.md`
+      beside the database and a saved search's `extract.notes`, bound each at the length limit,
+      report what was truncated, and fingerprint the text that will actually be sent (D-15, D-16,
+      AC-15, AC-19).
+- [x] T32: `extract/model.py`: `instruction` takes the notes and places them in their own marked
+      section after the rules, said to come from the operator rather than the listing, with the
+      vocabulary and the quote requirement restated as unchanged by anything in them. With no notes
+      the string is what it was (D-13, AC-16, AC-17, AC-20).
+- [x] T33: `extract/cache.py` and `extract/pass_.py`: the cache identity becomes the model name plus
+      the notes fingerprint, and the pass reads the notes once and carries them (D-16, AC-18).
+- [x] T34: The saved search gains `extract: {notes: str}`, absent by default, with a length
+      complaint and a typo in the key still a complaint (AC-15). Record the change in feat-004's
+      manifest.
+- [x] T35: `api.py`: read and write both notes, the installation's through the settings surface and
+      the search's through `searches edit`, refusing neither and warning on truncation (AC-15,
+      AC-19).
+- [x] T36: The browser gains a note box on the settings page and one on the search page, each saying
+      plainly that what is written there is sent to the model with every description. Record the
+      change in feat-012's manifest.
+- [x] T37: The command line reaches both notes: a search's through the `--set extract.notes=...`
+      that `searches edit` already has, shown by `searches show`, and the installation's through a
+      `homescout notes` command that shows it, writes it and clears it (AC-15). Record the change in
+      feat-003's manifest.
+- [x] T38 [P]: `tests/test_extract_notes.py`: both notes reach the request, both absent leaves the
+      body byte-for-byte unchanged, a note asking for a value outside the vocabulary changes
+      nothing, an over-long note is truncated and reported, and a changed note re-asks while an
+      unchanged one does not (AC-15, AC-16, AC-17, AC-18, AC-19, AC-20).
+- [x] T39 [P]: `tests/test_extract_privacy.py` gains the other direction: no code path writes a
+      note, and the name the store records for a cached answer is still the model's name rather
+      than the composite key (AC-21).
+- [x] T40: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
+      manifest stamp.

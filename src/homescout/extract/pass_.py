@@ -30,6 +30,7 @@ from typing import Any
 from ..store import Store
 from . import NAMES, cache, patterns, settings
 from . import model as client
+from . import notes as notes_for
 from .text import Prose
 from .text import read as read_prose
 
@@ -50,6 +51,10 @@ class PassOutcome:
     rejected: tuple[str, ...] = field(default_factory=tuple)
     failures: tuple[str, ...] = field(default_factory=tuple)
     truncated: int = 0
+    #: Notes that were too long and were cut before being sent, by the name a person calls them.
+    #: Separate from `truncated`, which counts descriptions: one is somebody else's writing being
+    #: too long and the other is yours, and only one of them is worth telling you about.
+    notes_truncated: tuple[str, ...] = field(default_factory=tuple)
     #: Set when the pass could not run at all: no search turned it on, or nothing configured it.
     skipped: str | None = None
 
@@ -112,14 +117,20 @@ def run_pass(
     session: Any = None,
     progress: Callable[[str], None] | None = None,
     limit: int | None = None,
+    notes: notes_for.Notes | None = None,
 ) -> PassOutcome:
     """Ask the model about every description that still needs it.
 
     `limit` is for a caller that wants a bounded first pass. It is not a default and never a silent
     one: whatever is left over is named in the outcome, because a truncation nobody reports reads as
     a market where nobody mentions a septic tank.
+
+    `notes` is what the person running searches wrote for the model. A caller that knows which saved
+    search this is passes both notes; one that does not gets the installation's only, because there
+    is no search here to read the other from.
     """
     say = progress or (lambda _message: None)
+    written = notes if notes is not None else notes_for.read(root)
 
     try:
         account = settings.account(root, environ)
@@ -132,7 +143,11 @@ def run_pass(
     if not found:
         return PassOutcome(skipped="no property in this store carries a description")
 
-    held = cache.answered(store, account.model, [prose.digest for _, prose in found])
+    # The model's own name when nobody has written a note, and its name plus a fingerprint of the
+    # notes when somebody has. A changed note is a different key, so this pass asks again rather
+    # than reusing an answer given under different instructions (D-16, AC-18).
+    key = written.key(account.model)
+    held = cache.answered(store, key, [prose.digest for _, prose in found])
     wanted: list[tuple[str, Prose, tuple[str, ...]]] = []
     cached = 0
     for listing_id, prose in found:
@@ -154,19 +169,21 @@ def run_pass(
     failures: list[str] = []
 
     say(f"extract: {len(wanted)} descriptions to ask about, {cached} already answered")
+    for cut in written.truncated:
+        say(f"extract: {cut} is over {notes_for.LIMIT} characters and was cut before being sent")
     # Which spelling this server wants, settled on the first answer and reused. A pass over five
     # thousand descriptions must not pay a refused request per property to find out.
     dialect = client.Dialect.for_account(account)
     for listing_id, prose, left in wanted:
         try:
-            answer = client.ask(paced, account, prose, left, dialect)
+            answer = client.ask(paced, account, prose, left, dialect, written)
         except client.ExtractionFailed as exc:
             failures.append(settings.without_credential(f"{listing_id}: {exc}", account))
             continue
         asked += 1
         cache.write(
             store,
-            account.model,
+            key,
             prose.digest,
             values=answer.values,
             undetermined=answer.undetermined,
@@ -188,6 +205,7 @@ def run_pass(
         rejected=tuple(rejected),
         failures=tuple(failures),
         truncated=truncated,
+        notes_truncated=written.truncated,
         skipped=(f"{over} descriptions left for a later pass" if over else None),
     )
 
@@ -222,7 +240,10 @@ def model_values(
     if not prose:
         return {}
 
-    held = cache.read(store, account.model, [p.digest for p in prose.values()])
+    # Whatever this model most recently said, under whichever note was in force when it said it.
+    # This is a display path: a note edited an hour ago must not blank six columns until the next
+    # pass runs.
+    held = cache.read(store, account.model, [p.digest for p in prose.values()], any_notes=True)
     return {
         listing_id: held.get(found.digest, {}) for listing_id, found in prose.items()
     }
@@ -256,6 +277,7 @@ def for_run(
         environ=environ,
         session=session,
         progress=progress,
+        notes=notes_for.read(root, definition),
     )
 
 

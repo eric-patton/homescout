@@ -215,6 +215,16 @@ def build_parser() -> argparse.ArgumentParser:
         "overview", parents=[common], help="the few numbers worth seeing before anything else"
     )
 
+    told = commands.add_parser(
+        "notes",
+        parents=[common],
+        help="what this installation tells the model about reading listings here",
+    )
+    told.add_argument(
+        "--set", metavar="TEXT", dest="text", help="write it, replacing what is there"
+    )
+    told.add_argument("--clear", action="store_true", help="remove it")
+
     show = commands.add_parser(
         "show", parents=[common], help="everything known about one property"
     )
@@ -490,6 +500,22 @@ def _show(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("listing", listing=found), render.listing(found))
 
 
+def _notes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    """Show or write what this installation tells the model.
+
+    Nothing written is the ordinary state and reads as such rather than as an error. What is written
+    goes to the model with every description, which the rendering says out loud, because a person
+    should not have to read the source to find out where their words end up.
+    """
+    if args.clear:
+        found = api.set_model_notes(workspace, "")
+    elif args.text is not None:
+        found = api.set_model_notes(workspace, args.text)
+    else:
+        found = api.model_notes(workspace)
+    return Answer(digest.envelope("notes", **found), render.model_notes(found))
+
+
 def _areas(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     if args.set:
         kind, _, place = args.set.partition(":")
@@ -579,6 +605,8 @@ def _dispatch(
     if args.command == "overview":
         found = api.overview(workspace)
         return Answer(digest.envelope("overview", **found), render.overview(found))
+    if args.command == "notes":
+        return _notes(workspace, args)
     if args.command == "show":
         return _show(workspace, args)
     if args.command == "areas":

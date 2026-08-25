@@ -4,10 +4,12 @@ There is exactly one function here that builds a request and one that reads a re
 what AC-9's "one client, two backends" means in practice: a hosted service and a local server differ
 in a base address, a model name and whether a credential is sent, and in nothing else.
 
-**Only the description leaves this machine.** The body carries the instruction, the field vocabulary
-and the prose, and carries no address, no coordinates, no price, no listing identifier, no search
-name and no path. `body_for` takes a string, not a property, so there is nothing for the private
-parts of a listing to leak through even by accident.
+**The description and the operator's own notes leave this machine, and nothing else.** The body
+carries the instruction, the field vocabulary, the prose, and whatever the person running searches
+wrote in `notes.py`. It carries no address, no coordinates, no price, no listing identifier, no
+search name and no path. `body_for` takes strings, not a property, so there is nothing for the
+private parts of a listing to leak through even by accident, and no code path anywhere writes a
+note: a person types one or there isn't one.
 
 **A description is data.** The system message says so, and that is the weak half of the defence. The
 strong half is that nothing a model returns can do anything: the answer is a mapping from a closed
@@ -33,6 +35,7 @@ from typing import Any
 from ..sources.errors import SourceError
 from ..sources.politeness import PacedSession, Request
 from . import fields as fx
+from .notes import Notes
 from .settings import PACING_KEY, ModelAccount, without_credential
 from .text import Prose
 
@@ -73,12 +76,16 @@ class Answer:
     rejected: tuple[Rejected, ...] = ()
 
 
-def instruction(wanted: Sequence[str]) -> str:
+def instruction(wanted: Sequence[str], notes: Notes | None = None) -> str:
     """What the model is asked to do, built from the same vocabulary everything else uses.
 
     Generated rather than written out, so a value added to `fields.py` reaches the model and the
     validation in the same edit. Two things that must agree cannot be kept in agreement by anyone
     remembering to.
+
+    The operator's notes go in after the rules and before the answer format, marked as written by a
+    person rather than found in a listing. With no notes this returns the string it always did,
+    byte for byte (AC-20).
     """
     lines = [
         "You read one property description and report only what it states.",
@@ -100,6 +107,9 @@ def instruction(wanted: Sequence[str]) -> str:
         "    property has. Omit the field.",
         "  - A feature of a neighbouring property is not a feature of this one. Omit the field.",
         "  - If the description says two different things about one field, omit that field.",
+    ]
+    lines += (notes or Notes()).lines()
+    lines += [
         "",
         "Answer with a JSON object and nothing else. Each key is a field name above; each value is",
         'an object {"value": <one of the listed words>, "quote": <the exact words from the',
@@ -151,18 +161,21 @@ def body_for(
     account: ModelAccount,
     wanted: Sequence[str],
     dialect: Dialect | None = None,
+    notes: Notes | None = None,
 ) -> bytes:
     """The request body: an instruction, a vocabulary, and one description.
 
-    Takes prose and a vocabulary. Not a listing, not a snapshot, not a store. That is the whole of
-    D-13's enforcement and it is structural rather than careful: there is no address in scope here
-    to send.
+    Takes prose, a vocabulary, and whatever the operator wrote. Not a listing, not a snapshot, not
+    a store. That is the whole of D-13's enforcement and it is structural rather than careful: there
+    is no address in scope here to send. The notes are strings that arrive the same way the
+    description does, so they widened what a person can deliberately send and widened nothing that
+    could leak by accident.
     """
     shape = (dialect or Dialect.for_account(account)).shape
     payload: dict[str, Any] = {
         "model": account.model,
         "messages": [
-            {"role": "system", "content": instruction(wanted)},
+            {"role": "system", "content": instruction(wanted, notes)},
             {
                 "role": "user",
                 "content": (
@@ -206,6 +219,7 @@ def ask(
     prose: Prose,
     wanted: Sequence[str],
     dialect: Dialect | None = None,
+    notes: Notes | None = None,
 ) -> Answer:
     """One description, one request, one checked answer.
 
@@ -223,7 +237,7 @@ def ask(
         request = Request(
             url=account.endpoint,
             method="POST",
-            body=body_for(prose, account, wanted, settling),
+            body=body_for(prose, account, wanted, settling, notes),
             headers=account.headers(),
         )
         try:

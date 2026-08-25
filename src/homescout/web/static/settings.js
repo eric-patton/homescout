@@ -17,6 +17,7 @@
  */
 
 let held = null;
+let told = null;
 
 whenReady(() => {
   /* A page of forms, so it is bounded to a measure rather than stretched across the window. */
@@ -27,6 +28,7 @@ whenReady(() => {
 
 async function load() {
   held = (await ask("/api/configuration"));
+  told = (await ask("/api/notes"));
   draw();
 }
 
@@ -37,6 +39,7 @@ function draw() {
       `Everything lives in ${held.workspace}. The optional parts are absent until you set them up, ` +
       "and the tool works without any of them."),
     modelPanel(),
+    notesPanel(),
     mailPanel(),
     mapPanel(),
     broadbandPanel(),
@@ -118,6 +121,67 @@ function modelPanel() {
       "Turn it on for a search on that search's own page. Nothing is asked of a model until one " +
       "does."),
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* What you want the model told                                        */
+/* ------------------------------------------------------------------ */
+
+/* The instruction the model gets is generated from the six fields and the words each one may take.
+ * It knows nothing about the market being searched, which is where this actually goes wrong: around
+ * here "community water" is a mutual domestic association rather than a city main, and a listing
+ * saying it is describing a shared system. You know that. This is how you say so.
+ *
+ * It says out loud that the text is sent, because a box whose contents go to somebody else's
+ * computer should say so before you type in it rather than after. */
+function notesPanel() {
+  const limit = told.limit || 2000;
+  const box = el("textarea", {
+    id: "modelnotes", rows: 6, maxlength: limit,
+    placeholder: "Around here, community water means a mutual domestic association rather than a " +
+      "city main. Treat swamp cooler and evaporative cooler as the same thing.",
+    "aria-label": "What you want the model told about reading listings here",
+  });
+  box.value = told.notes || "";
+
+  const count = el("span", {class: "hint"}, `${(told.notes || "").length} of ${limit} characters`);
+  box.addEventListener("input", () => {
+    count.textContent = `${box.value.length} of ${limit} characters`;
+  });
+
+  return el("section", {},
+    el("h2", {}, "What you want the model told ",
+      present(Boolean(told.notes), "written", "nothing yet")),
+    el("p", {class: "lede"},
+      "Optional, and only used when a search asks for the model. Write what you would tell " +
+      "somebody reading these listings on your behalf: how things are worded around here, what a " +
+      "phrase means locally, what to be careful about."),
+
+    el("div", {class: "field"},
+      el("label", {for: "modelnotes"}, "Notes for the model"), box, count),
+
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "primary", onclick: () => saveNotes(box.value)}, "Save"),
+      told.notes
+        ? el("button", {type: "button", class: "quiet", onclick: () => saveNotes("")}, "Clear")
+        : null),
+
+    el("p", {class: "notice notice-flag"},
+      "This text is sent to the model with every description, so keep anything private out of it. " +
+      "It cannot add a field or a new answer: everything the model reports is still checked " +
+      "against the same list of words, and still has to be quoted from the listing."),
+    el("p", {class: "meta"}, `Kept in ${told.path}. A search can add its own note on its own page.`),
+  );
+}
+
+async function saveNotes(text) {
+  try {
+    told = await send("/api/notes", {notes: text});
+    say(told.truncated ? `Saved, cut to ${told.limit} characters.` : "Saved.", "good");
+    draw();
+  } catch (error) {
+    fail(error);
+  }
 }
 
 /* ------------------------------------------------------------------ */

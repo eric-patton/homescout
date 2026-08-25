@@ -550,6 +550,8 @@ def test_the_facade_is_the_whole_surface() -> None:
         "export_templates",
         "configuration",
         "set_configuration",
+        "model_notes",
+        "set_model_notes",
         "set_standing",
         "duplicate_search",
         "search_document",

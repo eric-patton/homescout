@@ -646,15 +646,21 @@ def extract(
     fields, which the deterministic patterns fill on every property with a description, with no
     configuration at all.
     """
+    from .extract.notes import read as read_notes
     from .extract.pass_ import run_pass
 
     with _translating():
+        # The saved search carries the second note, so it has to be loaded to ask with it. A pass
+        # over everything gets the installation's note only, because there is no one search whose
+        # note would apply to every description in the store.
+        definition = workspace.catalog.load(search) if search else None
         return run_pass(
             workspace.store,
             root=workspace.root,
             search=search,
             limit=limit,
             progress=progress,
+            notes=read_notes(workspace.root, definition),
         )
 
 
@@ -1003,6 +1009,7 @@ def search_document(workspace: Workspace, name: str) -> dict[str, Any]:
             for rule in getattr(definition, "rules", ())
         ],
         "model_extraction": bool(getattr(definition, "model_extraction", False)),
+        "extract_notes": str(getattr(definition, "extract_notes", "") or ""),
         "paused": bool(getattr(definition, "paused", False)),
         "archived": bool(getattr(definition, "archived", False)),
         "problems": [
@@ -1339,6 +1346,37 @@ def run_status(workspace: Workspace, name: str) -> dict[str, Any]:
         "last_completed_at": latest.finished_at if latest else None,
         "runs": len(completed),
     }
+
+
+def model_notes(workspace: Workspace) -> dict[str, Any]:
+    """What this installation tells the model, and where that text is kept.
+
+    Its own surface rather than a setting, because it is not one: the settings loader reads
+    `KEY=value` lines and a note is a paragraph. It lives in a file beside the database, which is
+    the same directory, the same backup and the same "yours, uncommitted" (feat-009 D-15).
+    """
+    from .extract import notes as written
+
+    return {
+        "notes": written.read_file(workspace.root),
+        "limit": written.LIMIT,
+        "path": str(written.path(workspace.root)),
+    }
+
+
+def set_model_notes(workspace: Workspace, text: str) -> dict[str, Any]:
+    """Save what this installation tells the model, and say what will actually be sent.
+
+    Over the limit the text is cut and the answer says so, because a note silently shortened is
+    worse than one refused. Empty removes the file: "no note" is one state, not two.
+    """
+    from .extract import notes as written
+
+    held = str(text or "")
+    kept = written.write_file(workspace.root, held)
+    answer = model_notes(workspace)
+    answer["truncated"] = len(held.strip()) > len(kept)
+    return answer
 
 
 def overview(workspace: Workspace) -> dict[str, Any]:

@@ -588,24 +588,40 @@ class Store:
             )
 
     def extractions(
-        self, model: str, digests: Sequence[str]
+        self, model: str, digests: Sequence[str], *, any_notes: bool = False
     ) -> dict[str, dict[str, tuple[str | None, str | None]]]:
         """Everything this model has already said about these descriptions, in one query.
 
         In bulk for the same reason as the enrichment cache: the alternative is a round trip per
         property, inside a loop that runs over every property a run saw.
+
+        `model` is the model's name, or its name with a note fingerprint after a `+` when the person
+        running searches has written notes for it (feat-009 D-16). Two readers want two different
+        things from that. The pass asks "was this exact question answered", so it passes the key it
+        would write under and gets a hit only if the notes have not changed. Everything that
+        displays a value asks "what did this model say", which is a question about the model and not
+        about which note was in force, so it passes `any_notes` and gets the most recent answer
+        under any of them. Without that a note edit would blank six columns until the next pass.
         """
         if not digests:
             return {}
         found: dict[str, dict[str, tuple[str | None, str | None]]] = {}
         keys = list(dict.fromkeys(digests))
+        # Oldest first, so a later row for the same field overwrites an earlier one and the answer
+        # that survives is the most recent. Only reachable when `any_notes` widens the match.
+        scope = (
+            "(model = ? OR substr(model, 1, ?) = ?)" if any_notes else "model = ?"
+        )
+        scoped: tuple[Any, ...] = (
+            (model, len(model) + 1, f"{model}+") if any_notes else (model,)
+        )
         for start in range(0, len(keys), 500):
             batch = keys[start : start + 500]
             placeholders = ", ".join("?" * len(batch))
             rows = self._conn.execute(
                 "SELECT digest, name, value, evidence FROM extracted_values "
-                f"WHERE model = ? AND digest IN ({placeholders})",
-                (model, *batch),
+                f"WHERE {scope} AND digest IN ({placeholders}) ORDER BY extracted_at",
+                (*scoped, *batch),
             )
             for row in rows:
                 found.setdefault(row["digest"], {})[row["name"]] = (

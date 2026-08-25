@@ -67,8 +67,9 @@ DEFAULTS: dict[str, Endpoint] = {
     ),
 }
 
-#: Where a token lives when a provider needs one. Read from the environment, never from a saved
-#: search and never from code, which is where the constitution puts every secret in this product.
+#: Where a token lives when a provider needs one. Read from the environment or the uncommitted
+#: `.env` beside the database, never from a saved search and never from code, which is where the
+#: constitution puts every secret in this product.
 BROADBAND_TOKEN = "HOMESCOUT_FCC_TOKEN"
 
 
@@ -80,8 +81,28 @@ def endpoint(name: str) -> Endpoint:
 
 
 def token(variable: str) -> str | None:
+    """A credential, from the environment first and the `.env` beside the database second.
+
+    The same two places and the same order as the digest and the extraction model, through the same
+    loader, because there is one file to look in for every setting in this product and a person who
+    put a mail password in it will put an FCC key there too. The settings page has always counted
+    that file when it reported a key as present; until this read it, that report could be true while
+    the provider that needed the key saw nothing.
+
+    The file matters for a second reason. This interface is started at log on and keeps the
+    environment it was born with, so a variable set afterwards does not reach it until it is
+    restarted. A line in the file reaches it on the next lookup.
+    """
     found = os.environ.get(variable)
-    return found.strip() or None if found else None
+    if found and found.strip():
+        return found.strip()
+
+    from ..api import database_path
+    from ..deliver.settings import ENV_FILE, read_env_file
+
+    beside = database_path().resolve().parent / ENV_FILE
+    written = read_env_file(beside).get(variable, "").strip()
+    return written or None
 
 
 def pacing(providers: tuple[str, ...]) -> PolitenessConfig:

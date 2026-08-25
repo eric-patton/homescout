@@ -133,6 +133,9 @@ class FileSearch:
         #: Whether this search asks for the optional model extraction pass. Off unless the file
         #: turned it on, and off is what makes the whole tool work with no model configured.
         self.model_extraction = reading.model_extraction
+        #: What this search wants the model told about how listings in its market are written.
+        #: Empty unless somebody wrote one, and written by a person rather than by any code path.
+        self.extract_notes = reading.extract_notes
         #: Skipped by a run of everything. Still run when asked for by name.
         self.paused = reading.paused
         #: Put away: not listed by default, and skipped by a run of everything. Never deleted.
@@ -235,7 +238,19 @@ def _broken(path: Path, exc: DocumentError) -> FileSearch:
 #: Keys whose default is the same state as being absent, so an edit that sets one back to its
 #: default takes the key out instead of writing it. Only for keys where that is genuinely true:
 #: a filter set to its widest value is not the same as no filter, and is not listed here.
-DEFAULTS_OUT: dict[str, Any] = {"paused": False, "archived": False, "exclude_areas": []}
+#: Keys whose value is somebody's writing rather than data, taken exactly as typed. A note reading
+#: "Community water: a mutual domestic association" is a sentence, and YAML cannot tell it from a
+#: mapping. Everything else is still read the way the file would read it, so a price stays a number.
+PROSE: frozenset[str] = frozenset({"description", "extract.notes"})
+
+DEFAULTS_OUT: dict[str, Any] = {
+    "paused": False,
+    "archived": False,
+    "exclude_areas": [],
+    #: An emptied note is a removed key rather than an empty string, so "no note" is one state in
+    #: the file as well as one state in the code.
+    "extract.notes": "",
+}
 
 
 class FileCatalog:
@@ -406,10 +421,11 @@ class FileCatalog:
 
         for key, value in changes.items():
             path = _key_path(key)
-            if key in DEFAULTS_OUT and _value(value) == DEFAULTS_OUT[key]:
+            wanted = value if key in PROSE and isinstance(value, str) else _value(value)
+            if key in DEFAULTS_OUT and wanted == DEFAULTS_OUT[key]:
                 document.remove(path)
             else:
-                document.assign(path, _value(value))
+                document.assign(path, wanted)
 
         reading = examine(document, known_sources=_known_sources())
         stopping = blocking(
