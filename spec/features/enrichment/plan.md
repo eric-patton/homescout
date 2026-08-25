@@ -35,6 +35,22 @@ Four things came out of that hour, and each one changes the design:
 - **M-4: the broadband map now requires an API token.** The current FCC National Broadband Map data
   API is keyed; the old keyless one covered mobile only and is gone. That collides with this
   feature's own security requirement, and D-9 is what to do about it.
+- **M-7: there is no point query, and the shape D-9 assumed does not exist.** Measured against the
+  live service on 2026-08-24, once there was a real token to measure with. The address D-9 was built
+  around answers `405 Method Not Available` and is not an endpoint. The public API is a *bulk file*
+  API: `listAsOfDates` gives the published quarters, `listAvailabilityData/<date>` lists 11,405
+  files, and `downloadFile/availability/<id>` hands over a zipped CSV. Authentication is two
+  headers, `username` and `hash_value`, not a bearer token. The map's own per-location endpoint is
+  Akamai-blocked to anything that is not the map, and the Fabric coordinates that would let anyone
+  build a point query are licensed data.
+
+  What does work, measured end to end: `geo.fcc.gov/api/census/block/find` names the census block
+  for a point with no credential at all, and every availability row carries `block_geoid`. New
+  Mexico's eight fixed-broadband files are 47.5 MB and download in twenty-one seconds; excluding
+  satellite they reduce to an index of 60,287 blocks. The block a Portales property sits in comes
+  back 1200 down, 1000 up, from CenturyLink, T-Mobile, Verizon, Xfinity and Yucca Telecom.
+
+  D-12 and D-13 are what to build on that.
 
 ## Design decisions
 
@@ -198,7 +214,13 @@ enableable. Both cannot be honoured with the same code.
 What is built: the provider exists, declares the values it supplies, and reports itself
 **not configured** unless `HOMESCOUT_FCC_TOKEN` is present in the environment or the `.env` file.
 With no token it makes no request and its values stay missing, so the tool is fully functional
-without it, which is product invariant 9. With a token it works.
+without it, which is product invariant 9.
+
+**"With a token it works" was the untested half of this decision, and it was wrong.** It was written
+without a token to test with. There is no point query at that address or any other public one, and
+the credential is two values rather than one (M-7). D-12 is what replaced it; what survives from
+here is the part that was right, which is that the provider is absent by default and honest about
+why.
 
 That is a deliberate departure from this feature's stated security requirement, and it needs a spec
 delta rather than a quiet decision. The alternatives were worse: shipping a provider whose default
@@ -206,6 +228,46 @@ endpoint returns 403 would be dishonest, and dropping broadband would remove one
 questions the whole feature exists to answer. The constitution already anticipates exactly this
 shape (secrets read from the environment, never committed, optional components absent by default),
 which is why the delta is small.
+
+### D-12: a dataset behind one provider, and only that one
+
+Every other provider here is a function of a point: `configured()`, then `fetch(session, lat, lon)`,
+with nothing behind it. Broadband cannot be, because no service will answer that question (M-7). So
+this provider gets state, and it is the only one that does.
+
+The state is an index in the store: one row per census block, the best advertised residential
+download and upload in it, and the providers that offer them. Building it is `homescout broadband
+--state NM`, an explicit action a person takes, never something an enrichment pass does on its own.
+That boundary is the whole of why this is safe to add: a pass over five thousand properties that
+silently downloaded fifty megabytes the first time it met a new state would be a pass nobody could
+predict the cost of, and this feature's performance requirement is that a cached area makes no
+requests at all.
+
+`fetch` then does what the other providers do: one paced request, to the FCC's keyless block
+service, which turns a point into a block. The block is looked up locally. A block whose state was
+never indexed is its own outcome, naming the state and the command, because "we have no data for New
+Mexico" and "you have not configured this provider" are different problems with different fixes and
+an empty column tells you neither.
+
+The index is a cache in the same sense `enrichment_values` is: a copy of somebody else's published
+dataset, refreshable, and not history. It gets no append-only trigger, and re-indexing a state
+replaces that state's rows.
+
+### D-13: satellite is left out of the number
+
+Every one of the 3.3 million satellite rows in New Mexico's files says the same thing: you can get
+satellite. Folding that into "the speed here" would report every remote property as served at a
+hundred megabits and would carry no information whatsoever, which is the same failure as filling a
+field with what is usual for the area. It is left out of the reported speed.
+
+Fixed wireless is left *in*, because it is the opposite case: licensed and unlicensed fixed wireless
+is what a rural property around here actually gets, it varies house to house, and leaving it out
+would under-report the places where it is the only real option.
+
+Two words travel with the value everywhere it is shown, and they are not decoration. The figure is
+the **block's**, not the property's, because that is the finest grain the public data has. And it is
+**advertised**, not measured, because that is what a provider filed rather than what anybody got.
+Showing a number without those two words would be a more precise claim than the data supports.
 
 ### D-10: endpoints are configuration, because they move
 

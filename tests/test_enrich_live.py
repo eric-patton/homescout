@@ -41,7 +41,9 @@ def test_every_provider_answers_at_a_point_in_this_state(where: str, paced) -> N
     """feat-007/AC-12: national coverage, checked where the country stops looking alike.
 
     A provider that cannot be run on this installation is skipped by name rather than passed over
-    silently, so the output says what was not checked. Today that is broadband, which needs a token.
+    silently, so the output says what was not checked. Broadband is the one that usually is: it
+    needs an FCC account, and it needs that state's data downloaded, which is deliberately not
+    something a test does on its own.
     """
     latitude, longitude = DISTANT[where]
     skipped: list[str] = []
@@ -55,8 +57,9 @@ def test_every_provider_answers_at_a_point_in_this_state(where: str, paced) -> N
         assert set(found) == set(provider.values()), provider.name
         answered.update(found)
 
-    # Broadband on an installation with no token, nothing on one that has a key. Anything else is
-    # a provider that stopped being runnable without anybody deciding it should.
+    # Broadband on an installation with no FCC account or no downloaded state, nothing on one that
+    # has both. Anything else is a provider that stopped being runnable without anybody deciding it
+    # should.
     assert skipped in ([], ["broadband"]), f"unexpected providers skipped: {skipped}"
     assert set(answered) >= {
         "flood_zone",
@@ -123,14 +126,41 @@ def test_a_place_that_does_not_exist_is_nothing_rather_than_an_error(tmp_path) -
         assert CensusBoundaries(store, fetch=False).boundary("county", "Nowhere, ZZ") is None
 
 
-def test_the_broadband_provider_is_honest_about_needing_a_key() -> None:
-    """feat-007/AC-11: the one that cannot run says why, rather than failing mysteriously."""
+def test_the_broadband_provider_is_honest_about_what_it_is_missing() -> None:
+    """feat-007/AC-20, feat-007/AC-21: three kinds of absent, and it says which one it is in.
+
+    No account is one thing and no downloaded data is another, and an empty column tells you
+    neither. Whichever this installation is in, the sentence has to name the way out of it.
+    """
     from homescout.enrich.providers import Broadband
 
     provider = Broadband()
     if provider.configured():
-        pytest.skip("a token is configured, so this installation can run it")
+        pytest.skip("this installation has an account and a downloaded state, so it can run it")
 
-    assert settings.BROADBAND_TOKEN in provider.why_not()
+    said = provider.why_not()
+    assert settings.BROADBAND_TOKEN in said or "homescout broadband" in said, said
     with pytest.raises(ProviderFailed):
         provider.fetch(default_session(), *DISTANT["New Mexico"])
+
+
+def test_the_fcc_still_publishes_the_files_this_reads(paced) -> None:
+    """feat-007/AC-16: the whole design rests on a listing that could be reorganized.
+
+    Skipped without an account, because it needs one. What it asserts is the shape the index is
+    built from: a published quarter, and a state's fixed-broadband files inside it. If the FCC
+    reorganizes the listing, this is where that shows up, rather than in a refresh that quietly
+    finds nothing.
+    """
+    from homescout.enrich import broadband as fcc
+
+    account = fcc.credentials(None)
+    if account is None:
+        pytest.skip("no FCC account is configured on this installation")
+
+    as_of = fcc.latest_quarter(paced, account)
+    assert as_of and as_of[:4].isdigit(), as_of
+
+    files = fcc.files_for(paced, account, "NM", as_of)
+    assert files, "no fixed-broadband files for New Mexico"
+    assert all(row.get("file_type") == "csv" for row in files)

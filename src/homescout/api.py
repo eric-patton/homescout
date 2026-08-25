@@ -1092,10 +1092,11 @@ WHERE: dict[str, list[dict[str, str]]] = {
     ],
     "broadband": [
         {
-            "what": "An FCC broadband map key",
+            "what": "An FCC broadband map account",
             "url": "https://broadbandmap.fcc.gov/login",
-            "note": "Free. Sign in, then find the API key under your account. Without it the "
-            "Internet column stays empty and everything else still works.",
+            "note": "Free. Sign in, then find the API key under your account. Two values are "
+            "needed: the email you registered with, and the key. Without both the Internet column "
+            "stays empty and everything else still works.",
         },
     ],
     "tiles": [
@@ -1201,8 +1202,20 @@ def configuration(workspace: Workspace) -> dict[str, Any]:
             "where": WHERE["gmail"],
         },
         "broadband": {
-            "configured": bool(found.get(enrich_settings.BROADBAND_TOKEN)),
+            # Both halves, because the FCC's file API wants an account name beside the token and
+            # half a credential configures nothing.
+            "configured": bool(
+                found.get(enrich_settings.BROADBAND_TOKEN)
+                and found.get(enrich_settings.BROADBAND_USERNAME)
+            ),
+            "username": found.get(enrich_settings.BROADBAND_USERNAME) or None,
+            "credential": bool(found.get(enrich_settings.BROADBAND_TOKEN)),
             "variable": enrich_settings.BROADBAND_TOKEN,
+            "variables": [
+                enrich_settings.BROADBAND_USERNAME,
+                enrich_settings.BROADBAND_TOKEN,
+            ],
+            "states": _broadband_held(workspace)["states"],
             "where": WHERE["broadband"],
         },
         "map": {
@@ -1346,6 +1359,77 @@ def run_status(workspace: Workspace, name: str) -> dict[str, Any]:
         "last_completed_at": latest.finished_at if latest else None,
         "runs": len(completed),
     }
+
+
+def broadband(
+    workspace: Workspace,
+    *,
+    state: str | None = None,
+    progress: Any = None,
+) -> dict[str, Any]:
+    """What broadband data this installation holds, and load a state's worth of it.
+
+    Its own action rather than part of an enrichment pass, and that boundary is the point. There is
+    no per-property service to ask (feat-007 M-7), so this reads the FCC's own published files, and
+    a pass that silently downloaded fifty megabytes the first time it met a new state would be a
+    pass nobody could predict the cost of.
+    """
+    from .enrich import broadband as fcc
+    from .enrich import settings as enrich_settings
+    from .enrich import states
+
+    if state is None:
+        return _broadband_held(workspace)
+
+    wanted = state.strip().upper()
+    if not states.known(wanted):
+        raise InvalidInput(
+            f"{state!r} is not a state. Use the two-letter code, such as NM. "
+            f"Known: {', '.join(states.codes())}."
+        )
+    account = fcc.credentials(None)
+    if account is None:
+        raise PreconditionNotMet(
+            "The FCC's file API needs an account name and a token, and one of them is missing. "
+            f"Set {enrich_settings.BROADBAND_USERNAME} and {enrich_settings.BROADBAND_TOKEN} in "
+            "your environment or in the .env file beside the database. Register at "
+            "https://broadbandmap.fcc.gov/login; the token is under your account."
+        )
+
+    session = _enrichment_session()
+    try:
+        index, as_of = fcc.build(session, account, wanted, progress=progress)
+    except fcc.BroadbandUnavailable as exc:
+        raise PreconditionNotMet(str(exc)) from None
+
+    blocks = fcc.store_index(workspace.store, wanted, index, as_of)
+    answer = _broadband_held(workspace)
+    answer["loaded"] = {"state": wanted, "blocks": blocks, "as_of": as_of}
+    return answer
+
+
+def _broadband_held(workspace: Workspace) -> dict[str, Any]:
+    from .enrich import broadband as fcc
+    from .enrich import settings as enrich_settings
+
+    try:
+        states_held = workspace.store.broadband_states()
+    except Exception:  # noqa: BLE001 - a database older than this table holds none of it
+        states_held = {}
+    return {
+        "states": [dict(row) for row in states_held.values()],
+        "configured": fcc.credentials(None) is not None,
+        "variables": [enrich_settings.BROADBAND_USERNAME, enrich_settings.BROADBAND_TOKEN],
+        "where": WHERE["broadband"],
+    }
+
+
+def _enrichment_session() -> Any:
+    from .enrich.registry import registered
+    from .enrich.settings import pacing
+    from .sources import default_session
+
+    return default_session(config=pacing(registered()))
 
 
 def model_notes(workspace: Workspace) -> dict[str, Any]:

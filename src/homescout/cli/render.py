@@ -312,6 +312,44 @@ def listing(found: Any) -> str:
     return "\n".join(lines)
 
 
+def broadband(found: dict[str, Any]) -> str:
+    """What internet data is held, and what would get more of it.
+
+    Says the two words that travel with the number everywhere: the figure is the census block's,
+    not the property's, and it is advertised rather than measured.
+    """
+    lines: list[str] = []
+    loaded = found.get("loaded")
+    if loaded:
+        lines.append(
+            f"{loaded['state']}: {loaded['blocks']:,} census blocks, as of {loaded['as_of']}"
+        )
+        lines.append("")
+
+    states = found.get("states") or []
+    if not states:
+        lines.append("No state's data is held yet.")
+    else:
+        lines.append("Held:")
+        for row in states:
+            lines.append(
+                f"  {row['state']}  {row['blocks']:,} blocks, published {row['as_of']}"
+            )
+
+    if not found.get("configured"):
+        lines.append("")
+        lines.append(
+            "Not configured: " + " and ".join(found.get("variables") or []) + " are both needed."
+        )
+    lines.append("")
+    lines.append(
+        "These are the best advertised residential speeds in a property's census block, as filed "
+        "with the FCC. Not a measurement, and not the property's own line. Satellite is left out, "
+        "because it is available almost everywhere and would tell you nothing."
+    )
+    return "\n".join(lines)
+
+
 def model_notes(found: dict[str, Any]) -> str:
     """What this installation tells the model, or the fact that it tells it nothing."""
     written = str(found.get("notes") or "")

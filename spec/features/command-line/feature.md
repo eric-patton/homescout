@@ -225,3 +225,11 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   reaches it, and `searches show` now prints it, because a note is sent with every description and
   somebody looking at a search should see everything that leaves with it.
 
+- **2026-08-24, broadband from the FCC's own files (feat-007, `changes/broadband-from-the-fcc-files/`).**
+  One new command.
+
+  `homescout broadband` says what internet data is held and which quarter it came from; `--state XX`
+  downloads or refreshes one. Its own command rather than part of `enrich`, because there is no
+  per-property service to ask and a pass that quietly fetched fifty megabytes the first time it met
+  a new state would be a pass nobody could predict the cost of.
+

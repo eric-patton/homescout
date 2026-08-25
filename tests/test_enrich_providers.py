@@ -117,34 +117,40 @@ def test_an_arcgis_refusal_is_a_failure_even_though_it_arrives_as_a_success() ->
         Flood().fetch(paced, *PLACE)
 
 
-def test_broadband_is_absent_until_a_token_is_supplied(monkeypatch, tmp_path) -> None:
-    """feat-007/AC-11: the one that needs a key says so, and asks nobody anything without it.
+def test_broadband_is_absent_until_both_halves_are_supplied(monkeypatch, tmp_path) -> None:
+    """feat-007/AC-20: the one that needs a credential says so, and asks nobody anything without it.
 
     The spec's security requirement was narrowed for this during planning, and the narrowing is what
     this asserts: no credential is required and none is embedded, and with none supplied the tool is
     fully functional and this provider is simply skipped.
 
-    Pointed at an empty workspace, because a key is read from the environment or the `.env` beside
-    the database and a test that says "no key" has to mean both of them.
+    Both halves, because the FCC's file API wants an account name alongside the token. A token on
+    its own is not a configured provider: it is somebody about to watch every request fail with a
+    message about authentication and go looking at the wrong thing.
+
+    Pointed at an empty workspace, because a credential is read from the environment or the `.env`
+    beside the database and a test that says "none" has to mean both of them.
     """
     monkeypatch.setenv("HOMESCOUT_DB", str(tmp_path / "homescout.db"))
     monkeypatch.delenv(settings.BROADBAND_TOKEN, raising=False)
+    monkeypatch.delenv(settings.BROADBAND_USERNAME, raising=False)
     provider = Broadband()
 
     assert provider.configured() is False
     assert settings.BROADBAND_TOKEN in provider.why_not()
+    assert settings.BROADBAND_USERNAME in provider.why_not()
 
     paced, transport = answering({})
-    with pytest.raises(ProviderFailed, match="token"):
+    with pytest.raises(ProviderFailed):
         provider.fetch(paced, *PLACE)
     assert transport.count == 0, "nothing was asked of anybody"
 
     monkeypatch.setenv(settings.BROADBAND_TOKEN, "a-token")
-    assert Broadband().configured() is True
+    assert Broadband().configured() is False, "half a credential is not a credential"
 
 
-def test_a_token_written_in_the_env_file_reaches_the_provider(monkeypatch, tmp_path) -> None:
-    """feat-007/AC-11: the settings page counted that file, and this is what makes that true.
+def test_a_credential_written_in_the_env_file_reaches_the_provider(monkeypatch, tmp_path) -> None:
+    """feat-007/AC-20: the settings page counted that file, and this is what makes that true.
 
     Enabling this provider is documented in two places as "the environment or the `.env` file", and
     the page that reports whether a key is present has always read both. The provider read only the
@@ -155,16 +161,20 @@ def test_a_token_written_in_the_env_file_reaches_the_provider(monkeypatch, tmp_p
     and keeps the environment it was born with, so a variable set afterwards cannot reach it without
     a restart. A line in the file reaches it on the next lookup.
     """
+    from homescout.enrich.broadband import credentials
+
     monkeypatch.delenv(settings.BROADBAND_TOKEN, raising=False)
+    monkeypatch.delenv(settings.BROADBAND_USERNAME, raising=False)
     monkeypatch.setenv("HOMESCOUT_DB", str(tmp_path / "homescout.db"))
-    assert Broadband().configured() is False, "nothing written anywhere yet"
+    assert credentials(None) is None, "nothing written anywhere yet"
 
     (tmp_path / ".env").write_text(
-        f"# a key, the way a person writes one\n{settings.BROADBAND_TOKEN}=from-the-file\n",
+        "# a credential, the way a person writes one\n"
+        f"{settings.BROADBAND_USERNAME}=someone@example.invalid\n"
+        f"{settings.BROADBAND_TOKEN}=from-the-file\n",
         encoding="utf-8",
     )
-    assert settings.token(settings.BROADBAND_TOKEN) == "from-the-file"
-    assert Broadband().configured() is True
+    assert credentials(None) == ("someone@example.invalid", "from-the-file")
 
     # And the environment still wins over the file, which is the order every other setting uses.
     monkeypatch.setenv(settings.BROADBAND_TOKEN, "from-the-environment")

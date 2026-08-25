@@ -93,10 +93,37 @@ service must cost one column rather than a run. The problem brief is in `researc
 - [ ] AC-12: Every provider covers the whole country. A test asserts a successful lookup at
       locations in geographically distant states, for every provider this installation can run. A
       provider that is not configured is skipped by name rather than silently passed over.
+      Broadband covers the country a state at a time: every state can be indexed and the test
+      asserts that, while a state nobody has indexed reads as an unloaded state rather than as a
+      gap in coverage.
 - [ ] AC-13: Outbound requests are paced per provider with backoff on throttling, in the same
       spirit as listing sources.
 - [ ] AC-14: Endpoint addresses are configuration rather than embedded constants, so a service that
       moves is a settings change rather than a code change.
+- [ ] AC-15: A census block in a loaded state with no filed residential service is recorded as a
+      known negative rather than as a missing value, in the same way a point outside a mapped flood
+      zone is.
+- [ ] AC-16: Broadband service is answered from a locally held index of the FCC's published
+      availability files, keyed by census block, rather than from a per-property request to any
+      service. Building the index for a state is an explicit action, never a side effect of an
+      enrichment pass.
+- [ ] AC-17: A property's block is resolved from its coordinates through the FCC's keyless block
+      service, paced like every other request this feature makes, and cached like every other
+      enriched value.
+- [ ] AC-18: The recorded broadband values are the best advertised residential download and upload
+      speeds in that block and the providers that offer them. Every surface that shows them says
+      the figure is for the block rather than for the property, and says advertised rather than
+      measured.
+- [ ] AC-19: Satellite service is excluded from the reported speeds and named separately if at all,
+      because it is available almost everywhere and including it would report every rural property
+      as served while saying nothing about what it can get.
+- [ ] AC-20: The FCC's file API is reached with the account name and the token it requires, both
+      read from the environment or the uncommitted `.env` and neither ever from a saved search or
+      committed config. With either absent the provider is not configured, makes no request, and
+      its values read as missing rather than as a failure.
+- [ ] AC-21: A property whose state has no index loaded is reported as that, naming the state and
+      what would load it, and is distinct both from a provider that is not configured and from a
+      provider that failed.
 
 ## Edge cases & errors
 
@@ -116,9 +143,14 @@ service must cost one column rather than a run. The problem brief is in `researc
 - The rules refer to an enriched value for a search where that provider is not enabled. Reported by
   the rule engine as a value that will never be populated, which is why the distinction in AC-7
   matters.
-- The broadband provider has no token. It reports itself as not configured, makes no request, and
-  its values read as missing rather than as a provider failure, because nobody asked and nothing
-  broke.
+- The broadband provider has no credential. It reports itself as not configured, makes no request,
+  and its values read as missing rather than as a provider failure, because nobody asked and nothing
+  broke. The same is true with a token but no account name, since the FCC requires both. A third
+  state sits between those and working: credentials present, no index loaded for the state a
+  property is in, which names the state rather than reading as either of the other two.
+- A census block is in a state whose index is loaded and has no filed residential service. That is
+  an answer rather than a gap, in the same way a point outside a mapped flood zone is, and it is
+  recorded as a known negative.
 - Crime and school data are referenced by the export template but have no national free source.
   They are left blank rather than filled from a source that only covers part of the country.
 
@@ -127,11 +159,15 @@ service must cost one column rather than a run. The problem brief is in `researc
 - Performance: enriching a fully cached area of 5,000 properties completes in under five seconds
   and makes no network requests. A cold pass is bounded by provider pacing, not by local work.
 - Security: no credentials are required, and none is embedded. Five of the six providers are
-  keyless public services. Broadband is the exception and was not one when this was written: the
-  FCC's national map now requires an API token, so that provider is absent by default, makes no
-  request without one, and is enabled by putting a token in the environment or the `.env` file,
-  where every other secret in this product lives. The tool is fully functional with no token, which
-  is product invariant 9. Responses are data, never evaluated, and never used to construct paths.
+  keyless public services. Broadband is the exception and was not one when this was written. The
+  FCC's national map now requires an account, and its API wants two values rather than one: the
+  account name and the token, sent as headers. Both are read from the environment or the
+  uncommitted `.env` file, where every other secret in this product lives, and the provider is
+  absent by default and makes no request without both. The tool is fully functional with neither,
+  which is product invariant 9. What is downloaded is a public dataset and is written where the
+  database lives, which is local data and is never committed. Responses are data, never evaluated,
+  and never used to construct paths; a downloaded archive is read in memory and nothing in it
+  becomes a path.
 - Reliability: any provider failing leaves every cached value intact and every other provider's
   results usable.
 - Accessibility: none. No user-facing surface.

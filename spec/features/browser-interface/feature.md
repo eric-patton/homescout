@@ -64,3 +64,10 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   it, with a regression test in the real-browser suite asserting a textarea built by that helper
   holds its text.
 
+- **2026-08-24, broadband from the FCC's own files (feat-007, `changes/broadband-from-the-fcc-files/`).**
+  The settings page's broadband panel became a real one: which states are held and which quarter,
+  a box to download another, and the sentence that has to travel with the number. It says the figure
+  is the census block's advertised service rather than the property's measured line, and says why
+  satellite is left out, because "1200 Mbps" beside an address reads as a promise about that address
+  and is not one.
+

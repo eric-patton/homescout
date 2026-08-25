@@ -308,6 +308,20 @@ def build(workspace: api.Workspace) -> FastAPI:
             raise InvalidInput('Nothing to change: send {"set": {...}}.')
         return answer("configuration", **api.set_configuration(held(), dict(values)))
 
+    @app.get("/api/broadband")
+    def broadband() -> dict[str, Any]:
+        return answer("broadband", **api.broadband(held()))
+
+    @app.post("/api/broadband")
+    async def load_broadband(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        started = app.state.runs.start_task(
+            "broadband",
+            lambda say: api.broadband(held(), state=str(body.get("state") or ""), progress=say),
+            app.state.lock,
+        )
+        return answer("task-started", **started)
+
     @app.get("/api/notes")
     def model_notes() -> dict[str, Any]:
         return answer("notes", **api.model_notes(held()))

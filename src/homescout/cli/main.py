@@ -215,6 +215,15 @@ def build_parser() -> argparse.ArgumentParser:
         "overview", parents=[common], help="the few numbers worth seeing before anything else"
     )
 
+    wires = commands.add_parser(
+        "broadband",
+        parents=[common],
+        help="the FCC's own internet-availability data, a state at a time",
+    )
+    wires.add_argument(
+        "--state", metavar="XX", help="download or refresh this state, such as NM"
+    )
+
     told = commands.add_parser(
         "notes",
         parents=[common],
@@ -500,6 +509,17 @@ def _show(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("listing", listing=found), render.listing(found))
 
 
+def _broadband(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    """Show what internet data is held, or go and get a state's worth.
+
+    A separate action from an enrichment pass on purpose: there is no per-property service to ask,
+    so this reads the FCC's own published files, and a pass that downloaded fifty megabytes the
+    first time it met a new state would be a pass nobody could predict the cost of.
+    """
+    found = api.broadband(workspace, state=args.state, progress=note)
+    return Answer(digest.envelope("broadband", **found), render.broadband(found))
+
+
 def _notes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     """Show or write what this installation tells the model.
 
@@ -605,6 +625,8 @@ def _dispatch(
     if args.command == "overview":
         found = api.overview(workspace)
         return Answer(digest.envelope("overview", **found), render.overview(found))
+    if args.command == "broadband":
+        return _broadband(workspace, args, note)
     if args.command == "notes":
         return _notes(workspace, args)
     if args.command == "show":

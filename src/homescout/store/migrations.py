@@ -20,6 +20,7 @@ from .schema import (
     SCHEMA_V4,
     SCHEMA_V5,
     SCHEMA_V6,
+    SCHEMA_V7,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -35,6 +36,8 @@ MIGRATIONS: tuple[str, ...] = (
     SCHEMA_V5 + "\n" + append_only_triggers(DECISION_TABLES),
     # No triggers: a cache is not history. See the note above `SCHEMA_V6`.
     SCHEMA_V6,
+    # Nor here, for the same reason. See the note above `SCHEMA_V7`.
+    SCHEMA_V7,
 )
 
 

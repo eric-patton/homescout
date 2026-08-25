@@ -346,14 +346,83 @@ function mapPanel() {
 /* Broadband                                                           */
 /* ------------------------------------------------------------------ */
 
+/* The one provider with a dataset behind it, and the panel has to say why.
+ *
+ * There is no service that will tell you what internet one house can get: the FCC's public API
+ * hands over per-state files and nothing finer. So this downloads a state once and answers from it,
+ * and the wording is careful about what the number then means, because "1200 Mbps" next to an
+ * address reads as a promise about that address and it is not one. */
 function broadbandPanel() {
+  const wires = held.broadband;
+  const loaded = wires.states || [];
+  const where = el("div", {id: "broadbandprogress"});
+  const state = el("input", {
+    type: "text", id: "broadbandstate", placeholder: "NM", maxlength: 2, size: 4,
+    "aria-label": "Which state to download",
+  });
+
   return el("section", {},
-    el("h2", {}, "Broadband speeds ", present(held.broadband.configured, "ready", "off")),
+    el("h2", {}, "Internet at a property ",
+      present(wires.configured && loaded.length, "ready",
+              wires.configured ? "no data yet" : "off")),
     el("p", {class: "lede"},
-      "The FCC's national broadband map needs a key, which is why the Internet column is empty. " +
-      "Every other public data service this uses needs nothing. It is free; set " +
-      held.broadband.variable + " in your environment once you have one."),
-    whereToGet(held.broadband.where),
+      "Optional. Nothing else here needs an account; this does, because the FCC's map does. " +
+      "Every other public service this tool reads is keyless."),
+
+    wires.configured
+      ? null
+      : el("p", {class: "notice notice-flag"},
+          "Two values are needed and " +
+          (wires.credential ? "the account name is missing" : "neither is set") +
+          ". Set " + (wires.variables || []).join(" and ") + " in your environment, or by hand in " +
+          "the .env file beside the database. This page will not write a credential."),
+
+    wires.configured && !loaded.length
+      ? el("p", {class: "notice notice-flag"},
+          "Signed in, and no state's data downloaded yet. There is no per-property service to " +
+          "ask, so this reads the FCC's own published files a state at a time. About fifty " +
+          "megabytes and half a minute for a state, and then it is local.")
+      : null,
+
+    loaded.length
+      ? el("table", {class: "plain"},
+          el("thead", {}, el("tr", {},
+            el("th", {}, "State"), el("th", {}, "Census blocks"), el("th", {}, "Published"))),
+          el("tbody", {}, loaded.map((row) => el("tr", {},
+            el("td", {}, row.state),
+            el("td", {}, Number(row.blocks).toLocaleString()),
+            el("td", {}, row.as_of)))))
+      : null,
+
+    wires.configured
+      ? el("div", {},
+          el("div", {class: "field"},
+            el("label", {for: "broadbandstate"}, "Download a state"), state,
+            el("span", {class: "hint"},
+              "Two letters. Downloading a state you already have refreshes it to the current " +
+              "quarter.")),
+          el("div", {class: "actions"},
+            el("button", {
+              type: "button",
+              class: "primary",
+              onclick: () => {
+                const wanted = state.value.trim().toUpperCase();
+                if (!wanted) {
+                  say("Which state? Two letters, such as NM.", "problem");
+                  return;
+                }
+                start("broadband", {state: wanted}, where, "Downloading " + wanted);
+              },
+            }, "Download it")),
+          where)
+      : null,
+
+    el("p", {class: "meta"},
+      "What you get is the best advertised residential speed in a property's census block, as " +
+      "filed with the FCC. Not a measurement, and not that property's own line: a block can be a " +
+      "few houses or a few square miles. Satellite is left out, because it is available almost " +
+      "everywhere and would make every rural property look served while telling you nothing."),
+    whereToGet(wires.where),
   );
 }
 

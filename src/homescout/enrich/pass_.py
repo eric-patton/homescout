@@ -100,6 +100,14 @@ def run_pass(
 ) -> PassOutcome:
     """Ask every provider about every place that needs it, once each."""
     say = progress or (lambda _message: None)
+    # One provider holds a dataset rather than only asking a service, and the store is where that
+    # dataset lives. A hook rather than a parameter, so the other five keep the protocol they have
+    # and the pass still never names a provider (feat-007 D-12).
+    for provider in providers:
+        attach = getattr(provider, "attach", None)
+        if attach is not None:
+            attach(store)
+
     located, unlocatable = places_in(store, search=search)
     places = [place for _, place in located]
     held = cache.read(store, providers, places) if places else {}

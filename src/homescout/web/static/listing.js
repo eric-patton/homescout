@@ -202,6 +202,9 @@ function enrichment(held) {
       el("p", {class: "unknown"},
         "nothing looked up yet. Run homescout enrich to fill these."));
   }
+  const internet = names.some((name) =>
+    name === "download_mbps" || name === "upload_mbps" || name === "broadband_provider");
+
   return el("section", {},
     el("h2", {}, "Where it is"),
     el("dl", {class: "facts"},
@@ -209,6 +212,17 @@ function enrichment(held) {
         el("dt", {}, name.replace(/_/g, " ")),
         el("dd", {}, value(found[name])),
       ])),
+    /* The speeds need a sentence the others do not. Every other value here is about this point:
+     * the flood zone, the elevation, the aquifer under it. The speeds are about the census block,
+     * which outside a town can be square miles, and they are what a provider filed rather than
+     * what anybody measured. A number without that reads as a promise about this address. */
+    internet
+      ? el("p", {class: "meta"},
+          "The speeds are the best advertised residential service the FCC records in this " +
+          "property's census block. Not a measurement, and not this property's own line: a block " +
+          "is a few houses in town and a few square miles outside it. Satellite is left out, " +
+          "because it is available almost everywhere and would tell you nothing.")
+      : null,
   );
 }
 

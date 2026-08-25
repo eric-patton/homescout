@@ -61,3 +61,31 @@ alongside its peers.
       for, and what stale means.
 - [x] T23: `uv run ruff check .` and the full suite, default and slow, green.
 - [x] T24: `/spec-flow:converge`, then the manifest stamp.
+
+## Change: broadband from the FCC's own files (`changes/broadband-from-the-fcc-files/`)
+
+- [x] T25: `enrich/broadband.py`: the FCC file API with its two credential headers, the most recent
+      published quarter, one state's fixed-broadband files, and the aggregation to one row per
+      census block keeping the best advertised residential speeds and the providers that offer them
+      (D-12, D-13, AC-16, AC-19, AC-20).
+- [x] T26: Schema version 7: `broadband_blocks`, a cache like `enrichment_values` and not history,
+      so no append-only trigger and re-indexing a state replaces that state's rows (D-12, AC-16).
+      Record the change in feat-001's manifest.
+- [x] T27: `enrich/providers.py` `Broadband`: configured on both credentials and an index that has
+      something in it; `fetch` resolves the point to its census block through the FCC's keyless
+      block service, paced like everything else, and reads the block locally. A state with no index
+      is its own outcome naming the state and the command (D-12, AC-17, AC-18, AC-21).
+- [x] T28: `api.broadband` and a `homescout broadband` command: show what is loaded, `--state XX`
+      to load or refresh one (AC-16). Record the change in feat-003's manifest.
+- [x] T29: The settings page's broadband panel gains the account-name variable, what is loaded, and
+      a button to load a state (AC-16, AC-21). Record the change in feat-012's manifest.
+- [x] T30 [P]: `tests/test_enrich_broadband.py`: the aggregation over a fixture file including
+      satellite rows that must not reach the speed, the block lookup, an unloaded state as its own
+      outcome, half a credential as not configured, and the two headers on the request (AC-16
+      through AC-21).
+- [x] T31: `tests/test_enrich_live.py` gains the real thing behind the slow marker, skipped without
+      credentials (AC-12).
+- [x] T32: README: what broadband now needs, what it answers, and that the figure is the block's
+      advertised service rather than the property's measured service.
+- [x] T33: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
+      manifest stamp.

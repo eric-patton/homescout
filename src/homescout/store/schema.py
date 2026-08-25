@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -468,6 +468,45 @@ CREATE TABLE extracted_values (
     extracted_at TEXT NOT NULL,
     PRIMARY KEY (digest, model, name)
 );
+"""
+
+
+#: Version 7, added by location enrichment (feat-007), change `broadband-from-the-fcc-files`.
+#:
+#: What fixed internet the FCC records as available in one census block. A cache, like
+#: `enrichment_values` and `extracted_values`, and the third deliberate exception to this file's
+#: append-only rule for the same reason: it is a copy of somebody else's published dataset, it is
+#: refreshed a whole state at a time, and replacing a stale quarter with the current one loses
+#: nothing that happened here.
+#:
+#: There is no per-property service to ask. The FCC's public API hands over per-state files and
+#: nothing finer; the map's own point endpoint is closed and the coordinates that would let anybody
+#: build one are licensed. So a point becomes a census block through a keyless FCC service, and the
+#: block is answered from here (feat-007 M-7, D-12).
+#:
+#: `state` is on every row so that a refresh can replace one state without touching another, and so
+#: that "we have no data for New Mexico" is answerable without a scan.
+#:
+#: Speeds exclude satellite, which is available almost everywhere and would otherwise report every
+#: remote property as served while saying nothing about what it can get (D-13). They are the best
+#: *advertised residential* figures a provider filed for the block, which is a weaker claim than a
+#: measurement and is why every surface says both words.
+SCHEMA_V7 = """
+CREATE TABLE broadband_blocks (
+    -- The 15-digit census block the FCC files key on.
+    block_geoid    TEXT PRIMARY KEY,
+    -- Two-letter state, so one state refreshes without touching another.
+    state          TEXT NOT NULL,
+    download_mbps  INTEGER,
+    upload_mbps    INTEGER,
+    -- Comma separated, in the order they read best. Brand names as filed.
+    providers      TEXT,
+    -- The quarter the FCC published, so an aging index can say how old it is.
+    as_of          TEXT NOT NULL,
+    loaded_at      TEXT NOT NULL
+);
+
+CREATE INDEX broadband_blocks_state ON broadband_blocks (state);
 """
 
 

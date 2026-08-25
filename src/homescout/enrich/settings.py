@@ -70,7 +70,17 @@ DEFAULTS: dict[str, Endpoint] = {
 #: Where a token lives when a provider needs one. Read from the environment or the uncommitted
 #: `.env` beside the database, never from a saved search and never from code, which is where the
 #: constitution puts every secret in this product.
+#:
+#: Two values, not one. The FCC's file API wants the account name alongside the token, as two
+#: headers, and half a credential is not a configured provider: it is somebody watching every
+#: request fail with a message about authentication and going to look at their token, which is fine.
 BROADBAND_TOKEN = "HOMESCOUT_FCC_TOKEN"
+BROADBAND_USERNAME = "HOMESCOUT_FCC_USERNAME"
+
+#: Downloading a state's files is one request per file for a few tens of megabytes, which is a
+#: different kind of wait from asking about one point. Its own timeout, so a slow link is a slow
+#: refresh rather than a failed one.
+REFRESH_TIMEOUT_SECONDS = 180.0
 
 
 def endpoint(name: str) -> Endpoint:
@@ -106,6 +116,14 @@ def token(variable: str) -> str | None:
 
 
 def pacing(providers: tuple[str, ...]) -> PolitenessConfig:
-    """The same politeness the sources get, at the floor delay, keyed per provider."""
+    """The same politeness the sources get, at the floor delay, keyed per provider.
+
+    Broadband gets a longer timeout on the same delay, because one of the things it does is download
+    a state's published files rather than ask about a point, and twenty seconds is right for the one
+    and wrong for the other.
+    """
     policy = SourcePolicy(delay=PROVIDER_DELAY_SECONDS, timeout=PROVIDER_TIMEOUT_SECONDS)
-    return PolitenessConfig(default=policy, per_source={name: policy for name in providers})
+    patient = SourcePolicy(delay=PROVIDER_DELAY_SECONDS, timeout=REFRESH_TIMEOUT_SECONDS)
+    per_source = {name: policy for name in providers}
+    per_source["broadband"] = patient
+    return PolitenessConfig(default=policy, per_source=per_source)

@@ -247,9 +247,42 @@ homescout enrich --search nm-acreage --json
 | Boundaries | Census TIGERweb | the shapes a saved search's named areas resolve to |
 | Broadband | FCC National Broadband Map | `upload_mbps`, `download_mbps`, `broadband_provider` |
 
-**Broadband needs a key and the rest do not.** The FCC's national map requires an API token, so that
-provider is off unless `HOMESCOUT_FCC_TOKEN` is set in your environment or `.env`. Without one it
-makes no request and reports itself skipped, which is different from failing.
+**Broadband needs an account and works differently from the rest.** Two things, and both are worth
+knowing before you set it up.
+
+It needs *two* values, not one. Register free at
+[the FCC's map](https://broadbandmap.fcc.gov/login), find the API key under your account, and set
+both the email you registered with and the key:
+
+```
+HOMESCOUT_FCC_USERNAME=you@example.com
+HOMESCOUT_FCC_TOKEN=the-key-from-your-account
+```
+
+And it is answered from a local dataset rather than from a request. There is no public service that
+will say what internet one house can get: the FCC's API hands over per-state files and nothing
+finer, and the coordinates that would let anyone build a point query are licensed. So you download a
+state once, and everything after that is local:
+
+```
+homescout broadband --state NM     # about fifty megabytes, half a minute, then it is local
+homescout broadband                # what is held, and which quarter it is from
+```
+
+That download is never something an enrichment pass does on its own, because a pass that quietly
+fetched fifty megabytes the first time it met a new state would be a pass you could not predict the
+cost of. A property in a state you have not downloaded says so, and names the command.
+
+**What the number means, exactly.** It is the best *advertised residential* speed in that property's
+*census block*, as filed with the FCC. Not a measurement, and not that property's own line: a block
+is a few houses in town and a few square miles outside it. **Satellite is left out** on purpose. It
+is available almost everywhere, so including it would report every remote property as served at a
+hundred megabits and would tell you nothing about what it can actually get. Fixed wireless is left
+in, because that is the opposite case: it is what a rural property here really gets, and it varies
+house to house.
+
+Without an account it makes no request and reports itself skipped, which is different from failing,
+and everything else here still works.
 
 **Three states, not two.** A value is *fresh* (cached and current), *stale* (cached, past its
 lifetime, still used and still labelled), or *missing* (never fetched). Missing is never rendered as

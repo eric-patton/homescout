@@ -79,3 +79,64 @@ verdict: open 2 (missing 0, partial 2, contradicts 0, unrequested 0)
   test that ran it against the real registry made real requests to five government services. The
   registry is swapped for fakes in those tests now, and the whole offline suite is back under nine
   seconds.
+
+## run 2 — 2026-08-24
+
+baseline: spec sha256:b42cda270066 · plan sha256:c7a3759e149c · tasks sha256:9f8718d5d105
+
+Run after the change `changes/broadband-from-the-fcc-files/` was built: broadband answered from the
+FCC's own published files rather than from a request that never had an endpoint to go to.
+
+implemented: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13,
+AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21
+
+- confirmed gap-001 [partial] `--stale` still narrows a pass without a way to name which values are
+  stale per provider. Unchanged by this run.
+
+- confirmed gap-002 [partial] the six providers still cannot be individually enabled from either
+  surface. Unchanged in substance, and this run made it slightly more visible: broadband is now the
+  provider most likely to be the one somebody wants to switch off, because it is the one with a
+  dataset behind it, and there is still no `--provider` option to do it with.
+
+- opened gap-003 [contradicts] spec:"AC-11 Providers for flood zone, broadband service, principal
+  aquifer, wildfire hazard, elevation, and boundary resolution exist and are individually enableable"
+
+  Opened and closed in this same run, deliberately. The ledger is the honest record of what the code
+  was doing and for how long, and a defect that existed from the first build until now does not
+  become something that never happened just because it was found and fixed on the same day. From the first build until this change, `enrich/providers.py` `Broadband.fetch`
+  read the token, discarded it without putting it in any header, and asked
+  `https://broadbandmap.fcc.gov/api/public/map/location`, which answers `405 Method Not Available`.
+  Every request it ever made failed. Nobody saw it because nobody had a token, so the provider
+  reported itself not configured and was skipped, and the one state that would have exposed it was
+  the state nobody was in.
+
+  It surfaced the moment somebody set a token and asked why the column was still empty.
+
+- closed gap-003
+
+  `enrich/broadband.py` plus the rewritten `Broadband` in `enrich/providers.py`, with the real shape
+  measured against the live service and written into the plan as M-7 so the next reader does not
+  have to re-derive it. `tests/test_enrich_broadband.py` covers the parts that could go wrong
+  quietly, and `tests/test_enrich_live.py` now asserts the FCC still publishes the listing this
+  reads, so a reorganization at their end shows up as a failed test rather than as a refresh that
+  finds nothing. Verified end to end against the real service: 60,287 New Mexico census blocks
+  indexed, and 82 of this store's 83 properties answered.
+
+- opened gap-004 [unrequested] code:"`enrich/pass_.py` calls `attach(store)` on any provider that
+  has it"
+
+  Evidence: `src/homescout/enrich/pass_.py`, at the top of `run_pass`.
+
+  The provider protocol is `configured()` and `fetch(session, lat, lon)`, and nothing in the spec
+  describes a provider that holds anything. Broadband has to, because the answer is in a local
+  dataset rather than in a response, and the store is where that dataset lives. The hook is how it
+  gets one without changing the protocol for the other five, and it is deliberately duck-typed: a
+  provider with no `attach` is untouched.
+
+  Routed: a human decision, and the honest options are two. Legitimize it as a spec addition on this
+  feature (a provider may declare that it needs the store, and the pass supplies it), or leave it as
+  a documented quirk of one provider. It is recorded rather than assumed because "the pass never
+  names a provider" is one of this feature's own design claims and this is the closest anything has
+  come to bending it.
+
+verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)

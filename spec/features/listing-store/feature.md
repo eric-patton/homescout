@@ -154,3 +154,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
 
   Found by running the real server rather than by reading. The tests had been reaching for a shared
   store explicitly, so the first thing that hit it was the actual `homescout serve`.
+
+- **2026-08-24, broadband from the FCC's own files (feat-007, `changes/broadband-from-the-fcc-files/`).**
+  Schema version 7: `broadband_blocks`, one row per census block.
+
+  The third table in this database that is a cache rather than history, after `enrichment_values`
+  and `extracted_values`, and it gets no append-only trigger for the same reason as those two: it
+  holds a copy of somebody else's published dataset. The FCC publishes quarterly and a state is
+  refreshed whole, so `state` is on every row rather than inferred from the block, and replacing a
+  stale quarter leaves every other state alone.
+

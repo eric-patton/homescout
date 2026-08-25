@@ -550,6 +550,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "export_templates",
         "configuration",
         "set_configuration",
+        "broadband",
         "model_notes",
         "set_model_notes",
         "set_standing",

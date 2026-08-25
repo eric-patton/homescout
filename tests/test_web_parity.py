@@ -58,6 +58,7 @@ REACHES: dict[str, tuple[str, str]] = {
     "export": ("POST", "/api/export"),
     "overview": ("GET", "/api/searches"),
     "notes": ("GET", "/api/notes"),
+    "broadband": ("GET", "/api/broadband"),
     "show": ("GET", "/api/listings/{listing_id}"),
     "areas": ("GET", "/api/areas"),
     # `serve` is what starts this interface. A route for it would be the interface offering to
@@ -73,6 +74,7 @@ FLAGS_REACH: dict[str, tuple[str, str]] = {
     "extract --limit": ("POST", "/api/extract"),
     "export --template": ("GET", "/api/export/templates"),
     "notes --set": ("POST", "/api/notes"),
+    "broadband --state": ("POST", "/api/broadband"),
 }
 
 

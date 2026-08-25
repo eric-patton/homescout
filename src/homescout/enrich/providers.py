@@ -200,72 +200,111 @@ class Wildfire:
 
 
 class Broadband:
-    """The FCC's national broadband map, which now needs a token.
+    """What internet a place can get, out of the FCC's own files rather than out of a service.
 
-    Absent by default and honest about why. With no token it makes no request and its values stay
-    missing, which is a different thing from a failure: nobody asked and nothing broke. That is
-    product invariant 9, and it is the same shape the optional extraction model has.
+    The only provider here with anything behind it, and the reason is that no service will answer
+    this question. The address the first build asked answers 405 and is not an endpoint; the map's
+    own point endpoint is closed; the coordinates that would let anybody build a point query are
+    licensed. Measured on 2026-08-24, with a real token in hand (feat-007 M-7).
+
+    So the shape is different, and deliberately so (D-12). A state's published files are downloaded
+    once, by somebody who asked for that, and reduced to one row per census block. A point on a
+    property
+    becomes a census block through the FCC's keyless block service, which is one paced request like
+    every other provider makes, and the block is answered locally.
+
+    Absent by default and honest about which kind of absent it is. No credentials at all is not
+    configured. Credentials and no index is a state nobody has loaded, which names the state and the
+    command rather than reading as a failure or as a gap in the data.
     """
 
     name = "broadband"
+
+    def __init__(self) -> None:
+        #: Set by the pass, which holds the store. Nothing else here needs one, so the protocol
+        #: stays what it was for the other five and this one gets a hook rather than a parameter.
+        self._store: Any = None
+
+    def attach(self, store: Any) -> None:
+        self._store = store
 
     def values(self) -> tuple[str, ...]:
         return ("upload_mbps", "download_mbps", "broadband_provider")
 
     def precision(self) -> int:
+        # Four decimal places is about eleven metres, which is finer than a census block and is the
+        # right key: two properties on the same street are usually the same block and one lookup.
         return 4
 
     def ttl_days(self) -> int | None:
-        return 180  # service changes, unlike the ground
+        return 180  # the FCC publishes quarterly, and service changes, unlike the ground
 
     def configured(self) -> bool:
-        return settings.token(settings.BROADBAND_TOKEN) is not None
+        return bool(self._account()) and bool(self._loaded())
 
     def why_not(self) -> str:
+        if not self._account():
+            return (
+                f"the FCC's file API needs an account name and a token. Set "
+                f"{settings.BROADBAND_USERNAME} and {settings.BROADBAND_TOKEN} in your environment "
+                "or .env file to enable it; without both this provider is skipped and its values "
+                "stay missing rather than being reported as a failure."
+            )
         return (
-            f"the FCC national broadband map requires an API token. Set {settings.BROADBAND_TOKEN} "
-            "in your environment or .env file to enable it; without one this provider is skipped "
-            "and its values stay missing rather than being reported as a failure."
+            "no state's broadband data has been downloaded yet. There is no per-property service "
+            "to ask, so this reads the FCC's own published files, one state at a time: run "
+            "`homescout broadband --state NM` for the state you are searching. It is about fifty "
+            "megabytes and half a minute."
         )
 
     def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
-        found = settings.token(settings.BROADBAND_TOKEN)
+        from . import broadband as fcc
+        from . import states
+
+        if self._store is None:
+            raise ProviderFailed(
+                "broadband was asked without a store to read the downloaded data from, which is a "
+                "wiring mistake rather than anything about this property."
+            )
+        try:
+            block, state = fcc.block_for(session, latitude, longitude)
+        except fcc.BroadbandUnavailable as exc:
+            raise ProviderFailed(f"broadband: {exc}") from None
+
+        loaded = self._loaded()
+        if state not in loaded:
+            where = states.name_of(state) or state
+            raise ProviderFailed(
+                f"broadband: this property is in {where}, and no data for {state} has been "
+                f"downloaded. Run `homescout broadband --state {state}`. "
+                + (f"Loaded: {', '.join(sorted(loaded))}." if loaded else "")
+            )
+
+        found = self._store.broadband_for(block)
         if found is None:
-            raise ProviderFailed(self.why_not())
-        where = settings.endpoint(self.name)
-        answer = ask_json(
-            session,
-            self.name,
-            where.url,
-            {"latitude": latitude, "longitude": longitude, "format": "json"},
-        )
-        return _broadband_values(answer)
+            # The state is loaded and this block is not in it, which is an answer: the FCC has no
+            # filed residential service here. A known negative, not a gap, which is the same
+            # distinction the flood provider makes for a point outside a mapped hazard area.
+            return {"download_mbps": None, "upload_mbps": None, "broadband_provider": None}
 
+        return {
+            "download_mbps": found.get("download_mbps"),
+            "upload_mbps": found.get("upload_mbps"),
+            "broadband_provider": found.get("providers") or None,
+        }
 
-def _broadband_values(answer: Mapping[str, Any]) -> dict[str, Any]:
-    """The best fixed service reported at a location.
+    def _account(self) -> tuple[str, str] | None:
+        from . import broadband as fcc
 
-    Best rather than a list, because a criterion asks whether real internet is available here and
-    not who sells it. The fastest available answers that.
-    """
-    rows = answer.get("results") or answer.get("data") or []
-    if not isinstance(rows, list):
-        raise ProviderFailed("broadband: the response shape has changed")
-    best: dict[str, Any] = {"upload_mbps": None, "download_mbps": None, "broadband_provider": None}
-    for row in rows:
-        if not isinstance(row, Mapping):
-            continue
-        down = _number(row.get("maxAdvertisedDownloadSpeed") or row.get("max_advertised_download"))
-        up = _number(row.get("maxAdvertisedUploadSpeed") or row.get("max_advertised_upload"))
-        if down is None:
-            continue
-        if best["download_mbps"] is None or down > best["download_mbps"]:
-            best = {
-                "download_mbps": down,
-                "upload_mbps": up,
-                "broadband_provider": row.get("brandName") or row.get("provider_name"),
-            }
-    return best
+        return fcc.credentials(None)
+
+    def _loaded(self) -> dict[str, Any]:
+        if self._store is None:
+            return {}
+        try:
+            return self._store.broadband_states()
+        except Exception:  # noqa: BLE001 - an old database has no such table, which is "none"
+            return {}
 
 
 def _number(value: Any) -> float | None:

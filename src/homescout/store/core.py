@@ -630,6 +630,48 @@ class Store:
                 )
         return found
 
+    # -- broadband, which is a dataset rather than an answer ----------------
+
+    def record_broadband(self, state: str, rows: Sequence[tuple[Any, ...]]) -> int:
+        """Replace one state's census-block service with this. A cache, refreshed whole.
+
+        The third exception to this file's append-only rule, for the same reason as the other two:
+        it is a copy of somebody else's published dataset. A quarter replaced by the next quarter
+        loses nothing that happened here, and a state refreshed leaves every other state alone,
+        which is why `state` is on the row rather than inferred from the block.
+        """
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute("DELETE FROM broadband_blocks WHERE state = ?", (state,))
+            conn.executemany(
+                "INSERT INTO broadband_blocks "
+                "(block_geoid, state, download_mbps, upload_mbps, providers, as_of, loaded_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+        return len(rows)
+
+    def broadband_for(self, block: str) -> dict[str, Any] | None:
+        """What one census block can get, or nothing at all if it is not in the index.
+
+        Nothing is genuinely ambiguous here and the caller has to resolve it: a block absent from a
+        state that was loaded is a block with no filed residential service, while a block in a state
+        nobody loaded is a question that has not been asked. `broadband_states` is how to tell.
+        """
+        row = self._conn.execute(
+            "SELECT block_geoid, state, download_mbps, upload_mbps, providers, as_of "
+            "FROM broadband_blocks WHERE block_geoid = ?",
+            (block,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def broadband_states(self) -> dict[str, dict[str, Any]]:
+        """Which states have an index, how many blocks each holds, and which quarter it is."""
+        rows = self._conn.execute(
+            "SELECT state, COUNT(*) AS blocks, MAX(as_of) AS as_of, MAX(loaded_at) AS loaded_at "
+            "FROM broadband_blocks GROUP BY state ORDER BY state"
+        )
+        return {row["state"]: dict(row) for row in rows}
+
     # -- rule verdicts ------------------------------------------------------
 
     def record_verdicts(self, run_id: str, verdicts: Sequence[RuleVerdict]) -> None:

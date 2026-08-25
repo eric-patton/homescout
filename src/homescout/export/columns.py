@@ -169,13 +169,19 @@ def _hvac(row: Row) -> str | None:
 
 
 def _internet(row: Row) -> str | None:
+    """What the FCC records as available in this property's census block.
+
+    The word "advertised" is in the cell and is not decoration: this is what a provider filed for
+    the block, not a measurement and not this property's own line. The block caveat is too long for
+    a cell and lives on the surfaces with room for it (feat-007 AC-18).
+    """
     down = row.enriched.get("download_mbps")
     up = row.enriched.get("upload_mbps")
     who = row.enriched.get("broadband_provider")
     if down is None and up is None and not who:
         return None
-    speed = f"{down or '?'}/{up or '?'} Mbps"
-    return f"{who}, {speed}" if who else speed
+    speed = f"{down or '?'}/{up or '?'} Mbps advertised"
+    return f"{speed}, {who}" if who else speed
 
 
 def _aquifer(row: Row) -> str | None:
