@@ -96,3 +96,21 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   extraction vocabulary, the wildfire legend, the listing statuses) rather than restated, so a value
   added in one of those reaches anybody writing a criterion in the same edit.
 
+- **2026-08-24, criteria built rather than typed (feat-010, `changes/built-not-typed/`).**
+  `rules/phrase.py`: an expression as rows, and rows back as an expression.
+
+  The browser now builds a criterion out of dropdowns, and the grammar stays here, which
+  non-negotiable 8 requires: the interface sends `{field, comparison, value, join}` and this
+  composes `water_source == "well"`. The stored form is unchanged, so a saved search edited in the
+  browser and one edited by hand are the same file, which is AC-24 and is the reason this exists as
+  a module rather than as string formatting in a page.
+
+  **Reading an expression back is checked rather than trusted.** `(a or b) and c` flattens into rows
+  that look right and compose back to `a or b and c`, which is a different criterion; saving that
+  over the original would change what somebody's search does without telling them. So `readable`
+  composes its own answer, parses it again, compares the trees ignoring positions, and returns
+  nothing at all if anything moved. A criterion it cannot read is shown as text and left alone.
+
+  `namespace.vocabulary()` also gained a human name for every field and for the values whose stored
+  word is not the word a person says. Declared here because both surfaces need them.
+

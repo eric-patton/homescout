@@ -339,3 +339,54 @@ verdict: open 3 (missing 0, partial 0, contradicts 0, unrequested 3)
   a session of clicking: every read operation a page load performs was run against a scratch
   definition and the file was compared byte for byte afterwards. Unchanged. The stray key was
   residue from that clicking, not from the tool.
+
+## run 5 — 2026-08-24
+
+baseline: spec sha256:f53f6fc453d2 · plan sha256:5dfe647eb36f · tasks sha256:7a1a44fdd73e
+
+Run after the change `changes/built-not-typed/` was built: criteria chosen from lists rather than
+typed as expressions, and a pass over the words every page puts in front of a person.
+
+implemented: AC-1 through AC-32
+
+- confirmed gap-004 [unrequested] `HOMESCOUT_ALLOWED_HOSTS`, unchanged by this run.
+
+- confirmed gap-005 [unrequested] the three changes to how a saved search file is written. A fourth
+  joined them this run and is folded into the same gap rather than opened as a new one, because it
+  is the same decision: a value of nothing now removes a key instead of writing an empty one, which
+  is what makes a cleared filter leave no trace. Recorded there, still a human call.
+
+- confirmed gap-006 [unrequested] deletion and the two things it refuses to delete.
+
+- **run 3 wrote down what this run built, and it is worth reading back.** Closing gap-002 that run,
+  the ledger said of the criteria text area: "It is still that, and it is recorded as that rather
+  than as a criterion editor... An editor that understood the field namespace and the three-valued
+  logic is still not built and is still the right thing to build if criteria turn out to be edited
+  often." It turned out to be edited often, by somebody who does not write software, which is the
+  circumstance that entry named. Nothing was reopened: what was recorded as unbuilt is now built,
+  and the requirements it satisfies are AC-28 through AC-32 rather than a reopened gap.
+
+- opened gap-007 [unrequested] code:"`rules/phrase.py` reads an expression back into rows"
+
+  Evidence: `src/homescout/rules/phrase.py`, and `api._rule_document`, which calls it.
+
+  The spec asks that a criterion be built by choosing (AC-28) and that one which cannot be shown
+  that way be shown as text (AC-31). Neither says how the second is decided, and the answer is a
+  round trip: the rows are composed back into an expression, parsed again, and compared to the
+  original tree with positions ignored. If anything moved, the rows are refused.
+
+  This is more than the spec asks for, and it is here because the cheap version is dangerous rather
+  than merely wrong. Flattening `(a or b) and c` into three rows produces rows that look right; the
+  expression they compose back to is `a or b and c`, which is a different criterion, and the next
+  save would write it over what somebody wrote. A person who never opens the file would not find
+  out. So the check is exact, and `tests/test_rules_phrase.py` asserts both directions on twelve
+  real shapes.
+
+  Routed: a human decision, and the honest options are two. Legitimize it as a spec addition (the
+  reading must be verified rather than assumed, and the verification is a round trip), or leave it
+  as an implementation choice that happens to be stricter than the requirement. It is recorded
+  rather than assumed because "shown as text rather than rewritten" is a promise whose enforcement
+  is invisible from the outside, and an invisible enforcement that nobody wrote down is one somebody
+  simplifies away later.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

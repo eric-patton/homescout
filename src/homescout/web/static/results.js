@@ -66,7 +66,7 @@ function draw() {
   const search = el("input", {
     type: "search",
     id: "filter",
-    placeholder: "filter every column",
+    placeholder: "type to narrow the list",
     "aria-label": "Filter the table",
     oninput: (event) => { state.query = event.target.value; apply(); },
   });
@@ -81,7 +81,9 @@ function draw() {
     `${state.search} results`,
     el("h1", {}, `${state.search}`),
     el("p", {class: "lede"},
-      "Sort by clicking a column. Type in a cell you can edit and press Enter to save it."),
+      "Click a column heading to sort by it. Click into a cell with a white background to write " +
+      "your own notes on a property, and press Enter to keep them. What you write survives every " +
+      "later run."),
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),

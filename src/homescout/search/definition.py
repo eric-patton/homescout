@@ -422,7 +422,11 @@ class FileCatalog:
         for key, value in changes.items():
             path = _key_path(key)
             wanted = value if key in PROSE and isinstance(value, str) else _value(value)
-            if key in DEFAULTS_OUT and wanted == DEFAULTS_OUT[key]:
+            # Nothing means remove the key, not write an empty one. A cleared price filter that left
+            # `price:` behind in the file is a line that says nothing, that a person then has to
+            # wonder about, and that a surface reads back as a filter which is somehow there and
+            # empty. Absent is the state being asked for and absent is what gets written.
+            if wanted is None or (key in DEFAULTS_OUT and wanted == DEFAULTS_OUT[key]):
                 document.remove(path)
             else:
                 document.assign(path, wanted)

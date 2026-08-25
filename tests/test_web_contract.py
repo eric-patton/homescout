@@ -212,3 +212,38 @@ def test_the_licences_are_committed_beside_the_code() -> None:
         assert package["licence"] in ("BSD-2-Clause", "MIT"), package
     assert (VENDOR / "LICENSE-leaflet.txt").is_file()
     assert (VENDOR / "LICENSE-leaflet-draw.txt").is_file()
+
+
+def test_no_page_turns_a_field_name_into_a_label() -> None:
+    """feat-010/AC-30: nothing shows a person the name a value has in the code.
+
+    A source scan rather than a browser test, because the failure is a habit rather than a bug:
+    `name.replace(/_/g, " ")` is the one-line way to make `over_principal_aquifer` look like a
+    label, it reads as fine while writing it, and what it produces is "over principal aquifer".
+    The names live in the core with words chosen for a reader beside them, and a page reads those.
+    """
+    for script in sorted(STATIC.glob("*.js")):
+        code = without_comments(script.read_text(encoding="utf-8"))
+        # `labelFor` keeps one as its last resort, for a name the core has not labelled. That is a
+        # fallback behind a lookup rather than a page doing this to every name it is given.
+        occurrences = code.count('replace(/_/g, " ")')
+        allowed = 1 if script.name == "listing.js" else 0
+        assert occurrences <= allowed, (
+            f"{script.name} makes a label out of a field name. The core declares what each field "
+            "is called; read that."
+        )
+
+
+def test_every_field_a_criterion_can_name_has_words_for_a_person() -> None:
+    """feat-010/AC-30: and the words are in the core, so both surfaces say the same thing."""
+    from homescout.rules import namespace as ns
+
+    for field in ns.vocabulary():
+        label = str(field["label"])
+        assert label, f"{field['name']} has no label"
+        assert "_" not in label, f"{field['name']}'s label is still its name: {label}"
+
+    # And every value of a closed set carries words too, even where they are the same words.
+    for field in ns.vocabulary():
+        for value in field["values"]:
+            assert value["label"], f"{field['name']} has a value with no words: {value}"

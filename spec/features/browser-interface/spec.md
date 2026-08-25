@@ -192,7 +192,10 @@ in five years. The problem brief is in `research.md`.
       run of everything, which reports that it skipped it, and still runs when asked for by name.
 - [ ] AC-24: The parts of a saved search this interface edits (its description, its sources, its
       filters, whether a model reads its descriptions, and its criteria) are editable here, and
-      AC-3's guarantee holds for every edit made through them.
+      AC-3's guarantee holds for every edit made through them. A criterion is sent as the conditions
+      a person chose, and the expression is composed by the rule engine rather than by the
+      interface, so the grammar has one home and the file gets the same line somebody would have
+      typed.
 - [ ] AC-25: The optional configuration (which model reads descriptions, where the map's tiles come
       from, where the digest is written) is editable here and written to the uncommitted file beside
       the database, taking effect without a restart and leaving the rest of that file, comments
@@ -209,8 +212,26 @@ in five years. The problem brief is in `research.md`.
       and any judgment written on them survive, because non-negotiable 2 and product invariant 1
       make snapshot history append-only. The answer reports how many runs were kept, so nobody is
       left believing more was removed than was.
+- [ ] AC-28: A criterion is built by choosing, not by typing an expression. Its field, its
+      comparison and its value are each chosen from what is possible, conditions can be added and
+      removed, and criteria can be added and removed.
+- [ ] AC-29: What a value may be follows the field that was chosen. A field with a closed set of
+      values offers exactly that set; a number offers a number; a true-or-false offers yes and no.
+      A comparison that cannot apply to the chosen field is not offered.
+- [ ] AC-30: Nothing on any screen shows a person the name a field has in the code. Every field,
+      value, comparison and severity is shown in words chosen for a reader, and those words are
+      declared once in the core rather than in a surface.
+- [ ] AC-31: A criterion that cannot be shown as conditions is shown as the expression it is,
+      marked as such, and is not rewritten. Saving the other criteria leaves it exactly as written.
+- [ ] AC-32: The interface offers a set of ready-made criteria that are one click to add and
+      ordinary to edit or remove afterwards, so that the first criterion somebody has is not one
+      they had to invent.
 
 ## Edge cases & errors
+
+- A filter is cleared. It is removed from the file rather than left as an empty key, and a field
+  left untouched is not written at all. A page that saved on every blur wrote a file nobody had
+  edited.
 
 - The results table holds several thousand rows. Sorting and filtering remain responsive, which
   constrains how the table is built but is not satisfied by silently paginating away rows the user

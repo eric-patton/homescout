@@ -45,13 +45,17 @@ function draw() {
   shell(`${held.name}`,
     el("h1", {}, held.name),
     el("p", {class: "lede"},
-      "This is the same file you can edit by hand. Anything changed here is written through the " +
-      "core, so comments and ordering survive."),
+      "Where to look, what to look for, and what matters to you about what turns up. Nothing is " +
+      "saved until you press a save button, and each panel saves only itself."),
     problems(search),
     el("div", {class: "detail"},
       el("div", {}, mapPanel(), areaList()),
-      el("div", {}, settingsPanel(), placeNotesPanel()),
+      el("div", {}, settingsPanel()),
     ),
+    /* Full width, below the two columns. A criterion is four controls in a row and a place note is
+     * a paragraph, and both were unreadable squeezed into a third of the window. */
+    criteriaPanel(),
+    placeNotesPanel(),
   );
   startMap();
 }
@@ -324,9 +328,6 @@ function settingsPanel() {
         " ask a model about this search's descriptions")),
     modelReadiness(),
     searchNotes(),
-
-    el("h3", {}, "Criteria"),
-    criteriaPanel(),
   );
 }
 
@@ -370,119 +371,361 @@ function modelReadiness() {
     ". The rest of extraction works without it.");
 }
 
-function criteriaPanel() {
-  const rules = held.search.rules || [];
-  const box = el("textarea", {
-    rows: String(Math.max(4, rules.length * 3 + 2)),
-    id: "rules",
-    "aria-label": "Criteria, one per line, as id | severity | expression",
-    value: rules.map((r) => `${r.id} | ${r.severity} | ${r.when}`).join("\n"),
-  });
-  return el("div", {},
-    el("p", {class: "meta"},
-      "One per line, three parts separated by pipes: a name you choose, what firing does, and the " +
-      "condition. A condition is checked before it is saved, and a bad one is refused with its " +
-      "position."),
-    el("div", {class: "field"}, box),
-    el("button", {
-      type: "button",
-      onclick: () => save({rules: parseRules(box.value)}),
-    }, "Save the criteria"),
-    whatFiringDoes(),
-    fieldReference(),
-  );
-}
-
-/* The four severities, and what each actually does to what you see. "flag" and "demote" are not
- * self-explanatory, and the difference between "drop" and "demote" is the one worth knowing before
- * writing either. */
-function whatFiringDoes() {
-  const does = [
-    ["drop", "takes the property out of the results table. Nothing is deleted: its history is " +
-             "kept and the run says what was removed and by which criterion."],
-    ["flag", "badges the row with this criterion's name. Nothing is hidden or reordered."],
-    ["boost", "moves the row up. Each boost that fires is one place up the default order."],
-    ["demote", "moves the row down, one place per demote that fires."],
-  ];
-  return el("details", {class: "reference"},
-    el("summary", {}, "What each of the four does"),
-    el("table", {class: "plain"},
-      el("tbody", {}, does.map(([name, said]) => el("tr", {},
-        el("td", {}, el("code", {}, name)),
-        el("td", {}, said))))));
-}
-
-/* Every field a condition may name, with what it holds and what it may say.
+/* Criteria, built rather than typed.
  *
- * The panel used to print the names as a comma-separated line, which is half an answer: somebody
- * writing `cooling == "swamp cooler"` has named a real field and compared it to a word that can
- * never be true, and a list of names would not have told them. Where a field's values are a closed
- * set, that set is here. */
-function fieldReference() {
-  const vocabulary = held.settings.rule_vocabulary || [];
-  const groups = [
-    ["listing", "From the listing", "What the site reports."],
-    ["derived", "From your own history",
-     "Computed here, from what this tool has seen. Never from what a site claims."],
-    ["extracted", "Read out of the description",
-     "Each is one word from a fixed list. `none` means the listing said it does NOT have the " +
-     "thing, which is different from the field being empty."],
-    ["enriched", "Public data about where it is",
-     "Filled by an enrichment pass. Empty until one has run."],
-  ];
+ * A criterion is stored as an expression, and it stays that way: the file still says
+ * `when: water_source == "well"`, still readable and editable by hand. What changed is that nobody
+ * has to write that to make one. Each criterion is a card with a name, what firing does, and one or
+ * more conditions, each of which is three dropdowns.
+ *
+ * Three things this has to get right, and they are the reasons it is not simply a form.
+ *
+ * THE VALUE BOX FOLLOWS THE FIELD. Picking "Water source" gives a list of the six words that field
+ * can hold; picking "Price" gives a number box; picking "Price has come down" gives yes and no.
+ * Offering a text box for a field with six possible values is how somebody types "swamp cooler" and
+ * gets a criterion that can never be true.
+ *
+ * A CRITERION THE BUILDER CANNOT SHOW IS SHOWN AS TEXT, NOT MANGLED. `(a or b) and c` is a
+ * perfectly good criterion and is not a flat list of rows. The core answers `parts: null` for one of
+ * those and this shows the expression read-only with a note, rather than rows that would quietly
+ * mean something else.
+ *
+ * NOTHING IS SAVED UNTIL SAVE IS PRESSED, and everything is saved together. Editing one card and
+ * navigating away loses that edit, which is the ordinary bargain; editing one card and having it
+ * save while another is half-finished is not.
+ */
 
-  return el("details", {class: "reference"},
-    el("summary", {}, "What a condition may say"),
+/* The criteria panel: every rule as a card, plus the two ways to add one. */
+function criteriaPanel() {
+  /* Working copy. The saved search is not touched until Save. */
+  held.rules = (held.search.rules || []).map(asDraft);
 
-    el("p", {class: "meta"},
-      "Comparisons: == != < <= > >= and `in [\"a\", \"b\"]`. Join them with and, or, not. " +
-      "Text goes in double quotes; numbers do not."),
-    el("p", {class: "meta"},
-      "A field nobody filled makes the whole condition undetermined rather than false, so a " +
-      "property is never dropped for want of data. Ask about that directly with " +
-      "`water_source is null` or `is not null`."),
-
-    groups.map(([origin, title, said]) => {
-      const fields = vocabulary.filter((f) => f.origin === origin);
-      if (!fields.length) return null;
-      return el("div", {},
-        el("h4", {}, title),
-        el("p", {class: "meta"}, said),
-        el("table", {class: "plain"},
-          el("thead", {}, el("tr", {},
-            el("th", {}, "Field"), el("th", {}, "Holds"), el("th", {}, "Values"))),
-          el("tbody", {}, fields.map((f) => el("tr", {},
-            el("td", {}, el("code", {}, f.name)),
-            el("td", {}, f.of ? `a list of ${f.of}` : f.type),
-            el("td", {}, fieldValues(f)))))));
-    }),
+  return el("section", {},
+    el("h2", {}, "Criteria"),
+    el("p", {class: "lede"},
+      "Rules about what matters to you. Each one watches for something and then points it out, " +
+      "moves it up or down the list, or hides it. Nothing here changes what is searched for: " +
+      "criteria decide how what was found is shown to you."),
+    el("div", {id: "criteria"}, criteriaCards()),
+    el("div", {class: "actions"},
+      el("button", {type: "button", onclick: addRule}, "Add a criterion"),
+      el("button", {type: "button", class: "primary", onclick: saveRules}, "Save the criteria")),
+    startFrom(),
   );
 }
 
-function fieldValues(field) {
-  if (field.values && field.values.length) {
-    return el("span", {}, field.values.map((v) => `"${v}"`).join(", "));
-  }
-  if (field.type === "boolean") return el("span", {}, "true, false");
-  if (field.examples && field.examples.length) {
-    return el("span", {class: "meta"},
-      "for example " + field.examples.map((v) => `"${v}"`).join(", "));
-  }
-  return el("span", {class: "meta"}, field.means || (field.type === "number" ? "any number" : ""));
+function asDraft(rule) {
+  return {
+    id: rule.id,
+    severity: rule.severity,
+    when: rule.when,
+    /* Null means the core could not read this one as rows. It stays as text. */
+    parts: rule.parts ? rule.parts.map((p) => ({...p})) : null,
+  };
 }
 
-function parseRules(text) {
-  const made = [];
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split("|").map((p) => p.trim());
-    if (parts.length < 3) {
-      throw new Error(`"${trimmed}" is not id | severity | condition`);
-    }
-    made.push({id: parts[0], severity: parts[1], when: parts.slice(2).join("|").trim()});
+function redrawCriteria() {
+  const where = document.getElementById("criteria");
+  if (where) where.replaceChildren(criteriaCards());
+}
+
+function criteriaCards() {
+  if (!held.rules.length) {
+    return el("p", {class: "empty"},
+      "No criteria yet. Everything this search finds is shown, in the order it was found. " +
+      "Add one below, or start from one of the suggestions.");
   }
-  return made;
+  return el("div", {}, held.rules.map((rule, index) => criterionCard(rule, index)));
+}
+
+function criterionCard(rule, index) {
+  const name = el("input", {
+    type: "text", value: rule.id || "", size: 18,
+    "aria-label": "What to call this criterion",
+    placeholder: "a name for it",
+    onchange: (e) => { rule.id = e.target.value.trim(); },
+  });
+
+  const labels = (held.settings.severity_labels || []);
+  const does = el("select", {"aria-label": "What happens when this is true"},
+    labels.map((s) => el("option", {value: s.severity}, s.label)));
+  does.value = rule.severity || "flag";
+  does.addEventListener("change", () => {
+    rule.severity = does.value;
+    redrawCriteria();
+  });
+  const said = (labels.find((s) => s.severity === (rule.severity || "flag")) || {}).does || "";
+
+  return el("div", {class: "criterion"},
+    /* Reads as a sentence: "Call it on-a-well and point it out, when water source is well." A form
+     * whose labels are above its boxes would need the same words and would not read as anything. */
+    el("div", {class: "criterion-head"},
+      el("span", {class: "criterion-when"}, "Call it"),
+      name,
+      el("span", {class: "criterion-when"}, "and"),
+      does,
+      el("button", {
+        type: "button", class: "quiet danger",
+        "aria-label": `Remove the criterion ${rule.id || index + 1}`,
+        onclick: () => { held.rules.splice(index, 1); redrawCriteria(); },
+      }, "Remove")),
+
+    rule.parts
+      ? el("div", {class: "conditions"},
+          rule.parts.map((part, at) => conditionRow(rule, part, at)),
+          el("button", {
+            type: "button", class: "quiet",
+            onclick: () => {
+              rule.parts.push({field: "price", comparison: "<", value: "", join: "and"});
+              redrawCriteria();
+            },
+          }, "Add another condition"))
+      : el("div", {},
+          el("p", {class: "notice"},
+            "This one was written by hand and is more than a list of conditions, so it is shown " +
+            "as it was written."),
+          el("code", {class: "expression"}, rule.when)),
+
+    el("p", {class: "meta"}, said),
+  );
+}
+
+/* One condition: how it joins the one above, the field, the comparison, and the value.
+ *
+ * The value control is rebuilt whenever the field changes, because what a value may be is a
+ * property of the field. A list of six words is a dropdown; a price is a number box; a yes-or-no is
+ * a yes-or-no. */
+function conditionRow(rule, part, at) {
+  const vocabulary = held.settings.rule_vocabulary || [];
+  const comparisons = held.settings.rule_comparisons || [];
+  const field = vocabulary.find((f) => f.name === part.field) || vocabulary[0] || {};
+
+  const join = at === 0
+    ? el("span", {class: "join"}, "when")
+    : el("select", {class: "join", "aria-label": "How this joins the condition above"},
+        el("option", {value: "and"}, "and also"),
+        el("option", {value: "or"}, "or else"));
+  if (at > 0) {
+    join.value = part.join || "and";
+    join.addEventListener("change", () => { part.join = join.value; });
+  }
+
+  const which = el("select", {"aria-label": "What to look at"},
+    groupedFields(vocabulary));
+  which.value = part.field;
+  which.addEventListener("change", () => {
+    part.field = which.value;
+    /* A value carried over from the old field is almost always wrong for the new one, and a wrong
+     * value that looks deliberate is worse than an empty one. */
+    part.value = defaultValueFor(vocabulary.find((f) => f.name === which.value));
+    redrawCriteria();
+  });
+
+  const how = el("select", {"aria-label": "How to compare it"},
+    comparisons.filter((c) => suitable(c, field)).map((c) =>
+      el("option", {value: c.comparison}, c.label)));
+  how.value = part.comparison;
+  how.addEventListener("change", () => {
+    part.comparison = how.value;
+    redrawCriteria();
+  });
+
+  const takes = (comparisons.find((c) => c.comparison === part.comparison) || {}).takes || "one";
+
+  return el("div", {class: "condition"},
+    join, which, how,
+    takes === "nothing" ? el("span", {class: "meta"}, "") : valueControl(field, part, takes),
+    rule.parts.length > 1
+      ? el("button", {
+          type: "button", class: "quiet",
+          "aria-label": "Remove this condition",
+          onclick: () => { rule.parts.splice(at, 1); redrawCriteria(); },
+        }, "×")
+      : null,
+  );
+}
+
+/* The fields, grouped by where they come from, because "Water source" and "Price" are different
+ * kinds of thing and a flat list of forty is a list nobody reads. */
+function groupedFields(vocabulary) {
+  const groups = [
+    ["listing", "From the listing"],
+    ["extracted", "Read out of the description"],
+    ["enriched", "About where it is"],
+    ["derived", "From your own history"],
+  ];
+  return groups.map(([origin, title]) => {
+    const fields = vocabulary.filter((f) => f.origin === origin && f.type !== "list");
+    if (!fields.length) return null;
+    return el("optgroup", {label: title},
+      fields.map((f) => el("option", {value: f.name}, f.label)));
+  });
+}
+
+/* Which comparisons make sense for this field. Offering "is more than" for a word, or "is any of"
+ * for a yes-or-no, is offering somebody a way to write a condition that cannot be true. */
+function suitable(comparison, field) {
+  const name = comparison.comparison;
+  if (name === "is null" || name === "is not null") return true;
+  if (field.type === "boolean") return name === "==" || name === "!=";
+  if (field.type === "number") return name !== "in" && name !== "not in";
+  if (field.values && field.values.length) return true;
+  return name === "==" || name === "!=" || name === "in" || name === "not in";
+}
+
+function defaultValueFor(field) {
+  if (!field) return "";
+  if (field.type === "boolean") return true;
+  if (field.values && field.values.length) return field.values[0].value;
+  return "";
+}
+
+function valueControl(field, part, takes) {
+  if (field.type === "boolean") {
+    const box = el("select", {"aria-label": "Yes or no"},
+      el("option", {value: "true"}, "yes"),
+      el("option", {value: "false"}, "no"));
+    box.value = part.value === false ? "false" : "true";
+    box.addEventListener("change", () => { part.value = box.value === "true"; });
+    return box;
+  }
+
+  if (field.values && field.values.length && takes === "one") {
+    const box = el("select", {"aria-label": "Which value"},
+      field.values.map((v) => el("option", {value: v.value}, v.label)));
+    box.value = part.value != null && part.value !== "" ? String(part.value) : field.values[0].value;
+    part.value = box.value;
+    box.addEventListener("change", () => { part.value = box.value; });
+    return box;
+  }
+
+  if (field.values && field.values.length && takes === "many") {
+    /* Tick boxes rather than a multi-select, which nobody knows to ctrl-click. */
+    const chosen = new Set(Array.isArray(part.value) ? part.value.map(String) : []);
+    part.value = [...chosen];
+    return el("span", {class: "choices"},
+      field.values.map((v) => el("label", {class: "choice"},
+        el("input", {
+          type: "checkbox",
+          checked: chosen.has(v.value) ? true : null,
+          onchange: (e) => {
+            if (e.target.checked) chosen.add(v.value); else chosen.delete(v.value);
+            part.value = [...chosen];
+          },
+        }),
+        " " + v.label)));
+  }
+
+  /* "is any of" on a field whose values are not a fixed list. A comma-separated box, because the
+   * alternative is a row of empty text inputs with an add button, and a person comparing a flood
+   * zone against two letters should not have to build a list to do it. */
+  if (takes === "many") {
+    const held_ = Array.isArray(part.value) ? part.value : (part.value ? [part.value] : []);
+    part.value = held_;
+    const box = el("input", {
+      type: "text", value: held_.join(", "), size: 20,
+      "aria-label": "The values to compare against, separated by commas",
+      placeholder: (field.examples || []).slice(0, 2).join(", ") || "one, another",
+    });
+    box.addEventListener("change", () => {
+      part.value = box.value.split(",").map((v) => v.trim()).filter(Boolean);
+    });
+    return el("span", {class: "many"}, box,
+      el("span", {class: "hint"}, "separate them with commas"));
+  }
+
+  if (field.type === "number") {
+    const box = el("input", {
+      type: "number", value: part.value == null ? "" : String(part.value), size: 10,
+      "aria-label": "The number to compare against",
+      placeholder: field.name === "price" ? "300000" : "",
+    });
+    box.addEventListener("change", () => {
+      const held_ = box.value.trim();
+      part.value = held_ === "" ? "" : Number(held_);
+    });
+    return box;
+  }
+
+  const box = el("input", {
+    type: "text", value: part.value == null ? "" : String(part.value), size: 18,
+    "aria-label": "The value to compare against",
+    placeholder: (field.examples && field.examples[0]) || "",
+  });
+  box.addEventListener("change", () => { part.value = box.value.trim(); });
+  return box;
+}
+
+function addRule() {
+  held.rules.push({
+    id: "",
+    severity: "flag",
+    when: "",
+    parts: [{field: "water_source", comparison: "==", value: "well", join: ""}],
+  });
+  redrawCriteria();
+}
+
+/* A few criteria worth having, offered as one click each, because a blank builder is still a blank
+ * page. Every one of these is a thing a person looking at rural property actually wants. */
+const SUGGESTIONS = [
+  ["on-a-well", "flag", [["water_source", "==", "well"]],
+   "Point out the ones on a private well"],
+  ["septic", "flag", [["sewer", "==", "septic"]],
+   "Point out the ones on septic"],
+  ["swamp-cooler", "demote", [["cooling", "==", "evaporative"]],
+   "Push down the ones with only an evaporative cooler"],
+  ["in-a-flood-zone", "flag", [["flood_zone", "in", ["A", "AE"]]],
+   "Point out the ones in a real FEMA flood zone"],
+  ["fire-risk", "demote", [["wildfire_hazard", "in", ["high", "very high"]]],
+   "Push down the ones the Forest Service rates high for wildfire"],
+  ["slow-internet", "flag", [["download_mbps", "<", 25]],
+   "Point out the ones with under 25 Mbps in their census block"],
+  ["price-came-down", "boost", [["price_cut", "==", true]],
+   "Lift the ones whose price has dropped"],
+  ["been-sitting", "flag", [["dom", ">", 120]],
+   "Point out the ones on the market over four months"],
+];
+
+function startFrom() {
+  return el("details", {class: "reference"},
+    el("summary", {}, "Start from one of these"),
+    el("p", {class: "meta"},
+      "One click adds it. Change anything about it afterwards, or remove it again."),
+    el("table", {class: "plain"},
+      el("tbody", {}, SUGGESTIONS.map(([id, severity, conditions, said]) => el("tr", {},
+        el("td", {}, said),
+        el("td", {},
+          el("button", {
+            type: "button",
+            class: "quiet",
+            disabled: held.rules.some((r) => r.id === id) ? true : null,
+            onclick: () => {
+              held.rules.push({
+                id: id,
+                severity: severity,
+                when: "",
+                parts: conditions.map(([f, c, v], at) => ({
+                  field: f, comparison: c, value: v, join: at ? "and" : "",
+                })),
+              });
+              redrawCriteria();
+            },
+          }, held.rules.some((r) => r.id === id) ? "added" : "Add"))))))
+  );
+}
+
+async function saveRules() {
+  const named = held.rules.filter((r) => (r.id || "").trim());
+  if (named.length !== held.rules.length) {
+    say("Every criterion needs a name. It is what the badge says.", "problem");
+    return;
+  }
+  const payload = held.rules.map((rule) =>
+    rule.parts
+      ? {id: rule.id, severity: rule.severity, parts: rule.parts}
+      : {id: rule.id, severity: rule.severity, when: rule.when});
+  await save({rules: payload});
 }
 
 function listOrNothing(raw) {
@@ -522,10 +765,18 @@ function range_(name, label, current) {
     type: "number", id: `${name}-max`, value: held_.max ?? "",
     "aria-label": `${label}, maximum`, placeholder: "no maximum",
   });
+  /* What the file says right now, so leaving a box without having touched it saves nothing. A blur
+   * handler that commits unconditionally writes the file every time somebody tabs through the page,
+   * which is how an empty `sqft:` appears in a search nobody edited. */
+  const asLoaded = JSON.stringify({
+    ...(held_.min != null ? {min: held_.min} : {}),
+    ...(held_.max != null ? {max: held_.max} : {}),
+  });
   const commit = () => {
     const wanted = {};
     if (low.value.trim() !== "") wanted.min = Number(low.value);
     if (high.value.trim() !== "") wanted.max = Number(high.value);
+    if (JSON.stringify(wanted) === asLoaded) return;
     save({[`filters.${name}`]: Object.keys(wanted).length ? wanted : null});
   };
   for (const box of [low, high]) {

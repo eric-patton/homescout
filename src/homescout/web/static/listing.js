@@ -13,8 +13,21 @@ whenReady(() => {
   load(id).catch(fail);
 });
 
+/* What to call each field on this page. The core knows: it declares every field a criterion can
+ * name along with the words to put in front of a person, and this reads the same table rather than
+ * turning `over_principal_aquifer` into "over principal aquifer" and calling that a label. */
+let labels = {};
+
+function labelFor(name) {
+  return labels[name] || name.replace(/_/g, " ");
+}
+
 async function load(id) {
-  const found = await ask(`/api/listings/${encodeURIComponent(id)}`);
+  const [found, settings] = await Promise.all([
+    ask(`/api/listings/${encodeURIComponent(id)}`),
+    ask("/api/settings"),
+  ]);
+  for (const field of settings.rule_vocabulary || []) labels[field.name] = field.label;
   draw(found.listing);
 }
 
@@ -180,7 +193,7 @@ function recovered(held) {
       el("tbody", {}, names.map((name) => {
         const entry = extracted[name];
         return el("tr", {},
-          el("th", {scope: "row"}, name.replace(/_/g, " ")),
+          el("th", {scope: "row"}, labelFor(name)),
           el("td", {},
             entry.conflicted
               ? el("span", {class: "unknown"}, "the description says two different things")
@@ -200,7 +213,7 @@ function enrichment(held) {
   if (!names.length) {
     return el("section", {}, el("h2", {}, "Where it is"),
       el("p", {class: "unknown"},
-        "nothing looked up yet. Run homescout enrich to fill these."));
+        "nothing looked up yet. Settings and tools has a button that fills these in."));
   }
   const internet = names.some((name) =>
     name === "download_mbps" || name === "upload_mbps" || name === "broadband_provider");
@@ -209,7 +222,7 @@ function enrichment(held) {
     el("h2", {}, "Where it is"),
     el("dl", {class: "facts"},
       names.sort().flatMap((name) => [
-        el("dt", {}, name.replace(/_/g, " ")),
+        el("dt", {}, labelFor(name)),
         el("dd", {}, value(found[name])),
       ])),
     /* The speeds need a sentence the others do not. Every other value here is about this point:
@@ -228,14 +241,22 @@ function enrichment(held) {
 
 function judgment(held) {
   const held_ = held.annotation || {};
-  const rows = ["rank", "verdict", "red_flags", "summary", "next_step", "notes"];
+  /* Yours, so they are labelled the way you would say them rather than the way they are stored. */
+  const rows = [
+    ["rank", "Your rank"],
+    ["verdict", "Your verdict"],
+    ["red_flags", "Red flags"],
+    ["summary", "Summary"],
+    ["next_step", "Next step"],
+    ["notes", "Notes"],
+  ];
   return el("section", {},
     el("h2", {}, "Your own judgment"),
     el("p", {class: "lede"},
       "Edit these in the results table, on the row you are reading. They survive every later run."),
     el("dl", {class: "facts"},
-      rows.flatMap((name) => [
-        el("dt", {}, name.replace(/_/g, " ")),
+      rows.flatMap(([name, said]) => [
+        el("dt", {}, said),
         el("dd", {}, value(held_[name])),
       ])),
     held.annotation_updated_at

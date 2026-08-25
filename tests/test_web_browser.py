@@ -153,7 +153,7 @@ def evaluate(connection, script: str, message_id: int = 1):
 
 
 def test_a_textarea_built_by_this_page_holds_its_text(served) -> None:
-    """feat-012/AC-9: the box a save is built from has to hold what the code put in it.
+    """feat-010/AC-24: the box a save is built from has to hold what the code put in it.
 
     A regression, and the kind only a real browser catches. A textarea keeps its text as content
     rather than in an attribute, so building one with `value=` set an attribute nothing reads: the
@@ -187,6 +187,96 @@ def test_a_textarea_built_by_this_page_holds_its_text(served) -> None:
     assert found["value"] == "on-a-well | flag | x == 1", (
         "a textarea built with a value drew empty, so any save built from it writes nothing back"
     )
+
+
+def test_the_value_box_follows_the_field(served) -> None:
+    """feat-010/AC-29: what a value may be is a property of the field that was chosen.
+
+    The failure this prevents is quiet and expensive. A text box beside "Cooling" is how somebody
+    types "swamp cooler", saves a criterion that parses and runs, and is never told it can never be
+    true because the six words that field may hold do not include it. So the control is rebuilt when
+    the field changes: a closed set becomes a dropdown of exactly that set, a number becomes a
+    number box, a true-or-false becomes yes and no.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (typeof valueControl === "function" && held.settings) break;
+                   await new Promise((r) => setTimeout(r, 100));
+                 }
+                 const of = (name) =>
+                   (held.settings.rule_vocabulary || []).find((f) => f.name === name);
+                 const shown = (name, takes) => {
+                   const box = valueControl(of(name), {value: null}, takes || "one");
+                   const node = box.tagName === "SELECT" ? box : box.querySelector("select") || box;
+                   return {
+                     tag: node.tagName,
+                     type: node.getAttribute("type"),
+                     options: [...(node.options || [])].map((o) => o.value),
+                   };
+                 };
+                 return {
+                   cooling: shown("cooling"),
+                   price: shown("price"),
+                   priceCut: shown("price_cut"),
+                   city: shown("city"),
+                 };
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found["cooling"]["tag"] == "SELECT", "a field with six possible values got a text box"
+    assert "evaporative" in found["cooling"]["options"]
+    assert "swamp cooler" not in found["cooling"]["options"], (
+        "the dropdown offered something the field cannot hold"
+    )
+    assert found["price"]["type"] == "number", "a price got something other than a number box"
+    assert found["priceCut"]["options"] == ["true", "false"], "a yes-or-no was not yes and no"
+    assert found["city"]["tag"] == "INPUT", "a field with no closed set should take typed text"
+
+
+def test_a_criterion_can_be_started_from_a_suggestion(served) -> None:
+    """feat-010/AC-32: the first criterion somebody has is not one they had to invent.
+
+    A blank builder is still a blank page. Each of these is a thing somebody looking at rural
+    property actually wants, and each is ordinary to edit or remove after it is added.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (typeof SUGGESTIONS !== "undefined") break;
+                   await new Promise((r) => setTimeout(r, 100));
+                 }
+                 const names = (held.settings.rule_vocabulary || []).map((f) => f.name);
+                 return SUGGESTIONS.map(([id, severity, conditions, said]) => ({
+                   id: id,
+                   severity: severity,
+                   said: said,
+                   known: conditions.every(([f]) => names.indexOf(f) !== -1),
+                 }));
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert len(found) >= 5, "a handful is the point; one is not a starting place"
+    for suggestion in found:
+        assert suggestion["known"], f"{suggestion['id']} names a field a criterion cannot use"
+        assert suggestion["said"], f"{suggestion['id']} does not say what it is for"
+        assert suggestion["severity"] in ("drop", "flag", "boost", "demote"), suggestion
 
 
 def test_the_table_is_quick_at_five_thousand_rows(served) -> None:

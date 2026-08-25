@@ -255,7 +255,56 @@ def create_search(workspace: Workspace, name: str) -> SearchDefinition:
 
 
 def edit_search(workspace: Workspace, name: str, changes: Mapping[str, object]) -> SearchDefinition:
-    return workspace.catalog.edit(name, changes)
+    """Change named keys in a saved search, through the round-tripping document layer.
+
+    One thing is translated on the way through. A criterion is stored as an expression, and a person
+    using the browser builds one out of rows: a field, a comparison, a value. A rule arriving with
+    `parts` instead of `when` has its expression composed here, because the grammar belongs to the
+    rule engine and non-negotiable 8 keeps it out of both interfaces. What lands in the file is the
+    same line somebody would have typed.
+    """
+    return workspace.catalog.edit(name, _with_expressions(changes))
+
+
+def _with_expressions(changes: Mapping[str, object]) -> dict[str, object]:
+    """Any criterion given as rows, turned into the expression a saved search stores."""
+    from .rules.phrase import CannotCompose, Part, compose
+
+    if "rules" not in changes:
+        return dict(changes)
+
+    rules = changes["rules"]
+    if not isinstance(rules, Sequence) or isinstance(rules, (str, bytes)):
+        return dict(changes)
+
+    made: list[Any] = []
+    for index, entry in enumerate(rules):
+        if not isinstance(entry, Mapping) or "parts" not in entry:
+            made.append(entry)
+            continue
+        held = {key: value for key, value in entry.items() if key != "parts"}
+        parts = entry["parts"]
+        if not isinstance(parts, Sequence) or isinstance(parts, (str, bytes)):
+            raise InvalidInput(f"criterion {index + 1} has conditions this cannot read.")
+        try:
+            held["when"] = compose(
+                [
+                    Part(
+                        field=str(part.get("field") or ""),
+                        comparison=str(part.get("comparison") or ""),
+                        value=part.get("value"),
+                        join=str(part.get("join") or ""),
+                    )
+                    for part in parts
+                    if isinstance(part, Mapping)
+                ]
+            )
+        except CannotCompose as exc:
+            name = held.get("id") or f"number {index + 1}"
+            raise InvalidInput(f"The criterion {name}: {exc}") from None
+        made.append(held)
+
+    return {**changes, "rules": made}
 
 
 # -- runs ------------------------------------------------------------------
@@ -1031,10 +1080,7 @@ def search_document(workspace: Workspace, name: str) -> dict[str, Any]:
         "areas": [_area_document(area) for area in getattr(definition, "areas", ())],
         "exclusions": [_area_document(area) for area in getattr(definition, "exclusions", ())],
         "filters": filters,
-        "rules": [
-            {"id": rule.id, "severity": rule.severity, "when": rule.when}
-            for rule in getattr(definition, "rules", ())
-        ],
+        "rules": [_rule_document(rule) for rule in getattr(definition, "rules", ())],
         "model_extraction": bool(getattr(definition, "model_extraction", False)),
         "extract_notes": str(getattr(definition, "extract_notes", "") or ""),
         "paused": bool(getattr(definition, "paused", False)),
@@ -1043,6 +1089,24 @@ def search_document(workspace: Workspace, name: str) -> dict[str, Any]:
             {"location": p.location, "message": p.message, "severity": p.severity}
             for p in definition.problems()
         ],
+    }
+
+
+def _rule_document(rule: Any) -> dict[str, Any]:
+    """One criterion, as text and, when it is one, as the rows a person built it from.
+
+    `parts` is `None` for an expression that is not a flat chain of comparisons: `(a or b) and c` is
+    a perfectly good criterion and is not rows. A surface shows that one as text rather than showing
+    rows that would quietly mean something else.
+    """
+    from .rules.phrase import readable
+
+    found = readable(rule.when)
+    return {
+        "id": rule.id,
+        "severity": rule.severity,
+        "when": rule.when,
+        "parts": [part.as_dict() for part in found] if found is not None else None,
     }
 
 
@@ -1076,6 +1140,7 @@ def vocabulary() -> dict[str, Any]:
     """
     from .rules import namespace
     from .rules.definition import SEVERITIES
+    from .rules.phrase import COMPARISONS, MANY, WITHOUT_VALUE
     from .rules.tokens import KEYWORDS, OPERATORS
     from .sources import registered
 
@@ -1089,7 +1154,32 @@ def vocabulary() -> dict[str, Any]:
         "rule_vocabulary": [dict(field) for field in namespace.vocabulary()],
         "rule_operators": list(OPERATORS) + ["in", "not in", "is null", "is not null"],
         "rule_keywords": sorted(KEYWORDS),
+        # The comparisons a builder offers, each with the words to put in front of somebody who is
+        # not writing code. `==` is "is", and nobody should have to learn otherwise to use this.
+        "rule_comparisons": [
+            {
+                "comparison": name,
+                "label": said,
+                "takes": (
+                    "nothing" if name in WITHOUT_VALUE else ("many" if name in MANY else "one")
+                ),
+            }
+            for name, said in COMPARISONS
+        ],
         "severities": list(SEVERITIES),
+        # What firing does, said as an instruction rather than as a category. "drop" and "demote"
+        # are the pair somebody has to guess between, so each says what happens to the row.
+        "severity_labels": [
+            {"severity": "flag", "label": "Point it out",
+             "does": "badges the row with this criterion's name. Nothing is hidden or reordered."},
+            {"severity": "boost", "label": "Show it first",
+             "does": "moves the row up, one place for each boost that fires."},
+            {"severity": "demote", "label": "Show it last",
+             "does": "moves the row down, one place for each demote that fires."},
+            {"severity": "drop", "label": "Hide it",
+             "does": "takes the row out of the results. Nothing is deleted: the property keeps its "
+                     "history and the run says what it removed and why."},
+        ],
         "area_kinds": list(AREA_KINDS),
     }
 

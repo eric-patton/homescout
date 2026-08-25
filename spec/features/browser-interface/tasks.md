@@ -113,14 +113,43 @@ alongside its peers.
       a search page was built that way, so a search with three rules showed none, and the "Save the
       criteria" button under it would have written the empty box back over them. Fixed in the
       builder rather than at the call site, with a regression test in the real-browser suite
-      (feat-012/AC-9).
+      (feat-010/AC-24).
 - [x] T33: The criteria box gained two folded references beside it: what each of the four severities
       does to what you see, and every field a condition may name with its type and, where the set is
       closed, its values. A list of field names was half an answer: `cooling == "swamp cooler"`
       names a real field and compares it to a word that can never be true, and nothing on the page
-      said so (feat-012/AC-9).
+      said so (feat-010/AC-24).
 - [x] T34: The place-notes panel says what it is for and stopped being a box you can silently miss
       with. It offers the towns and counties this store actually has properties in, because a note
       only reaches a property's row when it matches that property's own town as the source spells
       it, and "Portales, NM" typed into a blank box matched nothing. It also shows the note already
       written for the selected place, rather than starting empty every time.
+
+## Change: criteria built rather than typed (`changes/built-not-typed/`)
+
+- [x] T35: `rules/phrase.py`: an expression as rows and back. `readable` flattens a chain of
+      comparisons; `compose` writes rows as the text a saved search stores. The check is a round
+      trip rather than a guess, because rows that quietly mean something else would be saved over
+      what somebody wrote (feat-008/AC-24, AC-28).
+- [x] T36: `rules/namespace.py`: a human name for every field and for the values whose stored word
+      is not the word a person says. Declared in the core, because both surfaces need them and a
+      second copy would drift (AC-30). Record the change in feat-008's manifest.
+- [x] T37: `api.py`: a rule arriving with `parts` has its expression composed; a rule going out
+      carries its rows, or `null` when it is not rows (AC-28, AC-31).
+- [x] T38: The criteria surface becomes a builder: a card per criterion, a row per condition,
+      dropdowns that follow the field, add and remove for both, and eight one-click suggestions
+      (AC-28, AC-29, AC-32).
+- [x] T39: The plain-language pass: a property's page uses the core's labels rather than the field
+      names, and the three page introductions say what the page is for rather than what the file
+      format is (AC-30).
+- [x] T40: A defect found while building it: the filter boxes saved on every blur, so tabbing
+      through a page wrote an empty `sqft:` into a file nobody had edited. A field is now written
+      only when it changed, and clearing one removes the key rather than writing an empty one.
+- [x] T41 [P]: `tests/test_rules_phrase.py`: every shape people write round-trips unchanged, every
+      shape that is not rows is refused rather than approximated, and every comparison the builder
+      offers composes into something the engine accepts.
+- [x] T42 [P]: `tests/test_web_parity.py`: rows saved through the browser land as the expression
+      somebody would have typed, an unfinished condition is refused with the criterion named, and
+      one that is not rows comes back as text.
+- [x] T43: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
+      manifest stamp.

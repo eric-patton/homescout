@@ -624,3 +624,73 @@ details.reference table { font-size: 0.88rem; }
  * `.field` that is display:grid stays visible when hidden. This is the standard remedy and it has
  * to be `!important` for the same reason: it is competing with author rules by design. */
 [hidden] { display: none !important; }
+
+/* ------------------------------------------------------------------ */
+/* Criteria, built rather than typed                                   */
+/* ------------------------------------------------------------------ */
+
+/* One card per criterion. A card rather than a row because a criterion can have several conditions
+ * and each of those is four controls, which is more than a table row holds legibly. */
+.criterion {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  margin-bottom: var(--s3);
+  background: var(--paper);
+}
+.criterion-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  margin-bottom: var(--s2);
+}
+/* A name, not a paragraph. Wide enough for one and no wider. */
+.criterion-head input[type="text"] { flex: 0 1 16rem; min-width: 6rem; }
+.criterion-head button { margin-left: auto; }
+.criterion-when { color: var(--dim); font-size: 0.9rem; }
+
+.conditions { display: flex; flex-direction: column; gap: var(--s2); }
+.condition {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  padding: var(--s2);
+  border-radius: var(--radius-sm);
+  background: var(--shade);
+}
+/* The join reads as a word in a sentence, so it is the width of the word rather than of a control */
+.condition .join { flex: 0 0 auto; color: var(--dim); font-size: 0.9rem; }
+.condition select, .condition input { min-width: 0; }
+.condition input[type="number"] { max-width: 9rem; }
+
+/* Tick boxes rather than a multi-select, which nobody knows to ctrl-click. */
+.choices { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+.choice { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9rem; }
+.choice input { margin: 0; }
+.many { display: inline-flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+
+/* A criterion written by hand that the builder cannot show as rows. Shown as it was written. */
+code.expression {
+  display: block;
+  padding: var(--s2);
+  background: var(--shade);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+.empty {
+  color: var(--dim);
+  padding: var(--s3);
+  background: var(--shade);
+  border-radius: var(--radius);
+}
+
+@media (max-width: 60rem) {
+  /* Stacked, because four controls side by side in a narrow column is four controls one character
+   * wide. Each condition becomes its own short column of full-width controls. */
+  .condition { flex-direction: column; align-items: stretch; }
+  .condition .join { margin-bottom: calc(-1 * var(--s1)); }
+}

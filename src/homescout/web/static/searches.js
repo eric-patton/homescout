@@ -45,7 +45,8 @@ function draw() {
     el("p", {class: "lede"},
       held.length
         ? "Everything being watched, and what the last run found."
-        : "Nothing is being watched yet. A saved search is a YAML file; make one here or by hand."),
+        : "Nothing is being watched yet. A search is a place to look and what you want found " +
+          "there. Make one with the button below."),
     overview(),
 
     el("div", {class: "controls"},

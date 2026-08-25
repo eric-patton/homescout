@@ -151,6 +151,63 @@ _EXAMPLES: dict[str, tuple[str, ...]] = {
     "state": ("NM", "TX"),
 }
 
+#: What to call each field on a page, for somebody who did not choose the name in the code. Every
+#: field has one: without it a builder shows `over_principal_aquifer` in a dropdown, and a person
+#: who has to translate a variable name before they can pick it is a person the tool has failed.
+_LABELS: dict[str, str] = {
+    "price": "Price",
+    "listing_status": "Listing status",
+    "beds": "Bedrooms",
+    "baths": "Bathrooms",
+    "sqft": "House size (sq ft)",
+    "lot_sqft": "Lot size (sq ft)",
+    "year_built": "Year built",
+    "property_type": "Kind of property",
+    "address_line": "Street address",
+    "unit": "Unit number",
+    "city": "Town",
+    "state": "State",
+    "postal_code": "ZIP code",
+    "county": "County",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "parcel_number": "Parcel number",
+    "listing_url": "Link to the listing",
+    "description": "The listing's description",
+    "photo_urls": "Photos",
+    "dom": "Days on the market",
+    "is_new": "New since the last run",
+    "presence": "Still listed",
+    "price_cut": "Price has come down",
+    "price_raised_after_days": "Days before the price went up",
+    "flood_zone": "FEMA flood zone",
+    "upload_mbps": "Upload speed (Mbps)",
+    "download_mbps": "Download speed (Mbps)",
+    "broadband_provider": "Internet providers",
+    "over_principal_aquifer": "Over a principal aquifer",
+    "wildfire_hazard": "Wildfire hazard",
+    "elevation_ft": "Elevation (feet)",
+    "heating": "Heating",
+    "cooling": "Cooling",
+    "water_source": "Water source",
+    "sewer": "Sewer or septic",
+    "gas": "Gas",
+    "roof": "Roof",
+}
+
+#: What to call each value on a page. Only where the stored word is not the word a person says: a
+#: source's `for_sale` and an extraction's `co-op` are both fine to store and neither is fine to put
+#: in front of somebody choosing from a list.
+_VALUE_LABELS: dict[str, str] = {
+    "for_sale": "for sale",
+    "off_market": "off market",
+    "single_family": "single family",
+    "co-op": "a shared or co-op system",
+    "none": "none (the listing said it does not have one)",
+    "observed": "yes, the last run saw it",
+    "disappeared": "no, it has gone",
+}
+
 #: What each field means, in the words somebody writing a criterion would use. Here rather than in a
 #: surface, because both surfaces need it and a second copy would drift from the first.
 _MEANS: dict[str, str] = {
@@ -215,7 +272,11 @@ def vocabulary() -> tuple[dict[str, object], ...]:
                 "origin": field.origin,
                 "populated": field.populated,
                 "populated_by": field.populated_by,
-                "values": list(closed_values(name)),
+                "label": _LABELS.get(name, name.replace("_", " ").capitalize()),
+                "values": [
+                    {"value": value, "label": _VALUE_LABELS.get(value, value)}
+                    for value in closed_values(name)
+                ],
                 "examples": list(_EXAMPLES.get(name, ())),
                 "means": _MEANS.get(name, ""),
             }

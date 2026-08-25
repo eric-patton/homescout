@@ -597,3 +597,100 @@ def test_the_map_says_what_is_missing_and_offers_the_one_click(store: Store, db_
     with client(held_workspace(shared_store(db_path))) as browser:
         answer = browser.get("/api/settings", headers=reading()).json()
     assert answer["map"]["tiles"] is None, "a tile server is configured by default"
+
+
+# ---------------------------------------------------------------------------
+# Criteria built rather than typed
+# ---------------------------------------------------------------------------
+
+
+def test_a_criterion_can_be_saved_as_rows(filed) -> None:
+    browser, _held, _where = filed
+    """feat-010/AC-28: the browser sends what a person picked, not an expression it built.
+
+    The grammar belongs to the rule engine, and non-negotiable 8 keeps it out of both interfaces.
+    What lands in the file is the same line somebody would have typed by hand.
+    """
+    answer = browser.post(
+        "/api/searches/portales",
+        headers=ours(),
+        json={
+            "set": {
+                "rules": [
+                    {
+                        "id": "remote-and-slow",
+                        "severity": "demote",
+                        "parts": [
+                            {"field": "download_mbps", "comparison": "<", "value": 25, "join": ""},
+                            {
+                                "field": "water_source",
+                                "comparison": "!=",
+                                "value": "well",
+                                "join": "and",
+                            },
+                        ],
+                    }
+                ]
+            }
+        },
+    )
+
+    assert answer.status_code == 200, answer.text
+    rule = answer.json()["search"]["rules"][0]
+    assert rule["when"] == 'download_mbps < 25 and water_source != "well"'
+    # And it comes back as rows, so the page that saved it can show it again.
+    assert [part["field"] for part in rule["parts"]] == ["download_mbps", "water_source"]
+
+
+def test_rows_that_cannot_be_written_are_refused_with_the_criterion_named(filed) -> None:
+    """feat-010/AC-28: an empty value box is the likeliest mistake, so it says which one."""
+    browser, _held, _where = filed
+    answer = browser.post(
+        "/api/searches/portales",
+        headers=ours(),
+        json={
+            "set": {
+                "rules": [
+                    {
+                        "id": "half-finished",
+                        "severity": "flag",
+                        "parts": [{"field": "price", "comparison": "<", "value": "", "join": ""}],
+                    }
+                ]
+            }
+        },
+    )
+
+    assert answer.status_code == 400
+    said = answer.json()["error"]
+    assert "half-finished" in said, said
+    assert "compare against" in said, said
+
+
+def test_a_criterion_the_builder_cannot_show_comes_back_as_text(filed) -> None:
+    browser, _held, _where = filed
+    """feat-010/AC-31: `parts` is null for one that is not rows, so the page shows the text.
+
+    Showing rows that mean something else would be worse than showing none: the next save would
+    write that other meaning over what somebody wrote.
+    """
+    written = browser.post(
+        "/api/searches/portales",
+        headers=ours(),
+        json={
+            "set": {
+                "rules": [
+                    {
+                        "id": "complicated",
+                        "severity": "flag",
+                        "when": '(price < 100000 or beds > 3) and sqft > 1000',
+                    }
+                ]
+            }
+        },
+    )
+
+    assert written.status_code == 200, written.text
+    rule = written.json()["search"]["rules"][0]
+    assert rule["parts"] is None
+    assert rule["when"] == "(price < 100000 or beds > 3) and sqft > 1000"
