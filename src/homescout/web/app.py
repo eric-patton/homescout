@@ -403,7 +403,12 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     @app.get("/api/areas")
     def areas() -> dict[str, Any]:
-        return answer("areas", areas=wire.areas(held()))
+        return answer(
+            "areas",
+            areas=wire.areas(held()),
+            places=wire.places(held()),
+            matching_kinds=list(api.MATCHING_KINDS),
+        )
 
     @app.post("/api/areas")
     async def write_area(request: Request) -> dict[str, Any]:

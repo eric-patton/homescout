@@ -565,6 +565,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "results",
         "run_status",
         "area_notes",
+        "places",
         "set_area_note",
         "serve",
         "database_path",

@@ -82,3 +82,17 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   `flag` badges are available as a column outside the default set. Nothing about the sheet
   re-evaluates a criterion; it reads the verdicts the run recorded, which is why exporting last
   week's run still produces last week's answer.
+
+## Changes recorded here
+
+- **2026-08-24, the namespace became something a person can read.** `rules/namespace.py` gained
+  `vocabulary()`: every field with its type, the closed set of values where there is one, a few real
+  examples where the set is open, and a sentence for the fields whose name does not say what they
+  mean.
+
+  Both surfaces already had `names()`, and a list of names is half an answer. Somebody writing
+  `cooling == "swamp cooler"` has named a real field and compared it to a word that can never be
+  true, and nothing anywhere said so. The value sets are read from the tables that decide them (the
+  extraction vocabulary, the wildfire legend, the listing statuses) rather than restated, so a value
+  added in one of those reaches anybody writing a criterion in the same edit.
+

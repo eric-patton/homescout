@@ -101,6 +101,11 @@ def areas(workspace: api.Workspace) -> list[dict[str, Any]]:
     ]
 
 
+def places(workspace: api.Workspace) -> list[dict[str, Any]]:
+    """The towns and counties this store's properties are in, so nobody has to guess a spelling."""
+    return [dict(place) for place in api.places(workspace)]
+
+
 def installation(workspace: api.Workspace) -> dict[str, Any]:
     """What the pages need to know about this installation.
 

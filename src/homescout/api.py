@@ -949,7 +949,34 @@ def area_notes(workspace: Workspace) -> tuple[Any, ...]:
         return tuple(workspace.store.area_notes())
 
 
+def places(workspace: Workspace) -> tuple[dict[str, Any], ...]:
+    """The towns and counties this store's properties are actually in, with how many are in each.
+
+    A note only reaches a property's row when its place matches that property's own town or county,
+    exactly as the source spelled it. A box somebody types a place into by hand is therefore a box
+    somebody can silently miss with: "Portales, NM" is the obvious thing to write and matches no
+    listing, because the field says "Portales". Offering the spellings that are actually in the
+    store removes the guess rather than warning about it.
+    """
+    with _translating():
+        rows = workspace.store.connection.execute(
+            "SELECT 'city' AS kind, city AS value, COUNT(*) AS properties "
+            "FROM listing_snapshots WHERE city IS NOT NULL AND city != '' GROUP BY city "
+            "UNION ALL "
+            "SELECT 'county', county, COUNT(*) FROM listing_snapshots "
+            "WHERE county IS NOT NULL AND county != '' GROUP BY county "
+            "ORDER BY 1, 3 DESC"
+        )
+        return tuple(dict(row) for row in rows)
+
+
+#: The kinds of place a note may be about. Only `city` and `county` reach a property's row today,
+#: because those are the two a listing carries; the rest are recorded and read back but match
+#: nothing, which the surfaces say rather than leaving somebody to find out from an empty column.
 AREA_KINDS: tuple[str, ...] = ("city", "county", "zip", "state", "region")
+
+#: The kinds that a property's row can actually be matched on.
+MATCHING_KINDS: tuple[str, ...] = ("city",)
 
 
 def set_area_note(workspace: Workspace, area_type: str, area_value: str, notes: str | None) -> Any:
@@ -1048,12 +1075,21 @@ def vocabulary() -> dict[str, Any]:
     anything being edited, and a criterion cannot be offered a field the evaluator does not have.
     """
     from .rules import namespace
+    from .rules.definition import SEVERITIES
+    from .rules.tokens import KEYWORDS, OPERATORS
     from .sources import registered
 
     return {
         "sources": list(registered()),
         "rule_fields": list(namespace.names()),
-        "severities": ["drop", "flag", "boost", "demote"],
+        # The names on their own are half an answer: `cooling == "swamp cooler"` names a real field
+        # and compares it to a word that can never be true, and a list of names would not have said
+        # so. This carries the type, the closed set of values where there is one, and what the name
+        # means where the name does not say.
+        "rule_vocabulary": [dict(field) for field in namespace.vocabulary()],
+        "rule_operators": list(OPERATORS) + ["in", "not in", "is null", "is not null"],
+        "rule_keywords": sorted(KEYWORDS),
+        "severities": list(SEVERITIES),
         "area_kinds": list(AREA_KINDS),
     }
 

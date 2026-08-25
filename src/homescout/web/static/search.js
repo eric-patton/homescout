@@ -23,12 +23,20 @@ whenReady(() => {
 });
 
 async function load() {
-  const [search, settings] = await Promise.all([
+  const [search, settings, areas] = await Promise.all([
     ask(`/api/searches/${encodeURIComponent(held.name)}`),
     ask("/api/settings"),
+    ask("/api/areas"),
   ]);
   held.search = search.search;
   held.settings = settings;
+  /* The places this store has properties in, and what is already written about them. Fetched here
+   * rather than typed into a blank box: a note only reaches a property's row when it matches that
+   * property's own town, spelled the way the listing site spells it, and "Portales, NM" is the
+   * obvious thing to write and matches nothing. */
+  held.places = areas.places || [];
+  held.areaNotes = areas.areas || [];
+  held.matchingKinds = areas.matching_kinds || ["city"];
   draw();
 }
 
@@ -42,7 +50,7 @@ function draw() {
     problems(search),
     el("div", {class: "detail"},
       el("div", {}, mapPanel(), areaList()),
-      el("div", {}, settingsPanel(), notesPanel()),
+      el("div", {}, settingsPanel(), placeNotesPanel()),
     ),
   );
   startMap();
@@ -372,17 +380,95 @@ function criteriaPanel() {
   });
   return el("div", {},
     el("p", {class: "meta"},
-      "One per line: an id, what it does (drop, flag, boost or demote), and the condition. " +
-      "A condition is checked before it is saved, and a bad one is refused with its position."),
+      "One per line, three parts separated by pipes: a name you choose, what firing does, and the " +
+      "condition. A condition is checked before it is saved, and a bad one is refused with its " +
+      "position."),
     el("div", {class: "field"}, box),
     el("button", {
       type: "button",
       onclick: () => save({rules: parseRules(box.value)}),
     }, "Save the criteria"),
-    el("p", {class: "meta"},
-      "Fields a condition may name: " +
-      ((held.settings || {}).rule_fields || []).join(", ")),
+    whatFiringDoes(),
+    fieldReference(),
   );
+}
+
+/* The four severities, and what each actually does to what you see. "flag" and "demote" are not
+ * self-explanatory, and the difference between "drop" and "demote" is the one worth knowing before
+ * writing either. */
+function whatFiringDoes() {
+  const does = [
+    ["drop", "takes the property out of the results table. Nothing is deleted: its history is " +
+             "kept and the run says what was removed and by which criterion."],
+    ["flag", "badges the row with this criterion's name. Nothing is hidden or reordered."],
+    ["boost", "moves the row up. Each boost that fires is one place up the default order."],
+    ["demote", "moves the row down, one place per demote that fires."],
+  ];
+  return el("details", {class: "reference"},
+    el("summary", {}, "What each of the four does"),
+    el("table", {class: "plain"},
+      el("tbody", {}, does.map(([name, said]) => el("tr", {},
+        el("td", {}, el("code", {}, name)),
+        el("td", {}, said))))));
+}
+
+/* Every field a condition may name, with what it holds and what it may say.
+ *
+ * The panel used to print the names as a comma-separated line, which is half an answer: somebody
+ * writing `cooling == "swamp cooler"` has named a real field and compared it to a word that can
+ * never be true, and a list of names would not have told them. Where a field's values are a closed
+ * set, that set is here. */
+function fieldReference() {
+  const vocabulary = held.settings.rule_vocabulary || [];
+  const groups = [
+    ["listing", "From the listing", "What the site reports."],
+    ["derived", "From your own history",
+     "Computed here, from what this tool has seen. Never from what a site claims."],
+    ["extracted", "Read out of the description",
+     "Each is one word from a fixed list. `none` means the listing said it does NOT have the " +
+     "thing, which is different from the field being empty."],
+    ["enriched", "Public data about where it is",
+     "Filled by an enrichment pass. Empty until one has run."],
+  ];
+
+  return el("details", {class: "reference"},
+    el("summary", {}, "What a condition may say"),
+
+    el("p", {class: "meta"},
+      "Comparisons: == != < <= > >= and `in [\"a\", \"b\"]`. Join them with and, or, not. " +
+      "Text goes in double quotes; numbers do not."),
+    el("p", {class: "meta"},
+      "A field nobody filled makes the whole condition undetermined rather than false, so a " +
+      "property is never dropped for want of data. Ask about that directly with " +
+      "`water_source is null` or `is not null`."),
+
+    groups.map(([origin, title, said]) => {
+      const fields = vocabulary.filter((f) => f.origin === origin);
+      if (!fields.length) return null;
+      return el("div", {},
+        el("h4", {}, title),
+        el("p", {class: "meta"}, said),
+        el("table", {class: "plain"},
+          el("thead", {}, el("tr", {},
+            el("th", {}, "Field"), el("th", {}, "Holds"), el("th", {}, "Values"))),
+          el("tbody", {}, fields.map((f) => el("tr", {},
+            el("td", {}, el("code", {}, f.name)),
+            el("td", {}, f.of ? `a list of ${f.of}` : f.type),
+            el("td", {}, fieldValues(f)))))));
+    }),
+  );
+}
+
+function fieldValues(field) {
+  if (field.values && field.values.length) {
+    return el("span", {}, field.values.map((v) => `"${v}"`).join(", "));
+  }
+  if (field.type === "boolean") return el("span", {}, "true, false");
+  if (field.examples && field.examples.length) {
+    return el("span", {class: "meta"},
+      "for example " + field.examples.map((v) => `"${v}"`).join(", "));
+  }
+  return el("span", {class: "meta"}, field.means || (field.type === "number" ? "any number" : ""));
 }
 
 function parseRules(text) {
@@ -462,37 +548,123 @@ async function save(changes) {
   }
 }
 
-function notesPanel() {
+/* Research a town once rather than once per property.
+ *
+ * The panel used to say "About a town or a region rather than about a property. These are the notes
+ * the spreadsheet's second sheet carries", which describes where the note is stored and not what it
+ * is for. What it is for is that everything worth knowing about Portales is true of all two hundred
+ * Portales listings, and typing it into two hundred rows is not a thing anybody does twice.
+ *
+ * Two things the old panel let you get silently wrong. The place had to match the spelling the
+ * listing site uses, so "Portales, NM" typed into a blank box matched nothing and looked like the
+ * feature was broken. And only a town note reaches a property's row today, while the other kinds are
+ * recorded and read back and match nothing. Both are now said out loud, and the places you actually
+ * have properties in are offered rather than typed. */
+function placeNotesPanel() {
+  const known = (held.places || []).filter((p) => p.value);
+  const matching = held.matchingKinds || ["city"];
+  const existing = held.areaNotes || [];
+
   const box = el("textarea", {rows: "4", id: "note",
-                              "aria-label": "A note about this town or region"});
+                              "aria-label": "What you know about this place"});
+  const place = el("select", {id: "noteplace", "aria-label": "Which place"},
+    known.map((p) => el("option", {value: `${p.kind}|${p.value}`},
+      `${p.value} (${p.kind}, ${count(p.properties, "property", "properties")})`)),
+    el("option", {value: "other"}, "somewhere else"));
+
   const kind = el("select", {id: "notekind", "aria-label": "What kind of place"},
     (held.settings.area_kinds || []).map((k) => el("option", {value: k}, k)));
-  const place = el("input", {type: "text", id: "noteplace", "aria-label": "Which place"});
+  const typed = el("input", {type: "text", id: "noteplacetyped",
+                             placeholder: "spelled the way the listing spells it",
+                             "aria-label": "Which place"});
+  const elsewhere = el("div", {class: "field", hidden: true},
+    el("label", {for: "notekind"}, "Kind"), kind,
+    el("label", {for: "noteplacetyped"}, "Place"), typed,
+    el("span", {class: "hint"},
+      "Only a town note reaches a property's row, and only when it matches that property's own " +
+      "town exactly. Anything else is kept and shows on the spreadsheet's Areas sheet."));
+
+  const chosen = () => {
+    if (place.value === "other") return [kind.value, typed.value.trim()];
+    const [k, ...rest] = place.value.split("|");
+    return [k, rest.join("|")];
+  };
+
+  place.addEventListener("change", () => {
+    if (place.value === "other") elsewhere.removeAttribute("hidden");
+    else elsewhere.setAttribute("hidden", "");
+    const [k, v] = chosen();
+    const found = existing.find((n) => n.area_type === k && n.area_value === v);
+    box.value = (found && found.notes) || "";
+  });
+
+  /* Whatever is selected on arrival, show its note, so the box is an edit rather than a fresh
+   * start every time. A note you cannot see is a note you write twice. */
+  if (known.length) {
+    const [k, v] = chosen();
+    const found = existing.find((n) => n.area_type === k && n.area_value === v);
+    box.value = (found && found.notes) || "";
+  }
 
   return el("section", {},
-    el("h2", {}, "Notes about a place"),
+    el("h2", {}, "What you know about a place"),
     el("p", {class: "lede"},
-      "About a town or a region rather than about a property. These are the notes the " +
-      "spreadsheet's second sheet carries."),
-    el("div", {class: "field"}, el("label", {for: "notekind"}, "Kind"), kind),
+      "Research a town once, not once per property. What you write here about a town lands in the " +
+      "Town Analysis Notes column of every property in it, and on the spreadsheet's Areas sheet. " +
+      "Water, schools, the drive to anywhere, whatever you would otherwise re-type on two " +
+      "hundred rows."),
+    el("p", {class: "meta"},
+      "These belong to this database rather than to this search, so every saved search sees them."),
+
+    known.length
+      ? null
+      : el("p", {class: "notice"},
+          "No run has found anything yet, so there are no towns to write about. Run this search " +
+          "first and the places it finds will be here."),
+
     el("div", {class: "field"}, el("label", {for: "noteplace"}, "Place"), place),
+    elsewhere,
     el("div", {class: "field"}, el("label", {for: "note"}, "Note"), box),
-    el("button", {type: "button", onclick: () => saveNote(kind.value, place.value, box.value)},
-      "Save this note"),
-    el("div", {id: "notes"}),
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: "primary",
+        onclick: () => {
+          const [k, v] = chosen();
+          if (!v) {
+            say("Which place is the note about?", "problem");
+            return;
+          }
+          if (matching.indexOf(k) === -1) {
+            say(`Saved. A ${k} note is kept and shows on the Areas sheet, but only a town note ` +
+                "reaches a property's own row.", "plain");
+          }
+          saveNote(k, v, box.value);
+        },
+      }, "Save this note")),
+
+    el("div", {id: "notes"}, notesTable(existing)),
   );
+}
+
+function notesTable(notes) {
+  if (!notes || !notes.length) return el("p", {class: "meta"}, "Nothing written about a place yet.");
+  return el("table", {class: "plain"},
+    el("thead", {}, el("tr", {},
+      el("th", {}, "Place"), el("th", {}, "Kind"), el("th", {}, "Note"))),
+    el("tbody", {}, notes.map((note) => el("tr", {},
+      el("td", {}, note.area_value),
+      el("td", {}, note.area_type),
+      el("td", {}, value(note.notes))))));
 }
 
 async function saveNote(kind, place, notes) {
   try {
     const answered = await send("/api/areas",
       {area_type: kind, area_value: place, notes: notes});
+    held.areaNotes = answered.areas || [];
     say(`Saved a note about ${place}.`, "good");
-    document.getElementById("notes").replaceChildren(
-      el("table", {class: "plain"},
-        el("tbody", {}, (answered.areas || []).map((note) => el("tr", {},
-          el("td", {}, `${note.area_type} ${note.area_value}`),
-          el("td", {}, value(note.notes)))))));
+    document.getElementById("notes").replaceChildren(notesTable(held.areaNotes));
   } catch (error) {
     fail(error);
   }

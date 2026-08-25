@@ -114,3 +114,13 @@ alongside its peers.
       criteria" button under it would have written the empty box back over them. Fixed in the
       builder rather than at the call site, with a regression test in the real-browser suite
       (feat-012/AC-9).
+- [x] T33: The criteria box gained two folded references beside it: what each of the four severities
+      does to what you see, and every field a condition may name with its type and, where the set is
+      closed, its values. A list of field names was half an answer: `cooling == "swamp cooler"`
+      names a real field and compares it to a word that can never be true, and nothing on the page
+      said so (feat-012/AC-9).
+- [x] T34: The place-notes panel says what it is for and stopped being a box you can silently miss
+      with. It offers the towns and counties this store actually has properties in, because a note
+      only reaches a property's row when it matches that property's own town as the source spells
+      it, and "Portales, NM" typed into a blank box matched nothing. It also shows the note already
+      written for the selected place, rather than starting empty every time.

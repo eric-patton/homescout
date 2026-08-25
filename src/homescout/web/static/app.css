@@ -583,3 +583,44 @@ a.figure:hover { border-color: var(--accent); box-shadow: var(--lift-high); }
 .figure-flag .figure-number { color: var(--warn); }
 .figure-problem { border-left: 4px solid var(--bad); }
 .figure-problem .figure-number { color: var(--bad); }
+
+/* A reference somebody opens while writing something, and closes again. Folded away by default
+ * because it is long and is not the thing on the page; open, it is a table you read across. */
+details.reference {
+  margin-top: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--shade);
+}
+details.reference > summary {
+  cursor: pointer;
+  padding: var(--s2) var(--s3);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--dim);
+  list-style-position: inside;
+}
+details.reference[open] > summary { border-bottom: 1px solid var(--line); }
+details.reference > *:not(summary) { padding: 0 var(--s3); }
+details.reference > *:first-of-type { padding-top: var(--s3); }
+details.reference > *:last-child { padding-bottom: var(--s3); }
+details.reference h4 {
+  margin: var(--s4) 0 var(--s1);
+  font-size: 0.95rem;
+}
+details.reference table { margin-bottom: var(--s2); }
+details.reference code {
+  font-size: 0.85em;
+  background: var(--paper);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+details.reference td { vertical-align: top; }
+/* The field name is the thing being looked up, so it never wraps; everything else may. */
+details.reference td:first-child { white-space: nowrap; }
+details.reference table { font-size: 0.88rem; }
+
+/* An author rule setting `display` beats the browser's own `[hidden] { display: none }`, so a
+ * `.field` that is display:grid stays visible when hidden. This is the standard remedy and it has
+ * to be `!important` for the same reason: it is competing with author rules by design. */
+[hidden] { display: none !important; }

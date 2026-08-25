@@ -140,6 +140,89 @@ assert {f.name for f in _LISTING} | WITHHELD == set(FIELD_NAMES), (
 )
 
 
+#: Fields whose set of values is genuinely open, with a few real ones so somebody writing a
+#: criterion can see the shape of what they are comparing against. Not a promise about the whole
+#: set, which is why these are examples rather than values.
+_EXAMPLES: dict[str, tuple[str, ...]] = {
+    "flood_zone": ("X (AREA OF MINIMAL FLOOD HAZARD)", "X (0.2 PCT ANNUAL CHANCE FLOOD HAZARD)",
+                   "A", "AE"),
+    "property_type": ("single_family", "land", "mobile", "farm"),
+    "broadband_provider": ("CenturyLink, Xfinity, Yucca Telecom",),
+    "state": ("NM", "TX"),
+}
+
+#: What each field means, in the words somebody writing a criterion would use. Here rather than in a
+#: surface, because both surfaces need it and a second copy would drift from the first.
+_MEANS: dict[str, str] = {
+    "dom": "days on market, counted from this tool's own first sighting, never the site's claim",
+    "is_new": "first seen by this tool in the run being looked at",
+    "presence": "whether the last run still saw it",
+    "price_cut": "the price is lower than it was",
+    "price_raised_after_days": "days it sat before the price went up, if it did",
+    "lot_sqft": "lot size in square feet, so an acre is 43560",
+    "elevation_ft": "feet above sea level",
+    "upload_mbps": "best advertised residential upload in this property's census block",
+    "download_mbps": "best advertised residential download in this property's census block",
+    "broadband_provider": "who offers it in that block, comma separated",
+    "over_principal_aquifer": "the point is over a USGS principal aquifer",
+    "photo_urls": "a list, so use `is null` rather than comparing it",
+    "description": "the listing's prose, which is what the extracted fields below were read from",
+}
+
+
+def closed_values(name: str) -> tuple[str, ...]:
+    """The complete set of values a field may hold, or nothing when the set is open.
+
+    Read from the tables that actually decide each set rather than restated here, so a value added
+    to the extraction vocabulary or the wildfire legend reaches anybody writing a criterion in the
+    same edit. Imported inside the function because those tables import this one.
+    """
+    if name in ("heating", "cooling", "water_source", "sewer", "gas", "roof"):
+        from ..extract.fields import find as extracted
+
+        found = extracted(name)
+        return found.values if found is not None else ()
+    if name == "wildfire_hazard":
+        from ..enrich.providers import WILDFIRE_CLASSES
+
+        return tuple(WILDFIRE_CLASSES.values())
+    if name == "listing_status":
+        from ..search.validate import LISTING_TYPES
+
+        return tuple(LISTING_TYPES)
+    if name == "presence":
+        return ("observed", "disappeared")
+    return ()
+
+
+def vocabulary() -> tuple[dict[str, object], ...]:
+    """Every field a criterion may name, with what it holds and what it may say.
+
+    The list of names on its own is half an answer: somebody writing `cooling == "swamp cooler"`
+    has named a real field and compared it to a word that can never be true, and nothing in a bare
+    list of names would have told them. So this carries the closed set where there is one, a few
+    real examples where the set is open, and a sentence for the fields whose name does not say what
+    they mean.
+    """
+    found: list[dict[str, object]] = []
+    for name in sorted(FIELDS):
+        field = FIELDS[name]
+        found.append(
+            {
+                "name": name,
+                "type": field.type.name,
+                "of": field.type.item.name if field.type.item is not None else None,
+                "origin": field.origin,
+                "populated": field.populated,
+                "populated_by": field.populated_by,
+                "values": list(closed_values(name)),
+                "examples": list(_EXAMPLES.get(name, ())),
+                "means": _MEANS.get(name, ""),
+            }
+        )
+    return tuple(found)
+
+
 def names() -> tuple[str, ...]:
     """Every name a rule may use, in a stable order."""
     return tuple(sorted(FIELDS))
