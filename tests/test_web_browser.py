@@ -858,8 +858,17 @@ def test_the_thumbnail_opens_every_photograph_the_listing_carried(served) -> Non
           alreadySecure: pictureAddress("https://ap.rdcpix.com/a.jpg", "https:"),
           refused: pictureAddress("javascript:alert(1)", "https:"),
         };
+        /* What the sites hand over is a thumbnail; these are the addresses of the real picture. */
+        const bigger = {
+          realtor: biggest("https://ap.rdcpix.com/89da51l-m1071147296s.jpg"),
+          zillow: biggest("https://photos.zillowstatic.com/fp/cd4fa8-p_e.jpg"),
+          alreadyBig: biggest(
+            "https://photos.zillowstatic.com/fp/cd4fa8-uncropped_scaled_within_1536_1152.jpg"),
+          unknownHost: biggest("https://maps.googleapis.com/maps/api/staticmap?size=575x242"),
+          notAnAddress: biggest("not an address at all"),
+        };
 
-        return {first, second, back, wrapped, said, asked, upgrade,
+        return {first, second, back, wrapped, said, asked, upgrade, bigger,
                 secure: window.location.protocol === "https:",
                 gone: !document.querySelector("dialog.gallery"),
                 shots};
@@ -885,6 +894,17 @@ def test_the_thumbnail_opens_every_photograph_the_listing_carried(served) -> Non
         "alreadySecure": "https://ap.rdcpix.com/a.jpg",
         "refused": None,
     }, found["upgrade"]
+    assert found["bigger"] == {
+        # Realtor's `s` is 120 by 80 pixels. Its `o` is the original, at 1024 by 683.
+        "realtor": "https://ap.rdcpix.com/89da51l-m1071147296o.jpg",
+        # Zillow's `-p_e` is 596 wide; uncropped is 1536 and is not cropped to a shape.
+        "zillow": "https://photos.zillowstatic.com/fp/cd4fa8-uncropped_scaled_within_1536_1152.jpg",
+        "alreadyBig":
+            "https://photos.zillowstatic.com/fp/cd4fa8-uncropped_scaled_within_1536_1152.jpg",
+        # A host with no rule is left alone, signed map tiles among them: rewriting one breaks it.
+        "unknownHost": "https://maps.googleapis.com/maps/api/staticmap?size=575x242",
+        "notAnAddress": "not an address at all",
+    }, found["bigger"]
 
 
 def test_a_listing_with_no_photographs_says_so_rather_than_opening_nothing(served) -> None:

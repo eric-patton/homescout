@@ -643,7 +643,7 @@ dialog.gallery {
   padding: 0;
   max-width: 96vw;
   max-height: 94vh;
-  width: min(1200px, 96vw);
+  width: min(1560px, 96vw);
   background: #14161a;
   color: #f2f3f5;
   box-shadow: var(--lift-high);
@@ -663,6 +663,9 @@ dialog.gallery::backdrop { background: rgba(10, 12, 16, 0.82); }
   max-height: 82vh;
   object-fit: contain;
 }
+/* Until the picture arrives there is nothing to give the frame a size, and a dialog that opens as a
+ * sliver and then jumps to full height is worse than one that opens the size it will be. */
+.plateframe { min-height: min(60vh, 640px); }
 button.page {
   position: absolute;
   top: 50%;

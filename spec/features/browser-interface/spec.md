@@ -321,7 +321,11 @@ in five years. The problem brief is in `research.md`.
       page. These pictures are the listing site's rather than this tool's, so nothing is asked of
       any listing site until somebody opens the gallery, and the gallery says where they come from:
       it is the one place in this product where looking at a property is not free of the site it was
-      found on. A listing that carried none says so rather than opening an empty gallery.
+      found on. A listing that carried none says so rather than opening an empty gallery. What a
+      site hands over is a thumbnail address, so the gallery asks for the full-size rendition where
+      the site's addressing scheme says how; that is a rule about somebody else's scheme, so a
+      rewritten address that fails to load falls back to the stored one rather than showing nothing,
+      and an address from a site with no such rule is used exactly as it was given.
 
 ## Edge cases & errors
 

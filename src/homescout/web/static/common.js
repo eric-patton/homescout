@@ -261,6 +261,37 @@ function whenReady(go) {
 /* Looking at a property's photographs                                 */
 /* ------------------------------------------------------------------ */
 
+/* The bigger rendition of a picture, where the site is one whose addresses say what size they are.
+ *
+ * What a listing site hands over is a thumbnail, and a small one: Realtor's photo addresses end in
+ * `s` and answer at 120 by 80 pixels, which is a picture you cannot see a roof line in. The same
+ * address ending in `o` is the original at 1024 by 683. Zillow's `-p_e` is 596 wide and its
+ * `-uncropped_scaled_within_1536_1152` is 1536 and, as the name says, not cropped to a shape.
+ *
+ * This is a rule about somebody else's addressing scheme, so it is written as one and it is allowed
+ * to be wrong: every rewritten address falls back to the stored one the moment it fails to load. An
+ * address from a host with no rule here, a signed map tile among them, is left exactly as it is.
+ */
+const RENDITIONS = [
+  {host: "rdcpix.com", from: /-m(\d+)s\.jpg$/i, to: "-m$1o.jpg"},
+  {host: "zillowstatic.com", from: /-(?:p|cc_ft|o)_?[a-z0-9]*\.jpg$/i,
+   to: "-uncropped_scaled_within_1536_1152.jpg"},
+];
+
+function biggest(url) {
+  try {
+    const {hostname} = new URL(url);
+    for (const rule of RENDITIONS) {
+      if (hostname.endsWith(rule.host) && rule.from.test(url)) {
+        return url.replace(rule.from, rule.to);
+      }
+    }
+  } catch (_) {
+    /* Not an address this can reason about. */
+  }
+  return url;
+}
+
 /** An address a picture can actually be loaded from, or nothing.
  *
  * Every photograph address the listing sites hand over is stored as `http`, and this interface is
@@ -297,13 +328,21 @@ function gallery(photos, what) {
   const counter = el("span", {class: "counter", role: "status"}, "");
   const preload = [];
 
+  /* A rewritten address that does not load falls back to the stored one, once. Guessing at another
+   * site's renditions is worth it for a picture forty times the size, but not at the price of a
+   * broken frame if they change the scheme. */
+  frame.addEventListener("error", () => {
+    const stored = urls[at];
+    if (frame.getAttribute("src") !== stored) frame.src = stored;
+  });
+
   const show = (index) => {
     at = (index + urls.length) % urls.length;
-    frame.src = urls[at];
+    frame.src = biggest(urls[at]);
     counter.replaceChildren(document.createTextNode(`${at + 1} of ${urls.length}`));
     /* The next one and the one before, so pressing an arrow shows a picture rather than a gap. */
     for (const near of [at + 1, at - 1]) {
-      const url = urls[(near + urls.length) % urls.length];
+      const url = biggest(urls[(near + urls.length) % urls.length]);
       if (preload.includes(url)) continue;
       preload.push(url);
       const ahead = new Image();

@@ -338,3 +338,10 @@ alongside its peers.
       `http`, and a browser refuses an `http` image on an `https` page before the request is made,
       so over Tailscale the gallery would have been a row of broken frames. The hosts all answer on
       `https`; the upgrade is conditional so nothing that would have loaded stops loading.
+- [x] T80: `web/static/common.js`: the gallery asks for the full-size rendition (`feat-010/AC-51`).
+      What the sites hand over is a thumbnail address and a small one: Realtor's ends in `s` and
+      answers at 120 by 80 pixels, which is a picture you cannot see a roof line in; the same
+      address ending in `o` is the original at 1024 by 683. Zillow's `-p_e` is 596 wide against 1536
+      uncropped. Written as a table of rules per host, checked against eight real stored addresses
+      that all answered, with a fallback to the stored address on any load failure and no rewriting
+      at all for a host with no rule, signed map tiles among them.
