@@ -116,3 +116,20 @@ earlier.
       address and the terminal prints it, so neither surface has it alone (product invariant 5).
 - [x] T-link-3: `tests/test_store_history.py`: a record merged from two sites reports both addresses
       and they differ (`feat-001/AC-27`).
+
+## Change: five more annotation fields (browser-interface `changes/choose-your-columns/`)
+
+- [x] T-notes-1: `store/models.py`, `store/schema.py`, `store/migrations.py`: `taxes`, `crime`,
+      `fire_egress`, `sewage_exposure` and `outbuildings` on the annotation, with `SCHEMA_V9`. On
+      exactly the terms `judgment` was added on, which is `feat-001/AC-15`, `feat-001/AC-16` and
+      `feat-001/AC-17` applying to them unchanged: written only by a person, never by a run,
+      surviving every merge, unmerge and re-export.
+- [x] T-notes-2: **Defect.** `store/core.py`'s annotation reader named its columns one at a time, so
+      a value written to a field it did not know about went in and came back as nothing. Both the
+      reader and the writer are built from `ANNOTATION_FIELDS` now, which is the only place the
+      fields are declared.
+- [x] T-notes-3: **Defect.** `store.get_preview_image` returned nothing for a merged record, because
+      the picture belongs to whichever record was observed when it was fetched and merging never
+      moves anything. It falls back to a constituent's picture, on the read side only.
+- [x] T-notes-4: `store.live_listing_id` made public, for anything assembling what a person reads:
+      an id held from before a merge is still a real record and is no longer the one to show.

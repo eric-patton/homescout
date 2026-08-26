@@ -162,7 +162,10 @@ def build_parser() -> argparse.ArgumentParser:
         "annotate", parents=[common], help="record your own judgment about a property"
     )
     annotate.add_argument("listing_id")
-    for option in ("rank", "verdict", "red-flags", "summary", "next-step", "notes"):
+    # Every annotation field the store declares, so a field added there is a flag here without
+    # anybody remembering to add it. The two lists having drifted is how a column ends up
+    # writable in the browser and unreachable from the terminal.
+    for option in _written():
         annotate.add_argument(f"--{option}", default=None)
     annotate.add_argument(
         "--judgment",
@@ -571,10 +574,23 @@ def _areas(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("areas", areas=payload), render.areas(found))
 
 
+def _written() -> tuple[str, ...]:
+    """The annotation fields a person types, as option names.
+
+    Judgment is not among them: it is three fixed choices rather than free text and has its
+    own flag with those choices on it.
+    """
+    return tuple(
+        name.replace("_", "-")
+        for name in api.annotation_fields()
+        if name != "judgment"
+    )
+
+
 def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     values = {
         name: getattr(args, name)
-        for name in ("rank", "verdict", "red_flags", "summary", "next_step", "notes")
+        for name in (option.replace("-", "_") for option in _written())
         if getattr(args, name) is not None
     }
     if getattr(args, "judgment", None) is not None:

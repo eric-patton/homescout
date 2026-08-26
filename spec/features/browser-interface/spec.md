@@ -294,13 +294,23 @@ in five years. The problem brief is in `research.md`.
       to the workspace, so two people reading one workspace arrange it independently. Where the
       browser cannot store it, the table opens in the declared arrangement and every other part of
       the page behaves identically.
-- [ ] AC-46: A column the tool never fills is arranged after the columns it does fill, and is marked
-      as one for the person to fill in themselves, so that an empty cell under it is not read as an
-      answer.
+- [ ] AC-46: Every column is either filled by this tool or written by the person, and its heading
+      says which, so that an empty cell is never read as the tool having failed at something it was
+      not doing. There is no third kind: a column that is neither filled nor writable is a heading
+      with an apology under it.
 - [ ] AC-47: Long text can be made to wrap, from the same row of controls as the other view toggles.
       Wrapping is clamped to a fixed number of lines and every row stays the height of every other
       row, because the table places rows by arithmetic rather than measuring them; text past the
       clamp stays reachable in the cell's tooltip and on the property's own page.
+- [ ] AC-52: A column can be hidden from this screen, by right-clicking its heading and by the
+      keyboard, and brought back from a chooser that lists every column. Hiding is remembered
+      alongside the order and the widths, and a column comes back where it was rather than on the
+      end. It changes what this screen draws and nothing else: every column stays in the answer and
+      in the spreadsheet. The control column cannot be hidden.
+- [ ] AC-53: The table's own box ends within the window, so the horizontal scrollbar on its bottom
+      edge is reachable, and the page behind it does not scroll. Its height is measured from where
+      the box actually falls rather than assumed, so it stays right as the controls wrap and the
+      window changes.
 - [ ] AC-48: Passing on a property asks for confirmation first, in a dialog on the page rather than
       the browser's own, which says what passing does and that it is reversible. Dismissing it by
       any means, including the keyboard, leaves the property exactly as it was. Keeping a property

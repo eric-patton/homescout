@@ -360,21 +360,28 @@ def test_a_property_with_no_photograph_still_holds_the_space() -> None:
     assert "hold the same space" in results
 
 
-def test_the_columns_nothing_fills_are_arranged_last_and_marked() -> None:
-    """feat-010/AC-46: because an unmarked empty cell was read as the tool knowing nothing.
+def test_every_column_is_either_filled_or_writable_and_says_which() -> None:
+    """feat-010/AC-46: because an unmarked empty column was read as the tool knowing nothing.
 
-    Five of the forty-two columns are the household's own spreadsheet headings, kept because their
-    sheet has them and filled by nobody: taxes, crime, fire, sewage exposure, outbuildings. Sitting
-    among the columns that do have answers, `Fire/Egress/Terrain` reading empty on every row was
-    read as this tool having no fire data, while two columns of it sat thirty columns to the right.
+    Five of the forty-two were a third kind: the household's own spreadsheet headings, filled by
+    nobody and typed into by nobody either. `Fire/Egress/Terrain` reading empty on every row was
+    taken to mean this tool had no fire data, while two columns of it sat off the right edge. They
+    are annotation columns now, so every column is either something this tool fills or something
+    the person writes, and the heading says which.
     """
+    from homescout.export import columns as cols
+
     results = script("results")
     style = (STATIC / "app.css").read_text(encoding="utf-8")
 
-    assert 'column.origin !== "unfilled"' in results, "the filled ones are arranged first"
-    assert 'column.origin === "unfilled"' in results, "the unfilled ones follow them"
-    assert "th.unfilled" in style, "and they are marked"
-    assert "for you to fill in yourself" in results, "in words, not only in style"
+    assert {column.origin for column in cols.COLUMNS} <= {
+        "listing", "derived", "extracted", "enriched", "annotation",
+    }, "a column that is neither filled by this tool nor writable by a person"
+    assert "yours to write in" in results, "the heading does not say whose an empty column is"
+    assert "th.yours" in style, "and it is not marked"
+    for name, field in (("Annual Taxes", "taxes"), ("Fire/Egress/Terrain", "fire_egress"),
+                        ("Crime/Safety", "crime")):
+        assert f'"{name}": "{field}"' in results, f"{name} still cannot be typed into"
 
 
 def test_the_row_height_is_published_from_one_place() -> None:

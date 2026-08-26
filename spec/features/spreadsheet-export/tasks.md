@@ -86,3 +86,16 @@ alongside its peers.
 - [x] T-county-3: `tests/test_export_columns.py`: the listing's word wins, the lookup fills a blank,
       a borrowed county is spelled exactly like a stated one, neither knowing is an empty cell, and
       the looked-up column keeps its own answer (`feat-011/AC-14`, `feat-011/AC-15`).
+
+## Defects
+
+- [x] T-defect-1: **The five columns the spec says are "filled only by the user's own notes" could
+      not be filled.** They were carried as a sixth origin, `unfilled`, which meant a column that was
+      empty forever and could not be typed into either. They point at real annotation fields now and
+      the origin is retired, having no members left. Pinned by
+      `tests/test_export_columns.py::test_the_columns_no_source_supplies_are_the_persons_to_write_in`
+      citing `feat-011/AC-5`.
+- [x] T-defect-2: **A property merged after a run was two rows, and the merged record was none.**
+      `export/rows.py` re-keys every kept row to the record that represents it now and keeps the
+      fullest where several land on the same one. Pinned by `tests/test_export_values.py` citing
+      `feat-011/AC-2`, the criterion that says one row per canonical listing.

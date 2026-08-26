@@ -48,7 +48,7 @@ def test_the_command_answers_a_machine_too(store: Store, db_path: Path, tmp_path
     assert document["properties"] == 1
     assert document["template"] == "default"
     assert len(document["columns"]) == 32
-    assert "Garage/Outbuildings" in document["empty_columns"]["unfilled"]
+    assert "Garage/Outbuildings" in document["empty_columns"]["annotation"]
 
 
 def test_the_command_refuses_to_replace_a_file(

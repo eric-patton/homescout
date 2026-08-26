@@ -582,6 +582,19 @@ def deliver(
 # -- annotations -----------------------------------------------------------
 
 
+def annotation_fields() -> tuple[str, ...]:
+    """Every field of a person's own judgment, in the order they are declared.
+
+    Asked for by both surfaces so neither writes the list out again. They had it twice, once as
+    command-line flags and once as an allowed set of request keys, and a field added to the store
+    without both being edited is a column that is writable on one surface and unreachable from the
+    other, which non-negotiable 8 does not allow.
+    """
+    from .store import Annotation
+
+    return tuple(Annotation.ANNOTATION_FIELDS)
+
+
 def annotate(workspace: Workspace, listing_id: str, **values: object) -> Annotation:
     """Write the user's judgment about one property.
 

@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -541,4 +541,17 @@ def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:
 # able to change their mind about.
 SCHEMA_V8 = """
 ALTER TABLE annotations ADD COLUMN judgment TEXT;
+"""
+
+# Version 9. Somewhere to put the five columns the household's own spreadsheet has and this tool
+# does not fill: taxes, crime, fire and egress, sewage exposure, outbuildings. They existed as
+# headings with nothing behind them, which meant the browser drew them empty on every row, marked
+# them as the person's to fill in, and gave them no way to do it. Nullable, no backfill, no trigger,
+# for the same reason as version 8: an annotation is a thing a person is meant to be able to revise.
+SCHEMA_V9 = """
+ALTER TABLE annotations ADD COLUMN taxes TEXT;
+ALTER TABLE annotations ADD COLUMN crime TEXT;
+ALTER TABLE annotations ADD COLUMN fire_egress TEXT;
+ALTER TABLE annotations ADD COLUMN sewage_exposure TEXT;
+ALTER TABLE annotations ADD COLUMN outbuildings TEXT;
 """

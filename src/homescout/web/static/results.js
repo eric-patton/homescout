@@ -57,10 +57,25 @@ const EDITABLE = {
   "Summary": "summary",
   "Next Step": "next_step",
   "Notes": "notes",
+  "Annual Taxes": "taxes",
+  "Crime/Safety": "crime",
+  "Fire/Egress/Terrain": "fire_egress",
+  "Sewage & Reclaimed-Water Exposure": "sewage_exposure",
+  "Garage/Outbuildings": "outbuildings",
 };
 
 /* What each site is called on a link back to it. */
 const SITES = {realtor: "Realtor", zillow: "Zillow", redfin: "Redfin"};
+
+/* What an empty cell in a column means, for the heading's tooltip. A person looking at a blank
+ * column wants to know which kind of blank it is before they go looking for a bug. */
+const ORIGINS = {
+  listing: "what the listing site reported",
+  derived: "worked out by this tool",
+  extracted: "recovered from the listing's own description",
+  enriched: "public data about where the property is",
+  annotation: "yours to write in",
+};
 
 /* Saying no to a house has a column of its own, first, and it is not one of the export's columns.
  * It was inside the address cell, after the address and after however many badges the property
@@ -71,6 +86,11 @@ const PASS_COLUMN = {name: "Keep or pass", kind: "control", origin: "control"};
 
 const state = {
   search: "",
+  /* Every column the answer declared, in the order this person has put them. `columns` is the
+   * subset actually drawn. Two lists rather than one because hiding a column must not lose where it
+   * was: showing it again puts it back where it sat, not on the end. */
+  declared: [],
+  hidden: {},
   columns: [],
   all: [],
   shown: [],
@@ -101,7 +121,8 @@ whenReady(() => {
 
 async function load() {
   const found = await ask(`/api/results/${encodeURIComponent(state.search)}`);
-  state.columns = arrange(found.columns);
+  state.declared = arrange(found.columns);
+  state.columns = visible();
   state.all = found.rows;
   draw();
   apply();
@@ -133,7 +154,8 @@ function remember() {
   try {
     window.localStorage.setItem(keep(), JSON.stringify({
       /* The control column is not the person's to arrange, so it is not in what is remembered. */
-      order: state.columns.filter(sortable).map((column) => column.name),
+      order: state.declared.filter(sortable).map((column) => column.name),
+      hidden: Object.keys(state.hidden),
       widths: state.widths,
       photos: state.showPhotos,
       wrap: state.wrap,
@@ -151,6 +173,8 @@ function arrange(declared) {
   state.widths = Object.assign({}, held.widths || {});
   state.showPhotos = held.photos === true;
   state.wrap = held.wrap === true;
+  state.hidden = {};
+  for (const name of held.hidden || []) state.hidden[name] = true;
 
   const byName = new Map(declared.map((column) => [column.name, column]));
   const ordered = [];
@@ -160,14 +184,37 @@ function arrange(declared) {
       byName.delete(name);
     }
   }
-  /* Whatever is left keeps its declared order, except that the columns nothing fills go last.
-   * Those are the household's own spreadsheet headings waiting for the household to fill them in,
-   * and sitting them among the columns that do have answers is what made the table read as though
-   * the tool knew nothing about fire, taxes or crime when it was never asked to. */
-  const rest = [...byName.values()];
-  ordered.push(...rest.filter((column) => column.origin !== "unfilled"));
-  ordered.push(...rest.filter((column) => column.origin === "unfilled"));
+  /* Anything the remembered order did not mention keeps the order it was declared in. New columns
+   * therefore appear where the answer puts them rather than shuffling an arrangement somebody
+   * built, and they appear rather than being silently hidden. */
+  ordered.push(...byName.values());
   return [PASS_COLUMN, ...ordered];
+}
+
+/* The columns actually drawn, which is every declared one that has not been hidden. Recomputed
+ * rather than kept in step by hand, so there is no state to get out of step. */
+function visible() {
+  return state.declared.filter((column) => !state.hidden[column.name]);
+}
+
+function relayout() {
+  state.columns = visible();
+  state.focus.column = Math.max(0, Math.min(state.focus.column, state.columns.length - 1));
+  remember();
+  redrawHeader();
+  window_();
+}
+
+function hide(name) {
+  if (name === PASS_COLUMN.name) return;
+  state.hidden[name] = true;
+  relayout();
+  say(`${name} hidden. Bring it back from "choose columns".`);
+}
+
+function show(name) {
+  delete state.hidden[name];
+  relayout();
 }
 
 function sortable(column) {
@@ -201,6 +248,7 @@ function measure() {
 
 function reset() {
   state.widths = {};
+  state.hidden = {};
   state.showPhotos = false;
   state.wrap = false;
   try {
@@ -272,9 +320,9 @@ function draw() {
     `${state.search} results`,
     el("h1", {}, `${state.search}`),
     el("p", {class: "lede"},
-      "Click a column heading to sort by it. Drag a heading to move that column, or drag its right " +
-      "edge to make it wider. Click into a cell with a white background to write your own notes on " +
-      "a property, and press Enter to keep them. What you write survives every later run."),
+      "Click a heading to sort by it, drag it to move the column, drag its right edge to resize, " +
+      "right-click it to hide it. Cells with a white background are yours to write in: click one " +
+      "and press Enter. What you write survives every later run."),
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),
@@ -283,8 +331,10 @@ function draw() {
       el("label", {for: "showphotos"}, photos, " show photos"),
       el("label", {for: "wraptext"}, wrapping,
          ` wrap long text (${WRAP_LINES} lines)`),
+      el("button", {type: "button", class: "quiet", onclick: chooseColumns,
+                    title: "Show or hide columns"}, "choose columns"),
       el("button", {type: "button", class: "quiet", onclick: reset,
-                    title: "Put the columns back to their original order and width"},
+                    title: "Put every column back, in its original order and width"},
          "reset columns"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
@@ -313,6 +363,30 @@ function draw() {
   const scroller = document.getElementById("scroller");
   scroller.addEventListener("scroll", window_, {passive: true});
   scroller.addEventListener("keydown", key);
+  fit();
+  window.addEventListener("resize", () => { fit(); window_(); });
+}
+
+/* The table is given the room that is actually left, rather than a guess at it.
+ *
+ * Its height was `100vh` minus a constant, and the constant was wrong: the heading, the paragraph
+ * of instructions and a row of controls that wraps come to more than that, so the table's bottom
+ * edge sat below the bottom of the window. Everything about that is invisible except the one thing
+ * that is not: the horizontal scrollbar belongs to that bottom edge, so a table forty-two columns
+ * wide had no visible way to scroll sideways, and the only way to see the far columns was to select
+ * text and drag. Measured, so it stays right as the controls wrap and the window changes.
+ */
+function fit() {
+  const scroller = document.getElementById("scroller");
+  if (!scroller) return;
+  const top = scroller.getBoundingClientRect().top + window.scrollY;
+  const room = Math.max(240, window.innerHeight - top - 2);
+  scroller.style.height = `${room}px`;
+  /* Whatever sits below it, page padding included, would otherwise leave the whole page scrolling
+   * by that much: a wheel over the table scrolls the table, and a wheel anywhere else moves the
+   * table's bottom edge, which is exactly the sort of thing that makes a scrollbar hard to hit. */
+  const over = document.documentElement.scrollHeight - window.innerHeight;
+  if (over > 0) scroller.style.height = `${Math.max(240, room - over)}px`;
 }
 
 /* Widths live on a `colgroup` rather than on every cell, which is what makes a resize one style
@@ -352,6 +426,75 @@ function headerRow() {
   return el("tr", {}, state.columns.map((column, at) => header(column, at)));
 }
 
+/* What a right-click on a heading offers. Hiding is the thing she asked for by name; the chooser
+ * is beside it because a control that only removes things and never brings them back is a trap. */
+function headerMenu(event, column) {
+  event.preventDefault();
+  document.querySelectorAll(".menu").forEach((old_) => old_.remove());
+  if (!sortable(column)) return;
+
+  const menu = el("div", {class: "menu", role: "menu"},
+    el("button", {type: "button", role: "menuitem",
+                  onclick: () => { menu.remove(); hide(column.name); }},
+       `Hide ${column.name}`),
+    el("button", {type: "button", role: "menuitem",
+                  onclick: () => { menu.remove(); chooseColumns(); }},
+       "Choose columns…"),
+  );
+  menu.style.left = `${event.clientX}px`;
+  menu.style.top = `${event.clientY}px`;
+  document.body.append(menu);
+  menu.querySelector("button").focus();
+
+  const away = (moved) => {
+    if (menu.contains(moved.target)) return;
+    menu.remove();
+    document.removeEventListener("pointerdown", away, true);
+  };
+  document.addEventListener("pointerdown", away, true);
+  menu.addEventListener("keydown", (pressed) => {
+    if (pressed.key === "Escape") { menu.remove(); }
+  });
+}
+
+/* Every column, with a box each. The way back for anything hidden, and the way to hide several at
+ * once without right-clicking each of them in turn. */
+function chooseColumns() {
+  const boxes = state.declared.filter(sortable).map((column) => {
+    const box = el("input", {
+      type: "checkbox",
+      id: `col-${column.name.replace(/\W+/g, "-")}`,
+      checked: state.hidden[column.name] ? null : "checked",
+      onchange: (event) => (event.target.checked ? show : hide)(column.name),
+    });
+    return el("li", {}, el("label", {for: box.id}, box, ` ${column.name}`));
+  });
+
+  const dialog = el("dialog", {
+    class: "ask columns",
+    "aria-labelledby": "whichcolumns",
+    onclose: () => dialog.remove(),
+    onclick: (event) => { if (event.target === dialog) dialog.close(); },
+  },
+    el("h2", {id: "whichcolumns"}, "Which columns to show"),
+    el("p", {class: "hint"},
+      "Unticking one only takes it off this screen. Nothing is deleted, the spreadsheet still has "
+      + "every column, and this is remembered in this browser alone."),
+    el("ul", {class: "choices"}, boxes),
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "quiet",
+                    onclick: () => {
+                      state.hidden = {};
+                      relayout();
+                      dialog.close();
+                    }}, "Show them all"),
+      el("button", {type: "button", class: "primary", onclick: () => dialog.close()}, "Done"),
+    ),
+  );
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
 function header(column, at) {
   if (!sortable(column)) {
     /* The control column: not sorted, not moved, not resized. Its heading is a word rather than a
@@ -364,20 +507,19 @@ function header(column, at) {
              "table. Neither deletes anything.",
     }, column.name);
   }
-  const unfilled = column.origin === "unfilled";
   const th = el("th", {
     scope: "col",
     role: "columnheader",
     tabindex: "0",
     draggable: "true",
-    class: unfilled ? "unfilled" : null,
+    class: column.origin === "annotation" ? "yours" : null,
     "aria-sort": state.sortBy === column.name
       ? (state.descending ? "descending" : "ascending") : "none",
-    title: unfilled
-      ? `${column.name}: nothing fills this column. It is here for you to fill in yourself.`
-      : `${column.name}: ${column.origin}. Drag to move it, or drag its right edge to resize. ` +
-        "Alt with the arrow keys moves it; add Shift to resize it.",
+    title: `${column.name}: ${ORIGINS[column.origin] || column.origin}. Drag to move it, or drag ` +
+      "its right edge to resize. Right-click to hide it. Alt with the arrow keys moves it, add " +
+      "Shift to resize, and Delete hides it.",
     onclick: () => { if (!arranging) sortBy(column.name); },
+    oncontextmenu: (event) => headerMenu(event, column),
     ondragstart: (event) => {
       arranging = column.name;
       event.dataTransfer.effectAllowed = "move";
@@ -422,6 +564,14 @@ function headerKey(event, column, at) {
     sortBy(column.name);
     return;
   }
+  if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    const heads = document.querySelectorAll("table.grid thead th");
+    hide(column.name);
+    const landed = heads[Math.min(at, state.columns.length - 1)];
+    if (landed && landed.isConnected) landed.focus();
+    return;
+  }
   if (!event.altKey) return;
   const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
   if (!step) return;
@@ -441,22 +591,29 @@ function headerKey(event, column, at) {
   if (moved) moved.focus();
 }
 
-/* Moving a column is a change to `state.columns`, and everything else on this page reads its order
- * from there: the header, the widths, the cells, and which cell the keyboard is on. */
+/* Moving a column is a change to the declared order, expressed in terms of what is on screen.
+ *
+ * The position somebody drags to is a position among the columns they can see, and the order that
+ * is kept is the full one including whatever is hidden. So the move is made relative to the column
+ * currently sitting at that position: a hidden column stays beside the neighbour it was hidden
+ * next to, and comes back there rather than on the end. */
 function move(name, to) {
   if (name === PASS_COLUMN.name) return;
-  const from = state.columns.findIndex((column) => column.name === name);
-  /* Never before the control column, which stays first so that the button is in the same place on
+  const shown = state.columns;
+  /* Never before the control column, which stays first so the buttons are in the same place on
    * every row of every arrangement. */
-  const target = Math.max(1, Math.min(to, state.columns.length - 1));
+  const target = Math.max(1, Math.min(to, shown.length - 1));
+  const from = shown.findIndex((column) => column.name === name);
   if (from < 0 || from === target) return;
-  const [held] = state.columns.splice(from, 1);
-  state.columns.splice(target, 0, held);
-  state.focus.column = Math.max(0, Math.min(state.focus.column, state.columns.length - 1));
-  remember();
-  redrawHeader();
-  window_();
-  say(`${name} moved to position ${target + 1} of ${state.columns.length}`);
+
+  const anchor = shown[target].name;
+  const all = state.declared;
+  const [held] = all.splice(all.findIndex((column) => column.name === name), 1);
+  const beside = all.findIndex((column) => column.name === anchor);
+  all.splice(from < target ? beside + 1 : beside, 0, held);
+
+  relayout();
+  say(`${name} moved to position ${target + 1} of ${shown.length}`);
 }
 
 function setWidth(name, pixels) {
@@ -604,11 +761,13 @@ function cellFor(row, column, index, column_) {
     ondblclick: editable ? () => edit(cell, row, column.name) : null,
   });
 
-  /* Everything a cell holds goes inside one box of its own. Inline and invisible while text is
-   * kept to a line, and the thing that is clamped when it is allowed to wrap: a cell cannot clip
-   * its own height in a table, so without something inside it to clamp, a wrapped description
-   * would take its row with it and every row would be a different height. */
-  const inner = el("span", {class: "cell"});
+  /* When text may wrap, everything a cell holds goes inside one box of its own, and that box is
+   * what gets clamped: a cell cannot clip its own height in a table, so without something inside it
+   * to clamp, a wrapped description would take its row with it and the rows would stop being the
+   * same height as each other. When text is kept to a line there is nothing to clamp, so the box is
+   * not built at all: it is one more element per cell, and this table's whole performance argument
+   * is about how many elements exist. */
+  const inner = state.wrap ? el("span", {class: "cell"}) : cell;
   if (!sortable(column)) {
     cell.classList.add("control");
     inner.append(keepToggle(row), passToggle(row));
@@ -631,8 +790,17 @@ function cellFor(row, column, index, column_) {
   } else {
     inner.append(value(held));
   }
-  cell.append(inner);
+  if (inner !== cell) cell.append(inner);
   return cell;
+}
+
+/* Where a cell's content goes, matching what `cellFor` decided. An edit redraws one cell, and it
+ * has to land in the same shape as the ones around it or that row alone loses its clamp. */
+function holder(cell) {
+  if (!state.wrap) return cell;
+  const inner = el("span", {class: "cell"});
+  cell.replaceChildren(inner);
+  return inner;
 }
 
 /* The picture this tool stored for itself, not the one on the listing site: opening this page tells
@@ -798,8 +966,8 @@ function edit(cell, row, column) {
 async function save(cell, row, column, field, typed) {
   const wanted = typed.trim() === "" ? null : (field === "rank" ? Number(typed) : typed);
   cell.className = "editable saving";
-  cell.replaceChildren(
-    el("span", {class: "cell"}, value(typed), el("span", {class: "rowstate"}, " saving…")));
+  cell.replaceChildren();
+  holder(cell).append(value(typed), el("span", {class: "rowstate"}, " saving…"));
 
   try {
     const answered = await send(
@@ -808,11 +976,8 @@ async function save(cell, row, column, field, typed) {
     /* What the store now holds, not what was typed. */
     row.values[column] = answered[field];
     cell.className = "editable saved";
-    cell.replaceChildren(
-      el("span", {class: "cell"},
-         value(answered[field]),
-         el("span", {class: "rowstate"}, " saved")),
-    );
+    cell.replaceChildren();
+    holder(cell).append(value(answered[field]), el("span", {class: "rowstate"}, " saved"));
     setTimeout(() => { if (cell.isConnected) cell.className = "editable"; }, 2000);
   } catch (error) {
     /* Not saved, and it says so, and the typed value is still there to try again with. */
@@ -826,9 +991,9 @@ async function save(cell, row, column, field, typed) {
       }
       event.stopPropagation();
     });
-    cell.replaceChildren(
-      el("span", {class: "cell"}, retry,
-         el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`)));
+    cell.replaceChildren();
+    holder(cell).append(
+      retry, el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`));
     fail(`That edit was not saved: ${error.message}`);
   }
 }

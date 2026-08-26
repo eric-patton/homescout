@@ -72,6 +72,7 @@ def rows_for(
             if gone.listing_id not in seen
         )
 
+    wanted = _as_they_stand_now(store, wanted)
     annotations = _annotations(store, [entry.listing_id for entry in wanted])
     enriched = _enriched(store, wanted)
     from_model = _model_values(store, run_id, root)
@@ -96,6 +97,53 @@ def rows_for(
             )
         )
     return tuple(made)
+
+
+def _as_they_stand_now(store: Store, wanted: list[_Kept]) -> list[_Kept]:
+    """One row per property, under the record that represents it now.
+
+    A run records its verdicts and its snapshots against the records it observed, and *then* merges
+    what turned out to be the same house. So between a merge and the next run, the run's own results
+    name the halves: the same property appears twice, each half carrying only the sites it happened
+    to be seen on, and the merged record that carries both is in the results not at all. Measured on
+    a statewide run right after a merge pass: 1,083 rows for 964 properties, and 147 merged records
+    absent while their 266 constituents were shown.
+
+    That is a display fault rather than a bad merge, so it is fixed where the display is assembled.
+    Each kept row is re-keyed to the record that represents it now, and where several land on the
+    same one, the fullest is kept: the halves rarely carry the same amount, and the point of the
+    merge is to show the more complete house rather than an arbitrary one of the two.
+    """
+    best: dict[str, _Kept] = {}
+    for entry in wanted:
+        live = store.live_listing_id(entry.listing_id)
+        held = entry
+        if live != entry.listing_id:
+            held = _Kept(live, entry.fields, entry.flags, entry.dropped)
+        standing = best.get(live)
+        if standing is None or _told(held) > _told(standing):
+            best[live] = held
+    #: The order the results came in, which is the order the criteria put them in.
+    seen: set[str] = set()
+    ordered: list[_Kept] = []
+    for entry in wanted:
+        live = store.live_listing_id(entry.listing_id)
+        if live in seen:
+            continue
+        seen.add(live)
+        ordered.append(best[live])
+    return ordered
+
+
+def _told(entry: _Kept) -> tuple[int, int]:
+    """How much this row actually says, for choosing between two halves of one property."""
+    fields = entry.fields
+    filled = sum(
+        1
+        for name in dir(fields)
+        if not name.startswith("_") and getattr(fields, name, None) not in (None, "", ())
+    )
+    return (filled, len(entry.flags))
 
 
 @dataclass(frozen=True, slots=True)

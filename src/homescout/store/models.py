@@ -163,10 +163,20 @@ class Annotation:
     #: rather than only what they have written down: a passed property drops out of the default
     #: results view. Nothing means undecided, which is not the same as deciding to keep.
     judgment: str | None = None
+    #: The five columns the household's own spreadsheet has that nothing in this tool fills. They
+    #: were carried as headings with no home, so the sheet kept its shape and the browser drew them
+    #: empty on every row, marked as the person's to fill in and with no way to fill them in. These
+    #: give them one. Nothing writes them but a person, exactly like every field above.
+    taxes: str | None = None
+    crime: str | None = None
+    fire_egress: str | None = None
+    sewage_exposure: str | None = None
+    outbuildings: str | None = None
     updated_at: str | None = None
 
     ANNOTATION_FIELDS = (
         "rank", "verdict", "red_flags", "summary", "next_step", "notes", "judgment",
+        "taxes", "crime", "fire_egress", "sewage_exposure", "outbuildings",
     )
 
     #: What a judgment may hold. Checked in the core rather than in a form control, so a value

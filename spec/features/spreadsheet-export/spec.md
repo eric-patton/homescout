@@ -136,11 +136,12 @@ has them:
   between sources show the canonical value rather than a concatenation.
 - A property whose price is unknown. The price cell is empty and the derived price per square foot
   cell is also empty, rather than zero.
-- Five of the default columns are structurally empty: Garage/Outbuildings, Annual Taxes,
+- Five of the default columns have no source at all: Garage/Outbuildings, Annual Taxes,
   Crime/Safety, Fire/Egress/Terrain, and Sewage & Reclaimed-Water Exposure. No free national source
   supplies any of them and description extraction does not recover them, so they are filled only by
-  the user's own notes. They remain in the default set because the sheet must stay recognizable, and
-  nothing writes a machine's opinion into a column the user keeps notes in.
+  the user's own notes, and are annotation columns like every other column the user writes. They
+  remain in the default set because the sheet must stay recognizable, and nothing writes a machine's
+  opinion into a column the user keeps notes in.
 
 ## Non-functional requirements
 

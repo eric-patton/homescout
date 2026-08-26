@@ -424,9 +424,9 @@ def build(workspace: api.Workspace) -> FastAPI:
         body = await _body(request)
         values = {
             name: body[name]
-            for name in (
-                "rank", "verdict", "red_flags", "summary", "next_step", "notes", "judgment",
-            )
+            # Every annotation field the store declares, so the two surfaces cannot come to
+            # disagree about which of them a person may write.
+            for name in api.annotation_fields()
             if name in body
         }
         if not values:

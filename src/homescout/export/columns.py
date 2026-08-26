@@ -10,9 +10,10 @@ which one applies, "run `homescout enrich`" or "write some notes" or "no free na
 supplies this", is the difference between a useful sheet and an afternoon spent looking for a bug
 in this tool.
 
-Five of the defaults are `unfilled` and always will be. They stay in the set because the sheet has
-to stay recognizable as the one somebody has been keeping by hand, and because they are columns that
-person writes their own notes in. Nothing here writes a machine's opinion into one of those.
+Five of the defaults used to be a sixth kind, `unfilled`: headings the household's own sheet has
+that nothing in this tool fills. They were a promise the interface could not keep, drawn empty on
+every row and marked as the person's to fill in with no way to fill them in. They are annotations
+now, like every other column a person writes, and no column is neither filled nor writable.
 """
 
 from __future__ import annotations
@@ -29,16 +30,18 @@ Kind = Only["text", "number"]
 #: Where a column's value comes from, and therefore what an empty one means.
 #:
 #: `listing` a source reported it · `derived` this tool computed it · `extracted` recovered from
-#: prose · `enriched` public data about the location · `annotation` the person wrote it ·
-#: `unfilled` nothing in this product ever fills it.
-Origin = Only["listing", "derived", "extracted", "enriched", "annotation", "unfilled"]
+#: prose · `enriched` public data about the location · `annotation` the person wrote it.
+#:
+#: There is deliberately no sixth kind for a column nothing fills. There was one, and it meant a
+#: column that was empty forever and could not be typed into either, which is not a column: it is a
+#: heading with an apology under it.
+Origin = Only["listing", "derived", "extracted", "enriched", "annotation"]
 
 #: What an empty column of each kind means, in words a person can act on.
 WHY_EMPTY: dict[str, str] = {
     "extracted": "no listing description said so",
     "enriched": "the enrichment pass has not been run for these properties",
     "annotation": "nothing has been written about these properties yet",
-    "unfilled": "nothing in this tool fills them; they are yours to write in",
 }
 
 
@@ -86,11 +89,6 @@ def _extracted(name: str) -> Callable[[Row], Any]:
 
 def _enriched(name: str) -> Callable[[Row], Any]:
     return lambda row: row.enriched.get(name)
-
-
-def _nothing(row: Row) -> None:
-    """A column no part of this product fills. Always empty, deliberately, and reported as such."""
-    return None
 
 
 def _status(row: Row) -> str | None:
@@ -273,7 +271,7 @@ COLUMNS: tuple[Column, ...] = (
     Column("Year Built", "number", "listing", _listing("year_built")),
     Column("Acres", "number", "derived", _acres),
     Column("Construction/Roof/Features", "text", "extracted", _extracted("roof")),
-    Column("Garage/Outbuildings", "text", "unfilled", _nothing),
+    Column("Garage/Outbuildings", "text", "annotation", _annotated("outbuildings")),
     Column("HVAC/Heat", "text", "extracted", _hvac),
     Column("Water Source", "text", "extracted", _extracted("water_source")),
     Column("Sewer/Septic", "text", "extracted", _extracted("sewer")),
@@ -281,10 +279,11 @@ COLUMNS: tuple[Column, ...] = (
     Column("FEMA Flood Zone", "text", "enriched", _enriched("flood_zone")),
     Column("Internet", "text", "enriched", _internet),
     Column("Principal Aquifer", "text", "enriched", _aquifer),
-    Column("Annual Taxes", "number", "unfilled", _nothing),
-    Column("Crime/Safety", "text", "unfilled", _nothing),
-    Column("Fire/Egress/Terrain", "text", "unfilled", _nothing),
-    Column("Sewage & Reclaimed-Water Exposure", "text", "unfilled", _nothing),
+    Column("Annual Taxes", "text", "annotation", _annotated("taxes")),
+    Column("Crime/Safety", "text", "annotation", _annotated("crime")),
+    Column("Fire/Egress/Terrain", "text", "annotation", _annotated("fire_egress")),
+    Column("Sewage & Reclaimed-Water Exposure", "text", "annotation",
+           _annotated("sewage_exposure")),
     Column("Town Analysis Notes", "text", "annotation", _town_notes),
     Column("Red Flags", "text", "annotation", _annotated("red_flags")),
     Column("Summary", "text", "annotation", _annotated("summary")),

@@ -156,14 +156,18 @@ def test_every_column_declares_where_its_value_comes_from() -> None:
             "extracted",
             "enriched",
             "annotation",
-            "unfilled",
         ), column.name
 
 
-def test_the_columns_nothing_fills_are_the_ones_the_spec_names() -> None:
-    """feat-011/AC-5, the spec's own edge case: five, and the same five."""
-    unfilled = {column.name for column in cols.COLUMNS if column.origin == "unfilled"}
-    assert unfilled == {
+def test_the_columns_no_source_supplies_are_the_persons_to_write_in() -> None:
+    """feat-011/AC-5, the spec's own edge case: five, and the same five.
+
+    The spec has always said these are "filled only by the user's own notes". They were not
+    fillable at all: they were headings with nothing behind them, so the sheet drew them empty
+    forever and the results table drew them empty and marked them as the person's to fill in with
+    no way to fill them in. They are annotations now, which is what the sentence always described.
+    """
+    theirs = {
         "Garage/Outbuildings",
         "Annual Taxes",
         "Crime/Safety",
@@ -171,8 +175,16 @@ def test_the_columns_nothing_fills_are_the_ones_the_spec_names() -> None:
         "Sewage & Reclaimed-Water Exposure",
     }
     text = SPEC.read_text(encoding="utf-8")
-    for name in unfilled:
-        assert name in text, f"{name} is structurally empty and the spec does not say so"
+    for name in theirs:
+        column = cols.find(name)
+        assert column is not None and column.origin == "annotation", name
+        assert name in text, f"{name} is nobody's but the person's and the spec does not say so"
+
+    assert not [column for column in cols.COLUMNS if column.origin not in cols.WHY_EMPTY
+                and column.origin not in ("listing", "derived")], (
+        "a column that is neither filled by this tool nor writable by a person is a heading with "
+        "an apology under it"
+    )
 
 
 def county_row(said: str | None, looked_up: str | None):

@@ -345,3 +345,48 @@ alongside its peers.
       uncropped. Written as a table of rules per host, checked against eight real stored addresses
       that all answered, with a fallback to the stored address on any load failure and no rewriting
       at all for a host with no rule, signed map tiles among them.
+
+## Change: choose your columns (`changes/choose-your-columns/`)
+
+- [x] T81: `web/static/results.js`: the table keeps the full declared order and a set of hidden
+      names, and draws the difference (`feat-010/AC-52`). Right-click offers to hide a column or open
+      the chooser; Delete on a focused heading hides it; the chooser lists every column and brings
+      any of them back where it was. Hiding is remembered with the order and the widths. The control
+      column is not offered.
+- [x] T82: `web/static/results.js`: the table's height is measured from where its box actually falls
+      rather than assumed, and the page behind it is stopped from scrolling (`feat-010/AC-53`). The
+      horizontal scrollbar lives on that bottom edge, and the edge was below the bottom of the
+      window, so a table seven thousand pixels wide had no visible way to scroll sideways.
+- [x] T83: `store/models.py`, `store/schema.py`, `store/migrations.py`: five annotation fields for
+      the household's own headings, and `SCHEMA_V9` to hold them. `store/core.py`: the annotation
+      reader and writer are built from the field list rather than naming each field one at a time.
+- [x] T84: `api.py` gains `annotation_fields`, and both surfaces read their field lists from it
+      (`feat-010/AC-46`, product invariant 5): the terminal's flags and the interface's allowed
+      request keys were two hand-written copies of one list.
+- [x] T85: `export/columns.py`: the five point at the new fields and the `unfilled` origin is
+      retired, having no members left. `web/static/results.js`: they join the editable set, and a
+      heading says which kind of column it is.
+- [x] T86: `tests/test_web_browser.py`: a column hides and comes back where it was
+      (`feat-010/AC-52`); the controls cannot be hidden (`feat-010/AC-49`); the table ends inside the
+      window with a scrollbar and the page does not scroll (`feat-010/AC-53`); and one of the five
+      headings takes a value that reaches the store (`feat-011/AC-5`).
+
+### Defects fixed alongside it
+
+- [x] T87: **The same property was shown twice, and the merged record not at all.** A run records
+      its verdicts and snapshots against the records it observed and *then* merges what turned out
+      to be the same house, so between a merge and the next run the run's results name the halves.
+      Each half carried only the sites it happened to be seen on, which is why a property whose
+      Zillow record this tool holds, and has merged, offered only a Realtor link. Measured on the
+      statewide run: 1,083 rows for 964 properties, 266 of them halves, and the 147 merged records
+      absent. Fixed in `export/rows.py` where the rows are assembled, so the sheet and the table
+      cannot differ, with `store.live_listing_id` exposed for it. Pinned by
+      `tests/test_export_values.py` citing `feat-011/AC-2`, which is the criterion that says one row
+      per canonical listing.
+- [x] T88: **A merged record had no photograph.** The picture is stored against whichever record was
+      observed when it was fetched and merging never moves anything, so a merged property showed as
+      having none while both its halves had one. `store.get_preview_image` falls back to a
+      constituent's, on the read side only.
+- [x] T89: **The annotation reader dropped any field added to the table.** It named its columns one
+      at a time, so a value written to a new field went in and came back as nothing, which reads
+      exactly like the write having failed. Built from the field list now, as the writer is.

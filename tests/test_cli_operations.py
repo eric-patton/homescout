@@ -612,6 +612,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "results",
         "passed",
         "kept",
+        "annotation_fields",
         "review_queue",
         "run_status",
         "area_notes",

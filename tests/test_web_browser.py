@@ -97,6 +97,9 @@ def chrome(url: str):
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-gpu",
+            # A real window, because two of these tests are about what fits in one. The default
+            # headless viewport is short enough that no table could fit under the page's heading.
+            "--window-size=1600,1000",
             # Chrome refuses a DevTools websocket from an origin it was not told about. This is a
             # throwaway profile on a loopback port that this process opened, so the origin it is
             # being asked to trust is this test.
@@ -530,7 +533,7 @@ def test_the_table_works_when_the_browser_will_not_store_anything(served) -> Non
                    get() { throw new DOMException("denied", "SecurityError"); },
                  });
                  const declared = [{name: "Rank", origin: "annotation"},
-                                   {name: "Annual Taxes", origin: "unfilled"},
+                                   {name: "Annual Taxes", origin: "annotation"},
                                    {name: "Price", origin: "listing"}];
                  let threw = null;
                  let arranged = null;
@@ -547,9 +550,8 @@ def test_the_table_works_when_the_browser_will_not_store_anything(served) -> Non
         process.terminate()
 
     assert found["threw"] is None, f"storage being unavailable broke the page: {found['threw']}"
-    assert found["arranged"] == ["Keep or pass", "Rank", "Price", "Annual Taxes"], (
-        "without a remembered arrangement the declared one is used, with the controls first and "
-        "the unfilled columns last"
+    assert found["arranged"] == ["Keep or pass", "Rank", "Annual Taxes", "Price"], (
+        "without a remembered arrangement the declared order is used, with the controls first"
     )
     assert found["rows"] > 0, "the table drew nothing"
 
@@ -925,3 +927,147 @@ def test_a_listing_with_no_photographs_says_so_rather_than_opening_nothing(serve
 
     assert not found["opened"], "an empty gallery was opened"
     assert "no photographs" in found["banner"], "nothing said why nothing happened"
+
+
+def test_a_column_can_be_hidden_and_brought_back(served) -> None:
+    """feat-010/AC-52: forty-two columns is more than anybody needs at once.
+
+    Hiding is by right-click, which is what was asked for, and by Delete on a focused heading, so it
+    is not mouse-only. Bringing one back is from the chooser, because a control that only removes
+    things and never restores them is a trap. Where it comes back is where it was: the order that is
+    kept is the full one, so a hidden column keeps its place among the others rather than landing on
+    the end.
+    """
+    found = opened(served, """
+        const named = () => state.columns.map(c => c.name);
+        const before = named();
+        const victim = before[2];
+        const after_it = before[3];
+
+        /* Right-click the heading, then the first thing its menu offers. */
+        const heads = () => document.querySelectorAll("table.grid thead th");
+        heads()[2].dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, clientX: 40,
+                                                                clientY: 40}));
+        const menu = await until(() => document.querySelector(".menu"));
+        const offered = [...menu.querySelectorAll("button")].map(b => b.textContent);
+        menu.querySelector("button").click();
+        await until(() => named().indexOf(victim) < 0);
+
+        const hidden = named();
+        const cells = document.querySelector("#body tr").children.length;
+
+        /* And back, from the chooser. */
+        chooseColumns();
+        const dialog = await until(() => document.querySelector("dialog.columns"));
+        const box = [...dialog.querySelectorAll("label")]
+          .find(l => l.textContent.trim() === victim).querySelector("input");
+        const wasTicked = box.checked;
+        box.click();
+        box.dispatchEvent(new Event("change", {bubbles: true}));
+        await until(() => named().indexOf(victim) >= 0);
+        const restored = named();
+        dialog.close();
+
+        return {before, hidden, restored, offered, cells, wasTicked, victim, after_it,
+                columns: state.columns.length, declared: state.declared.length};
+    """)
+
+    assert found["offered"][0] == f"Hide {found['victim']}", found["offered"]
+    assert found["victim"] not in found["hidden"], "the column was not hidden"
+    assert found["cells"] == len(found["hidden"]), "a row still draws a cell for a hidden column"
+    assert found["declared"] == len(found["before"]), "hiding forgot the column, not hid it"
+    assert not found["wasTicked"], "the chooser showed a hidden column as shown"
+    assert found["restored"] == found["before"], (
+        "the column came back somewhere other than where it was"
+    )
+
+
+def test_the_control_column_cannot_be_hidden(served) -> None:
+    """feat-010/AC-49, feat-010/AC-52: keeping and passing are in the same place on every
+    arrangement, including the one where somebody has hidden everything else."""
+    found = opened(served, """
+        const first = state.columns[0].name;
+        const heads = document.querySelectorAll("table.grid thead th");
+        heads[0].dispatchEvent(new MouseEvent("contextmenu", {bubbles: true}));
+        await wait(200);
+        const menu = document.querySelector(".menu");
+        hide(first);
+        await wait(200);
+        const inChooser = (() => {
+          chooseColumns();
+          const dialog = document.querySelector("dialog.columns");
+          const names = [...dialog.querySelectorAll("label")].map(l => l.textContent.trim());
+          dialog.close();
+          return names;
+        })();
+        return {first, still: state.columns[0].name, menu: !!menu, inChooser};
+    """)
+
+    assert found["still"] == found["first"], "the controls were hidden"
+    assert not found["menu"], "right-clicking the control column offered to hide it"
+    assert found["first"] not in found["inChooser"], "the chooser offered to hide the controls"
+
+
+def test_the_table_ends_above_the_bottom_of_the_window(served) -> None:
+    """feat-010/AC-53: a table this wide needs its sideways scrollbar to be reachable.
+
+    The table's height was the window's minus a constant, and the constant was wrong: a heading, a
+    paragraph of instructions and a controls row that wraps come to more than it, so the table's
+    bottom edge sat below the bottom of the window. Everything about that is invisible except the
+    one thing that is not, because the horizontal scrollbar lives on that edge. The only way to
+    reach the far columns was to select text and drag.
+    """
+    found = opened(served, """
+        const scroller = document.getElementById("scroller");
+        const box = scroller.getBoundingClientRect();
+        return {
+          bottom: Math.round(box.bottom),
+          windowHeight: window.innerHeight,
+          scrollsSideways: scroller.scrollWidth > scroller.clientWidth,
+          barHeight: scroller.offsetHeight - scroller.clientHeight,
+          pageScrolls: document.documentElement.scrollHeight > window.innerHeight,
+        };
+    """)
+
+    assert found["scrollsSideways"], "the table fits, so this measures nothing"
+    assert found["barHeight"] > 0, "there is no horizontal scrollbar to be reachable"
+    assert found["bottom"] <= found["windowHeight"], (
+        f"the table's bottom edge, and its scrollbar with it, is "
+        f"{found['bottom'] - found['windowHeight']}px below the bottom of the window"
+    )
+    assert not found["pageScrolls"], (
+        "the page scrolls underneath the table, so the scrollbar moves as you reach for it"
+    )
+
+
+def test_the_columns_a_person_writes_in_can_be_written_in(served) -> None:
+    """feat-011/AC-5: the five headings the household's own sheet has.
+
+    They were carried as columns nothing filled, drawn empty on every row and marked as the
+    person's to fill in, with no way to fill them in. The mark was a promise the page could not
+    keep.
+    """
+    found = opened(served, """
+        const wanted = ["Annual Taxes", "Crime/Safety", "Fire/Egress/Terrain",
+                        "Sewage & Reclaimed-Water Exposure", "Garage/Outbuildings"];
+        const row = state.shown[0];
+        const at = state.columns.findIndex(c => c.name === "Annual Taxes");
+        focusCell(0, at);
+        const cell = document.querySelector('td[aria-selected="true"]');
+        cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const input = cell.querySelector("input");
+        input.value = "$1,840 in 2025";
+        input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        await until(() => cell.className.includes("saved"));
+
+        const answered = await fetch(`/api/listings/${row.listing_id}`).then(r => r.json());
+        return {
+          writable: wanted.every(name => Object.prototype.hasOwnProperty.call(EDITABLE, name)),
+          stored: (answered.listing.annotation || {}).taxes ?? null,
+          shown: row.values["Annual Taxes"],
+        };
+    """)
+
+    assert found["writable"], "one of the five still cannot be typed into"
+    assert found["stored"] == "$1,840 in 2025", "what was typed did not reach the store"
+    assert found["shown"] == "$1,840 in 2025", "the row does not hold what the store returned"

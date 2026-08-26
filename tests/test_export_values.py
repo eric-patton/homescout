@@ -144,7 +144,7 @@ def test_the_export_says_which_kind_of_empty_each_blank_column_is(
 
     written = write(store, loaded, tmp_path / "sheet.xlsx", root=tmp_path)
 
-    assert "Garage/Outbuildings" in written.empty["unfilled"]
+    assert "Garage/Outbuildings" in written.empty["annotation"]
     assert "FEMA Flood Zone" in written.empty["enriched"]
     assert "Verdict" in written.empty["annotation"]
     assert "Water Source" in written.empty["extracted"]
@@ -173,3 +173,37 @@ def test_a_custom_template_reports_only_its_own_columns(store: Store, tmp_path: 
 
     everything = [name for names in written.empty.values() for name in names]
     assert everything == ["Verdict"]
+
+
+def test_a_property_merged_after_the_run_is_one_row_under_the_merged_record(
+    store: Store, tmp_path: Path
+) -> None:
+    """feat-011/AC-2: one row per canonical listing, and the spec's own merge edge case.
+
+    A run records its verdicts and its snapshots against the records it observed and *then* merges
+    what turned out to be the same house, so between a merge and the next run the run's results name
+    the halves. The property appeared twice, each half carrying only the sites it happened to be
+    seen on, and the merged record carrying both was in the results not at all. On a statewide run
+    straight after a merge pass that was 1,083 rows for 964 properties.
+
+    Asserted through `rows_of`, which is what both the sheet and the results table are built from,
+    so neither can be right while the other is wrong.
+    """
+    from homescout.export import latest_run, rows_of
+
+    run = store.start_run("portales")
+    store.record_observations(run.id, "realtor", [listing("a")])
+    store.record_observations(run.id, "zillow", [listing("a", description="A home with a well.")])
+    store.complete_run(run.id)
+    halves = [held.id for held in store.listings()]
+    assert len(halves) == 2, "the two halves are what this test is about"
+
+    merged = store.supersede(halves, join_signal="same address", decided_by="human")
+    rows = list(rows_of(store, latest_run(store, "portales"), root=tmp_path))
+
+    assert [row.listing_id for row in rows] == [merged], (
+        "the run's results still name the halves rather than the property"
+    )
+    assert set(rows[0].sources) == {"realtor", "zillow"}, (
+        "the row carries only the sites one half was seen on"
+    )

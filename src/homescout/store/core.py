@@ -873,16 +873,13 @@ class Store:
         ).fetchone()
         if row is None:
             return None
+        # Read from the field list, like the write is. Named one at a time, this reader silently
+        # dropped any field added to the table without it being edited too: the value went in and
+        # came back as nothing, which is the shape of bug that looks like the write failing.
         return Annotation(
             listing_id=row["listing_id"],
-            rank=row["rank"],
-            verdict=row["verdict"],
-            red_flags=row["red_flags"],
-            summary=row["summary"],
-            next_step=row["next_step"],
-            notes=row["notes"],
-            judgment=row["judgment"],
             updated_at=row["updated_at"],
+            **{name: row[name] for name in Annotation.ANNOTATION_FIELDS},
         )
 
     def set_annotation(self, listing_id: str, **values: Any) -> Annotation:
@@ -907,18 +904,19 @@ class Store:
         merged = existing.content() if existing else dict.fromkeys(Annotation.ANNOTATION_FIELDS)
         merged.update(values)
         now = utc_now()
+        # Built from the field list rather than written out. This statement named all seven fields
+        # three times over, so adding one meant editing it in three places and a field left out of
+        # any of them would be silently dropped on every write. The list is the one place they are
+        # declared, and it is now the only place.
+        columns = ("listing_id", *Annotation.ANNOTATION_FIELDS, "updated_at")
+        assignments = ", ".join(
+            f"{name} = excluded.{name}" for name in (*Annotation.ANNOTATION_FIELDS, "updated_at")
+        )
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             conn.execute(
-                "INSERT INTO annotations "
-                "(listing_id, rank, verdict, red_flags, summary, next_step, notes, judgment, "
-                "updated_at) "
-                "VALUES (:listing_id, :rank, :verdict, :red_flags, :summary, :next_step, "
-                ":notes, :judgment, :updated_at) "
-                "ON CONFLICT (listing_id) DO UPDATE SET "
-                "rank = excluded.rank, verdict = excluded.verdict, "
-                "red_flags = excluded.red_flags, summary = excluded.summary, "
-                "next_step = excluded.next_step, notes = excluded.notes, "
-                "judgment = excluded.judgment, updated_at = excluded.updated_at",
+                f"INSERT INTO annotations ({', '.join(columns)}) "  # noqa: S608 - names from code
+                f"VALUES ({', '.join(':' + name for name in columns)}) "
+                f"ON CONFLICT (listing_id) DO UPDATE SET {assignments}",
                 {"listing_id": listing_id, "updated_at": now, **merged},
             )
         annotation = self.get_annotation(listing_id)
@@ -1025,6 +1023,16 @@ class Store:
             "SELECT * FROM listing_images WHERE listing_id = ?", (listing_id,)
         ).fetchone()
         if row is None:
+            # A merged record holds no image of its own: the picture was stored against whichever
+            # record was observed when it was fetched, and merging never moves anything. So a
+            # merged property would show as having no photograph while its own constituents each
+            # had one. Read-side only; nothing is copied or moved.
+            row = self._conn.execute(
+                "SELECT i.* FROM listing_images i JOIN listings l ON l.id = i.listing_id "
+                "WHERE l.superseded_by = ? ORDER BY i.retrieved_at DESC LIMIT 1",
+                (listing_id,),
+            ).fetchone()
+        if row is None:
             return None
         return StoredImage(
             listing_id=row["listing_id"],
@@ -1040,9 +1048,15 @@ class Store:
         A table of a thousand rows asking this per row is a thousand round trips for a yes or no,
         and the answer is one column of one small table.
         """
+        # A merged record counts as having one when any record merged into it has one, which is
+        # the same answer `get_preview_image` gives for it one at a time.
         return {
             row["listing_id"]
-            for row in self._conn.execute("SELECT listing_id FROM listing_images")
+            for row in self._conn.execute(
+                "SELECT i.listing_id FROM listing_images i "
+                "UNION SELECT l.superseded_by FROM listing_images i "
+                "JOIN listings l ON l.id = i.listing_id WHERE l.superseded_by IS NOT NULL"
+            )
         }
 
     def preview_image_path(self, listing_id: str) -> Path | None:
@@ -1297,6 +1311,15 @@ class Store:
             (listing_id, observed_at, run_id),
         )
         return listing_id, True
+
+    def live_listing_id(self, listing_id: str) -> str:
+        """Whichever record represents this property now, following any merges.
+
+        A merge writes a new record and points the old ones at it, so an id held from before a
+        merge is still a real record and is no longer the one to show. Anything assembling what a
+        person reads has to ask this, or it shows the halves instead of the whole.
+        """
+        return self._live_listing_id(self._conn, listing_id)
 
     @staticmethod
     def _live_listing_id(conn: sqlite3.Connection, listing_id: str) -> str:
