@@ -606,10 +606,18 @@ def opened(served, script):
             connection,
             """(async () => {
                  const wait = (ms) => new Promise(r => setTimeout(r, ms));
-                 for (let i = 0; i < 200; i++) {
-                   if (document.querySelector("#body tr")) break;
-                   await wait(100);
-                 }
+                 /* Wait for a condition rather than for a duration. A fixed delay is long enough
+                    on an idle machine and not on one running the whole suite, which is a test that
+                    fails for a reason that has nothing to do with what it is testing. */
+                 const until = async (ready, patience = 100) => {
+                   for (let i = 0; i < patience; i++) {
+                     const found = ready();
+                     if (found) return found;
+                     await wait(50);
+                   }
+                   return null;
+                 };
+                 await until(() => document.querySelector("#body tr"));
                  """ + script + """
                })()""",
         )
@@ -703,15 +711,14 @@ def test_passing_on_a_house_asks_first_and_escape_means_no(served) -> None:
         const row = document.querySelector("#body tr");
         const listing = row.dataset.listing;
         row.querySelector("button.pass").click();
-        await wait(200);
-        const dialog = document.querySelector("dialog.ask");
+        const dialog = await until(() => document.querySelector("dialog.ask"));
         const asked = {open: !!(dialog && dialog.open),
                        says: dialog ? dialog.textContent : "",
                        focused: document.activeElement
                                   ? document.activeElement.textContent : ""};
 
         dialog.dispatchEvent(new Event("cancel"));
-        await wait(400);
+        await until(() => !document.querySelector("dialog.ask"));
         const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
         return {asked,
                 stillThere: !!document.querySelector("#body tr"),
@@ -735,10 +742,10 @@ def test_saying_yes_to_the_question_passes_on_the_house(served) -> None:
         const listing = row.dataset.listing;
         const before = state.shown.length;
         row.querySelector("button.pass").click();
-        await wait(200);
+        await until(() => document.querySelector("dialog.ask"));
         [...document.querySelectorAll("dialog.ask button")]
           .find(b => b.textContent === "Pass on it").click();
-        await wait(600);
+        await until(() => state.shown.length !== before);
         const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
         return {before, after: state.shown.length,
                 judgment: (answered.listing.annotation || {}).judgment ?? null};
@@ -759,11 +766,11 @@ def test_keeping_a_house_takes_one_press_and_no_question(served) -> None:
         const listing = row.dataset.listing;
         const before = state.shown.length;
         row.querySelector("button.keep").click();
-        await wait(600);
+        await until(() => state.all[0].judgment === "keep");
         const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
         const asked = !!document.querySelector("dialog.ask");
         document.getElementById("onlykept").click();
-        await wait(300);
+        await until(() => state.shown.length !== before);
         return {asked, before, whileKeptOnly: state.shown.length,
                 judgment: (answered.listing.annotation || {}).judgment ?? null};
     """)
@@ -821,11 +828,9 @@ def test_the_thumbnail_opens_every_photograph_the_listing_carried(served) -> Non
 
         state.all[0].has_image = true;
         document.getElementById("showphotos").click();
-        await wait(400);
-        document.querySelector("#body tr button.thumb").click();
-        await wait(400);
+        (await until(() => document.querySelector("#body tr button.thumb"))).click();
 
-        const dialog = document.querySelector("dialog.gallery");
+        const dialog = await until(() => document.querySelector("dialog.gallery"));
         const plate = () => dialog.querySelector("img.plate").getAttribute("src");
         const counter = () => dialog.querySelector(".counter").textContent;
 
@@ -844,8 +849,7 @@ def test_the_thumbnail_opens_every_photograph_the_listing_carried(served) -> Non
         /* And again with the addresses in the form they are really stored in. */
         window.ask = async () => ({listing: {photo_urls: asStored}});
         document.querySelector("#body tr button.thumb").click();
-        await wait(400);
-        const again = document.querySelector("dialog.gallery");
+        const again = await until(() => document.querySelector("dialog.gallery"));
         const asked = again.querySelector("img.plate").getAttribute("src");
         again.close();
         await wait(100);
@@ -913,9 +917,8 @@ def test_a_listing_with_no_photographs_says_so_rather_than_opening_nothing(serve
         window.ask = async () => ({listing: {photo_urls: []}});
         state.all[0].has_image = true;
         document.getElementById("showphotos").click();
-        await wait(400);
-        document.querySelector("#body tr button.thumb").click();
-        await wait(400);
+        (await until(() => document.querySelector("#body tr button.thumb"))).click();
+        await until(() => document.getElementById("banner").textContent.trim());
         return {opened: !!document.querySelector("dialog.gallery"),
                 banner: document.getElementById("banner").textContent};
     """)
