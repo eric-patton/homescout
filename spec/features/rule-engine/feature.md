@@ -21,7 +21,7 @@ gate:
   product_global_hash: "sha256:869c75445341"
   constitution_hash: "sha256:7ed19648690b"
 converge:
-  last_run: 2026-08-23
+  last_run: 2026-08-25
   open: 1
   contradicts: 0
 human_signoff: []
@@ -84,6 +84,27 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   week's run still produces last week's answer.
 
 ## Changes recorded here
+
+- **2026-08-25, "nothing fills this yet" became a question instead of a claim** (`converge.md`
+  gap-002). The enriched names were declared `populated: false` from this feature's first release,
+  which was true then and stopped being true when location enrichment shipped. Nobody flipped them.
+  For two days every fire and flood criterion anybody wrote was told, at validation, that it was
+  "undetermined for every property, which means it never drops or flags anything" — about rules that
+  fire.
+
+  The obvious fix was to flip eight booleans, and it was the wrong one: it would have made
+  `populated` true for every field in the namespace and left the branch that reads it unreachable,
+  which is a message nobody can ever see guarding a case that can still happen.
+
+  The case that can still happen is a provider present in the build and switched off in *this*
+  installation. Broadband needs a credential; without it `download_mbps` really is undetermined for
+  every property, and with it the same criterion works. So `unconfigured()` asks the registry at
+  check time, and the flag keeps its original meaning for a build that genuinely lacks a filler.
+
+  The general shape, worth remembering the next time a table describes something that moves: a
+  static declaration about a build cannot answer a question about an installation, and a wrong
+  answer here is expensive because the person reading it cannot check. Being told a working
+  criterion never fires is an instruction to delete it.
 
 - **2026-08-24, the namespace became something a person can read.** `rules/namespace.py` gained
   `vocabulary()`: every field with its type, the closed set of values where there is one, a few real

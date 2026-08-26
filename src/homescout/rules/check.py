@@ -112,12 +112,24 @@ class _Checker:
                 f"{', '.join(ns.names())}.",
             )
             return None
+        # Two different reasons a real name might hold nothing, kept apart because they have
+        # different fixes (AC-14): a feature that has not shipped, and one that has shipped but is
+        # switched off here. Neither is a reason to refuse the rule, and saying either one about a
+        # criterion that works is how somebody ends up deleting a criterion that works.
         if not field.populated:
             self.say(
                 node.position,
                 f"{node.name!r} is a real field, but nothing in this build fills it yet: it "
                 f"arrives with {field.populated_by}. Until then this rule is undetermined for "
                 "every property, which means it never drops or flags anything.",
+                severity="notice",
+            )
+        elif (why := ns.unconfigured(node.name)) is not None:
+            self.say(
+                node.position,
+                f"{node.name!r} is a real field and something fills it, but not here: {why}. "
+                "Until that is set up this rule is undetermined for every property, which means it "
+                "never drops or flags anything.",
                 severity="notice",
             )
         return field.type

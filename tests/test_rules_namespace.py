@@ -66,26 +66,46 @@ def test_a_name_that_does_not_exist_lists_the_ones_that_do() -> None:
 def test_a_name_nothing_fills_yet_is_a_notice_and_not_a_refusal() -> None:
     """feat-008/AC-14: the spec's edge case, and the brief's own example search.
 
-    The brief drops on `upload_mbps < 100`, and that value arrives with location enrichment, which
-    is not built. Refusing to run the brief's own example until an unrelated feature ships would be
-    answering a question nobody asked. Saying so once, plainly, is the useful thing.
+    The brief drops on `upload_mbps < 100`. Location enrichment has since shipped and supplies that
+    value, but the provider behind it needs a credential nobody has given this test run, so here it
+    really is undetermined for every property. Refusing to run the brief's own example over that
+    would be answering a question nobody asked. Saying so once, plainly, is the useful thing.
     """
     found = complaints("upload_mbps < 100")
 
     assert [c.severity for c in found] == ["notice"]
-    assert "nothing in this build fills it yet" in found[0].message
-    assert "location enrichment" in found[0].message
+    assert "not here" in found[0].message
+    assert "broadband" in found[0].message
     assert "undetermined for every property" in found[0].message
 
 
-def test_the_two_kinds_of_unknown_name_read_differently() -> None:
+def test_a_criterion_on_a_provider_that_is_configured_is_told_nothing_at_all() -> None:
+    """feat-008/AC-14, closes gap-002: the notice is about this installation, not this build.
+
+    `wildfire_hazard` and `flood_zone` are supplied by providers that need no credential, so they
+    are answerable wherever this runs. For two days they were declared unfilled anyway, and every
+    fire criterion anybody wrote was told it "never drops or flags anything" — about a rule that
+    fires. A person who cannot read the code to check has no way to tell that message from a true
+    one, and the reasonable response to it is to delete the rule.
+
+    So the absence asserted here is the whole point: nothing to say is what a working criterion
+    should hear.
+    """
+    for expression in ("wildfire_hazard in ['high', 'very high']", "flood_zone is not null"):
+        assert complaints(expression) == (), expression
+
+
+def test_the_three_kinds_of_unknown_name_read_differently() -> None:
     """feat-008/AC-14: different problems, different fixes, different words."""
     absent = complaints("not_a_field > 1")[0]
-    unfilled = complaints("flood_zone is not null")[0]
+    unconfigured = complaints("upload_mbps is not null")[0]
 
     assert absent.severity == "problem"
-    assert unfilled.severity == "notice"
-    assert absent.message != unfilled.message
+    assert unconfigured.severity == "notice"
+    assert absent.message != unconfigured.message
+    # And the third kind says nothing here at all: a name that is filled and simply empty for one
+    # property is that property's own answer, and belongs in a verdict rather than a validation.
+    assert complaints("wildfire_hazard is not null") == ()
 
 
 MISMATCHES = [

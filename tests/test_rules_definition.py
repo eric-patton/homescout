@@ -143,8 +143,26 @@ def test_a_rule_naming_a_field_nobody_fills_yet_does_not_stop_the_search(tmp_pat
 
     assert blocking(definition.problems()) == ()
     assert len(notices(definition.problems())) == 1
-    assert "location enrichment" in notices(definition.problems())[0].message
+    assert "broadband" in notices(definition.problems())[0].message
     assert [rule.id for rule in definition.rules] == ["no-fiber"]
+
+
+def test_a_rule_on_a_provider_that_needs_no_credential_is_not_warned_about(tmp_path: Path) -> None:
+    """feat-008/AC-14, closes gap-002: a criterion that works is told nothing.
+
+    The counterpart to the test above. Broadband needs a credential and warns without one; the fire
+    hazard rating needs none, so a criterion naming it is answerable anywhere this runs and there is
+    nothing to say about it. Asserting the silence is the point, because the defect this replaces
+    was a permanent warning telling somebody their working fire rule never fires.
+    """
+    definition = with_rules(
+        tmp_path,
+        "fire",
+        "  - {id: burns, when: 'wildfire_hazard in [\"high\", \"very high\"]', severity: drop}\n",
+    )
+
+    assert definition.problems() == ()
+    assert [rule.id for rule in definition.rules] == ["burns"]
 
 
 def test_a_definition_with_a_broken_rule_is_not_run(tmp_path: Path) -> None:

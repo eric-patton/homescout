@@ -171,6 +171,53 @@ def test_validating_reports_every_problem_in_one_pass(store: Store, db_path) -> 
     assert [p["location"] for p in document["problems"]] == ["a.yaml:1", "a.yaml:2"]
 
 
+def test_a_definition_with_only_notices_is_not_called_invalid(store: Store, db_path) -> None:
+    """feat-003/AC-16, closes gap-004: the prose and the document are one computation.
+
+    A notice does not stop a search running, and the structured side has always said so. The line a
+    person reads counted every finding as a failure, so a search carrying four notices and no
+    problems was announced as invalid while the same call reported `valid: true` and exited zero.
+
+    That is not a wording quibble. The notices somebody actually meets are about criteria, so the
+    sentence told them their fire rules had broken their file, and the obvious response is to
+    delete the rules.
+    """
+    noticed = search(
+        "portales",
+        problems=[SearchProblem("a.yaml:1", "worth knowing", severity="notice")],
+    )
+    with wired([noticed], {"fake": FakeSource()}):
+        code, out, _ = invoke(["searches", "validate", "portales"], db=db_path)
+        machine, document, _ = invoke(
+            ["searches", "validate", "portales", "--json"], db=db_path
+        )
+
+    assert code == ExitCode.SUCCESS
+    assert "is valid (1 notice)" in out
+    assert "is not valid" not in out
+    assert "worth knowing" in out, "and it still says what it found"
+    # The two renderings of the one computation, agreeing.
+    assert machine == ExitCode.SUCCESS
+    assert json.loads(document)["valid"] is True
+
+
+def test_a_definition_with_both_kinds_leads_with_what_stops_it(store: Store, db_path) -> None:
+    """feat-003/AC-16: a real failure is still a failure, and the notice rides along named."""
+    mixed = search(
+        "portales",
+        problems=[
+            SearchProblem("a.yaml:1", "unreadable"),
+            SearchProblem("a.yaml:2", "worth knowing", severity="notice"),
+        ],
+    )
+    with wired([mixed], {"fake": FakeSource()}):
+        code, out, _ = invoke(["searches", "validate", "portales"], db=db_path)
+
+    assert code == ExitCode.INVALID_INPUT
+    assert "is not valid (1 problem, 1 notice)" in out
+    assert "note a.yaml:2" in out, "told apart by a word, never by colour"
+
+
 def test_one_bad_definition_does_not_cost_a_night_for_the_others(store: Store, db_path) -> None:
     """feat-003/AC-16: an observation not made tonight can never be made later.
 

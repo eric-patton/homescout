@@ -150,3 +150,72 @@ defect that passes every test written before it:
   manifest with its fix and two tests citing `feat-002/AC-23`. It is noted here because this
   feature's first live run is what found it, and because the caller contract that made it visible
   (a run retrieves one preview per property that has none) is this feature's.
+
+## run 3 — 2026-08-25
+
+baseline: spec sha256:c0b3ddeac620 · plan sha256:94b1b6d6f164 · tasks sha256:ed12989ebc5a
+
+- opened gap-004 [contradicts] spec:"AC-16 A saved search that fails validation is reported with the
+  specific failures"
+
+  The command tells a person a definition is invalid when it is not, while telling a program the
+  opposite in the same breath.
+
+  Evidence: `cli/render.py:135-140` treats every finding as a failure. `problems()` returns
+  `"{name} is valid."` only when the list is empty, and otherwise `"{name} is not valid ({n}
+  problems):"` over `len(found)`. But a finding carries a severity, and only `problem` is
+  disqualifying: `search/__init__.py:56` defines `blocking()` as exactly the `problem` ones, and
+  `cli/main.py:380-387` uses it correctly, setting `valid=not stopping` in the structured document
+  and returning the success exit code.
+
+  Observed on `homescout searches validate nm-statewide`, a definition carrying four `notice`
+  findings and no `problem`: the prose stream says *"nm-statewide is not valid (4 problems)"*, the
+  structured document says `"valid": true`, and the exit code is 0. Both come from one call and one
+  computation.
+
+  Why it is a contradiction rather than wording: the module that holds this renderer states the
+  contract it breaks. `cli/main.py`'s `Answer` is documented as *"Two renderings of one computation,
+  never two computations. That is the whole reason this type exists"* — and here the two renderings
+  disagree about the answer, not merely about how to phrase it. The machine-readable side is right.
+  The side a person reads is wrong, and a person is the one who cannot check.
+
+  On the anchor: AC-16 speaks to definitions that fail, and this defect is on the passing side, so
+  the id is the nearest stable anchor rather than an exact violation of its sentence. The criterion
+  it genuinely offends is the two-renderings contract, which has no `AC-N` of its own.
+
+  Consequence in practice, which is why this is not cosmetic: a person who writes a fire criterion
+  gets four notices and a sentence telling them their search is invalid. Nothing tells them the run
+  will proceed. The natural response is to delete the criteria until the sentence goes away. Paired
+  with gap-002 in the rule engine (a permanent notice claiming enriched fields are unfilled), the
+  two defects compound: the notice says the rule can never fire, and this line says the file is
+  broken. Both are false, and together they read as an instruction to remove working criteria.
+
+  Routed: /spec-flow:change, fidelity lane. The spec is right; the renderer is wrong. A fix counts
+  the blocking findings rather than all of them, and says something true about the rest. A regression
+  test citing `feat-003/AC-16` over a notice-only definition is what closes this gap.
+
+verdict: open 1 (missing 0, partial 0, contradicts 1, unrequested 0)
+
+## run 4 — 2026-08-25
+
+baseline: spec sha256:c0b3ddeac620 · plan sha256:94b1b6d6f164 · tasks sha256:ed12989ebc5a
+
+- closed gap-004 [was contradicts] spec:"AC-16 A saved search that fails validation is reported with
+  the specific failures"
+
+  `cli/render.py:135` now counts what actually stops a run, through the same `blocking()` the
+  structured side has always used, so the two renderings of the one computation agree. A definition
+  carrying only notices reads "is valid (4 notices)" and lists them; one carrying both leads with
+  the problems and names the notices alongside; each notice line is prefixed `note`, by word rather
+  than by colour, because a list holding both kinds otherwise reads as a list of failures.
+
+  Closed by: `cli/render.py:135-163`. Regression tests citing this gap:
+  `tests/test_cli_operations.py::test_a_definition_with_only_notices_is_not_called_invalid`, which
+  asserts the prose, the document and the exit code all agree, and
+  `::test_a_definition_with_both_kinds_leads_with_what_stops_it` for the mixed case.
+
+  Found in use rather than by inspection: a statewide saved search carrying three fire criteria was
+  announced as invalid with four problems, while the same call reported `valid: true` and exited
+  zero.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

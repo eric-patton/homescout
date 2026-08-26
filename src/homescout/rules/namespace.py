@@ -99,16 +99,25 @@ _DERIVED: tuple[Field, ...] = (
     Field("price_raised_after_days", NUMBER, "derived", populated=True),
 )
 
-#: Public data attached to a location. Declared here, filled by location enrichment (feat-007).
+#: Public data attached to a location, filled by location enrichment (feat-007).
+#:
+#: `populated` is true for every one of them, and the enrichment registry is what makes that safe:
+#: it asserts at import that each name declared here has a provider supplying it. These read `False`
+#: from this feature's first release until the providers arrived, and stayed that way for two days
+#: after they did, which told anybody writing a fire criterion that their rule could never fire.
+#:
+#: Whether a value actually lands is a second and different question, and not one a table can
+#: answer: a provider can be present in the build and unconfigured in this installation, which is
+#: what `unconfigured` below is for.
 _ENRICHED: tuple[Field, ...] = (
-    Field("flood_zone", TEXT, "enriched", False, "location enrichment"),
-    Field("upload_mbps", NUMBER, "enriched", False, "location enrichment"),
-    Field("download_mbps", NUMBER, "enriched", False, "location enrichment"),
-    Field("broadband_provider", TEXT, "enriched", False, "location enrichment"),
-    Field("over_principal_aquifer", BOOLEAN, "enriched", False, "location enrichment"),
-    Field("wildfire_hazard", TEXT, "enriched", False, "location enrichment"),
-    Field("elevation_ft", NUMBER, "enriched", False, "location enrichment"),
-    Field("wildland_urban_interface", TEXT, "enriched", False, "location enrichment"),
+    Field("flood_zone", TEXT, "enriched", populated=True),
+    Field("upload_mbps", NUMBER, "enriched", populated=True),
+    Field("download_mbps", NUMBER, "enriched", populated=True),
+    Field("broadband_provider", TEXT, "enriched", populated=True),
+    Field("over_principal_aquifer", BOOLEAN, "enriched", populated=True),
+    Field("wildfire_hazard", TEXT, "enriched", populated=True),
+    Field("elevation_ft", NUMBER, "enriched", populated=True),
+    Field("wildland_urban_interface", TEXT, "enriched", populated=True),
 )
 
 #: Recovered from a listing's prose by description field extraction (feat-009).
@@ -132,6 +141,32 @@ _EXTRACTED: tuple[Field, ...] = (
 FIELDS: dict[str, Field] = {
     field.name: field for field in (*_LISTING, *_DERIVED, *_ENRICHED, *_EXTRACTED)
 }
+
+
+def unconfigured(name: str) -> str | None:
+    """Why nothing in *this installation* would fill this name, or None when something would.
+
+    Asked rather than looked up, because for an enriched name the answer depends on what is
+    registered and configured here rather than on what the build contains. The broadband provider
+    needs a credential: without it a criterion naming `download_mbps` really is undetermined for
+    every property, and with it the same criterion works. A static flag cannot tell those apart, and
+    the cost of getting it wrong falls entirely on the person who cannot read the code to check
+    (gap-002).
+
+    Imported late on purpose: the enrichment registry imports this module to check itself against
+    it, so a top-level import here would be a cycle.
+    """
+    field = FIELDS.get(name)
+    if field is None or field.origin != "enriched":
+        return None
+    from ..enrich.registry import create, registered
+
+    for provider in create(registered()):
+        if name in provider.values():
+            if provider.configured():
+                return None
+            return f"the {provider.name} provider is registered but not configured"
+    return "no registered provider supplies it"
 
 # Every listing field is either reachable by a rule or withheld on purpose. Without this, a field
 # added to a listing tomorrow would quietly be unreachable, and nobody would find out until they

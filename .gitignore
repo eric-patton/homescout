@@ -20,6 +20,14 @@ build/
 data/
 photos/
 exports/
+# A saved search is a hand-written file rather than collected data, but it is still the user's:
+# its areas are a fairly precise picture of where somebody is looking to live. The workspace is
+# meant to sit outside the checkout; this is here so that running from inside one cannot quietly
+# commit that.
+searches/
+# The same, for the lock a run holds while it is going: it belongs to a workspace, not to a
+# checkout, and it is litter here rather than anything worth keeping.
+runs/
 
 # Tooling
 .pytest_cache/

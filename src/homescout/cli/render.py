@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from ..search import blocking
+
 DASH = "-"
 
 
@@ -133,11 +135,34 @@ def definition(search: Any) -> str:
 
 
 def problems(name: str, found: Sequence[Any]) -> str:
+    """What validation found, with the two kinds told apart.
+
+    Only a `problem` stops a search running. A `notice` is worth knowing and changes nothing, and
+    counting one as a failure is not a wording slip: somebody told their file is invalid, whose file
+    is fine, goes and fixes something that was never broken. The structured document has always
+    drawn this line. This is meant to be the same computation said in prose rather than a second
+    opinion about it (gap-004).
+    """
     if not found:
         return f"{name} is valid."
-    lines = [f"{name} is not valid ({len(found)} problems):"]
-    lines.extend(f"  {p.location}: {p.message}" for p in found)
+    stopping = blocking(found)
+    aside = len(found) - len(stopping)
+    if stopping:
+        head = f"{name} is not valid ({_things(len(stopping), 'problem')}"
+        head += f", {_things(aside, 'notice')}):" if aside else "):"
+    else:
+        head = f"{name} is valid ({_things(aside, 'notice')}):"
+    lines = [head]
+    # Marked by word rather than by colour, which the accessibility requirement rules out, and
+    # needed at all because a list holding both kinds otherwise reads as a list of failures.
+    lines.extend(
+        f"  {'' if p.severity == 'problem' else 'note '}{p.location}: {p.message}" for p in found
+    )
     return "\n".join(lines)
+
+
+def _things(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
 
 
 def enrichment(outcome: Any) -> str:
