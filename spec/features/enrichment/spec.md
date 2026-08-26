@@ -96,8 +96,8 @@ service must cost one column rather than a run. The problem brief is in `researc
 - [ ] AC-10: A property with no usable coordinates is skipped with a recorded reason distinct from a
       provider failure, and does not cause a request or an error.
 - [ ] AC-11: Providers for flood zone, broadband service, principal aquifer, wildfire hazard,
-      elevation, boundary resolution, and wildland-urban interface exist and are individually
-      enableable.
+      elevation, boundary resolution, wildland-urban interface, and county exist and are
+      individually enableable.
 - [ ] AC-12: A provider covers the whole country unless it declares otherwise. A test asserts a
       successful lookup at locations in geographically distant states, for every provider this
       installation can run. A provider that is not configured is skipped by name rather than
@@ -154,6 +154,13 @@ service must cost one column rather than a run. The problem brief is in `researc
       learn what a column answers for. Providers that cover the country declare nothing, which is
       the default AC-12 states. The coverage test of AC-12 asserts, for a declaring provider, both a
       successful lookup inside its coverage and a not-applicable result outside it.
+- [ ] AC-27: A provider answers which county contains a location, supplying `county_name`. Two of
+      the three listing sites never send a county at all, so without it a quarter of a statewide
+      table shows an empty county and the emptiness is one site's silence rather than a fact about
+      the property. A location the service places in no county returns an answer of nothing, which
+      is a different thing from a location nobody asked about. It needs no credential and no new
+      service address, and is added to the pass without changing the pass, which is AC-1 applying to
+      it unchanged.
 
 ## Edge cases & errors
 

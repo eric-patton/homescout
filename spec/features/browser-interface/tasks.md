@@ -227,3 +227,60 @@ alongside its peers.
       (`feat-010/AC-40`); and both surfaces review the same queue from one core answer
       (`feat-010/AC-41`). Asserted through the terminal on purpose: if the summary were built in the
       page, a browser-only test would pass while the two surfaces drifted apart.
+
+## Change: arrange the table (`changes/arrange-the-table/`)
+
+- [x] T61: `web/static/results.js`: the `Listing URL` cell draws one named link per site the property
+      was found on, from the row's `links`, falling back to the single address where that is all
+      there is (`feat-010/AC-42`). `web/static/listing.js`: the provenance table's source name is
+      that source's own page.
+- [x] T62: `api.results` carries the per-site addresses and whether a stored photograph exists, the
+      second from one query for the whole table rather than one request per row (`feat-010/AC-42`,
+      `feat-010/AC-43`). `store.listings_with_preview_images` is that query.
+- [x] T63: `web/static/results.js`: a "show photos" toggle draws the stored thumbnail beside each
+      address, off by default, with an empty box of the same size where there is no picture
+      (`feat-010/AC-43`). Nothing is fetched from a listing site to draw it.
+- [x] T64: `web/static/results.js`: headings drag to reorder and their right edge drags to resize,
+      with Alt and the arrows doing the first and Alt-Shift the second, so neither is mouse-only
+      (`feat-010/AC-44`, `feat-010/AC-17`). Widths live on a `colgroup`, so a resize is one style
+      change rather than one per visible cell.
+- [x] T65: `web/static/results.js`: the arrangement is kept per browser and per search, every read
+      and write guarded, with a "reset columns" control (`feat-010/AC-45`). Columns nothing fills
+      are arranged last and marked in words as well as in style (`feat-010/AC-46`).
+- [x] T66: `tests/test_web_surfaces.py`: a merged record offers both sites' addresses
+      (`feat-010/AC-42`); a row says whether a picture exists and the table draws the stored one
+      (`feat-010/AC-43`); the unfilled columns are arranged last and marked (`feat-010/AC-46`).
+      `tests/test_web_browser.py`: the keyboard moves and sizes a column (`feat-010/AC-44`), and the
+      table opens with storage throwing on every access (`feat-010/AC-45`).
+
+### Defects fixed alongside it
+
+- [x] T67: **The rows were drifting out from under their own scrollbar.** The virtual window placed
+      rows every 22 pixels; the stylesheet asked for 26; and because `height` on a table cell is
+      only a floor, the floated corner marker on the editable cells took the rendered row to 43. So
+      each drawn row sat seventeen pixels below where the scrollbar said it was, compounding down
+      the table until the last rows were past the end of the scroll range and could not be reached.
+
+      Three causes, three fixes: the marker is positioned rather than floated; the cells' line height
+      is set from the same custom property as their height, so the row is exact rather than a
+      minimum; and the row height is published by the script and read by the stylesheet, so there is
+      one of it. Pinned by `tests/test_web_browser.py` citing `feat-010/AC-20`, which measures a
+      drawn row against the number the placement uses rather than against 26, so it still means
+      something after somebody changes the height deliberately.
+
+- [x] T68: **A handler this page built could silently never run.** The shared element builder treated
+      six named `on...` attributes as listeners and passed everything else to `setAttribute`, which
+      turns a function into a string: an attribute holding `() => edit(...)` is an inline handler
+      whose whole body defines an arrow function and discards it. Accepted, present in the DOM, and
+      doing nothing. Double-clicking a cell to edit it had been built that way.
+
+      Fixed in `common.js` for any `on...` whose value is a function, rather than by adding a seventh
+      name to the list, because the eighth would have inherited it. Pinned by
+      `tests/test_web_browser.py` citing `feat-010/AC-17`, asserting on the builder rather than on
+      one cell.
+
+- [x] T69: **The pass control had no styles at all.** It shipped with the judgment change and drew as
+      a default browser button in a 26-pixel row, which is part of why the person reading the table
+      asked for a feature that already existed. Styled small and quiet, reading `pass` or `passed`
+      so the state is legible without colour (`feat-010/AC-18`), and sized so it cannot make the row
+      taller than the row.

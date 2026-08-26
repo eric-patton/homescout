@@ -347,6 +347,10 @@ def listing(found: Any) -> str:
             seen = link.get("times_seen") or 1
             times = f", seen in {seen} runs" if seen > 1 else ""
             lines.append(f"  {link['source']} {link.get('source_listing_id') or ''}{why}{times}")
+            # One address per site, because a merged property has one page on each and they are
+            # not interchangeable to anyone keeping a list on one of them.
+            if link.get("listing_url"):
+                lines.append(f"    {link['listing_url']}")
 
     annotation = {k: v for k, v in (found.get("annotation") or {}).items() if v not in (None, "")}
     if annotation:

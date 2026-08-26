@@ -173,3 +173,56 @@ def test_the_columns_nothing_fills_are_the_ones_the_spec_names() -> None:
     text = SPEC.read_text(encoding="utf-8")
     for name in unfilled:
         assert name in text, f"{name} is structurally empty and the spec does not say so"
+
+
+def county_row(said: str | None, looked_up: str | None):
+    """One property, as far as the county columns are concerned."""
+
+    class Fields:
+        county = said
+
+    class Row:
+        fields = Fields()
+        enriched = {"county_name": looked_up} if looked_up is not None else {}
+
+    return Row()
+
+
+def test_the_county_is_the_listings_where_there_is_one() -> None:
+    """feat-011/AC-14: the site's own word wins, and is not overwritten by a lookup."""
+    assert cols.BY_NAME["County/Region"].read(county_row("Roosevelt", "Curry")) == "Roosevelt"
+
+
+def test_the_county_falls_back_to_the_one_the_public_record_gives() -> None:
+    """feat-011/AC-14: because two of the three sites never send a county at all.
+
+    Measured on the statewide run of 2026-08-26: Realtor sent one on 1,097 of 1,099 rows, Zillow on
+    none of 866, Redfin on none of 58. Left to the listing alone a quarter of the column is blank,
+    and the blank is one site's silence rather than a fact about the house.
+    """
+    assert cols.BY_NAME["County/Region"].read(county_row(None, "Roosevelt")) == "Roosevelt"
+
+
+def test_a_borrowed_county_is_spelled_exactly_like_a_stated_one() -> None:
+    """feat-011/AC-14: because the whole point of the column is sorting and grouping by it.
+
+    A cell reading `Roosevelt (looked up)` would sort and group apart from `Roosevelt`, splitting
+    one county into two, which costs more than the marker is worth. Provenance is kept in the
+    separate column beside it instead.
+    """
+    stated = cols.BY_NAME["County/Region"].read(county_row("Roosevelt", None))
+    borrowed = cols.BY_NAME["County/Region"].read(county_row(None, "Roosevelt"))
+
+    assert stated == borrowed == "Roosevelt"
+
+
+def test_a_county_nobody_can_say_is_an_empty_cell() -> None:
+    """feat-011/AC-14, feat-011/AC-5: no placeholder, and no invention."""
+    assert cols.BY_NAME["County/Region"].read(county_row(None, None)) is None
+
+
+def test_which_counties_were_borrowed_stays_answerable() -> None:
+    """feat-011/AC-15: the looked-up answer keeps a column of its own, outside the default sheet."""
+    assert cols.BY_NAME["County (looked up)"].read(county_row("Roosevelt", "Curry")) == "Curry"
+    assert cols.BY_NAME["County (looked up)"].read(county_row("Roosevelt", None)) is None
+    assert "County (looked up)" not in cols.DEFAULT, "the promised sheet keeps its 32 columns"

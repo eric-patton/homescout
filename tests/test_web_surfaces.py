@@ -266,3 +266,115 @@ def test_an_empty_queue_says_so_plainly() -> None:
     matches = script("matches")
     assert "Nothing to review" in matches
     assert "clear enough to decide on its own" in matches
+
+
+# ---------------------------------------------------------------------------
+# Arranging the table
+
+
+def two_sites(store: Store):
+    """One property seen on two sites and merged, which is the case this section is about."""
+    from conftest import do_run
+
+    rows = {
+        "realtor": [listing("a", listing_url="https://realtor.invalid/a")],
+        "zillow": [listing("a", listing_url="https://zillow.invalid/a")],
+    }
+    do_run(store, "portales", sources=rows)
+    merged = store.supersede(
+        [held.id for held in store.listings()], join_signal="same address", decided_by="human"
+    )
+    # A run after the merge, so the latest run's row is the merged record rather than the two it
+    # was made from. This is what a person actually looks at the morning after a merge.
+    do_run(store, "portales", sources=rows)
+    return merged
+
+
+def test_a_row_offers_the_property_on_every_site_it_was_found_on(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-42: because the sites are not interchangeable to somebody keeping a list.
+
+    A house on one site is not necessarily on another at all: in the statewide run of 2026-08-26
+    Realtor returned 1,099 rows, Zillow 866 and Redfin 58, because Redfin's download excludes what
+    its local MLS does not permit. Offering one address for a merged record leaves a person unable
+    to reach the page on the site they actually use, and unable to tell that from the site not
+    having the house.
+    """
+    merged = two_sites(store)
+    held = held_workspace(shared_store(db_path))
+
+    rows = api.results(held, "portales")["rows"]
+    (row,) = [held_row for held_row in rows if held_row["listing_id"] == merged]
+
+    assert {entry["source"] for entry in row["links"]} == {"realtor", "zillow"}
+    assert {entry["url"] for entry in row["links"]} == {
+        "https://realtor.invalid/a",
+        "https://zillow.invalid/a",
+    }
+    assert "elsewhere" in script("results"), "the table draws them"
+
+
+def test_a_row_says_whether_there_is_a_photograph_without_asking_for_it(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-43: one query for the whole table, not one request per row that 404s."""
+    loaded = load(store, [listing("a"), listing("b")])
+    store.store_preview_image(
+        loaded["a"], b"not really a jpeg", source_url="https://pics.invalid/a"
+    )
+    held = held_workspace(shared_store(db_path))
+
+    rows = {row["listing_id"]: row for row in api.results(held, "portales")["rows"]}
+
+    assert rows[loaded["a"]]["has_image"] is True
+    assert rows[loaded["b"]]["has_image"] is False
+
+
+def test_the_photograph_the_table_draws_is_the_one_this_tool_stored() -> None:
+    """feat-010/AC-43: so drawing the table tells no listing site anything at all."""
+    results = script("results")
+
+    assert "/api/listings/${encodeURIComponent(row.listing_id)}/image" in results
+    assert "photo_urls" not in results, "a listing site's own address is never put in an img"
+
+
+def test_a_property_with_no_photograph_still_holds_the_space() -> None:
+    """feat-010/AC-43: the rows are read by running an eye down a column, so they must line up."""
+    results = script("results")
+
+    assert 'el("span", {class: "thumb", "aria-hidden": "true"})' in results
+    assert "hold the same space" in results
+
+
+def test_the_columns_nothing_fills_are_arranged_last_and_marked() -> None:
+    """feat-010/AC-46: because an unmarked empty cell was read as the tool knowing nothing.
+
+    Five of the forty-two columns are the household's own spreadsheet headings, kept because their
+    sheet has them and filled by nobody: taxes, crime, fire, sewage exposure, outbuildings. Sitting
+    among the columns that do have answers, `Fire/Egress/Terrain` reading empty on every row was
+    read as this tool having no fire data, while two columns of it sat thirty columns to the right.
+    """
+    results = script("results")
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+
+    assert 'column.origin !== "unfilled"' in results, "the filled ones are arranged first"
+    assert 'column.origin === "unfilled"' in results, "the unfilled ones follow them"
+    assert "th.unfilled" in style, "and they are marked"
+    assert "for you to fill in yourself" in results, "in words, not only in style"
+
+
+def test_the_row_height_is_published_from_one_place() -> None:
+    """feat-010/AC-20's machinery: the virtual window's arithmetic and the stylesheet must agree.
+
+    They did not. The script placed rows every 22 pixels and the stylesheet drew them 26 tall, so
+    the drawn rows crept four pixels per row out from under the scrollbar and the last of them could
+    not be reached at all. The height is now set by the script and read by the stylesheet, so there
+    is one of it. A browser checks the result; this checks that the mechanism is still in place.
+    """
+    results = script("results")
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+
+    assert '--row-height' in results and 'setProperty("--row-height"' in results
+    assert "height: var(--row-height)" in style
+    assert "height: 22px" not in style

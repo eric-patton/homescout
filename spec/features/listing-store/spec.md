@@ -197,6 +197,11 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
 - [ ] AC-26: Notes about an area or a town are stored independently of any property, are addressed
       by the area they describe, and survive every run exactly as property annotations do. They are
       never created or modified by a run.
+- [ ] AC-27: A source link carries the address the source row can be read at, alongside the source's
+      name and the source's own identifier. A property assembled from rows on several sites reports
+      one address per site rather than one address in total, because the sites are not
+      interchangeable to anyone keeping a list on one of them, and a site the property was never
+      seen on contributes no address rather than a broken one.
 
 ## Edge cases & errors
 

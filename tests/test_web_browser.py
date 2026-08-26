@@ -415,3 +415,181 @@ def test_a_save_that_fails_keeps_what_was_typed(served) -> None:
         assert "database is in use" in found["banner"], found["banner"]
     finally:
         process.terminate()
+
+
+def test_a_row_is_drawn_the_height_the_table_places_it_at(served) -> None:
+    """feat-010/AC-20's machinery: the arithmetic and the stylesheet have to agree, exactly.
+
+    This is a regression, and a browser is the only place it shows. The virtual window placed rows
+    every 22 pixels and the stylesheet drew them 26 tall, so each drawn row sat four pixels lower
+    than the scrollbar said it was: the further down the table, the further the rows crept, and the
+    last of them ended below the bottom of the scroll range where they could not be reached at all.
+
+    Compared against the number the placement uses rather than against 26, so the test still means
+    something after somebody changes the height on purpose.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 50));
+                 }
+                 const rows = [...document.querySelectorAll("#body tr")].slice(0, 3);
+                 return {
+                   assumed: rowHeight(),
+                   drawn: rows.map(r => r.getBoundingClientRect().height),
+                 };
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found["drawn"], "no rows were drawn"
+    for height in found["drawn"]:
+        assert abs(height - found["assumed"]) < 0.51, (
+            f"a row is drawn {height}px tall but placed every {found['assumed']}px, so the rows "
+            "creep out from under the scrollbar and the last of them cannot be reached"
+        )
+
+
+def test_a_column_moves_and_resizes_from_the_keyboard(served) -> None:
+    """feat-010/AC-44, feat-010/AC-17: a new control that is mouse-only is one some people lack.
+
+    Alt with an arrow moves the column; add Shift and it sizes it. Both are exercised through the
+    events a keyboard actually sends, on the header the person would have focused.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 50));
+                 }
+                 const named = () => state.columns.map(c => c.name);
+                 const before = named();
+                 const moving = before[1];
+                 const press = (extra) => {
+                   const heads = document.querySelectorAll("table.grid thead th");
+                   const at = named().indexOf(moving);
+                   heads[at].focus();
+                   heads[at].dispatchEvent(new KeyboardEvent(
+                     "keydown", Object.assign({key: "ArrowRight", bubbles: true}, extra)));
+                 };
+
+                 press({altKey: true});
+                 const moved = named();
+                 const wasWide = widthOf(moving);
+                 press({altKey: true, shiftKey: true});
+                 return {before, moved, wasWide, nowWide: widthOf(moving),
+                         drawn: [...document.querySelectorAll("table.grid thead th")]
+                                  .map(h => h.textContent.trim())};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found["moved"] != found["before"], "alt with an arrow did not move the column"
+    assert found["moved"][1] == found["before"][2], "it did not move to the next position"
+    assert found["moved"][2] == found["before"][1]
+    assert found["nowWide"] > found["wasWide"], "alt and shift did not widen it"
+    assert found["drawn"][:3] == found["moved"][:3], "the header does not show the new order"
+
+
+def test_the_table_works_when_the_browser_will_not_store_anything(served) -> None:
+    """feat-010/AC-45: the arrangement is the one thing here that may be lost losing nothing.
+
+    Private browsing, a full quota, or storage switched off entirely. The arrangement is a
+    convenience; the table is not. So every read and write of it is guarded, and with storage
+    throwing on every access the table still opens, in the arrangement the columns were declared in.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 50));
+                 }
+                 Object.defineProperty(window, "localStorage", {
+                   configurable: true,
+                   get() { throw new DOMException("denied", "SecurityError"); },
+                 });
+                 const declared = [{name: "Rank", origin: "annotation"},
+                                   {name: "Annual Taxes", origin: "unfilled"},
+                                   {name: "Price", origin: "listing"}];
+                 let threw = null;
+                 let arranged = null;
+                 try {
+                   arranged = arrange(declared).map(c => c.name);
+                   remember();
+                 } catch (error) {
+                   threw = String(error);
+                 }
+                 return {threw, arranged, rows: document.querySelectorAll("#body tr").length};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found["threw"] is None, f"storage being unavailable broke the page: {found['threw']}"
+    assert found["arranged"] == ["Rank", "Price", "Annual Taxes"], (
+        "without a remembered arrangement the declared one is used, the unfilled columns last"
+    )
+    assert found["rows"] > 0, "the table drew nothing"
+
+
+def test_a_handler_this_page_builds_is_a_handler_that_runs(served) -> None:
+    """feat-010/AC-17: a regression in the element builder, and one only a browser catches.
+
+    The builder treated six named handlers as event listeners and passed everything else to
+    `setAttribute`, which turns a function into a string. An attribute holding `() => edit(...)` is
+    an inline handler whose whole body defines an arrow function and throws it away: accepted, in
+    the DOM, and doing nothing at all. Double-clicking a cell to edit it was built that way.
+
+    Asserted on the builder rather than on one cell, because the bug was in the builder and the next
+    handler would have inherited it.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 100; i++) {
+                   if (typeof el === "function") break;
+                   await new Promise(r => setTimeout(r, 100));
+                 }
+                 const fired = [];
+                 const node = el("td", {
+                   ondblclick: () => fired.push("dblclick"),
+                   onpointerdown: () => fired.push("pointerdown"),
+                   onclick: () => fired.push("click"),
+                 });
+                 node.dispatchEvent(new MouseEvent("dblclick"));
+                 node.dispatchEvent(new PointerEvent("pointerdown"));
+                 node.dispatchEvent(new MouseEvent("click"));
+                 return {fired, attribute: node.getAttribute("ondblclick")};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert sorted(found["fired"]) == ["click", "dblclick", "pointerdown"], found["fired"]
+    assert found["attribute"] is None, "a function was written into the DOM as an inline handler"

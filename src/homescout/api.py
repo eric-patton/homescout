@@ -927,6 +927,7 @@ def results(
         {"name": column.name, "kind": column.kind, "origin": column.origin, "links": column.links}
         for column in cols.COLUMNS
     ]
+    with_pictures = workspace.store.listings_with_preview_images()
     documents = []
     passed = 0
     for row in rows:
@@ -936,6 +937,7 @@ def results(
         document = _row_document(row, cols.COLUMNS)
         document["judgment"] = judgment
         document["hidden_by_default"] = judgment == "pass" and not include_passed
+        document["has_image"] = row.listing_id in with_pictures
         documents.append(document)
 
     return {
@@ -985,6 +987,13 @@ def _row_document(row: Any, columns: Sequence[Any]) -> dict[str, Any]:
         "flags": list(row.flags),
         "sources": list(row.sources),
         "listing_url": row.fields.listing_url,
+        # One way back per site, because a merged property is one row here and three pages out
+        # there, and the person keeping a list on one of those sites needs that site's page.
+        "links": [
+            {"source": source, "url": url}
+            for source, url in sorted(getattr(row, "source_links", {}).items())
+            if url
+        ],
         "latitude": row.fields.latitude,
         "longitude": row.fields.longitude,
         "values": {column.name: column.value(row) for column in columns},
@@ -1068,12 +1077,17 @@ def _distinct_sources(links: Sequence[Any]) -> list[dict[str, Any]]:
             "source_listing_id": link.source_listing_id,
             "join_signal": link.join_signal,
             "linked_at": link.linked_at,
+            "listing_url": link.listing_url,
             "times_seen": 1,
         }
         if key in found:
             found[key]["times_seen"] += 1
             if link.linked_at and link.linked_at < found[key]["linked_at"]:
                 found[key]["linked_at"] = link.linked_at
+            # The newest address this source row was seen at, because a site that reorganises its
+            # URLs leaves the old one answering nothing.
+            if link.listing_url:
+                found[key]["listing_url"] = link.listing_url
             continue
         found[key] = entry
     return list(found.values())

@@ -414,3 +414,59 @@ def _number(value: Any) -> float | None:
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+class County:
+    """Which county a point is in, from the Census geocoder.
+
+    Two of the three listing sites never say. Realtor sends a county on almost every row; Zillow and
+    Redfin send none at all, so a quarter of a statewide table had an empty county column and no way
+    to tell "this house has no county" from "this site did not mention one". County is not a detail
+    here: it decides the fire district, the assessor, the well rules and the tax bill, and a person
+    filtering a thousand houses by county was being shown a blank that meant nothing.
+
+    Asked of the same Census service that already answers what contains a point, so this is one more
+    layer on a request shape that is already verified, cached and paced.
+    """
+
+    name = "county"
+
+    def values(self) -> tuple[str, ...]:
+        return ("county_name",)
+
+    def precision(self) -> int:
+        # Three places is about a hundred metres. County lines run down section lines and rivers,
+        # and a house within a hundred metres of one is rare enough to accept for the cache hits.
+        return 3
+
+    def ttl_days(self) -> int | None:
+        return None  # county lines move roughly never
+
+    def configured(self) -> bool:
+        return True
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        answer = ask_json(
+            session,
+            self.name,
+            settings.endpoint("geocode").url,
+            {
+                "x": longitude,
+                "y": latitude,
+                "benchmark": "Public_AR_Current",
+                "vintage": "Current_Current",
+                "layers": "Counties",
+                "format": "json",
+            },
+        )
+        rows = ((answer.get("result") or {}).get("geographies") or {}).get("Counties") or []
+        if not isinstance(rows, list):
+            raise ProviderFailed("county: the response shape has changed")
+        if not rows:
+            # A point in the sea or outside the United States. An answer, and not a failure.
+            return {"county_name": None}
+        found = rows[0]
+        if not isinstance(found, Mapping):
+            raise ProviderFailed("county: the response shape has changed")
+        name = str(found.get("BASENAME") or found.get("NAME") or "").strip()
+        return {"county_name": name or None}

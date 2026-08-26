@@ -106,3 +106,13 @@ earlier.
       exposes a combined "matched" count that nothing in this feature's spec asks for; it
       anticipates the run digest, which belongs to the command line feature. Remove it here and let
       that feature define it when it needs it.
+
+## Change: a page per site (`changes/a-page-per-site/`)
+
+- [x] T-link-1: `store/models.py` and `store/core.py`: `SourceLink` carries `listing_url`, read from
+      the raw row the query already joins (`feat-001/AC-27`). No migration: the column exists and
+      every adapter already fills it.
+- [x] T-link-2: `api.py` and `cli/render.py`: the listing answer's source list carries each site's
+      address and the terminal prints it, so neither surface has it alone (product invariant 5).
+- [x] T-link-3: `tests/test_store_history.py`: a record merged from two sites reports both addresses
+      and they differ (`feat-001/AC-27`).

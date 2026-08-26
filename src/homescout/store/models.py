@@ -79,6 +79,10 @@ class SourceLink:
     join_signal: str
     decided_by: Literal["automatic", "human"]
     linked_at: str
+    #: Where this source row can be read on the site it came from. A merged property has one per
+    #: site, and they are not interchangeable: a person keeping a list on one site needs that
+    #: site's page, and the single address a merged record settles on is only ever one of them.
+    listing_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

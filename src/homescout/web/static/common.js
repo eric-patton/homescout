@@ -13,8 +13,12 @@ function el(tag, attributes, ...children) {
   const node = document.createElement(tag);
   for (const [name, value] of Object.entries(attributes || {})) {
     if (value === null || value === undefined || value === false) continue;
-    if (name === "onclick" || name === "oninput" || name === "onkeydown" ||
-        name === "onchange" || name === "onblur" || name === "onfocus") {
+    /* Any `on...` whose value is a function is a listener, and the list is not enumerated here.
+     * It used to be, and the six names on it were the six somebody had needed so far; a seventh
+     * fell through to `setAttribute`, which stringifies the function into an inline handler that
+     * defines an arrow function, discards it, and does nothing at all. That is a handler that
+     * silently never runs, and `ondblclick` on the results table was one for months. */
+    if (name.startsWith("on") && typeof value === "function") {
       node.addEventListener(name.slice(2), value);
       continue;
     }

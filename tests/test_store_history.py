@@ -52,6 +52,32 @@ def test_a_listing_resolves_to_the_source_rows_it_was_built_from(store: Store) -
     assert link.decided_by == "automatic"
 
 
+def test_a_merged_record_says_where_to_read_each_row_it_was_built_from(store: Store) -> None:
+    """feat-001/AC-27: one address per site, because the sites are not interchangeable.
+
+    A property on two sites is one record here and two pages out there. Somebody keeping a shortlist
+    on one of those sites can only add that site's page, so reporting the single address the merged
+    record settled on leaves them unable to get to the one they need. This asserts the provenance
+    carries an address per source row and that the two differ.
+    """
+    do_run(
+        store,
+        sources={
+            "realtor": [prop("a1", listing_url="https://realtor.invalid/a1")],
+            "zillow": [prop("a1", listing_url="https://zillow.invalid/a1")],
+        },
+    )
+    merged = store.supersede(
+        [held.id for held in store.listings()], join_signal="same address", decided_by="human"
+    )
+
+    by_source = {link.source: link.listing_url for link in store.source_links(merged)}
+    assert by_source == {
+        "realtor": "https://realtor.invalid/a1",
+        "zillow": "https://zillow.invalid/a1",
+    }
+
+
 def test_a_listing_accumulates_the_rows_of_every_run_that_saw_it(store: Store) -> None:
     """feat-001/AC-13: every source row is traceable, not just the most recent one."""
     do_run(store, sources={"realtor": [prop("a1")]})

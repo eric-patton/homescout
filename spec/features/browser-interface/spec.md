@@ -195,7 +195,9 @@ in five years. The problem brief is in `research.md`.
       carries.
 - [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
       default and are shown by an explicit filter, which is always available and reports how many
-      are hidden.
+      are hidden. It is one of the table's three view toggles, alongside the one for passed
+      properties (AC-35) and the one for photographs (AC-43); only the two that hide anything
+      report a count.
 - [ ] AC-21: The server answers to the loopback names and to no others, unless a name is explicitly
       configured. A configured name is how a reverse proxy running on the same machine reaches it,
       and it changes nothing about where the server listens. A name that was not configured is
@@ -274,6 +276,26 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-41: The summary a review needs is assembled in the core and read by both surfaces. The
       terminal lists the same addresses, prices and sources for the same pairs, and neither surface
       works out for itself what a pair is.
+- [ ] AC-42: The results table offers a link to the property on every site it was found on, each
+      named by its site, rather than one address for a record assembled from several. The sites are
+      not interchangeable: a person keeping a shortlist on one of them can only add that site's own
+      page, and a site the property was never seen on contributes no link rather than a broken one.
+      Where only one address is held, the cell reads as it did before.
+- [ ] AC-43: The results table can show each property's stored photograph beside its address, off by
+      default and turned on from the same row of controls as the other view toggles. The picture is
+      the one this tool stored, so drawing the table asks nothing of any listing site and a property
+      that has disappeared still has its photograph. A property with none holds the same space, so
+      the addresses stay in a straight line to run an eye down.
+- [ ] AC-44: A column can be moved to another position and set to another width, by pointer and by
+      keyboard, and doing either changes nothing about what the column holds or what it is called.
+- [ ] AC-45: The arrangement of the columns is remembered per browser and per saved search, and a
+      control returns it to the declared arrangement. It is a view preference and is never written
+      to the workspace, so two people reading one workspace arrange it independently. Where the
+      browser cannot store it, the table opens in the declared arrangement and every other part of
+      the page behaves identically.
+- [ ] AC-46: A column the tool never fills is arranged after the columns it does fill, and is marked
+      as one for the person to fill in themselves, so that an empty cell under it is not read as an
+      answer.
 
 ## Edge cases & errors
 

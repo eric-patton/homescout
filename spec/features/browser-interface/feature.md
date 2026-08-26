@@ -17,7 +17,7 @@ readiness:
   plan:     ready
   tasks:    ready
 gate:
-  analyze: pass
+  analyze: not-run
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:

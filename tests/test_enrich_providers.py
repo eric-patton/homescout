@@ -15,6 +15,7 @@ from homescout.enrich.provider import ProviderFailed
 from homescout.enrich.providers import (
     Aquifer,
     Broadband,
+    County,
     Elevation,
     Flood,
     Wildfire,
@@ -31,9 +32,9 @@ def answering(payload) -> tuple:
 
 
 def test_the_seven_providers_exist_and_are_individually_named() -> None:
-    """feat-007/AC-11, feat-007/AC-22: the six, and the wildland-urban interface."""
+    """feat-007/AC-11, feat-007/AC-22: the six, the wildland-urban interface, and the county."""
     assert set(registered()) == {
-        "flood", "elevation", "aquifer", "wildfire", "broadband", "wui",
+        "flood", "elevation", "aquifer", "wildfire", "broadband", "wui", "county",
     }
 
     from homescout.enrich.boundaries import CensusBoundaries
@@ -74,6 +75,34 @@ def test_an_elevation_comes_back_in_feet() -> None:
     paced, _ = answering({"value": 4009.3915325})
 
     assert Elevation().fetch(paced, *PLACE) == {"elevation_ft": 4009.4}
+
+
+def test_a_county_comes_back_for_a_point_that_is_in_one() -> None:
+    """feat-007/AC-27: because two of the three listing sites never send a county at all.
+
+    Realtor sent one on 1,097 of its 1,099 rows in the statewide run of 2026-08-26; Zillow sent one
+    on none of its 866 and Redfin on none of its 58. So an empty county cell meant one site's
+    silence, and there was no way to tell it from a property with no county, on a column that
+    decides the assessor, the fire district and the well rules.
+    """
+    paced, _ = answering(
+        {"result": {"geographies": {"Counties": [{"BASENAME": "Roosevelt", "STATE": "35"}]}}}
+    )
+
+    assert County().fetch(paced, *PLACE) == {"county_name": "Roosevelt"}
+
+
+def test_a_point_in_no_county_is_an_answer_rather_than_a_gap() -> None:
+    """feat-007/AC-7, feat-007/AC-27: a point at sea has an answer, unlike a point nobody asked."""
+    paced, _ = answering({"result": {"geographies": {"Counties": []}}})
+
+    assert County().fetch(paced, *PLACE) == {"county_name": None}
+
+
+def test_a_county_needs_nothing_configured() -> None:
+    """feat-007/AC-27: no credential and no new service address, so it runs everywhere."""
+    assert County().configured() is True
+    assert County().ttl_days() is None, "county lines do not move on any schedule"
 
 
 def test_an_aquifer_is_a_yes_or_a_no_and_never_a_shrug() -> None:

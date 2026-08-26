@@ -74,3 +74,15 @@ alongside its peers.
       recorded the heating and lost the cooling, because the pattern wanted `heat and air` exactly.
       Fixed in `extract/patterns.py` with a regression test citing `feat-009/AC-2`, and recorded in
       feat-009's drift ledger.
+
+## Change: a county either way (`changes/a-county-either-way/`)
+
+- [x] T-county-1: `export/columns.py`: `County/Region` becomes derived, reading the listing's county
+      first and the looked-up one second, with the plain name in the cell either way so that one
+      county does not sort as two (`feat-011/AC-14`).
+- [x] T-county-2: `export/columns.py`: `County (looked up)` added outside the default sheet, holding
+      only what the public record said, so which cells were borrowed stays answerable
+      (`feat-011/AC-15`). The promised 32-column sheet is unchanged.
+- [x] T-county-3: `tests/test_export_columns.py`: the listing's word wins, the lookup fills a blank,
+      a borrowed county is spelled exactly like a stated one, neither knowing is an empty cell, and
+      the looked-up column keeps its own answer (`feat-011/AC-14`, `feat-011/AC-15`).

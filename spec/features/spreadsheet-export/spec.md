@@ -109,6 +109,15 @@ has them:
 - [ ] AC-12: The comma-separated format carries the same columns and values as the properties sheet.
 - [ ] AC-13: Text containing characters outside the ASCII range, which property descriptions
       routinely contain, is written and read back correctly in both formats.
+- [ ] AC-14: `County/Region` holds the county the listing named. Where the listing named none and
+      the public record can say which county contains the property's location, it holds that county
+      instead, as the plain name with no marker appended, so that the two spellings of one county
+      sort and group together. Where neither can say, it is empty. Two of the three listing sites
+      never send a county, so without the fallback a quarter of the column is blank and the blank
+      means one site's silence rather than a property with no county.
+- [ ] AC-15: A column outside the default sheet, `County (looked up)`, holds only what the public
+      record said, so which cells in `County/Region` were borrowed stays answerable by comparing the
+      two.
 
 ## Edge cases & errors
 

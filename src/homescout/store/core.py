@@ -448,7 +448,7 @@ class Store:
         """The source rows underneath a canonical listing, and what justified each join."""
         rows = self._conn.execute(
             "SELECT ls.raw_listing_id, ls.join_signal, ls.decided_by, ls.linked_at, "
-            "       rl.source, rl.source_listing_id, rl.fetched_at "
+            "       rl.source, rl.source_listing_id, rl.fetched_at, rl.listing_url "
             "FROM listing_sources ls "
             "JOIN raw_listings rl ON rl.id = ls.raw_listing_id "
             "WHERE ls.listing_id = ? ORDER BY rl.fetched_at, ls.raw_listing_id",
@@ -463,6 +463,7 @@ class Store:
                 join_signal=r["join_signal"],
                 decided_by=r["decided_by"],
                 linked_at=r["linked_at"],
+                listing_url=r["listing_url"],
             )
             for r in rows
         ]
@@ -1032,6 +1033,17 @@ class Store:
             source_url=row["source_url"],
             byte_size=row["byte_size"],
         )
+
+    def listings_with_preview_images(self) -> set[str]:
+        """Which properties have a stored picture, in one query rather than one per row.
+
+        A table of a thousand rows asking this per row is a thousand round trips for a yes or no,
+        and the answer is one column of one small table.
+        """
+        return {
+            row["listing_id"]
+            for row in self._conn.execute("SELECT listing_id FROM listing_images")
+        }
 
     def preview_image_path(self, listing_id: str) -> Path | None:
         stored = self.get_preview_image(listing_id)

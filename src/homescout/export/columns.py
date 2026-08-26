@@ -226,6 +226,26 @@ def _town_notes(row: Row) -> str | None:
     return row.area_notes.get(("city", city)) or row.area_notes.get(("city", city.casefold()))
 
 
+def _county(row: Row) -> str | None:
+    """The county the listing named, or the one the public record puts this point in.
+
+    Realtor sends a county on nearly every row. Zillow and Redfin send none at all, so on a
+    statewide table a quarter of this column was blank, and a blank column tells a person filtering
+    by county nothing at all — least of all that the blank is the site's silence rather than the
+    property's.
+
+    The listing's own word wins where there is one, and the plain name is what lands in the cell,
+    with no marker appended: a cell reading `Roosevelt (looked up)` sorts and groups apart from
+    `Roosevelt`, which would break the one thing this column is for. Where the answer came from is
+    kept, and readable, in `County (looked up)` beside it.
+    """
+    said = (row.fields.county or "").strip()
+    if said:
+        return said
+    found = row.enriched.get("county_name")
+    return str(found) if found else None
+
+
 def _flags(row: Row) -> str | None:
     return ", ".join(row.flags) or None
 
@@ -243,7 +263,7 @@ COLUMNS: tuple[Column, ...] = (
     Column("Status", "text", "derived", _status),
     Column("Property", "text", "listing", _address, links=True),
     Column("Town/Area", "text", "listing", _listing("city")),
-    Column("County/Region", "text", "listing", _listing("county")),
+    Column("County/Region", "text", "derived", _county),
     Column("Price", "number", "listing", _listing("price")),
     Column("$/sq ft", "number", "derived", _price_per_sqft),
     Column("Price History & DOM", "text", "derived", _price_history),
@@ -276,6 +296,7 @@ COLUMNS: tuple[Column, ...] = (
     # a document somebody already has rather than a place to put everything this tool knows.
     Column("Wildfire Hazard", "text", "enriched", _enriched("wildfire_hazard")),
     Column("Wildland-Urban Interface", "text", "enriched", _wui),
+    Column("County (looked up)", "text", "enriched", _enriched("county_name")),
     Column("Elevation (ft)", "number", "enriched", _enriched("elevation_ft")),
     Column("Notes", "text", "annotation", _annotated("notes")),
     Column("Flags", "text", "derived", _flags),

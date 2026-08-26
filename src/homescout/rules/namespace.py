@@ -118,6 +118,7 @@ _ENRICHED: tuple[Field, ...] = (
     Field("wildfire_hazard", TEXT, "enriched", populated=True),
     Field("elevation_ft", NUMBER, "enriched", populated=True),
     Field("wildland_urban_interface", TEXT, "enriched", populated=True),
+    Field("county_name", TEXT, "enriched", populated=True),
 )
 
 #: Recovered from a listing's prose by description field extraction (feat-009).
@@ -222,6 +223,7 @@ _LABELS: dict[str, str] = {
     "broadband_provider": "Internet providers",
     "over_principal_aquifer": "Over a principal aquifer",
     "wildfire_hazard": "Wildfire hazard",
+    "county_name": "County (looked up)",
     "elevation_ft": "Elevation (feet)",
     "heating": "Heating",
     "cooling": "Cooling",

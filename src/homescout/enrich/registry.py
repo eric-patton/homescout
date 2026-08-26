@@ -15,12 +15,21 @@ from collections.abc import Callable, Iterable
 
 from ..rules import namespace as ns
 from .provider import Provider
-from .providers import Aquifer, Broadband, Elevation, Flood, Wildfire, WildlandUrbanInterface
+from .providers import (
+    Aquifer,
+    Broadband,
+    County,
+    Elevation,
+    Flood,
+    Wildfire,
+    WildlandUrbanInterface,
+)
 
 #: In the order a pass asks them, which is cheapest and most permanent first, so that a slow or
 #: flaky service never delays the answers that almost never change.
 SHIPPED: tuple[Callable[[], Provider], ...] = (
     Elevation,
+    County,
     Aquifer,
     Flood,
     Wildfire,

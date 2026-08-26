@@ -165,7 +165,11 @@ function provenance(held) {
         el("th", {scope: "col"}, "When"),
       )),
       el("tbody", {}, sources.map((link_) => el("tr", {},
-        el("td", {}, link_.source),
+        /* The site's own name, and its own page. A merged record has one page per site and they
+         * are not interchangeable: a person keeping a list on one site needs that site's page. */
+        el("td", {}, link_.listing_url
+          ? link(link_.listing_url, link_.source, {title: `Open this on ${link_.source}`})
+          : link_.source),
         el("td", {}, value(link_.source_listing_id)),
         el("td", {}, value(link_.join_signal)),
         el("td", {},

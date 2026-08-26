@@ -156,3 +156,16 @@ alongside its peers.
       `tests/test_enrich_providers.py::test_a_state_resolves_written_out_as_well_as_abbreviated`
       citing `feat-007/AC-11`, which asserts the query rather than the answer, because a wrong
       translation here returns no rows rather than wrong ones.
+
+## Change: which county (`changes/which-county/`)
+
+- [x] T-county-1: `enrich/providers.py`: a `County` provider asking the Census geocoder, already
+      configured and already used by `boundaries.containing`, for the one layer that answers which
+      county contains a point (`feat-007/AC-27`). Registered in `enrich/registry.py`; the pass is
+      unchanged, which is `feat-007/AC-1`.
+- [x] T-county-2: `rules/namespace.py`: `county_name` declared as an enriched field, which the
+      registry's own two-way check requires: a provider supplying a value no criterion can name is
+      work nobody can use.
+- [x] T-county-3: `tests/test_enrich_providers.py`: a county comes back for a point in one, a point
+      in none is an answer rather than a gap, and the provider needs nothing configured
+      (`feat-007/AC-27`, `feat-007/AC-7`).

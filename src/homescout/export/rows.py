@@ -37,6 +37,9 @@ class Row:
     enriched: Mapping[str, Any] = field(default_factory=dict)
     flags: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
+    #: One address per site this property was seen on. A merged record has several and they are not
+    #: interchangeable: somebody keeping a list on one site needs that site's page for it.
+    source_links: Mapping[str, str] = field(default_factory=dict)
     area_notes: Mapping[tuple[str, str], str] = field(default_factory=dict)
 
 
@@ -74,21 +77,25 @@ def rows_for(
     from_model = _model_values(store, run_id, root)
     notes = _area_notes(store)
 
-    return tuple(
-        Row(
-            listing_id=entry.listing_id,
-            fields=entry.fields,
-            history=store.history(entry.listing_id),
-            presence=store.get_listing(entry.listing_id).presence,
-            annotation=annotations.get(entry.listing_id),
-            extracted=extracted_values(entry.fields, model=from_model.get(entry.listing_id)),
-            enriched=enriched.get(entry.listing_id, {}),
-            flags=entry.flags,
-            sources=_sources_of(store, entry.listing_id),
-            area_notes=notes,
+    made: list[Row] = []
+    for entry in wanted:
+        links = _sources_of(store, entry.listing_id)
+        made.append(
+            Row(
+                listing_id=entry.listing_id,
+                fields=entry.fields,
+                history=store.history(entry.listing_id),
+                presence=store.get_listing(entry.listing_id).presence,
+                annotation=annotations.get(entry.listing_id),
+                extracted=extracted_values(entry.fields, model=from_model.get(entry.listing_id)),
+                enriched=enriched.get(entry.listing_id, {}),
+                flags=entry.flags,
+                sources=tuple(sorted(links)),
+                source_links=links,
+                area_notes=notes,
+            )
         )
-        for entry in wanted
-    )
+    return tuple(made)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +160,17 @@ def _area_notes(store: Store) -> dict[tuple[str, str], str]:
     return found
 
 
-def _sources_of(store: Store, listing_id: str) -> tuple[str, ...]:
-    """Which listing sites this property was seen on, which is its provenance in one cell."""
-    return tuple(sorted({link.source for link in store.source_links(listing_id)}))
+def _sources_of(store: Store, listing_id: str) -> dict[str, str]:
+    """Which listing sites this property was seen on, and where on each, keyed by site.
+
+    Provenance in one cell and a way back to each site in the next. The last address wins per site
+    because `source_links` comes back oldest first and a site that reorganises its URLs leaves the
+    old one answering nothing.
+    """
+    found: dict[str, str] = {}
+    for link in store.source_links(listing_id):
+        if link.listing_url:
+            found[link.source] = link.listing_url
+        else:
+            found.setdefault(link.source, "")
+    return found
