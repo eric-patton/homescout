@@ -192,7 +192,9 @@ in five years. The problem brief is in `research.md`.
       carries a text label.
 - [ ] AC-19: Notes about an area or a town can be written and edited, addressed by the area they
       describe rather than by a property, and are the notes the spreadsheet export's second sheet
-      carries.
+      carries. They are writable from the results table too, where the opinion is formed, and the
+      cell says whose note it is before it is opened: writing one from a row writes it for every
+      property in that town, and those rows take it there and then rather than at the next reload.
 - [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
       default and are shown by an explicit filter, which is always available and reports how many
       are hidden. It is one of the table's four view toggles, alongside the ones for passed

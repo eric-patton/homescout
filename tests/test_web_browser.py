@@ -1071,3 +1071,47 @@ def test_the_columns_a_person_writes_in_can_be_written_in(served) -> None:
     assert found["writable"], "one of the five still cannot be typed into"
     assert found["stored"] == "$1,840 in 2025", "what was typed did not reach the store"
     assert found["shown"] == "$1,840 in 2025", "the row does not hold what the store returned"
+
+
+def test_a_town_note_typed_on_one_row_appears_on_the_others(served) -> None:
+    """feat-010/AC-19: because a note that only shows on the row it was typed on reads as a bug.
+
+    Every other cell on a row is about that one house. This one is about the town, so it is saved
+    to the town, and the rows around it have to take it too, there and then. Somebody who writes
+    "the water here is hard", sees it on one of the nine houses they have open in that town, and
+    concludes it went in wrong is right to conclude that.
+    """
+    found = opened(served, """
+        const at = state.columns.findIndex(c => c.name === "Town Analysis Notes");
+        const town = state.shown[0].values["Town/Area"];
+        const alsoThere = state.all.filter(r => r.values["Town/Area"] === town).length;
+
+        focusCell(0, at);
+        const cell = document.querySelector('td[aria-selected="true"]');
+        const before = cell.getAttribute("title");
+        cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const input = cell.querySelector("input");
+        input.value = "the water here is hard";
+        input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+
+        await until(() => state.all[1].values["Town Analysis Notes"]);
+        const answered = await fetch("/api/areas").then(r => r.json());
+        return {
+          town, alsoThere, before,
+          onFirst: state.all[0].values["Town Analysis Notes"],
+          onSecond: state.all[1].values["Town Analysis Notes"],
+          stored: (answered.areas || []).map(a => [a.area_type, a.area_value, a.notes]),
+          banner: document.getElementById("banner").textContent,
+        };
+    """)
+
+    assert found["alsoThere"] > 1, "one property in the town, so this proves nothing"
+    assert found["onFirst"] == "the water here is hard"
+    assert found["onSecond"] == "the water here is hard", "the town's other rows did not take it"
+    assert ["city", found["town"], "the water here is hard"] in found["stored"], (
+        "the note was not saved against the town"
+    )
+    assert "not about this house" in (found["before"] or ""), (
+        "the cell does not say the note belongs to the town before it is opened"
+    )
+    assert found["town"] in found["banner"], "nothing said what was written or where it went"

@@ -390,3 +390,9 @@ alongside its peers.
 - [x] T89: **The annotation reader dropped any field added to the table.** It named its columns one
       at a time, so a value written to a new field went in and came back as nothing, which reads
       exactly like the write having failed. Built from the field list now, as the writer is.
+- [x] T90: `web/static/results.js`: the town note is writable from the row (`feat-010/AC-19`). It is
+      the one editable cell that is not about the property it sits on, so it saves to the town
+      rather than to the house and every other row in that town takes it immediately; the cell says
+      so before it is opened. Somebody who writes a note, sees it on one of the nine houses they
+      have open in that town and concludes it went in wrong is right to conclude that.
+      `tests/test_web_browser.py` types one and asserts the neighbouring rows take it.

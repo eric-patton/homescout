@@ -64,6 +64,16 @@ const EDITABLE = {
   "Garage/Outbuildings": "outbuildings",
 };
 
+/* The one editable column that is not about one property.
+ *
+ * A town note is addressed by the town, so writing one from a row writes it for every property in
+ * that town, which is the whole point of it: a note that only existed on one row is a note nobody
+ * sees while looking at any of the others. It is edited here anyway, because this is where somebody
+ * is when they form the opinion, and every other cell around it can be typed into. What it must not
+ * do is look like a note about this house, so the cell says whose it is before it is opened and the
+ * other rows in that town change under it when it is saved. */
+const TOWN_NOTE = "Town Analysis Notes";
+
 /* What each site is called on a link back to it. */
 const SITES = {realtor: "Realtor", zillow: "Zillow", redfin: "Redfin"};
 
@@ -322,7 +332,8 @@ function draw() {
     el("p", {class: "lede"},
       "Click a heading to sort by it, drag it to move the column, drag its right edge to resize, " +
       "right-click it to hide it. Cells with a white background are yours to write in: click one " +
-      "and press Enter. What you write survives every later run."),
+      "and press Enter. What you write survives every later run. Town notes are the exception: " +
+      "they belong to the town and appear on every property in it."),
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),
@@ -745,9 +756,13 @@ function rowFor(row, index) {
   return tr;
 }
 
+function writable(name) {
+  return Object.prototype.hasOwnProperty.call(EDITABLE, name) || name === TOWN_NOTE;
+}
+
 function cellFor(row, column, index, column_) {
   const held = row.values[column.name];
-  const editable = Object.prototype.hasOwnProperty.call(EDITABLE, column.name);
+  const editable = writable(column.name);
   const selected = state.focus.row === index && state.focus.column === column_;
   const cell = el("td", {
     role: "gridcell",
@@ -756,7 +771,10 @@ function cellFor(row, column, index, column_) {
     "aria-readonly": editable ? null : "true",
     class: editable ? "editable" : null,
     dataset: {column: column.name, index: String(index), col: String(column_)},
-    title: held === null || held === undefined ? "" : String(held),
+    title: column.name === TOWN_NOTE
+      ? `About ${row.values["Town/Area"] || "this town"}, not about this house. ` +
+        `Every property there shows it.${held ? ` — ${held}` : ""}`
+      : (held === null || held === undefined ? "" : String(held)),
     onclick: () => { focusCell(index, column_); },
     ondblclick: editable ? () => edit(cell, row, column.name) : null,
   });
@@ -910,7 +928,7 @@ function key(event) {
   if (event.key === "Enter") {
     const cell = document.querySelector('td[aria-selected="true"]');
     const name = cell && cell.dataset.column;
-    if (cell && Object.prototype.hasOwnProperty.call(EDITABLE, name)) {
+    if (cell && writable(name)) {
       event.preventDefault();
       edit(cell, state.shown[row], name);
     } else if (cell && name === PASS_COLUMN.name) {
@@ -935,6 +953,7 @@ function key(event) {
 function edit(cell, row, column) {
   if (!row) return;
   const field = EDITABLE[column];
+  if (column === TOWN_NOTE) return editTownNote(cell, row);
   const before = row.values[column];
   const input = el("input", {
     type: column === "Rank" ? "number" : "text",
@@ -961,6 +980,82 @@ function edit(cell, row, column) {
   cell.replaceChildren(input);
   input.focus();
   input.select();
+}
+
+/* Editing the note about a town, from a row that happens to be in it.
+ *
+ * Written the same way as every other cell, and saved somewhere else entirely: to the town rather
+ * than to the property. So every other row in that town takes the new note too, without a reload,
+ * because a person who has just written "the water here is hard" and sees it appear on one of the
+ * nine houses they are looking at in that town would reasonably conclude it had gone in wrong.
+ */
+function editTownNote(cell, row) {
+  const town = (row.values["Town/Area"] || "").trim();
+  if (!town) {
+    fail("This property has no town, so there is nowhere to hang a note about one.");
+    return;
+  }
+  const before = row.values[TOWN_NOTE];
+  const input = el("input", {
+    type: "text",
+    value: before === null || before === undefined ? "" : String(before),
+    "aria-label": `Notes about ${town}, shown on every property there`,
+  });
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    if (!commit) { window_(); focusCell(state.focus.row, state.focus.column); return; }
+    saveTownNote(cell, town, input.value);
+  };
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); finish(true); }
+    else if (event.key === "Escape") { event.preventDefault(); finish(false); }
+    else if (event.key === "Tab") { finish(true); }
+    event.stopPropagation();
+  });
+  input.addEventListener("blur", () => finish(true));
+
+  cell.replaceChildren(input);
+  input.focus();
+  input.select();
+}
+
+async function saveTownNote(cell, town, typed) {
+  const wanted = typed.trim() === "" ? null : typed;
+  cell.className = "editable saving";
+  cell.replaceChildren();
+  holder(cell).append(value(typed), el("span", {class: "rowstate"}, " saving…"));
+
+  try {
+    await send("/api/areas", {area_type: "city", area_value: town, notes: wanted});
+    /* Every row in that town, not only this one. */
+    let touched = 0;
+    for (const held of state.all) {
+      if ((held.values["Town/Area"] || "").trim() === town) {
+        held.values[TOWN_NOTE] = wanted;
+        touched += 1;
+      }
+    }
+    apply();
+    say(`Noted about ${town}, on ${count(touched, "property", "properties")} there.`);
+  } catch (error) {
+    cell.className = "editable unsaved";
+    const retry = el("input", {type: "text", value: typed,
+                               "aria-label": `Notes about ${town}, not saved: ${error.message}`});
+    retry.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        saveTownNote(cell, town, retry.value);
+      }
+      event.stopPropagation();
+    });
+    cell.replaceChildren();
+    holder(cell).append(
+      retry, el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`));
+    fail(`That note was not saved: ${error.message}`);
+  }
 }
 
 async function save(cell, row, column, field, typed) {

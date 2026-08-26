@@ -454,3 +454,32 @@ def test_passing_asks_and_keeping_does_not() -> None:
     assert "await confirmPass(what)" in results
     assert "showModal()" in results, "a browser confirm() stops every pending save on the page"
     assert "confirmPass" not in keeping, "keeping a house asks a question it does not need to"
+
+
+def test_a_town_note_can_be_written_from_a_row_and_belongs_to_the_town(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-19: the note is addressed by the place, and edited where the opinion forms.
+
+    Every other cell on a row is about that one property, and this one is not: a town note is
+    addressed by the town, so writing it from a row writes it for every property there. That is
+    the point of it, and it is also the thing that must not surprise anybody, so the cell says
+    whose the note is before it is opened and the other rows change under it when it is saved.
+    """
+    loaded = load(store, [listing("a", city="Portales"), listing("b", city="Portales"),
+                          listing("c", city="Clovis")])
+    held = held_workspace(shared_store(db_path))
+
+    api.set_area_note(held, "city", "Portales", "the water here is hard")
+    rows = {row["listing_id"]: row for row in api.results(held, "portales")["rows"]}
+
+    assert rows[loaded["a"]]["values"]["Town Analysis Notes"] == "the water here is hard"
+    assert rows[loaded["b"]]["values"]["Town Analysis Notes"] == "the water here is hard", (
+        "a note about a town that only reaches one of its properties is a note nobody sees"
+    )
+    assert rows[loaded["c"]]["values"]["Town Analysis Notes"] is None, "it is not everybody's note"
+
+    results = script("results")
+    assert 'const TOWN_NOTE = "Town Analysis Notes"' in results
+    assert '"/api/areas"' in results, "the table writes it to the town rather than to the property"
+    assert "not about this house" in results, "the cell does not say whose note it is"
