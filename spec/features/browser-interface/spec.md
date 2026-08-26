@@ -195,9 +195,9 @@ in five years. The problem brief is in `research.md`.
       carries.
 - [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
       default and are shown by an explicit filter, which is always available and reports how many
-      are hidden. It is one of the table's three view toggles, alongside the one for passed
-      properties (AC-35) and the one for photographs (AC-43); only the two that hide anything
-      report a count.
+      are hidden. It is one of the table's four view toggles, alongside the ones for passed
+      properties (AC-35), photographs (AC-43) and wrapped text (AC-47); only the toggles that hide
+      something report a count.
 - [ ] AC-21: The server answers to the loopback names and to no others, unless a name is explicitly
       configured. A configured name is how a reverse proxy running on the same machine reaches it,
       and it changes nothing about where the server listens. A name that was not configured is
@@ -249,7 +249,8 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-33: A property carries a judgment of `keep`, `pass`, or unset. It is an annotation: written
       only by a person, never by a run, and surviving every subsequent run, merge, unmerge and
       re-export, which is the listing store's AC-15, AC-16 and AC-17 applying to it unchanged.
-- [ ] AC-34: The results table sets a property's judgment in one action from the row, without
+- [ ] AC-34: The results table sets a property's judgment from a column of controls that is first
+      on every row (AC-49), in one action, without
       opening the property and without typing. Setting it again to the same value clears it back to
       unset, so the control that passes a house is the control that un-passes it.
 - [ ] AC-35: A passed property is absent from the results table by default, and present when "show
@@ -296,6 +297,31 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-46: A column the tool never fills is arranged after the columns it does fill, and is marked
       as one for the person to fill in themselves, so that an empty cell under it is not read as an
       answer.
+- [ ] AC-47: Long text can be made to wrap, from the same row of controls as the other view toggles.
+      Wrapping is clamped to a fixed number of lines and every row stays the height of every other
+      row, because the table places rows by arithmetic rather than measuring them; text past the
+      clamp stays reachable in the cell's tooltip and on the property's own page.
+- [ ] AC-48: Passing on a property asks for confirmation first, in a dialog on the page rather than
+      the browser's own, which says what passing does and that it is reversible. Dismissing it by
+      any means, including the keyboard, leaves the property exactly as it was. Keeping a property
+      asks nothing: it hides nothing, and the same control undoes it.
+- [ ] AC-49: Keeping and passing are the first thing on a row, in a column of their own that cannot
+      be moved or displaced, so the controls are in one place on every row of every arrangement. A
+      kept property is on the shortlist and is hidden from nothing; the table can be narrowed to the
+      shortlist alone, and the number kept is reported alongside the number hidden. The shortlist is
+      readable from the command line as well, which is product invariant 5 applying to it exactly as
+      it applies to the passed list.
+- [ ] AC-50: The spreadsheet can be downloaded from the results table itself, in either format the
+      export writes, without going to another screen and without being told a path to go and find.
+      It is the same core operation the terminal calls and still writes its copy into the workspace,
+      so a sheet taken from the browser and a sheet taken from the terminal are one file made one
+      way. A format the export does not write is refused in words rather than written.
+- [ ] AC-51: Every photograph a listing carried can be looked through, one at a time and at the size
+      the window allows, from the stored thumbnail on the results table and from the property's own
+      page. These pictures are the listing site's rather than this tool's, so nothing is asked of
+      any listing site until somebody opens the gallery, and the gallery says where they come from:
+      it is the one place in this product where looking at a property is not free of the site it was
+      found on. A listing that carried none says so rather than opening an empty gallery.
 
 ## Edge cases & errors
 

@@ -23,9 +23,17 @@
  * stylesheet, which also fixes its line height to it, so there is one of it and it is exact.
  */
 
-/* Both row heights, in pixels, including the border every row carries. */
+/* Row heights, in pixels, including the border every row carries. A row is one of these three and
+ * never anything in between, because the whole virtual window rests on every row being the same
+ * height as every other one. That is also why wrapping is clamped to a fixed number of lines rather
+ * than left to grow: a table whose rows are each as tall as their longest cell cannot be placed by
+ * arithmetic at all, and would have to measure every one of a thousand rows to know where any of
+ * them go. */
 const ROW_HEIGHT = 26;
 const PHOTO_ROW_HEIGHT = 66;
+const WRAP_LINES = 3;
+const WRAP_LINE = 17;
+const WRAP_ROW_HEIGHT = WRAP_LINES * WRAP_LINE + 5;
 const OVERSCAN = 12;
 
 /* Column widths, in pixels: what a column starts at before anybody drags it. Most are the same, and
@@ -54,6 +62,13 @@ const EDITABLE = {
 /* What each site is called on a link back to it. */
 const SITES = {realtor: "Realtor", zillow: "Zillow", redfin: "Redfin"};
 
+/* Saying no to a house has a column of its own, first, and it is not one of the export's columns.
+ * It was inside the address cell, after the address and after however many badges the property
+ * carried, which on a narrow column put it past the right edge and out of sight: a control nobody
+ * can find is a control that does not exist, and it was asked for twice as a feature that was
+ * already built. First, fixed width, same place on every row. */
+const PASS_COLUMN = {name: "Keep or pass", kind: "control", origin: "control"};
+
 const state = {
   search: "",
   columns: [],
@@ -64,7 +79,9 @@ const state = {
   query: "",
   showGone: false,
   showPassed: false,
+  onlyKept: false,
   showPhotos: false,
+  wrap: false,
   widths: {},
   focus: {row: 0, column: 0},
 };
@@ -115,9 +132,11 @@ function remembered() {
 function remember() {
   try {
     window.localStorage.setItem(keep(), JSON.stringify({
-      order: state.columns.map((column) => column.name),
+      /* The control column is not the person's to arrange, so it is not in what is remembered. */
+      order: state.columns.filter(sortable).map((column) => column.name),
       widths: state.widths,
       photos: state.showPhotos,
+      wrap: state.wrap,
     }));
   } catch (error) {
     /* Private browsing, a full quota, storage switched off. The arrangement lasts this visit. */
@@ -131,6 +150,7 @@ function arrange(declared) {
   const held = remembered();
   state.widths = Object.assign({}, held.widths || {});
   state.showPhotos = held.photos === true;
+  state.wrap = held.wrap === true;
 
   const byName = new Map(declared.map((column) => [column.name, column]));
   const ordered = [];
@@ -147,26 +167,42 @@ function arrange(declared) {
   const rest = [...byName.values()];
   ordered.push(...rest.filter((column) => column.origin !== "unfilled"));
   ordered.push(...rest.filter((column) => column.origin === "unfilled"));
-  return ordered;
+  return [PASS_COLUMN, ...ordered];
+}
+
+function sortable(column) {
+  return column.origin !== "control";
 }
 
 function widthOf(name) {
+  if (name === PASS_COLUMN.name) return 74;
   return state.widths[name] || WIDTHS[name] || DEFAULT_WIDTH;
 }
 
 function rowHeight() {
-  return state.showPhotos ? PHOTO_ROW_HEIGHT : ROW_HEIGHT;
+  return Math.max(
+    state.wrap ? WRAP_ROW_HEIGHT : ROW_HEIGHT,
+    state.showPhotos ? PHOTO_ROW_HEIGHT : 0,
+  );
 }
 
-/* The one place the row height is published, so the stylesheet and the arithmetic above cannot
- * come to disagree about what a row is. */
+/* The one place the row height is published, so the stylesheet and the arithmetic above cannot come
+ * to disagree about what a row is. The line height goes with it: with one line to a row it is the
+ * row, and when text wraps it is a line of wrapped text, and either way the stylesheet is told
+ * rather than left to work it out from a font. */
 function measure() {
-  document.documentElement.style.setProperty("--row-height", `${rowHeight()}px`);
+  const root = document.documentElement.style;
+  root.setProperty("--row-height", `${rowHeight()}px`);
+  root.setProperty("--cell-line", `${state.wrap ? WRAP_LINE : rowHeight() - 1}px`);
+  root.setProperty("--wrap-lines", String(WRAP_LINES));
+  const table = document.querySelector("table.grid");
+  if (table) table.classList.toggle("wrapped", state.wrap);
 }
 
 function reset() {
   state.widths = {};
   state.showPhotos = false;
+  state.wrap = false;
   try {
     window.localStorage.removeItem(keep());
   } catch (error) {
@@ -196,10 +232,16 @@ function draw() {
     onchange: (event) => { state.showGone = event.target.checked; apply(); },
   });
 
-  const kept = el("input", {
+  const shown = el("input", {
     type: "checkbox",
     id: "showpassed",
     onchange: (event) => { state.showPassed = event.target.checked; apply(); },
+  });
+
+  const only = el("input", {
+    type: "checkbox",
+    id: "onlykept",
+    onchange: (event) => { state.onlyKept = event.target.checked; apply(); },
   });
 
   const photos = el("input", {
@@ -208,6 +250,18 @@ function draw() {
     checked: state.showPhotos ? "checked" : null,
     onchange: (event) => {
       state.showPhotos = event.target.checked;
+      measure();
+      remember();
+      apply();
+    },
+  });
+
+  const wrapping = el("input", {
+    type: "checkbox",
+    id: "wraptext",
+    checked: state.wrap ? "checked" : null,
+    onchange: (event) => {
+      state.wrap = event.target.checked;
       measure();
       remember();
       apply();
@@ -224,13 +278,24 @@ function draw() {
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),
-      el("label", {for: "showpassed"}, kept, " show properties you passed on"),
+      el("label", {for: "showpassed"}, shown, " show properties you passed on"),
+      el("label", {for: "onlykept"}, only, " only what you kept"),
       el("label", {for: "showphotos"}, photos, " show photos"),
+      el("label", {for: "wraptext"}, wrapping,
+         ` wrap long text (${WRAP_LINES} lines)`),
       el("button", {type: "button", class: "quiet", onclick: reset,
                     title: "Put the columns back to their original order and width"},
          "reset columns"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
+      /* A plain link rather than a button that fetches: the browser's own download is what a
+       * person expects from something that hands them a file, and it survives the page being
+       * closed while a thousand rows are being written. */
+      link(`/api/export/${encodeURIComponent(state.search)}?format=xlsx`, "download the spreadsheet",
+           {title: "Every column and every property in this run, as a spreadsheet",
+            download: ""}),
+      link(`/api/export/${encodeURIComponent(state.search)}?format=csv`, "as csv",
+           {title: "The same sheet, comma separated", download: ""}),
     ),
     el("div", {id: "scroller", tabindex: "0", role: "region",
                "aria-label": "Results, scrollable"},
@@ -260,6 +325,21 @@ function sizeColumns() {
     ...state.columns.map((column) =>
       el("col", {style: `width:${widthOf(column.name)}px`,
                  dataset: {column: column.name}})));
+  tableWidth();
+}
+
+/* The table is told its own width, and that is not a nicety.
+ *
+ * `table-layout: fixed` takes its columns from the first row it can find when the table's own width
+ * is `auto` — and the first row in this table is whichever row the scroll position last put in the
+ * DOM. So scrolling changed which row the widths were derived from, and the columns jumped about
+ * under the reader. Setting the width to the sum of the declared columns makes the `colgroup` the
+ * only thing the layout is derived from, whatever is on screen. */
+function tableWidth() {
+  const table = document.querySelector("table.grid");
+  if (!table) return;
+  const total = state.columns.reduce((sum, column) => sum + widthOf(column.name), 0);
+  table.style.width = `${total}px`;
 }
 
 function redrawHeader() {
@@ -273,6 +353,17 @@ function headerRow() {
 }
 
 function header(column, at) {
+  if (!sortable(column)) {
+    /* The control column: not sorted, not moved, not resized. Its heading is a word rather than a
+     * blank, so the column of buttons under it says what pressing one does. */
+    return el("th", {
+      scope: "col",
+      role: "columnheader",
+      class: "control",
+      title: "Keep a property to put it on your shortlist, or pass on it to take it out of this " +
+             "table. Neither deletes anything.",
+    }, column.name);
+  }
   const unfilled = column.origin === "unfilled";
   const th = el("th", {
     scope: "col",
@@ -353,8 +444,11 @@ function headerKey(event, column, at) {
 /* Moving a column is a change to `state.columns`, and everything else on this page reads its order
  * from there: the header, the widths, the cells, and which cell the keyboard is on. */
 function move(name, to) {
+  if (name === PASS_COLUMN.name) return;
   const from = state.columns.findIndex((column) => column.name === name);
-  const target = Math.max(0, Math.min(to, state.columns.length - 1));
+  /* Never before the control column, which stays first so that the button is in the same place on
+   * every row of every arrangement. */
+  const target = Math.max(1, Math.min(to, state.columns.length - 1));
   if (from < 0 || from === target) return;
   const [held] = state.columns.splice(from, 1);
   state.columns.splice(target, 0, held);
@@ -382,6 +476,7 @@ function startResize(event, name, th) {
   const moveTo = (moved) => {
     setWidth(name, startWidth + (moved.clientX - startX));
     if (col) col.style.width = `${widthOf(name)}px`;
+    tableWidth();
   };
   const stop = () => {
     window.removeEventListener("pointermove", moveTo);
@@ -414,6 +509,10 @@ function apply() {
   /* `hidden_by_default` is the core's answer, not this page's opinion. The rule about what passing
    * means lives in one place so that this table and the command line cannot come to disagree. */
   if (!state.showPassed) kept = kept.filter((row) => !row.hidden_by_default);
+  /* The shortlist, when that is what somebody is working from. Applied after the passed filter and
+   * not instead of it, so "only what you kept" and "show passed" cannot contradict each other: a
+   * property is one judgment or the other and never both. */
+  if (state.onlyKept) kept = kept.filter((row) => row.judgment === "keep");
   if (query) {
     kept = kept.filter((row) =>
       Object.values(row.values).some(
@@ -447,9 +546,11 @@ function compare(a, b) {
 function counts(took) {
   const hidden = state.all.filter((row) => row.presence === "disappeared").length;
   const passed = state.all.filter((row) => row.judgment === "pass").length;
+  const kept = state.all.filter((row) => row.judgment === "keep").length;
   const parts = [`${state.shown.length} of ${state.all.length} properties`];
   if (!state.showGone && hidden) parts.push(`${hidden} disappeared and hidden`);
   if (!state.showPassed && passed) parts.push(`${passed} passed and hidden`);
+  if (kept) parts.push(`${kept} kept`);
   parts.push(`${took.toFixed(0)}ms`);
   document.getElementById("counts").replaceChildren(document.createTextNode(parts.join(" · ")));
 }
@@ -480,7 +581,8 @@ function rowFor(row, index) {
   const tr = el("tr", {
     dataset: {listing: row.listing_id, index: String(index)},
     class: [row.presence === "disappeared" ? "gone" : null,
-            row.judgment === "pass" ? "passed" : null].filter(Boolean).join(" ") || null,
+            row.judgment === "pass" ? "passed" : null,
+            row.judgment === "keep" ? "kept" : null].filter(Boolean).join(" ") || null,
   });
   state.columns.forEach((column, column_) => tr.append(cellFor(row, column, index, column_)));
   return tr;
@@ -502,21 +604,34 @@ function cellFor(row, column, index, column_) {
     ondblclick: editable ? () => edit(cell, row, column.name) : null,
   });
 
-  if (column.name === "Property") {
+  /* Everything a cell holds goes inside one box of its own. Inline and invisible while text is
+   * kept to a line, and the thing that is clamped when it is allowed to wrap: a cell cannot clip
+   * its own height in a table, so without something inside it to clamp, a wrapped description
+   * would take its row with it and every row would be a different height. */
+  const inner = el("span", {class: "cell"});
+  if (!sortable(column)) {
+    cell.classList.add("control");
+    inner.append(keepToggle(row), passToggle(row));
+  } else if (column.name === "Property") {
     cell.classList.add("property");
-    if (state.showPhotos) cell.append(thumbnail(row));
+    if (state.showPhotos) inner.append(thumbnail(row));
     const said = el("span", {class: "what"},
       link(`/listing/${encodeURIComponent(row.listing_id)}`, held || "not known"));
     for (const flag of row.flags) said.append(badge(flag, "flag"));
-    said.append(passToggle(row));
-    cell.append(said);
+    inner.append(said);
   } else if (column.name === "Listing URL") {
-    cell.append(elsewhere(row, held));
+    inner.append(elsewhere(row, held));
   } else if (column.kind === "number" && column.name === "Price") {
-    cell.append(money(held));
+    inner.append(money(held));
+  } else if (editable && (held === null || held === undefined || held === "")) {
+    /* Blank, not "not known". Everywhere else in this product an empty cell means nobody could
+     * determine the value, and saying so is the point. Here nobody was ever going to: this is a
+     * column the person writes in themselves, and printing "not known" a thousand times down it
+     * says the tool failed at something it was never doing. */
   } else {
-    cell.append(value(held));
+    inner.append(value(held));
   }
+  cell.append(inner);
   return cell;
 }
 
@@ -528,13 +643,36 @@ function cellFor(row, column, index, column_) {
  * site, because these rows are read by running an eye straight down a column. */
 function thumbnail(row) {
   if (!row.has_image) return el("span", {class: "thumb", "aria-hidden": "true"});
-  return el("img", {
-    class: "thumb",
+  const picture = el("img", {
+    class: "shot",
     loading: "lazy",
     decoding: "async",
     alt: "",
     src: `/api/listings/${encodeURIComponent(row.listing_id)}/image`,
   });
+  /* A button rather than an image with a handler on it, so the keyboard reaches it. */
+  return el("button", {
+    type: "button",
+    class: "thumb",
+    title: "See every photograph of this property",
+    "aria-label": `Photographs of ${row.values["Property"] || "this property"}`,
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showPhotos(row).catch(fail);
+    },
+  }, picture);
+}
+
+/* The listing's own photographs, asked for only when somebody wants to see them.
+ *
+ * They are not in the table's answer and should not be: a thousand rows carrying forty addresses
+ * apiece is a payload nobody reads, and the table itself is drawn entirely from pictures this tool
+ * stored. So the addresses are fetched for one property at the moment it is asked about. */
+async function showPhotos(row) {
+  const found = await ask(`/api/listings/${encodeURIComponent(row.listing_id)}`);
+  const shown = gallery((found.listing || {}).photo_urls, row.values["Property"]);
+  if (!shown) say("This listing carried no photographs beyond the one stored.");
 }
 
 /* Where to go and look at this property, once per site it was found on.
@@ -592,12 +730,28 @@ function key(event) {
     focusCell(moves[event.key][0], moves[event.key][1]);
     return;
   }
+  if (event.key === "Delete" || event.key === "Backspace") {
+    const cell = document.querySelector('td[aria-selected="true"]');
+    if (cell && cell.dataset.column === PASS_COLUMN.name) {
+      event.preventDefault();
+      const button = cell.querySelector("button.pass");
+      if (button) button.click();
+      return;
+    }
+  }
   if (event.key === "Enter") {
     const cell = document.querySelector('td[aria-selected="true"]');
     const name = cell && cell.dataset.column;
     if (cell && Object.prototype.hasOwnProperty.call(EDITABLE, name)) {
       event.preventDefault();
       edit(cell, state.shown[row], name);
+    } else if (cell && name === PASS_COLUMN.name) {
+      /* The control column answers to the keyboard the same way it answers to a press. Enter keeps
+       * and Delete passes, because the destructive-looking one should not be the one under the key
+       * a person presses to move on. */
+      event.preventDefault();
+      const button = cell.querySelector("button.keep");
+      if (button) button.click();
     }
   }
 }
@@ -644,7 +798,8 @@ function edit(cell, row, column) {
 async function save(cell, row, column, field, typed) {
   const wanted = typed.trim() === "" ? null : (field === "rank" ? Number(typed) : typed);
   cell.className = "editable saving";
-  cell.replaceChildren(value(typed), el("span", {class: "rowstate"}, " saving…"));
+  cell.replaceChildren(
+    el("span", {class: "cell"}, value(typed), el("span", {class: "rowstate"}, " saving…")));
 
   try {
     const answered = await send(
@@ -654,8 +809,9 @@ async function save(cell, row, column, field, typed) {
     row.values[column] = answered[field];
     cell.className = "editable saved";
     cell.replaceChildren(
-      value(answered[field]),
-      el("span", {class: "rowstate"}, " saved"),
+      el("span", {class: "cell"},
+         value(answered[field]),
+         el("span", {class: "rowstate"}, " saved")),
     );
     setTimeout(() => { if (cell.isConnected) cell.className = "editable"; }, 2000);
   } catch (error) {
@@ -670,8 +826,9 @@ async function save(cell, row, column, field, typed) {
       }
       event.stopPropagation();
     });
-    cell.replaceChildren(retry,
-                         el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`));
+    cell.replaceChildren(
+      el("span", {class: "cell"}, retry,
+         el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`)));
     fail(`That edit was not saved: ${error.message}`);
   }
 }
@@ -683,22 +840,97 @@ async function save(cell, row, column, field, typed) {
 /* One control, which both passes and un-passes. There is no separate undo and no menu to go
  * looking through: the button that hid a property is the button that brings it back, and it says
  * which of those it will do. */
+/* The other half of the same judgment, and the one worth making effortless: a shortlist is what a
+ * person actually works from after a table of a thousand has been read once. No question asked,
+ * because keeping a house costs nothing and un-keeping it is the same button. */
+function keepToggle(row) {
+  const already = row.judgment === "keep";
+  const what = row.values["Property"] || "this property";
+  const button = el("button", {
+    type: "button",
+    class: already ? "keep on" : "keep",
+    "aria-pressed": already ? "true" : "false",
+    "aria-label": already ? `Take ${what} off your shortlist` : `Keep ${what}`,
+    title: already
+      ? "On your shortlist. Press to take it off."
+      : "Keep this one: put it on your shortlist.",
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setJudgment(row, already ? null : "keep", button);
+    },
+  }, already ? "★" : "☆");
+  return button;
+}
+
 function passToggle(row) {
   const already = row.judgment === "pass";
+  const what = row.values["Property"] || "this property";
   const button = el("button", {
     type: "button",
     class: already ? "pass on" : "pass",
     "aria-pressed": already ? "true" : "false",
+    "aria-label": already ? `Undo passing on ${what}` : `Pass on ${what}`,
     title: already
-      ? "You passed on this one. Press to undo that."
+      ? "You passed on this one. Press to bring it back."
       : "Pass on this property and stop seeing it in this table.",
-    onclick: (event) => {
+    onclick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
+      /* Only one direction asks. Passing takes a house out of the table you are working through,
+       * and doing it by a mis-aimed click on a 26-pixel row is exactly the accident worth one
+       * question. Bringing one back is not: it puts a row in front of you, which is its own undo,
+       * and asking about it would be a dialog with nothing to protect. */
+      if (!already && !(await confirmPass(what))) return;
       setJudgment(row, already ? null : "pass", button);
     },
-  }, already ? "passed" : "pass");
+  }, already ? "undo" : "✕");
   return button;
+}
+
+/* The question, as a dialog on this page rather than the browser's own.
+ *
+ * `showModal` gives the focus trap, the Escape key and the backdrop without any of them being
+ * written here, and unlike `confirm()` it does not stop the page: a browser-level prompt blocks
+ * every timer and every pending request behind it, including the save of the annotation somebody
+ * was in the middle of typing.
+ */
+function confirmPass(what) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const done = (yes) => {
+      if (answered) return;
+      answered = true;
+      resolve(yes);
+      dialog.close();
+      dialog.remove();
+    };
+
+    const yes = el("button", {type: "button", class: "primary",
+                              onclick: () => done(true)}, "Pass on it");
+    const no = el("button", {type: "button", class: "quiet",
+                             onclick: () => done(false)}, "Keep it");
+
+    const dialog = el("dialog", {
+      class: "ask",
+      "aria-labelledby": "askwhat",
+      /* The backdrop, Escape, and anything else that closes it without an answer all mean no. */
+      onclose: () => done(false),
+      oncancel: () => done(false),
+      onclick: (event) => { if (event.target === dialog) done(false); },
+    },
+      el("h2", {id: "askwhat"}, "Pass on this property?"),
+      el("p", {}, what),
+      el("p", {class: "hint"},
+        "It leaves this table and stays out of every later one. Nothing is deleted: every run " +
+        "still watches it, and \"show properties you passed on\" brings it back."),
+      el("div", {class: "actions"}, no, yes),
+    );
+
+    document.body.append(dialog);
+    dialog.showModal();
+    yes.focus();
+  });
 }
 
 async function setJudgment(row, wanted, button) {

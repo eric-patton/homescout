@@ -284,3 +284,57 @@ alongside its peers.
       asked for a feature that already existed. Styled small and quiet, reading `pass` or `passed`
       so the state is legible without colour (`feat-010/AC-18`), and sized so it cannot make the row
       taller than the row.
+
+## Change: keep and pass where you can see them (`changes/keep-and-pass-where-you-can-see-them/`)
+
+- [x] T70: `web/static/results.js` and `app.css`: a "wrap long text" toggle, clamped to three lines,
+      with the clamp on a box inside the cell rather than on the cell (`feat-010/AC-47`). A table
+      cell cannot clip its own height, so without the inner box a wrapped description takes its row
+      with it and the rows stop being the same height as each other.
+- [x] T71: `web/static/results.js`: keeping and passing move into a control column that is first,
+      fixed width, unmovable and undisplaceable (`feat-010/AC-49`). Enter keeps and Delete passes
+      from the keyboard, so the destructive one is not under the key used to move on.
+- [x] T72: `web/static/results.js`: passing asks first, in a `dialog` shown with `showModal` rather
+      than a `confirm()`, which would stop every pending save on the page behind it
+      (`feat-010/AC-48`). Keeping asks nothing.
+- [x] T73: `api.py`, `cli/main.py`, `cli/render.py`, `web/app.py`: `kept` beside `passed`, both from
+      one core function, reachable as `homescout kept` and `/api/kept` (`feat-010/AC-49`, product
+      invariant 5). `web/static/results.js`: an "only what you kept" filter and a kept count.
+- [x] T74: `tests/test_web_browser.py`: the columns stay put while the table is scrolled
+      (`feat-010/AC-44`); a wrapped row is the height the placement uses (`feat-010/AC-47`); the
+      question is asked and the keyboard's dismissal of it leaves the property alone, and answering
+      it passes the house (`feat-010/AC-48`); keeping takes one press and no question
+      (`feat-010/AC-49`); the controls are first and cannot be displaced (`feat-010/AC-49`).
+      `tests/test_web_surfaces.py`: both halves of the judgment read from the core, and keeping
+      hides nothing.
+
+### Defect fixed alongside it
+
+- [x] T75: **The columns changed width as the table was scrolled**, which was this feature's own
+      regression from the arrangement work. `table-layout: fixed` derives its columns from the first
+      row it can find whenever the table's own width is `auto`, and the first row in this table is
+      whichever row the scroll position last put in the DOM. Fixed by telling the table its width,
+      the sum of the declared columns, so the `colgroup` is the only thing the layout comes from.
+      Pinned by `tests/test_web_browser.py` citing `feat-010/AC-44`, which measures the same row's
+      cells at three scroll positions.
+- [x] T76: `web/app.py` and `web/static/results.js`: the sheet downloads from the results page, as a
+      plain link so the browser's own download does the work, in either format (`feat-010/AC-50`).
+      Declared after `/api/export/templates`, which would otherwise be read as a saved search of
+      that name. `tests/test_web_endpoints.py` covers the download, the refused format, and that the
+      two overlapping paths still tell each other apart.
+- [x] T77: `web/static/results.js`: a column the person writes in themselves is blank when empty
+      rather than reading "not known". Everywhere else in this product an empty cell means nobody
+      could determine the value; in an annotation column nobody was ever going to, and printing it a
+      thousand times down the Rank column said the tool had failed at something it was not doing.
+- [x] T78: `web/static/common.js`: a gallery both pages share, opened from the results table's
+      thumbnail and from the property page's stored photograph, with the arrows and Escape working
+      and only the picture on screen and its two neighbours requested (`feat-010/AC-51`). It says in
+      the dialog that the pictures come from the listing site, because everywhere else on these
+      pages looking at a property costs that site nothing and here it does not. The addresses are
+      fetched for the one property being opened rather than carried on every row.
+      `tests/test_web_browser.py` moves through a gallery and asserts the empty case says so.
+- [x] T79: `web/static/common.js`: a photograph's address is upgraded to `https` when this page is
+      itself served over `https` (`feat-010/AC-51`). Every address the sites hand over is stored as
+      `http`, and a browser refuses an `http` image on an `https` page before the request is made,
+      so over Tailscale the gallery would have been a row of broken frames. The hosts all answer on
+      `https`; the upgrade is conditional so nothing that would have loaded stops loading.

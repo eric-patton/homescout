@@ -472,3 +472,42 @@ def test_a_record_merged_into_another_still_has_a_page(store: Store, db_path: Pa
             )
 
         assert browser.get(f"/api/listings/{merged_id}", headers=reading()).status_code == 200
+
+
+def test_the_spreadsheet_can_be_downloaded_from_the_page(opened) -> None:
+    """feat-010/AC-50: a sheet you have to go and find on disk is a sheet you asked for twice.
+
+    The same core operation the terminal calls, so the file that arrives in a browser and the file
+    `homescout export` writes are one file made one way. It is still written into the workspace,
+    which is what keeps it findable afterwards without exporting again.
+    """
+    browser, held = opened
+
+    answered = browser.get("/api/export/portales?format=csv", headers=reading())
+
+    assert answered.status_code == 200, answered.text
+    assert answered.headers["content-type"].startswith("text/csv")
+    assert "portales.csv" in answered.headers.get("content-disposition", "")
+    body = answered.content.decode("utf-8-sig")
+    assert "Property" in body.splitlines()[0], "the sheet has no header row"
+    assert (held.root / "exports" / "portales.csv").exists(), "the copy in the workspace is gone"
+
+
+def test_a_sheet_can_only_be_asked_for_in_a_format_that_exists(opened) -> None:
+    """feat-010/AC-50: and says so, rather than writing something nobody can open."""
+    browser, _held = opened
+
+    answered = browser.get("/api/export/portales?format=pdf", headers=reading())
+
+    assert answered.status_code == 400
+    assert "xlsx or csv" in answered.json()["error"]
+
+
+def test_asking_for_the_templates_is_not_asking_for_a_search_called_templates(opened) -> None:
+    """The two paths overlap, and the order they are declared in is what tells them apart."""
+    browser, _held = opened
+
+    answered = browser.get("/api/export/templates", headers=reading())
+
+    assert answered.status_code == 200
+    assert "templates" in answered.json()

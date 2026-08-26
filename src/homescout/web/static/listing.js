@@ -60,21 +60,51 @@ function draw(held) {
 }
 
 function picture(held) {
+  const photos = (held.photo_urls || []).filter(Boolean);
   if (!held.has_image) {
     return el("section", {}, el("h2", {}, "Photograph"),
-      el("p", {class: "unknown"}, "none stored"));
+      el("p", {class: "unknown"}, "none stored"),
+      photos.length ? seeThemAll(held, photos) : null);
   }
+  const stored = el("img", {
+    class: "preview",
+    src: `/api/listings/${encodeURIComponent(held.listing_id)}/image`,
+    alt: "The preview image this tool stored when it first saw this property",
+  });
   return el("section", {},
     el("h2", {}, "Photograph"),
-    el("img", {
-      class: "preview",
-      src: `/api/listings/${encodeURIComponent(held.listing_id)}/image`,
-      alt: "The preview image this tool stored when it first saw this property",
-    }),
+    photos.length
+      ? el("button", {
+          type: "button",
+          class: "shownall",
+          "aria-label": `See all ${photos.length} photographs`,
+          onclick: () => gallery(photos, address(held)),
+        }, stored)
+      : stored,
     el("p", {class: "meta"},
       "Stored by this tool, so it still shows for a property that has since disappeared, " +
       "and opening it tells the listing site nothing."),
+    photos.length ? seeThemAll(held, photos) : null,
   );
+}
+
+/* The rest of the listing's photographs, which this tool does not hold and does not fetch until
+ * somebody asks. Said in the sentence rather than left to be discovered: everywhere else on this
+ * page, looking costs the listing site nothing, and this is the one place that is not true. */
+function seeThemAll(held, photos) {
+  return el("p", {},
+    el("button", {type: "button", class: "quiet",
+                  onclick: () => gallery(photos, address(held))},
+       `See all ${photos.length} photographs`),
+    el("span", {class: "meta"},
+      " These come from the listing site when you open them, not from this machine."),
+  );
+}
+
+function address(held) {
+  const fields = held.fields || {};
+  return [fields.address_line, fields.city, fields.state].filter(Boolean).join(", ")
+    || held.listing_id;
 }
 
 function facts(held, fields) {

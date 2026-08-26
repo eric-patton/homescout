@@ -359,6 +359,43 @@ def build(workspace: api.Workspace) -> FastAPI:
         rows, count = api.passed(held())
         return answer("passed", passed=list(rows), count=count)
 
+    @app.get("/api/kept")
+    def kept() -> dict[str, Any]:
+        """The shortlist, the other half of the same judgment the results table writes."""
+        rows, count = api.kept(held())
+        return answer("kept", kept=list(rows), count=count)
+
+    @app.get("/api/export/{name}")
+    def download_export(
+        name: str, format: str = "xlsx", include_dropped: bool = False
+    ) -> FileResponse:
+        """The spreadsheet, downloaded from the page the person is already reading.
+
+        Declared after `/api/export/templates` on purpose: that path would otherwise be
+        read as a saved search called `templates`.
+
+        The same core operation the terminal calls, writing to the same place in the
+        workspace, so a sheet taken from here and a sheet taken from `homescout export` are
+        the same file made the same way. It is sent as well as written: the file staying in
+        the workspace is what makes the export findable again without asking for it twice.
+        """
+        if format not in ("xlsx", "csv"):
+            raise InvalidInput("A sheet is written as xlsx or csv.")
+        written = api.export(
+            held(), search=name, format=format, force=True, include_dropped=include_dropped
+        )
+        path = Path(getattr(written, "path", written))
+        return FileResponse(
+            path,
+            filename=path.name,
+            media_type=(
+                "text/csv"
+                if format == "csv"
+                else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
+
     @app.get("/api/changes/{name}")
     def changes(name: str, since: str | None = None) -> dict[str, Any]:
         return answer("comparison", **wire.comparison(held(), name, since))

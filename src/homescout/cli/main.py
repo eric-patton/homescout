@@ -226,6 +226,10 @@ def build_parser() -> argparse.ArgumentParser:
         "passed", parents=[common], help="the properties you have passed on, which results hide"
     )
 
+    commands.add_parser(
+        "kept", parents=[common], help="the properties you have marked to keep, your shortlist"
+    )
+
     wires = commands.add_parser(
         "broadband",
         parents=[common],
@@ -639,6 +643,12 @@ def _dispatch(
         return Answer(
             digest.envelope("passed", passed=list(rows), count=count),
             render.passed(rows),
+        )
+    if args.command == "kept":
+        rows, count = api.kept(workspace)
+        return Answer(
+            digest.envelope("kept", kept=list(rows), count=count),
+            render.kept(rows),
         )
     if args.command == "broadband":
         return _broadband(workspace, args, note)

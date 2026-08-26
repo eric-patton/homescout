@@ -23,16 +23,28 @@ def source(script) -> str:
 
 
 def test_nothing_clickable_is_an_element_a_keyboard_cannot_reach() -> None:
-    """A div with a click handler is unreachable by keyboard however careful everything else is."""
+    """A div with a click handler is unreachable by keyboard however careful everything else is.
+
+    `dialog` is on the list and is the one entry that is not focusable itself. A dialog opened with
+    `showModal` is dismissed by Escape by construction, so a click handler on it is the pointer's
+    way of doing what the keyboard could already do rather than the only way to do it. A `dialog`
+    that is not modal would not have that guarantee, which is why the browser test asserts the
+    Escape key actually answers.
+    """
     for script in SCRIPTS:
         text = source(script)
         for match in re.finditer(r'el\("(\w+)",\s*\{([^}]*onclick[^}]*)\}', text, re.S):
             tag, attributes = match.group(1), match.group(2)
-            reachable = tag in ("button", "a", "input", "select", "textarea", "th", "td")
+            reachable = tag in (
+                "button", "a", "input", "select", "textarea", "th", "td", "dialog",
+            )
             has_tabindex = "tabindex" in attributes
             assert reachable or has_tabindex, (
                 f"{script.name} puts a click handler on a <{tag}> that nothing can tab to"
             )
+    assert "showModal()" in source(STATIC / "results.js"), (
+        "the dialog exception above only holds for a modal one"
+    )
 
 
 def test_every_page_has_a_skip_link_and_a_focusable_main() -> None:

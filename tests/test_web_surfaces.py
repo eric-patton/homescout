@@ -332,11 +332,24 @@ def test_a_row_says_whether_there_is_a_photograph_without_asking_for_it(
 
 
 def test_the_photograph_the_table_draws_is_the_one_this_tool_stored() -> None:
-    """feat-010/AC-43: so drawing the table tells no listing site anything at all."""
-    results = script("results")
+    """feat-010/AC-43, feat-010/AC-51: drawing the table tells no listing site anything at all.
 
-    assert "/api/listings/${encodeURIComponent(row.listing_id)}/image" in results
-    assert "photo_urls" not in results, "a listing site's own address is never put in an img"
+    The narrow claim, and the one worth pinning: what the table *renders* is served from this
+    machine. A listing site's own addresses are reached only from inside the function that opens the
+    gallery, which runs when somebody asks to see the rest of the photographs and never before, and
+    they are not in the table's answer at all.
+    """
+    results = script("results")
+    drawing = results.split("function thumbnail")[1].split("async function showPhotos")[0]
+    opening = results.split("async function showPhotos")[1].split("function elsewhere")[0]
+
+    assert "/api/listings/${encodeURIComponent(row.listing_id)}/image" in drawing
+    assert "photo_urls" not in drawing, "a listing site's own address is never put in the table"
+    assert "photo_urls" in opening, "the gallery has nothing to show"
+    assert "await ask(" in opening, (
+        "the addresses are fetched for the one property being asked about, rather than carried "
+        "on every row of the table"
+    )
 
 
 def test_a_property_with_no_photograph_still_holds_the_space() -> None:
@@ -378,3 +391,59 @@ def test_the_row_height_is_published_from_one_place() -> None:
     assert '--row-height' in results and 'setProperty("--row-height"' in results
     assert "height: var(--row-height)" in style
     assert "height: 22px" not in style
+
+
+def test_the_shortlist_and_the_passed_list_are_one_question_asked_twice(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-49, feat-010/AC-39: keeping is the other half of a judgment that already existed.
+
+    The store has held `keep` since the judgment was added and no surface ever wrote one, so the
+    shortlist a person actually works from could not be built. Both halves are readable from the
+    core, which is what product invariant 5 needs before either surface shows them.
+    """
+    loaded = load(store, [listing("a"), listing("b"), listing("c")])
+    held = held_workspace(shared_store(db_path))
+
+    api.annotate(held, loaded["a"], judgment="keep")
+    api.annotate(held, loaded["b"], judgment="pass")
+
+    kept, keeps = api.kept(held)
+    passed, passes = api.passed(held)
+
+    assert (keeps, passes) == (1, 1)
+    assert [row["listing_id"] for row in kept] == [loaded["a"]]
+    assert [row["listing_id"] for row in passed] == [loaded["b"]]
+    # The third has no judgment and is in neither, which is the whole point of the third state.
+    assert loaded["c"] not in {row["listing_id"] for row in (*kept, *passed)}
+
+
+def test_keeping_a_property_hides_nothing(store: Store, db_path: Path) -> None:
+    """feat-010/AC-49: passing takes a house out of the table; keeping must not."""
+    loaded = load(store, [listing("a"), listing("b")])
+    held = held_workspace(shared_store(db_path))
+    api.annotate(held, loaded["a"], judgment="keep")
+
+    rows = {row["listing_id"]: row for row in api.results(held, "portales")["rows"]}
+
+    assert rows[loaded["a"]]["judgment"] == "keep"
+    assert rows[loaded["a"]]["hidden_by_default"] is False
+
+
+def test_the_controls_come_before_every_column_of_data() -> None:
+    """feat-010/AC-49: and cannot be dragged away, so they are in one place on every row."""
+    results = script("results")
+
+    assert "return [PASS_COLUMN, ...ordered];" in results
+    assert "if (name === PASS_COLUMN.name) return;" in results, "the control column cannot be moved"
+    assert "Math.max(1, Math.min(to" in results, "nothing may be moved in front of it"
+
+
+def test_passing_asks_and_keeping_does_not() -> None:
+    """feat-010/AC-48: the question is on the action that takes a house away, and only that one."""
+    results = script("results")
+    keeping = results.split("function keepToggle")[1].split("function passToggle")[0]
+
+    assert "await confirmPass(what)" in results
+    assert "showModal()" in results, "a browser confirm() stops every pending save on the page"
+    assert "confirmPass" not in keeping, "keeping a house asks a question it does not need to"

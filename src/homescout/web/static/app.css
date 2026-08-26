@@ -51,6 +51,8 @@
    * apart is what walks the rows out from under the scrollbar. This is only the fallback for a page
    * that has not set it yet. */
   --row-height: 26px;
+  --cell-line: 25px;
+  --wrap-lines: 3;
 
   --radius: 8px;
   --radius-sm: 5px;
@@ -441,10 +443,30 @@ table.grid th, table.grid td {
    * table cell is only ever a floor: whatever the tallest line box in the row is, wins. So the
    * line box is told what it is. One line, exactly the row, vertically centred by having nowhere
    * else to go. */
-  line-height: calc(var(--row-height) - 1px);
+  line-height: var(--cell-line);
   height: var(--row-height);
+  vertical-align: top;
 }
 table.grid thead th { line-height: 25px; height: 26px; }
+
+/* Letting long text wrap, without letting a row grow.
+ *
+ * A table cell cannot clip its own height: `overflow: hidden` on a `td` does not stop its content
+ * from making the row taller, and a row that is as tall as its longest cell is a row the virtual
+ * window cannot place by arithmetic. So the clamp is on the box inside the cell, at exactly the
+ * number of lines the row height was calculated from, and the full text stays one hover away in the
+ * cell's tooltip and one click away on the property's own page. */
+.cell { display: inline; }
+table.grid.wrapped td { white-space: normal; }
+table.grid.wrapped td.property { white-space: nowrap; }
+table.grid.wrapped td:not(.property) > .cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--wrap-lines);
+  line-clamp: var(--wrap-lines);
+  overflow: hidden;
+  max-height: calc(var(--cell-line) * var(--wrap-lines));
+}
 table.grid thead th {
   position: sticky;
   top: 0;
@@ -533,12 +555,11 @@ table.grid thead th.unfilled::before { content: "✎ "; font-style: normal; }
   width: 74px;
   height: 52px;
   margin-right: var(--s2);
-  object-fit: cover;
   vertical-align: middle;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
   background: var(--shade);
 }
+span.thumb { border: 1px solid var(--line); }
 /* Left on the baseline, deliberately. A `vertical-align: middle` here aligns a full-height inline
  * box against the middle of the text rather than against the strut, which grows the line box by a
  * couple of pixels and takes the row with it. Only the picture, which is genuinely taller than the
@@ -549,13 +570,26 @@ table.grid td .badge { vertical-align: middle; line-height: 1; padding: 1px 0.5r
 
 /* Passing on a house. Small, quiet, and legible without colour: the word changes from `pass` to
  * `passed`, so the state is readable to somebody who cannot see the difference in shade. */
-/* Sized and aligned so it cannot make the row taller. Anything sitting on the text baseline in a
- * cell can push the line box past the row height, which is the whole reason the rows drifted; the
- * middle alignment and the flat line height keep this inside it. */
-button.pass {
-  margin-left: var(--s2);
-  padding: 1px 0.4rem;
-  font-size: 0.75rem;
+/* Keeping a house and passing on one, in the first column of every row.
+ *
+ * They were inside the address cell, after the address and after however many badges a property
+ * carried, which on a narrow column put them past the right edge. A control a person cannot find is
+ * a control that does not exist, and this one was asked for twice as a feature that was already
+ * built. Sized and aligned so neither can make a row taller: anything sitting on the text baseline
+ * can push the line box past the row height, which is what made the rows drift in the first place.
+ */
+table.grid th.control, table.grid td.control {
+  text-align: center;
+  padding: 0 2px;
+  background: var(--shade);
+}
+table.grid thead th.control { cursor: default; font-size: 0.72rem; white-space: normal;
+                              line-height: 1.15; }
+table.grid tbody tr:hover td.control { background: var(--shade-deep); }
+
+button.keep, button.pass {
+  padding: 1px 0.35rem;
+  font-size: 0.78rem;
   line-height: 1;
   vertical-align: middle;
   color: var(--dim);
@@ -564,13 +598,125 @@ button.pass {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+button.keep { margin-right: 2px; }
+button.keep:hover { border-color: #c9a227; color: #8a6d00; background: #fdf7e3; }
+button.keep.on { color: #8a6d00; border-color: #e0c76a; background: #fdf7e3; font-weight: 700; }
 button.pass:hover { border-color: var(--bad); color: var(--bad); background: var(--bad-wash); }
 button.pass.on { color: var(--bad); border-color: #e2acac; background: var(--bad-wash); }
-button.pass.unsaved { color: var(--bad); border-color: var(--bad); font-weight: 600; }
-button.pass[disabled] { opacity: 0.5; cursor: default; }
-/* A passed row is dimmed, and the word that says so is the button's own label, which changes to
- * `passed`. The colour is the second signal rather than the only one (AC-18). */
+button.keep.unsaved, button.pass.unsaved {
+  color: var(--bad);
+  border-color: var(--bad);
+  font-weight: 600;
+}
+button.keep[disabled], button.pass[disabled] { opacity: 0.5; cursor: default; }
+
+/* Asked once, before a house leaves the table. Its own dialog rather than the browser's: a
+ * `confirm()` stops every timer and every pending request on the page behind it, including the
+ * save of an annotation somebody was in the middle of typing. */
+dialog.ask {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--lift-high);
+  padding: var(--s5);
+  max-width: 30rem;
+  color: var(--ink);
+  background: var(--paper);
+}
+dialog.ask::backdrop { background: rgba(20, 24, 33, 0.35); }
+dialog.ask h2 { margin: 0 0 var(--s2); font-size: 1.15rem; }
+dialog.ask p { margin: 0 0 var(--s2); }
+dialog.ask .hint { color: var(--ink-soft); font-size: 0.9rem; }
+dialog.ask .actions {
+  display: flex;
+  gap: var(--s2);
+  justify-content: flex-end;
+  margin-top: var(--s4);
+}
+
+/* -- the photographs ---------------------------------------------------- */
+
+/* One picture at a time, as large as the window allows. A house is judged on its roof line, its
+ * siding and what is behind it, and none of those survive being shown at thumbnail size. */
+dialog.gallery {
+  border: none;
+  border-radius: var(--radius);
+  padding: 0;
+  max-width: 96vw;
+  max-height: 94vh;
+  width: min(1200px, 96vw);
+  background: #14161a;
+  color: #f2f3f5;
+  box-shadow: var(--lift-high);
+}
+dialog.gallery::backdrop { background: rgba(10, 12, 16, 0.82); }
+.plateframe {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0d0f12;
+  min-height: 40vh;
+}
+.plate {
+  display: block;
+  max-width: 100%;
+  max-height: 82vh;
+  object-fit: contain;
+}
+button.page {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.8rem;
+  line-height: 1;
+  padding: 0.1rem 0.7rem 0.3rem;
+  color: #f2f3f5;
+  background: rgba(20, 22, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+button.page:hover { background: rgba(20, 22, 26, 0.95); border-color: #fff; }
+.plateframe button.page:first-child { left: var(--s3); }
+.plateframe button.page:last-child { right: var(--s3); }
+dialog.gallery .under {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+}
+dialog.gallery .counter { font-variant-numeric: tabular-nums; font-weight: 600; }
+dialog.gallery .meta { color: #b9bdc6; font-size: 0.88rem; flex: 1; }
+dialog.gallery button.close { color: #f2f3f5; background: transparent;
+                              border-color: rgba(255, 255, 255, 0.3); }
+dialog.gallery button.close:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* The thumbnail is a way in to the rest of them, so it has to look like one. */
+button.thumb, button.shownall {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  vertical-align: middle;
+}
+button.thumb .shot {
+  display: block;
+  width: 74px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--shade);
+}
+button.thumb:hover .shot, button.thumb:focus-visible .shot { border-color: var(--accent); }
+button.shownall:hover .preview, button.shownall:focus-visible .preview {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* A passed row is dimmed and a kept row is not, and in both cases the word for it is on the row
+ * rather than in the colour: the button's own label reads `undo` on a passed row and its filled
+ * star carries `on your shortlist` as its accessible name on a kept one (AC-18). */
 table.grid tr.passed td { color: var(--dim); }
+table.grid tr.kept td.property .what { font-weight: 600; }
 
 /* -- one property ------------------------------------------------------ */
 

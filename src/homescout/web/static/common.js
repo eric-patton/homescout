@@ -256,3 +256,90 @@ function whenReady(go) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 }
+
+/* ------------------------------------------------------------------ */
+/* Looking at a property's photographs                                 */
+/* ------------------------------------------------------------------ */
+
+/** An address a picture can actually be loaded from, or nothing.
+ *
+ * Every photograph address the listing sites hand over is stored as `http`, and this interface is
+ * reached over `https` as soon as it is put behind anything: a browser refuses an `http` image on
+ * an `https` page outright, before the request is made, and the gallery would be a row of broken
+ * frames. The hosts all answer on `https`, and the upgrade is only applied when the page is itself
+ * `https`, so nothing that would have loaded stops loading.
+ */
+function pictureAddress(href, protocol) {
+  const target = webAddress(href);
+  if (!target) return null;
+  const page = protocol || window.location.protocol;
+  if (page === "https:" && target.startsWith("http://")) {
+    return `https://${target.slice("http://".length)}`;
+  }
+  return target;
+}
+
+/* Every picture a listing carried, one at a time, over the page.
+ *
+ * The one thing worth being deliberate about: these are the listing site's own addresses, not
+ * pictures this tool holds. Everywhere else, looking at a property here tells the listing site
+ * nothing, because the one stored thumbnail is served from this machine. A gallery of forty photos
+ * cannot work that way without keeping forty photos per property, so it fetches them, and the
+ * dialog says so rather than leaving somebody to infer it. Nothing is fetched until somebody opens
+ * it, and only the picture on screen and its two neighbours are asked for.
+ */
+function gallery(photos, what) {
+  const urls = (photos || []).map(pictureAddress).filter(Boolean);
+  if (!urls.length) return null;
+
+  let at = 0;
+  const frame = el("img", {class: "plate", alt: `Photograph of ${what || "this property"}`});
+  const counter = el("span", {class: "counter", role: "status"}, "");
+  const preload = [];
+
+  const show = (index) => {
+    at = (index + urls.length) % urls.length;
+    frame.src = urls[at];
+    counter.replaceChildren(document.createTextNode(`${at + 1} of ${urls.length}`));
+    /* The next one and the one before, so pressing an arrow shows a picture rather than a gap. */
+    for (const near of [at + 1, at - 1]) {
+      const url = urls[(near + urls.length) % urls.length];
+      if (preload.includes(url)) continue;
+      preload.push(url);
+      const ahead = new Image();
+      ahead.src = url;
+    }
+  };
+
+  const back = el("button", {type: "button", class: "quiet page", "aria-label": "Previous photo",
+                             onclick: () => show(at - 1)}, "‹");
+  const on = el("button", {type: "button", class: "quiet page", "aria-label": "Next photo",
+                           onclick: () => show(at + 1)}, "›");
+  const shut = el("button", {type: "button", class: "quiet close", "aria-label": "Close",
+                             onclick: () => dialog.close()}, "Close");
+
+  const dialog = el("dialog", {
+    class: "gallery",
+    "aria-label": `Photographs of ${what || "this property"}`,
+    onclose: () => dialog.remove(),
+    onclick: (event) => { if (event.target === dialog) dialog.close(); },
+    onkeydown: (event) => {
+      if (event.key === "ArrowRight") { event.preventDefault(); show(at + 1); }
+      else if (event.key === "ArrowLeft") { event.preventDefault(); show(at - 1); }
+    },
+  },
+    el("div", {class: "plateframe"}, back, frame, on),
+    el("div", {class: "under"},
+      counter,
+      el("span", {class: "meta"},
+        "From the listing site, not from this tool, so opening this asks them for the pictures."),
+      shut,
+    ),
+  );
+
+  document.body.append(dialog);
+  show(0);
+  dialog.showModal();
+  on.focus();
+  return dialog;
+}

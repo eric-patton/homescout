@@ -601,10 +601,29 @@ def passed(workspace: Workspace) -> tuple[dict[str, object], object]:
     exists on one surface only is product invariant 5 broken. So this is the command line's way of
     asking the same question: what have I said no to, and can I still see it.
     """
+    return _judged(workspace, "pass")
+
+
+def kept(workspace: Workspace) -> tuple[dict[str, object], object]:
+    """Every property the person has marked as one to keep, and how many there are.
+
+    The other half of the same judgment, and the one that is read far more often: a shortlist is
+    what somebody actually works from once a table of a thousand has been through it once. The
+    command line asks for it here for the same reason it asks for the passed ones.
+    """
+    return _judged(workspace, "keep")
+
+
+def _judged(workspace: Workspace, judgment: str) -> tuple[dict[str, object], object]:
+    """The properties carrying one judgment, in the shape both surfaces read.
+
+    One function for both answers, because "what have I kept" and "what have I passed on" differ by
+    a single word and two copies of this would be two places for that word to end up wrong.
+    """
     with _translating():
         found = []
         for record in workspace.store.listings():
-            if workspace.store.judgment_of(record.id) != "pass":
+            if workspace.store.judgment_of(record.id) != judgment:
                 continue
             snapshot = workspace.store.latest_snapshots().get(record.id)
             fields = snapshot.fields if snapshot is not None else None

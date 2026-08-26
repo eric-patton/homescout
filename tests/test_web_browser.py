@@ -547,8 +547,9 @@ def test_the_table_works_when_the_browser_will_not_store_anything(served) -> Non
         process.terminate()
 
     assert found["threw"] is None, f"storage being unavailable broke the page: {found['threw']}"
-    assert found["arranged"] == ["Rank", "Price", "Annual Taxes"], (
-        "without a remembered arrangement the declared one is used, the unfilled columns last"
+    assert found["arranged"] == ["Keep or pass", "Rank", "Price", "Annual Taxes"], (
+        "without a remembered arrangement the declared one is used, with the controls first and "
+        "the unfilled columns last"
     )
     assert found["rows"] > 0, "the table drew nothing"
 
@@ -593,3 +594,311 @@ def test_a_handler_this_page_builds_is_a_handler_that_runs(served) -> None:
 
     assert sorted(found["fired"]) == ["click", "dblclick", "pointerdown"], found["fired"]
     assert found["attribute"] is None, "a function was written into the DOM as an inline handler"
+
+
+def opened(served, script):
+    """Run one script against a loaded results table, and always close the browser."""
+    base, _held, _store = served
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        return evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                 for (let i = 0; i < 200; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await wait(100);
+                 }
+                 """ + script + """
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+
+def test_the_columns_stay_put_when_the_table_is_scrolled(served) -> None:
+    """feat-010/AC-44: a width somebody set has to survive them reading the table.
+
+    A regression, and one with an unobvious cause. `table-layout: fixed` derives its columns from
+    the first row it can find whenever the table's own width is `auto`, and the first row in this
+    table is whichever row the scroll position last put in the DOM. So scrolling changed the row the
+    layout was derived from and every column jumped. The table is now told its own width, the sum of
+    the declared columns, so the `colgroup` is the only thing the layout comes from.
+    """
+    found = opened(served, """
+        const scroller = document.getElementById("scroller");
+        const widths = () => [...document.querySelectorAll("#body tr")[2].children]
+          .map(c => Math.round(c.getBoundingClientRect().width));
+        scroller.scrollTop = 0;
+        await wait(200);
+        const atTop = widths();
+        scroller.scrollTop = Math.round(scroller.scrollHeight / 2);
+        await wait(300);
+        const partway = widths();
+        scroller.scrollTop = scroller.scrollHeight;
+        await wait(300);
+        return {atTop, partway, atEnd: widths()};
+    """)
+
+    assert found["atTop"] == found["partway"] == found["atEnd"], (
+        "the columns changed width as the table was scrolled"
+    )
+    assert len(set(found["atTop"])) > 1, "the columns are not all the same width, so this measures"
+
+
+def test_wrapped_text_does_not_make_a_row_taller(served) -> None:
+    """feat-010/AC-47: wrapping is clamped, because the rows have to stay the same height.
+
+    Every row being the same height is what lets a thousand of them be placed by arithmetic instead
+    of measured. So "wrap long text" is a fixed number of lines rather than as many as the longest
+    cell wants, and the clamp is on a box inside the cell: a table cell cannot clip its own height,
+    and `overflow: hidden` on a `td` does not stop its content taking the row with it.
+    """
+    found = opened(served, """
+        /* Real prose, put on the rows rather than into the fixture, because the point of the test
+           is what the table does with text far longer than a column is wide. */
+        const long = ("A quiet adobe on a rise at the end of a graded county road, with a metal " +
+                      "roof, a new septic system, a producing well, and views in every direction " +
+                      "over open country to the mountains beyond it. ").repeat(4);
+        state.all.slice(0, 8).forEach(r => {
+          r.values["Description"] = long;
+          r.values["Town Analysis Notes"] = long;
+        });
+        apply();
+        await wait(300);
+        const before = [...document.querySelectorAll("#body tr")]
+          .slice(0, 8).map(r => r.getBoundingClientRect().height);
+
+        document.getElementById("wraptext").click();
+        await wait(500);
+        const rows = [...document.querySelectorAll("#body tr")];
+        const cell = rows[0].querySelector('td[data-column="Description"] .cell');
+        return {assumed: rowHeight(),
+                unwrapped: before,
+                drawn: rows.slice(0, 8).map(r => r.getBoundingClientRect().height),
+                cellHeight: cell ? cell.getBoundingClientRect().height : null,
+                wrapped: cell ? getComputedStyle(cell.parentElement).whiteSpace : null,
+                lines: WRAP_LINES};
+    """)
+
+    assert found["wrapped"] == "normal", "the cells are not wrapping, so this measures nothing"
+    assert found["assumed"] > max(found["unwrapped"]), "wrapping did not make the rows taller"
+    assert found["cellHeight"] <= found["assumed"], "a wrapped cell is taller than its row"
+
+    assert found["lines"] > 1, "wrapping to one line is not wrapping"
+    for height in found["drawn"]:
+        assert abs(height - found["assumed"]) < 0.51, (
+            f"a wrapped row is {height}px against a placement of {found['assumed']}px"
+        )
+
+
+def test_passing_on_a_house_asks_first_and_escape_means_no(served) -> None:
+    """feat-010/AC-48: one mis-aimed click on a 26-pixel row should not empty a table.
+
+    Escape is asserted rather than the Cancel button, because a modal dialog's keyboard answer is
+    the one that has to work: the pointer's way of dismissing it is a convenience on top.
+    """
+    found = opened(served, """
+        const row = document.querySelector("#body tr");
+        const listing = row.dataset.listing;
+        row.querySelector("button.pass").click();
+        await wait(200);
+        const dialog = document.querySelector("dialog.ask");
+        const asked = {open: !!(dialog && dialog.open),
+                       says: dialog ? dialog.textContent : "",
+                       focused: document.activeElement
+                                  ? document.activeElement.textContent : ""};
+
+        dialog.dispatchEvent(new Event("cancel"));
+        await wait(400);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {asked,
+                stillThere: !!document.querySelector("#body tr"),
+                gone: !document.querySelector("dialog.ask"),
+                judgment: (answered.listing.annotation || {}).judgment ?? null};
+    """)
+
+    assert found["asked"]["open"], "passing on a house did not ask"
+    assert "Pass on this property?" in found["asked"]["says"]
+    assert "brings it back" in found["asked"]["says"], "the dialog does not say it is reversible"
+    assert found["asked"]["focused"] == "Pass on it", "the dialog does not take focus"
+    assert found["gone"], "the dialog stayed open after being dismissed"
+    assert found["judgment"] is None, "escaping the question passed on the house anyway"
+
+
+def test_saying_yes_to_the_question_passes_on_the_house(served) -> None:
+    """feat-010/AC-48, feat-010/AC-35: because a test that only proves it asks would pass on a
+    dialog whose buttons do nothing."""
+    found = opened(served, """
+        const row = document.querySelector("#body tr");
+        const listing = row.dataset.listing;
+        const before = state.shown.length;
+        row.querySelector("button.pass").click();
+        await wait(200);
+        [...document.querySelectorAll("dialog.ask button")]
+          .find(b => b.textContent === "Pass on it").click();
+        await wait(600);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {before, after: state.shown.length,
+                judgment: (answered.listing.annotation || {}).judgment ?? null};
+    """)
+
+    assert found["judgment"] == "pass"
+    assert found["after"] == found["before"] - 1, "the property did not leave the table"
+
+
+def test_keeping_a_house_takes_one_press_and_no_question(served) -> None:
+    """feat-010/AC-49: the shortlist is what a person works from, so it has to be cheap to build.
+
+    No question asked, deliberately: keeping a house costs nothing, hides nothing, and the same
+    button takes it off again.
+    """
+    found = opened(served, """
+        const row = document.querySelector("#body tr");
+        const listing = row.dataset.listing;
+        const before = state.shown.length;
+        row.querySelector("button.keep").click();
+        await wait(600);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        const asked = !!document.querySelector("dialog.ask");
+        document.getElementById("onlykept").click();
+        await wait(300);
+        return {asked, before, whileKeptOnly: state.shown.length,
+                judgment: (answered.listing.annotation || {}).judgment ?? null};
+    """)
+
+    assert found["judgment"] == "keep"
+    assert not found["asked"], "keeping a house asked a question it did not need to ask"
+    assert found["whileKeptOnly"] == 1, "only what you kept did not narrow to the kept one"
+    assert found["before"] > 1, "the table had nothing else in it, so that proves little"
+
+
+def test_the_keep_and_pass_controls_are_the_first_thing_on_a_row(served) -> None:
+    """feat-010/AC-49: a control nobody can find is a control that does not exist.
+
+    They were inside the address cell, after the address and after however many badges the property
+    carried, so on a narrow column they sat past the right edge and were reported twice as a missing
+    feature. First column, fixed width, same place on every row, and it cannot be dragged out of
+    that position.
+    """
+    found = opened(served, """
+        const first = document.querySelector("#body tr").children[0];
+        move("Price", 0);
+        await wait(200);
+        return {column: first.dataset.column,
+                buttons: [...first.querySelectorAll("button")].map(b => b.className),
+                afterTryingToDisplaceIt: state.columns[0].name,
+                header: document.querySelector("table.grid thead th").textContent};
+    """)
+
+    assert found["buttons"] == ["keep", "pass"], found["buttons"]
+    assert found["afterTryingToDisplaceIt"] == found["column"], (
+        "another column was allowed in front of the controls"
+    )
+    assert found["header"].strip(), "the control column has no heading to say what it does"
+
+
+def test_the_thumbnail_opens_every_photograph_the_listing_carried(served) -> None:
+    """feat-010/AC-51: the one stored picture is a way in to the forty the listing had.
+
+    A property in this search carries thirty-eight photographs at the median. Judging a house on its
+    roof line, its siding and what stands behind it needs all of them, and until now the only way to
+    see any but the first was to open the listing site.
+
+    The pictures themselves are never fetched here: the test points them at a path this server does
+    not serve, because what is being asserted is which address ends up in the `img` and how the
+    gallery moves between them, not whether a listing site answered.
+    """
+    found = opened(served, """
+        /* Photographs arrive with the property, so they are put on the one being opened. */
+        const shots = ["https://pics.invalid/a.jpg", "https://pics.invalid/b.jpg",
+                       "https://pics.invalid/c.jpg"];
+        /* What the sites actually hand over. Every one of these is stored as http, and on an https
+           page a browser will not load one at all, so the gallery has to ask for it as https. */
+        const asStored = shots.map(u => u.replace("https://", "http://"));
+        window.ask = async () => ({listing: {photo_urls: shots}});
+
+        state.all[0].has_image = true;
+        document.getElementById("showphotos").click();
+        await wait(400);
+        document.querySelector("#body tr button.thumb").click();
+        await wait(400);
+
+        const dialog = document.querySelector("dialog.gallery");
+        const plate = () => dialog.querySelector("img.plate").getAttribute("src");
+        const counter = () => dialog.querySelector(".counter").textContent;
+
+        const first = {src: plate(), says: counter()};
+        dialog.querySelector('button[aria-label="Next photo"]').click();
+        const second = {src: plate(), says: counter()};
+        dialog.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowLeft", bubbles: true}));
+        const back = {src: plate(), says: counter()};
+        /* Off the front, which must land on the last rather than on nothing. */
+        dialog.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowLeft", bubbles: true}));
+        const wrapped = {src: plate(), says: counter()};
+
+        const said = dialog.textContent;
+        dialog.close();
+        await wait(200);
+        /* And again with the addresses in the form they are really stored in. */
+        window.ask = async () => ({listing: {photo_urls: asStored}});
+        document.querySelector("#body tr button.thumb").click();
+        await wait(400);
+        const again = document.querySelector("dialog.gallery");
+        const asked = again.querySelector("img.plate").getAttribute("src");
+        again.close();
+        await wait(100);
+
+        /* The page this test is served over is http, where nothing needs upgrading, so the rule
+           that matters over https is asked directly. */
+        const upgrade = {
+          onHttps: pictureAddress("http://ap.rdcpix.com/a.jpg", "https:"),
+          onHttp: pictureAddress("http://ap.rdcpix.com/a.jpg", "http:"),
+          alreadySecure: pictureAddress("https://ap.rdcpix.com/a.jpg", "https:"),
+          refused: pictureAddress("javascript:alert(1)", "https:"),
+        };
+
+        return {first, second, back, wrapped, said, asked, upgrade,
+                secure: window.location.protocol === "https:",
+                gone: !document.querySelector("dialog.gallery"),
+                shots};
+    """)
+
+    assert found["first"]["src"] == found["shots"][0]
+    assert found["first"]["says"] == "1 of 3"
+    assert found["second"]["src"] == found["shots"][1], "the next photo did not come up"
+    assert found["back"]["src"] == found["shots"][0], "the left arrow did not go back"
+    assert found["wrapped"]["src"] == found["shots"][2], "going back off the front lost the gallery"
+    assert "not from this tool" in found["said"], (
+        "the gallery does not say the pictures come from the listing site, which is the one place "
+        "in this product where looking at a property is not free of it"
+    )
+    assert found["gone"], "the gallery stayed in the page after being closed"
+    # This test's server is plain http, where an http picture loads and nothing needs upgrading.
+    # The rule under test is the one that applies over https, which is how this is really reached.
+    assert found["asked"] == (found["shots"][0] if found["secure"] else
+                              found["shots"][0].replace("https://", "http://"))
+    assert found["upgrade"] == {
+        "onHttps": "https://ap.rdcpix.com/a.jpg",
+        "onHttp": "http://ap.rdcpix.com/a.jpg",
+        "alreadySecure": "https://ap.rdcpix.com/a.jpg",
+        "refused": None,
+    }, found["upgrade"]
+
+
+def test_a_listing_with_no_photographs_says_so_rather_than_opening_nothing(served) -> None:
+    """feat-010/AC-51: the spec's edge case, on the surface where it is most likely."""
+    found = opened(served, """
+        window.ask = async () => ({listing: {photo_urls: []}});
+        state.all[0].has_image = true;
+        document.getElementById("showphotos").click();
+        await wait(400);
+        document.querySelector("#body tr button.thumb").click();
+        await wait(400);
+        return {opened: !!document.querySelector("dialog.gallery"),
+                banner: document.getElementById("banner").textContent};
+    """)
+
+    assert not found["opened"], "an empty gallery was opened"
+    assert "no photographs" in found["banner"], "nothing said why nothing happened"
