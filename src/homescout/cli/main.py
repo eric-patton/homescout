@@ -596,18 +596,10 @@ def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
 
 def _matches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     if args.action == "list":
-        pending = api.pending_matches(workspace)
-        payload = [
-            {
-                "id": m.id,
-                "listing_ids": list(m.listing_ids),
-                "agreed": list(m.agreed),
-                "conflicted": list(m.conflicted),
-                "noticed_at": m.noticed_at,
-            }
-            for m in pending
-        ]
-        return Answer(digest.envelope("matches", matches=payload), render.matches(pending))
+        pending = api.review_queue(workspace)
+        return Answer(
+            digest.envelope("matches", matches=list(pending)), render.matches(pending)
+        )
     merged = api.resolve_match(workspace, args.match_id, same=args.same)
     verdict = "same" if args.same else "different"
     document = digest.envelope(

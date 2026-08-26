@@ -42,12 +42,7 @@ function draw(matches) {
 function card(match) {
   return el("div", {class: "card", dataset: {match: match.id}},
     el("h3", {}, `${match.listing_ids.length} records`),
-    el("p", {class: "meta"},
-      match.listing_ids.map((id, index) =>
-        el("span", {},
-          index ? " · " : "",
-          link(`/listing/${encodeURIComponent(id)}`, id.slice(0, 8)))),
-    ),
+    el("div", {class: "pair"}, (match.properties || []).map(side)),
 
     el("h4", {}, "What agrees"),
     match.agreed.length
@@ -85,4 +80,42 @@ async function decide(id, verdict) {
     return;
   }
   await load();
+}
+
+/* One of the two properties, as much of it as fits: the photograph first, because that is what
+ * settles most of these at a glance, then the address, the price and which sites it came from.
+ * Two records from two different sites at the same address is the shape of a house seen twice;
+ * "Mimbres Rd" against "Mimbres Ct" at a different price is the shape of two houses. */
+function side(property) {
+  const where = [property.address_line, property.city].filter(Boolean).join(", ");
+  const facts = [
+    property.beds ? `${property.beds} bed` : null,
+    property.baths ? `${property.baths} bath` : null,
+    property.sqft ? `${property.sqft.toLocaleString()} sq ft` : null,
+    property.year_built ? String(property.year_built) : null,
+  ].filter(Boolean).join(" · ");
+
+  return el("div", {class: "side"},
+    property.has_image
+      ? el("img", {
+          class: "shot",
+          src: `/api/listings/${encodeURIComponent(property.listing_id)}/image`,
+          alt: where ? `Photograph of ${where}` : "Photograph of this property",
+          loading: "lazy",
+        })
+      : el("div", {class: "shot none", role: "img", "aria-label": "No photograph stored"},
+          "no photograph"),
+    el("p", {class: "who"},
+      el("strong", {}, link(`/listing/${encodeURIComponent(property.listing_id)}`,
+                            where || property.listing_id.slice(0, 8))),
+      el("br", {}),
+      el("span", {class: "cost"}, money(property.price)),
+      facts ? el("span", {}, ` · ${facts}`) : "",
+      el("br", {}),
+      el("span", {class: "from"},
+        (property.sources || []).length
+          ? `seen by ${property.sources.join(" and ")}`
+          : "no source recorded"),
+    ),
+  );
 }

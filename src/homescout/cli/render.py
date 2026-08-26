@@ -255,15 +255,32 @@ def annotation(written: Any) -> str:
 
 
 def matches(pending: Sequence[Any]) -> str:
+    """The queue, with enough of each property to decide without opening either one.
+
+    A table of identifiers and signals says everything about the *match* and nothing about the two
+    houses, and the houses are what somebody is actually ruling on. Two records from two different
+    sites at one address is a house seen twice; "Mimbres Rd" against "Mimbres Ct" at a different
+    price is two houses. Both readings need the addresses.
+
+    The browser shows the two photographs here, which settles most pairs at a glance. A terminal
+    has no pictures, so it shows everything else, from the same core answer.
+    """
     if not pending:
         return "No matches are waiting for review."
-    return table(
-        ("id", "properties", "agreed", "conflicted"),
-        [
-            (m.id, len(m.listing_ids), ", ".join(m.agreed) or DASH, ", ".join(m.conflicted) or DASH)
-            for m in pending
-        ],
-    )
+    lines: list[str] = []
+    for found in pending:
+        lines.append(f"{found['id']}  ({len(found['listing_ids'])} records)")
+        for prop in found.get("properties", ()):
+            where = ", ".join(p for p in (prop.get("address_line"), prop.get("city")) if p)
+            seen = ", ".join(prop.get("sources") or ()) or "no source recorded"
+            named = where or prop["listing_id"][:8]
+            lines.append(f"  {named}  {money(prop.get('price'))}  [{seen}]")
+        if found.get("agreed"):
+            lines.append(f"  agrees:    {', '.join(found['agreed'])}")
+        if found.get("conflicted"):
+            lines.append(f"  disagrees: {', '.join(found['conflicted'])}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
 
 
 def delivery(outcome: Any) -> str:

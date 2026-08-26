@@ -39,6 +39,8 @@ in five years. The problem brief is in `research.md`.
 - As the person running searches, I want to set up the optional parts (a model to read descriptions,
   a background for the map) from the screen that tells me they are off, so that turning one on does
   not mean finding a file and knowing its variable names.
+- As the person running searches, I want to see both houses on the card, so that the pairs that are
+  obviously one house take a glance rather than two tabs.
 - As the person running searches, I want to resolve the matches the tool refused to guess at, so
   that its uncertainty becomes my decision rather than a silent error.
 - As the person running searches, I want a search edited here to be the same file I can edit by
@@ -172,8 +174,9 @@ in five years. The problem brief is in `research.md`.
       value that is known to be negative.
 - [ ] AC-11: The run comparison surface produces the same result as the equivalent terminal
       comparison for the same two points in time.
-- [ ] AC-12: Ambiguous match pairs are listed with the agreeing and conflicting signals, and a
-      decision made here is durable and honored by later runs.
+- [ ] AC-12: Ambiguous match pairs are listed with the agreeing and conflicting signals, and with
+      the two properties themselves, so a decision can be made from the card rather than from two
+      other tabs. A decision made here is durable and honored by later runs.
 - [ ] AC-13: Running a search from here shows progress and per-source outcomes, including
       failures, and leaves the store in the same state the equivalent terminal command would.
 - [ ] AC-14: This layer contains no business logic. Every action calls a core operation, and a test
@@ -263,6 +266,14 @@ in five years. The problem brief is in `research.md`.
       the command line can list what has been passed, satisfying product invariant 5. Whether a
       property is hidden by default is decided in the core and read by both surfaces, so neither
       holds its own copy of that rule.
+- [ ] AC-40: Each queued pair shows, for every record in it, its stored photograph, address, price,
+      size and the sources it was seen by. A record with no stored photograph is shown as having
+      none, in the same shape as one that has, so the records stay aligned and the absence is
+      legible. Nothing is fetched to satisfy this: the images and the summary come from what the
+      store already holds.
+- [ ] AC-41: The summary a review needs is assembled in the core and read by both surfaces. The
+      terminal lists the same addresses, prices and sources for the same pairs, and neither surface
+      works out for itself what a pair is.
 
 ## Edge cases & errors
 
@@ -301,6 +312,9 @@ in five years. The problem brief is in `research.md`.
 - A drawn polygon self-intersects. It is rejected at draw time with an explanation, not saved and
   failed at run time.
 - The merge review queue is empty. The surface says so plainly rather than appearing broken.
+- A record in a queued pair has no stored photograph. Its place on the card keeps the same shape and
+  says there is none, so the two records stay side by side and comparable. The core answers whether
+  an image exists rather than the page finding out by requesting one and failing.
 
 ## Non-functional requirements
 

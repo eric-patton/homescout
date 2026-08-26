@@ -611,6 +611,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "preview_image",
         "results",
         "passed",
+        "review_queue",
         "run_status",
         "area_notes",
         "places",
@@ -849,3 +850,58 @@ def test_naming_the_database_on_the_command_line_moves_the_secrets_with_it(
 
     assert settings.token(settings.BROADBAND_TOKEN) == "a-real-token"
     assert settings.token(settings.BROADBAND_USERNAME) == "someone"
+
+
+def test_a_queued_pair_carries_both_properties_not_just_two_identifiers(
+    store: Store, db_path
+) -> None:
+    """feat-010/AC-40, feat-010/AC-41: a pair is decided on the houses, not on the match.
+
+    The queue used to list two truncated identifiers and the signals that pointed both ways. That is
+    complete evidence about the match and none at all about the two properties, so every pair cost
+    two tabs to rule on. Over a real queue of a hundred and sixty-six, that is the difference
+    between a review somebody does and one they abandon.
+
+    Asserted through the terminal because the summary is assembled in the core: if it were built in
+    the page, this would pass while the browser and the terminal drifted apart.
+    """
+    queue, ids = queued(store)
+    with wired([search()], {"fake": FakeSource()}, queue=queue):
+        code, out, _ = invoke(["matches", "list", "--json"], db=db_path)
+
+    assert code == ExitCode.SUCCESS
+    pair = json.loads(out)["matches"][0]
+    assert [p["listing_id"] for p in pair["properties"]] == ids
+
+    for summary in pair["properties"]:
+        assert summary["address_line"], "the address, which is what a person reads first"
+        assert summary["price"] is not None
+        assert summary["sources"], "and which sites saw it, which is the strongest signal of all"
+        # Said by the core rather than discovered by the page requesting one and failing, so a
+        # record with no photograph keeps its shape on the card instead of showing a broken image.
+        assert summary["has_image"] is (
+            store.get_preview_image(summary["listing_id"]) is not None
+        )
+
+    assert pair["agreed"] and pair["conflicted"], "the signals are still there"
+
+
+def test_both_surfaces_review_the_same_queue(store: Store, db_path) -> None:
+    """feat-010/AC-41: one core answer, read twice.
+
+    Non-negotiable 8. The browser shows the photographs and the terminal cannot, which is a limit of
+    a terminal rather than a capability living on one surface; everything either of them decides
+    from comes from here.
+    """
+    queue, ids = queued(store)
+    with wired([search()], {"fake": FakeSource()}, queue=queue):
+        through_core = api.review_queue(
+            workspace(store, searches=[search()], sources={"fake": FakeSource()}, queue=queue)
+        )
+        _, out, _ = invoke(["matches", "list", "--json"], db=db_path)
+
+    from_terminal = json.loads(out)["matches"]
+    assert [m["id"] for m in from_terminal] == [m["id"] for m in through_core]
+    assert [
+        [p["address_line"] for p in m["properties"]] for m in from_terminal
+    ] == [[p["address_line"] for p in m["properties"]] for m in through_core]

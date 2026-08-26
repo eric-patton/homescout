@@ -286,6 +286,42 @@ button.danger:hover { border-color: #e2acac; background: var(--bad-wash); color:
 .card .actions { margin-top: var(--s3); }
 .card.set-aside { background: var(--shade); box-shadow: none; }
 
+/* -- the two properties in a queued match ------------------------------- */
+/* Most queued pairs are one house that two sites placed slightly differently, and the fastest way
+   to see that is to look at both photographs side by side. Everything here exists so a decision
+   can be made from the card rather than from two other tabs. */
+.pair {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  margin: 0 0 var(--s3);
+}
+.pair .side { min-width: 0; }
+.pair .shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--shade);
+}
+/* A property with no stored picture keeps the same shape, so the two sides stay aligned and the
+   absence reads as "no photograph" rather than as a broken one. */
+.pair .shot.none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: var(--s2);
+}
+.pair .who { margin: var(--s2) 0 0; font-size: 0.92rem; line-height: 1.35; }
+.pair .who strong { font-weight: 600; }
+.pair .cost { font-variant-numeric: tabular-nums; }
+.pair .from { color: var(--dim); font-size: 0.82rem; }
+
 /* -- controls ---------------------------------------------------------- */
 
 .controls {

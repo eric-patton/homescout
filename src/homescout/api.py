@@ -628,6 +628,66 @@ def pending_matches(workspace: Workspace) -> tuple[AmbiguousMatch, ...]:
     return workspace.queue.pending()
 
 
+def review_queue(workspace: Workspace) -> tuple[dict[str, Any], ...]:
+    """Every queued pair, with enough of each property to decide without opening either one.
+
+    `pending_matches` answers what the queue holds: two identifiers and the signals that pointed
+    both ways. That is the evidence about the *match*, and it turns out not to be the evidence a
+    person actually decides on. Most queued pairs are one house that two sites geocoded differently,
+    and the fastest way to see that is to look at the two photographs. Asking somebody to open two
+    tabs to find that out, once per pair, over a queue of a hundred and sixty, is the difference
+    between a review they do and a review they abandon.
+
+    So the summary is assembled here rather than in either surface, which is non-negotiable 8: a
+    terminal listing the queue gets the same address and price a browser does, and neither is
+    working anything out for itself.
+
+    A property whose latest snapshot cannot be found is summarised as far as it can be rather than
+    skipped. A pair missing half its evidence is still a pair somebody has to rule on, and dropping
+    it from the queue would be the tool quietly deciding by omission.
+    """
+    store = workspace.store
+    with _translating():
+        snapshots = store.latest_snapshots()
+        found = workspace.queue.pending()
+
+    made: list[dict[str, Any]] = []
+    for match in found:
+        properties = []
+        for listing_id in match.listing_ids:
+            snapshot = snapshots.get(listing_id)
+            fields = snapshot.fields if snapshot is not None else None
+            sources = sorted({link.source for link in store.source_links(listing_id)})
+            properties.append(
+                {
+                    "listing_id": listing_id,
+                    "address_line": getattr(fields, "address_line", None),
+                    "city": getattr(fields, "city", None),
+                    "price": getattr(fields, "price", None),
+                    "beds": getattr(fields, "beds", None),
+                    "baths": getattr(fields, "baths", None),
+                    "sqft": getattr(fields, "sqft", None),
+                    "year_built": getattr(fields, "year_built", None),
+                    "listing_url": getattr(fields, "listing_url", None),
+                    "sources": sources,
+                    # Said rather than guessed at by the page: an <img> that 404s is a broken
+                    # picture in a list somebody is trying to read quickly.
+                    "has_image": store.get_preview_image(listing_id) is not None,
+                }
+            )
+        made.append(
+            {
+                "id": match.id,
+                "listing_ids": list(match.listing_ids),
+                "agreed": list(match.agreed),
+                "conflicted": list(match.conflicted),
+                "noticed_at": match.noticed_at,
+                "properties": properties,
+            }
+        )
+    return tuple(made)
+
+
 def resolve_match(workspace: Workspace, match_id: str, *, same: bool) -> str | None:
     """Settle one queued match, from either surface.
 

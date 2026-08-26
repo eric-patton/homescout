@@ -77,16 +77,14 @@ def comparison(workspace: api.Workspace, name: str, since: str | None) -> dict[s
 
 
 def matches(workspace: api.Workspace) -> list[dict[str, Any]]:
-    return [
-        {
-            "id": found.id,
-            "listing_ids": list(found.listing_ids),
-            "agreed": list(found.agreed),
-            "conflicted": list(found.conflicted),
-            "noticed_at": found.noticed_at,
-        }
-        for found in api.pending_matches(workspace)
-    ]
+    """The queue as the review page reads it, summaries and all.
+
+    Straight through from `api.review_queue`, which already assembles what a person needs to decide
+    a pair without opening either property. Nothing is rearranged here because there is nothing left
+    to rearrange, and a shape change that is the identity function is the right amount of work for
+    this layer to be doing.
+    """
+    return [dict(found) for found in api.review_queue(workspace)]
 
 
 def areas(workspace: api.Workspace) -> list[dict[str, Any]]:

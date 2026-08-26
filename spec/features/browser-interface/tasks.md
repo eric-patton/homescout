@@ -214,3 +214,16 @@ alongside its peers.
       of every latest snapshot running once per page view. Pinned by
       `tests/test_web_endpoints.py::test_a_record_merged_into_another_still_has_a_page`, citing
       `feat-010/AC-9`, verified red before green.
+- [x] T57: `api.review_queue`: every queued pair with each record's photograph flag, address, price,
+      size and sources, assembled in the core so both surfaces read one answer (AC-41). A record
+      whose latest snapshot cannot be found is summarised as far as it can be rather than dropped:
+      a pair missing half its evidence is still a pair somebody has to rule on.
+- [x] T58: `web/static/matches.js` and `app.css`: both records on the card, photograph first, with
+      a same-shaped placeholder where none is stored (AC-40). `web/wire.py` becomes a pass-through.
+- [x] T59: `cli/main.py` and `cli/render.py`: `matches list` prints the same addresses, prices and
+      sources instead of a table of identifiers (AC-41).
+- [x] T60: `tests/test_cli_operations.py`: a queued pair carries both properties rather than two
+      identifiers, and whether each has a photograph matches what the store actually holds
+      (`feat-010/AC-40`); and both surfaces review the same queue from one core answer
+      (`feat-010/AC-41`). Asserted through the terminal on purpose: if the summary were built in the
+      page, a browser-only test would pass while the two surfaces drifted apart.
