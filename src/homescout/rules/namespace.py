@@ -108,6 +108,7 @@ _ENRICHED: tuple[Field, ...] = (
     Field("over_principal_aquifer", BOOLEAN, "enriched", False, "location enrichment"),
     Field("wildfire_hazard", TEXT, "enriched", False, "location enrichment"),
     Field("elevation_ft", NUMBER, "enriched", False, "location enrichment"),
+    Field("wildland_urban_interface", TEXT, "enriched", False, "location enrichment"),
 )
 
 #: Recovered from a listing's prose by description field extraction (feat-009).
@@ -222,6 +223,11 @@ _MEANS: dict[str, str] = {
     "download_mbps": "best advertised residential download in this property's census block",
     "broadband_provider": "who offers it in that block, comma separated",
     "over_principal_aquifer": "the point is over a USGS principal aquifer",
+    "wildland_urban_interface": (
+        "whether houses here stand in the wildland vegetation, which is a different question from "
+        "wildfire hazard. New Mexico only: anywhere else reads `outside coverage`, so compare "
+        "positively rather than negatively"
+    ),
     "photo_urls": "a list, so use `is null` rather than comparing it",
     "description": "the listing's prose, which is what the extracted fields below were read from",
 }
@@ -243,6 +249,13 @@ def closed_values(name: str) -> tuple[str, ...]:
         from ..enrich.providers import WILDFIRE_CLASSES
 
         return tuple(WILDFIRE_CLASSES.values())
+    if name == "wildland_urban_interface":
+        from ..enrich.providers import OUTSIDE_COVERAGE, WUI_CLASSES
+
+        # `outside coverage` belongs in the list even though it is not a kind of interface, because
+        # somebody building a criterion needs to see that it is a value this field can hold. Leaving
+        # it out is how a person writes a rule that quietly matches every property in Colorado.
+        return (*WUI_CLASSES.values(), OUTSIDE_COVERAGE)
     if name == "listing_status":
         from ..search.validate import LISTING_TYPES
 

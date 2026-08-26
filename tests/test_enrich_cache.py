@@ -129,3 +129,49 @@ def test_reading_many_places_is_one_query_per_provider(store: Store) -> None:
     assert len(found) == len(places)
     selects = [q for q in queries if q.strip().upper().startswith("SELECT")]
     assert len(selects) == 1, f"{len(selects)} queries for one provider"
+
+
+def test_the_three_readings_of_an_interface_value_stay_apart(store: Store) -> None:
+    """feat-007/AC-24: not applicable, a known negative, and never asked, are three things.
+
+    The one field in this product whose known negative is `None`, which is why it is worth pinning
+    all three side by side. Reading any of them as another is the failure the feature exists to
+    prevent, and here the mistake would be a property in Colorado reported as not being in the
+    wildland-urban interface.
+    """
+    provider = FakeProvider(
+        name="wui", supplies=("wildland_urban_interface",), ttl=None,
+        answer={"wildland_urban_interface": None},
+    )
+    negative, not_applicable = PLACE, FAR
+
+    store.cache_values(provider.name, cache.key_for(*negative, provider.precision()),
+                       {"wildland_urban_interface": None})
+    store.cache_values(provider.name, cache.key_for(*not_applicable, provider.precision()),
+                       {"wildland_urban_interface": "outside coverage"})
+
+    asked_and_empty = cache.values_for(store, [provider], *negative)
+    asked_and_uncovered = cache.values_for(store, [provider], *not_applicable)
+    never_asked = cache.values_for(store, [provider], 40.7128, -74.0060)
+
+    # Asked, and this place is in neither kind of interface.
+    assert asked_and_empty["wildland_urban_interface"].known is True
+    assert asked_and_empty["wildland_urban_interface"].value is None
+    assert cache.known_values(asked_and_empty) == {"wildland_urban_interface": None}
+
+    # Asked, and this provider does not answer for that place at all.
+    assert asked_and_uncovered["wildland_urban_interface"].known is True
+    assert cache.known_values(asked_and_uncovered) == {
+        "wildland_urban_interface": "outside coverage"
+    }
+
+    # Nobody asked.
+    assert never_asked["wildland_urban_interface"].status == "missing"
+    assert cache.known_values(never_asked) == {}
+
+    readings = [
+        cache.known_values(asked_and_empty),
+        cache.known_values(asked_and_uncovered),
+        cache.known_values(never_asked),
+    ]
+    assert len({repr(reading) for reading in readings}) == 3, "all three must read differently"

@@ -118,3 +118,25 @@ def test_a_comparison_that_cannot_mean_anything_is_caught_before_a_run(
 def test_a_field_that_is_a_list_can_be_asked_what_it_contains() -> None:
     """feat-008/AC-20: the one field that holds several values behaves like it."""
     assert not [c for c in complaints("'photo' in photo_urls") if c.severity == "problem"]
+
+
+def test_the_interface_field_offers_its_values_including_the_one_that_is_not_a_kind() -> None:
+    """feat-007/AC-22, feat-007/AC-24: a criterion is built by choosing, so choices must be real.
+
+    `outside coverage` is in the list on purpose. It is not a kind of interface, and leaving it out
+    is exactly how somebody writes `wildland_urban_interface != "interface"` without ever seeing
+    that it matches every property in every other state.
+    """
+    from homescout.rules import namespace as ns
+
+    assert ns.closed_values("wildland_urban_interface") == (
+        "intermix", "interface", "outside coverage",
+    )
+
+    offered = [f for f in ns.vocabulary() if f["name"] == "wildland_urban_interface"]
+    assert len(offered) == 1
+    assert [v["value"] for v in offered[0]["values"]] == [
+        "intermix", "interface", "outside coverage",
+    ]
+    means = offered[0]["means"]
+    assert "New Mexico only" in means, "the coverage is said where a criterion is built"

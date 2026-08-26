@@ -140,3 +140,57 @@ AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21
   come to bending it.
 
 verdict: open 3 (missing 0, partial 2, contradicts 0, unrequested 1)
+
+## run 3 — 2026-08-25
+
+baseline: spec sha256:e2f4700bb0f2 · plan sha256:73df91d88e91 · tasks sha256:d41501b705ed
+
+Run after the change `changes/wildland-urban-interface/` was built: the first provider here that
+does not cover the whole country, and the coverage rule that had to be amended on main to allow it.
+
+implemented: AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13,
+AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-23, AC-24, AC-25, AC-26
+
+- confirmed gap-001 [partial] `--stale` still narrows a pass without a way to name which values are
+  stale per provider. Unchanged by this run.
+
+- confirmed gap-002 [partial] the providers still cannot be individually enabled from either
+  surface. `api.enrich` takes a `providers` argument and `registry.create` honours it, so the
+  library has always been able to; no surface offers it. `homescout enrich` has `--stale` and
+  `--search` and nothing else (`src/homescout/cli/main.py`, the `enrich` parser).
+
+  This run makes it bite harder rather than less. There are seven providers now, and the new one is
+  the first that answers for only part of the country, so "run everything except the one that does
+  not apply to me" is a thing somebody outside New Mexico would reasonably want and still cannot ask
+  for.
+
+- opened gap-005 [partial] spec:"AC-22 A wildland-urban interface provider exists, is individually
+  enableable, and supplies a value naming which kind of interface a location stands in"
+
+  Evidence: `src/homescout/cli/main.py`, the `enrich` parser, which has no `--provider` option.
+
+  The same defect as gap-002 and a different anchor, so it is tracked separately rather than folded
+  in: the criterion is new, and a reader who fixes gap-002 without noticing this one would close a
+  gap and leave the identical claim unmet two criteria further down. Two thirds of AC-22 are met:
+  the provider exists and supplies the value. The middle third is the shared one.
+
+  Routed with gap-002: one `--provider` option on the enrich command, and its equivalent on the
+  settings page, closes both.
+
+- confirmed gap-004 [unrequested] `enrich/pass_.py` still calls `attach(store)` on any provider
+  that has it. Unchanged by this run: the interface provider holds nothing and does not use the
+  hook, so nothing here bent the protocol further. Still awaiting the human decision recorded in
+  run 2.
+
+note: two defects in the new code were found while reading it for this audit and fixed before the
+audit's findings were taken, so neither is a gap. Both were in the surfaces rather than the
+provider, and both were the same mistake in different places: the browser's listing page sent the
+interface value through the shared renderer, which turns `null` into "not known, nobody determined
+this", and the rule namespace declared no closed set of values for the field, so the browser's
+criterion builder offered a free-text box and never showed that `outside coverage` is a value the
+field can hold. The first would have said "nobody checked" about a place that was checked; the
+second is how somebody writes a negation that quietly matches every property in every other state.
+They are recorded here because they are exactly the failure this feature is built around and they
+survived until the code was read against the spec, which is what this run is for.
+
+verdict: open 4 (missing 0, partial 3, contradicts 0, unrequested 1)

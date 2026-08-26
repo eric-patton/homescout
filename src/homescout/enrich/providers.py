@@ -1,4 +1,4 @@
-"""The six public services, one small class each.
+"""The seven public services, one small class each.
 
 Every one of them answers the same shape of question (what is true at this point) and every one
 answers it differently, which is why they are plugins rather than branches in a pass.
@@ -197,6 +197,108 @@ class Wildfire:
                 "probably changed, and guessing at a hazard rating is worse than not having one."
             )
         return {"wildfire_hazard": word}
+
+
+#: What the interface layer's own renderer calls its two classes, as words a criterion compares
+#: against. There is no zero: a block in neither kind is not in the layer at all, which is why the
+#: absence of a feature is read below rather than a third code.
+WUI_CLASSES = {
+    1: "intermix",
+    2: "interface",
+}
+
+#: The answer for a point this provider does not cover. A determined value and not an absence, which
+#: is the whole of D-14: `None` here would mean "not in the interface", and saying that about a
+#: property in another state is exactly the false good news this feature exists to prevent.
+OUTSIDE_COVERAGE = "outside coverage"
+
+
+class WildlandUrbanInterface:
+    """Whether houses stand in the vegetation, for New Mexico, from the server behind `nmwrap.org`.
+
+    The first provider here that does not cover the country, which the governing rule permits on one
+    condition: outside the coverage the answer says so rather than answering. Everything below is
+    that condition being kept.
+
+    What it answers is not what the wildfire provider answers. Hazard potential describes how the
+    vegetation around a point would burn; the interface describes whether houses are standing in it.
+    A remote canyon can be very high hazard and no interface at all, and a subdivision can be modest
+    hazard and squarely inside one. It is the second that decides what a fire department can defend
+    and what an insurer will write.
+
+    **Two kinds.** `intermix` is housing and vegetation mixed together, `interface` is housing
+    against a large continuous block of it. A point inside the coverage in neither is `None`, which
+    is the known negative every other provider here already has a shape for.
+
+    **Coverage costs at most one extra request.** Outside the box below there is no request at all.
+    Inside it, the layer is asked, and a polygon ends the matter. Only the ambiguous case, inside
+    the box with no polygon, asks the county layer, because the box contains El Paso: a box alone
+    would tell seven hundred thousand Texans they are not in the interface, which is true and is
+    not the reason it would be saying it.
+    """
+
+    name = "wui"
+
+    #: South, north, west, east. Generous by a few tenths on every side on purpose. Too big costs
+    #: one extra request for a handful of points; too small tells a New Mexico property this does
+    #: not apply to it, and that is a wrong answer rather than a slow one.
+    BOX = (31.20, 37.05, -109.10, -102.95)
+
+    def values(self) -> tuple[str, ...]:
+        return ("wildland_urban_interface",)
+
+    def precision(self) -> int:
+        # Four, matching flood, and for the same reason: the boundary between intermix and nothing
+        # can run down one side of a street.
+        return 4
+
+    def ttl_days(self) -> int | None:
+        return None  # a fixed 2010 census-block classification; it has no next version to wait for
+
+    def configured(self) -> bool:
+        return True
+
+    def coverage(self) -> str:
+        """What this provider answers for, so a column that covers one state can say so."""
+        return "New Mexico"
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        south, north, west, east = self.BOX
+        if not (south <= latitude <= north and west <= longitude <= east):
+            return {"wildland_urban_interface": OUTSIDE_COVERAGE}
+
+        where = settings.endpoint(self.name)
+        answer = ask_json(
+            session, self.name, where.url, point_query(where.url, latitude, longitude, "WUIFLAG10")
+        )
+        found = features_of(answer, self.name)
+        if not found:
+            # Inside the box and in no polygon is the one ambiguous case, and the two readings it
+            # could have are a known negative and a point in Texas.
+            covered = self._covered(session, latitude, longitude)
+            return {"wildland_urban_interface": None if covered else OUTSIDE_COVERAGE}
+
+        raw = attributes_of(found[0]).get("WUIFLAG10")
+        try:
+            code = int(raw)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ProviderFailed(f"wui: {raw!r} is not an interface class") from None
+        word = WUI_CLASSES.get(code)
+        if word is None:
+            raise ProviderFailed(
+                f"wui: class {code} is not one this build knows. The layer's legend has probably "
+                "changed, and guessing at whether a house stands in the fire problem is worse than "
+                "not having an answer."
+            )
+        return {"wildland_urban_interface": word}
+
+    def _covered(self, session: PacedSession, latitude: float, longitude: float) -> bool:
+        """Is this point in a New Mexico county? The only question the county layer is asked."""
+        where = settings.endpoint("wui_coverage")
+        answer = ask_json(
+            session, self.name, where.url, point_query(where.url, latitude, longitude, "NAME")
+        )
+        return bool(features_of(answer, self.name))
 
 
 class Broadband:

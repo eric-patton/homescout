@@ -247,3 +247,22 @@ def test_every_field_a_criterion_can_name_has_words_for_a_person() -> None:
     for field in ns.vocabulary():
         for value in field["values"]:
             assert value["label"], f"{field['name']} has a value with no words: {value}"
+
+
+def test_the_browser_never_calls_a_determined_interface_value_unknown() -> None:
+    """feat-007/AC-24: the known negative must not go through the shared value renderer.
+
+    Structural rather than behavioural, because there is no build step and therefore no JavaScript
+    test harness, and the failure this guards is silent. `value(null)` renders "not known / nobody
+    determined this". For every other enriched field that is right. For this one it is the exact
+    sentence the criterion forbids: somebody did determine it, and what they determined is that this
+    house is not standing in the vegetation.
+    """
+    code = without_comments((STATIC / "listing.js").read_text(encoding="utf-8"))
+
+    assert "interfaceValue" in code, "the interface value needs its own renderer"
+    assert "not in the wildland-urban interface" in code, "the known negative is said in words"
+    assert "outside coverage" in code, "not applicable is spelled out rather than left blank"
+    assert 'name === "wildland_urban_interface"' in code, (
+        "the field has to be routed away from the shared renderer, or null reads as 'not known'"
+    )

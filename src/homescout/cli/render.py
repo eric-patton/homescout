@@ -147,8 +147,11 @@ def enrichment(outcome: Any) -> str:
         lines[0] += f", {outcome.without_location} with no location to look up"
     for found in outcome.providers:
         detail = f" ({found.detail})" if found.detail else ""
+        # Said here rather than left to the README: a column that answers for one state and reads as
+        # empty everywhere else is a column somebody will otherwise misread as a gap (AC-26).
+        where = f" [{found.coverage} only]" if getattr(found, "coverage", None) else ""
         lines.append(
-            f"  {found.provider}: {found.outcome}, {found.looked_up} looked up, "
+            f"  {found.provider}{where}: {found.outcome}, {found.looked_up} looked up, "
             f"{found.cached} already cached{detail}"
         )
     return "\n".join(lines)

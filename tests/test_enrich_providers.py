@@ -12,7 +12,14 @@ import pytest
 from enrich_fakes import CountingTransport, session
 from homescout.enrich import settings
 from homescout.enrich.provider import ProviderFailed
-from homescout.enrich.providers import Aquifer, Broadband, Elevation, Flood, Wildfire
+from homescout.enrich.providers import (
+    Aquifer,
+    Broadband,
+    Elevation,
+    Flood,
+    Wildfire,
+    WildlandUrbanInterface,
+)
 from homescout.enrich.registry import create, registered
 
 PLACE = (34.1848, -103.3452)
@@ -23,9 +30,11 @@ def answering(payload) -> tuple:
     return session(transport), transport
 
 
-def test_the_six_providers_exist_and_are_individually_named() -> None:
-    """feat-007/AC-11: flood, broadband, aquifer, wildfire, elevation, and boundary resolution."""
-    assert set(registered()) == {"flood", "elevation", "aquifer", "wildfire", "broadband"}
+def test_the_seven_providers_exist_and_are_individually_named() -> None:
+    """feat-007/AC-11, feat-007/AC-22: the six, and the wildland-urban interface."""
+    assert set(registered()) == {
+        "flood", "elevation", "aquifer", "wildfire", "broadband", "wui",
+    }
 
     from homescout.enrich.boundaries import CensusBoundaries
 
@@ -211,3 +220,91 @@ def test_every_provider_is_paced_and_none_waits_on_another() -> None:
     assert config.policy_for("flood").delay >= DELAY_RANGE_SECONDS[0]
     assert config.policy_for("elevation") is not None
     config.policy_for("flood").validated("flood")
+
+
+# -- the wildland-urban interface, and the three readings it has to keep apart ------------------
+
+NEW_MEXICO = (35.6870, -105.9110)
+TEXAS_INSIDE_THE_BOX = (31.7619, -106.4850)  # El Paso, which a bounding box alone gets wrong
+FAR_AWAY = (45.5152, -122.6784)  # Portland, nowhere near the box
+
+
+def wui_answering(interface, coverage=None) -> tuple:
+    """A transport that can tell the interface layer and the county layer apart."""
+    transport = CountingTransport({
+        "nmwrap_wildfire": interface,
+        "nmwrap_reference": coverage if coverage is not None else {"features": []},
+    })
+    return session(transport), transport
+
+
+@pytest.mark.parametrize(
+    ("code", "word"),
+    [(1, "intermix"), (2, "interface")],
+)
+def test_the_two_kinds_of_interface(code, word) -> None:
+    """feat-007/AC-22: the layer's own two classes, as words a criterion compares against."""
+    paced, _ = wui_answering({"features": [{"attributes": {"WUIFLAG10": code}}]})
+
+    assert WildlandUrbanInterface().fetch(paced, *NEW_MEXICO) == {
+        "wildland_urban_interface": word
+    }
+
+
+def test_inside_the_coverage_and_in_no_polygon_is_a_known_negative() -> None:
+    """feat-007/AC-23: a town centre is not in the interface, and that is an answer.
+
+    The county layer is what makes it an answer rather than a guess: the point is in a New Mexico
+    county, so the interface layer was asked about a place it covers and said no.
+    """
+    paced, transport = wui_answering(
+        {"features": []}, coverage={"features": [{"attributes": {"NAME": "Bernalillo"}}]}
+    )
+
+    assert WildlandUrbanInterface().fetch(paced, *NEW_MEXICO) == {
+        "wildland_urban_interface": None
+    }
+    assert transport.count == 2, "the ambiguous case costs exactly one extra request"
+
+
+def test_inside_the_box_but_outside_new_mexico_is_not_a_negative() -> None:
+    """feat-007/AC-24: El Paso is in the bounding box and is not in New Mexico.
+
+    The whole reason the county layer exists. Without it this point returns no polygon and would be
+    recorded as "not in the interface", which is true of El Paso and is not what the tool would be
+    saying.
+    """
+    paced, _ = wui_answering({"features": []}, coverage={"features": []})
+
+    assert WildlandUrbanInterface().fetch(paced, *TEXAS_INSIDE_THE_BOX) == {
+        "wildland_urban_interface": "outside coverage"
+    }
+
+
+def test_far_outside_the_coverage_costs_no_request_at_all() -> None:
+    """feat-007/AC-24: decided locally, and never re-asked, because the answer cannot change."""
+    paced, transport = wui_answering({"features": []})
+
+    assert WildlandUrbanInterface().fetch(paced, *FAR_AWAY) == {
+        "wildland_urban_interface": "outside coverage"
+    }
+    assert transport.count == 0
+
+
+def test_a_classification_this_build_does_not_know_is_a_failure() -> None:
+    """feat-007/AC-25: naming the code, never guessing at whether a house is in the fire problem."""
+    paced, _ = wui_answering({"features": [{"attributes": {"WUIFLAG10": 9}}]})
+
+    with pytest.raises(ProviderFailed) as raised:
+        WildlandUrbanInterface().fetch(paced, *NEW_MEXICO)
+
+    assert "9" in str(raised.value)
+
+
+def test_the_interface_provider_declares_what_it_covers() -> None:
+    """feat-007/AC-26: a column answering for one state says so without opening the module."""
+    assert WildlandUrbanInterface().coverage() == "New Mexico"
+    national = [p for p in create() if p.name != "wui"]
+    assert all(not hasattr(p, "coverage") for p in national), (
+        "covering the country is the default and is declared by saying nothing"
+    )

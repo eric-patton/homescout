@@ -65,6 +65,14 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://broadbandmap.fcc.gov/api/public/map/location",
         "FCC National Broadband Map, which needs a token",
     ),
+    "wui": Endpoint(
+        "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_wildfire/MapServer/2/query",
+        "New Mexico wildland-urban interface, from the university server behind nmwrap.org",
+    ),
+    "wui_coverage": Endpoint(
+        "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_reference/MapServer/8/query",
+        "New Mexico counties, which say whether the interface layer covers a point at all",
+    ),
 }
 
 #: Where a token lives when a provider needs one. Read from the environment or the uncommitted

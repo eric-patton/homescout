@@ -15,11 +15,18 @@ from collections.abc import Callable, Iterable
 
 from ..rules import namespace as ns
 from .provider import Provider
-from .providers import Aquifer, Broadband, Elevation, Flood, Wildfire
+from .providers import Aquifer, Broadband, Elevation, Flood, Wildfire, WildlandUrbanInterface
 
 #: In the order a pass asks them, which is cheapest and most permanent first, so that a slow or
 #: flaky service never delays the answers that almost never change.
-SHIPPED: tuple[Callable[[], Provider], ...] = (Elevation, Aquifer, Flood, Wildfire, Broadband)
+SHIPPED: tuple[Callable[[], Provider], ...] = (
+    Elevation,
+    Aquifer,
+    Flood,
+    Wildfire,
+    WildlandUrbanInterface,
+    Broadband,
+)
 
 _REGISTERED: dict[str, Callable[[], Provider]] = {maker().name: maker for maker in SHIPPED}
 

@@ -207,6 +207,21 @@ function recovered(held) {
   );
 }
 
+/* The three readings of the interface value, kept apart in the browser exactly as the spreadsheet
+ * keeps them apart. `in` rather than a truthiness test, because the known negative IS null and the
+ * only thing that separates it from "nobody asked" is whether the key is there at all. */
+function interfaceValue(held) {
+  if (held === null || held === undefined) {
+    return el("span", {class: "negative", title: "asked, and this place is in neither kind"},
+      "not in the wildland-urban interface");
+  }
+  if (held === "outside coverage") {
+    return el("span", {class: "unknown", title: "this source covers New Mexico only"},
+      "outside coverage");
+  }
+  return el("span", {}, "in the wildland-urban interface: " + String(held));
+}
+
 function enrichment(held) {
   const found = held.enrichment || {};
   const names = Object.keys(found);
@@ -218,17 +233,33 @@ function enrichment(held) {
   const internet = names.some((name) =>
     name === "download_mbps" || name === "upload_mbps" || name === "broadband_provider");
 
+  const interfaceHeld = "wildland_urban_interface" in found;
+
   return el("section", {},
     el("h2", {}, "Where it is"),
     el("dl", {class: "facts"},
       names.sort().flatMap((name) => [
         el("dt", {}, labelFor(name)),
-        el("dd", {}, value(found[name])),
+        el("dd", {}, name === "wildland_urban_interface"
+          ? interfaceValue(found[name])
+          : value(found[name])),
       ])),
     /* The speeds need a sentence the others do not. Every other value here is about this point:
      * the flood zone, the elevation, the aquifer under it. The speeds are about the census block,
      * which outside a town can be square miles, and they are what a provider filed rather than
      * what anybody measured. A number without that reads as a promise about this address. */
+    /* The one value here whose "no" is a real answer. Left to the shared renderer, `null` comes out
+     * as "not known / nobody determined this", which is the exact sentence this field must never
+     * say: somebody did determine it, and what they determined is that this house is not standing
+     * in the vegetation. The other direction matters just as much, which is why `outside coverage`
+     * is spelled out rather than shown as a bare phrase nobody can interpret. */
+    interfaceHeld
+      ? el("p", {class: "meta"},
+          "The wildland-urban interface says whether houses here stand in the vegetation, which " +
+          "is a different question from wildfire hazard: hazard describes how the vegetation " +
+          "would burn, the interface describes whether homes are in it. This one covers New " +
+          "Mexico only, so a property anywhere else reads as outside coverage rather than as a no.")
+      : null,
     internet
       ? el("p", {class: "meta"},
           "The speeds are the best advertised residential service the FCC records in this " +

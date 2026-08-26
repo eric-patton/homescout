@@ -71,3 +71,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   satellite is left out, because "1200 Mbps" beside an address reads as a promise about that address
   and is not one.
 
+- **2026-08-25, location enrichment (feat-007).** The listing page's "Where it is" section gained a
+  renderer of its own for the wildland-urban interface value, and a sentence explaining it, in the
+  same place and for the same reason the broadband speeds already have one.
+
+  The bug it fixes was live in this feature's own code path rather than in enrichment's: the shared
+  value renderer turns `null` into "not known, nobody determined this". For every other enriched
+  field that is correct. For this one the known negative *is* `null`, so the browser would have said
+  nobody checked about a place that was checked. The criterion builder is unaffected and needed no
+  change: it reads the rule namespace over the API, so the new field and its values appeared there
+  on their own.

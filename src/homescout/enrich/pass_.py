@@ -35,6 +35,10 @@ class ProviderOutcome:
     looked_up: int = 0
     cached: int = 0
     detail: str | None = None
+    #: What this provider answers for, when that is not the whole country. `None` is the default
+    #: and means national, so a column covering one state says so and every other column reads
+    #: exactly as it did before (AC-26).
+    coverage: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +122,11 @@ def run_pass(
     for provider in providers:
         if not provider.configured():
             reason = getattr(provider, "why_not", lambda: "not configured")()
-            outcomes.append(ProviderOutcome(provider.name, "skipped", detail=reason))
+            outcomes.append(
+                ProviderOutcome(
+                    provider.name, "skipped", detail=reason, coverage=_coverage_of(provider)
+                )
+            )
             say(f"{provider.name}: skipped, {reason}")
             continue
 
@@ -146,6 +154,7 @@ def run_pass(
                 looked_up=looked_up,
                 cached=len(places) - len(wanted),
                 detail=failure,
+                coverage=_coverage_of(provider),
             )
         )
         say(f"{provider.name}: {'failed' if failure else 'ok'}, {looked_up} looked up")
@@ -156,6 +165,13 @@ def run_pass(
         providers=tuple(outcomes),
         unlocatable=tuple(unlocatable),
     )
+
+
+def _coverage_of(provider: Provider) -> str | None:
+    """What a provider covers, when it says. Silence means the whole country, which is the default
+    the coverage rule states and what six of the seven shipped providers are."""
+    declared = getattr(provider, "coverage", None)
+    return declared() if callable(declared) else None
 
 
 def _keys_to_ask(

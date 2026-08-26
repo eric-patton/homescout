@@ -4,7 +4,7 @@ The criterion is national coverage, and the only way to check national coverage 
 places that are nothing like each other. New Mexico is high, dry and over an aquifer; Louisiana is
 at sea level and floods; Alaska is neither.
 
-Marked slow and excluded from the default run. Five providers by three points is fifteen requests at
+Marked slow and excluded from the default run. Six providers by three points is eighteen requests at
 the shipped pacing, against public services that are there to be asked, once.
 
 These are also the tests that catch the failure this feature was planned around: a public endpoint
@@ -164,3 +164,38 @@ def test_the_fcc_still_publishes_the_files_this_reads(paced) -> None:
     files = fcc.files_for(paced, account, "NM", as_of)
     assert files, "no fixed-broadband files for New Mexico"
     assert all(row.get("file_type") == "csv" for row in files)
+
+
+def test_a_provider_covering_one_state_answers_inside_it_and_says_so_outside(paced) -> None:
+    """feat-007/AC-26, feat-007/AC-12: partial coverage, checked on both sides of its boundary.
+
+    Inside New Mexico this has to be a real reading, and the two acceptable ones are a kind of
+    interface or the known negative. Outside it the one unacceptable answer is the known negative,
+    because that is the sentence "this house is not in the wildland-urban interface" said about a
+    house nobody looked at.
+    """
+    from homescout.enrich.providers import WildlandUrbanInterface
+
+    provider = WildlandUrbanInterface()
+    assert provider.coverage() == "New Mexico"
+
+    inside = provider.fetch(paced, 35.6870, -105.9110)["wildland_urban_interface"]
+    assert inside in ("intermix", "interface", None), inside
+
+    for where, point in (("Louisiana", DISTANT["Louisiana"]), ("Alaska", DISTANT["Alaska"])):
+        outside = provider.fetch(paced, *point)["wildland_urban_interface"]
+        assert outside == "outside coverage", f"{where} read as {outside!r}"
+
+
+def test_a_texas_point_inside_the_new_mexico_box_is_not_called_a_negative(paced) -> None:
+    """feat-007/AC-24: El Paso, which is the case a bounding box on its own gets wrong.
+
+    Worth its own live test rather than a fixture, because what it is really checking is that the
+    county layer still answers. If this one starts failing, the second request is the thing to look
+    at, and the failure mode it guards against is silent.
+    """
+    from homescout.enrich.providers import WildlandUrbanInterface
+
+    found = WildlandUrbanInterface().fetch(paced, 31.7619, -106.4850)
+
+    assert found == {"wildland_urban_interface": "outside coverage"}

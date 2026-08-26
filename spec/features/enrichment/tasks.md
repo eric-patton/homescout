@@ -89,3 +89,53 @@ alongside its peers.
       advertised service rather than the property's measured service.
 - [x] T33: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
       manifest stamp.
+
+## Change: the wildland-urban interface, for New Mexico (`changes/wildland-urban-interface/`)
+
+- [x] T34: `rules/namespace.py`: a `wildland_urban_interface` enriched text field, with its closed
+      set of values so the browser's criterion builder offers them rather than a free-text box, and
+      a gloss saying the coverage. `outside coverage` is one of the offered values on purpose: it is
+      not a kind of interface, and hiding it is how somebody writes a negation that matches every
+      property in every other state (AC-22, AC-24). First, because
+      `enrich/registry.py` checks declared values against the namespace in both directions at import
+      and the registration below cannot load without it (AC-22).
+- [x] T35: `enrich/settings.py`: a `wui` endpoint entry for the UNM Earth Data Analysis Center
+      interface layer that serves `nmwrap.org`, and a `wui_coverage` entry for the same server's
+      county layer that settles the ambiguous case. Both overridable like every other address
+      (D-14, AC-14).
+- [x] T36: `enrich/providers.py` `WildlandUrbanInterface`, registered as `name = "wui"` so the
+      registry key, the settings key from T35 and the `HOMESCOUT_ENRICH_WUI_URL` override are one
+      string. A point-in-polygon query through the same `point_query` and `features_of` helpers the
+      flood provider uses. Reads the source's own classification attribute and maps it to `intermix`
+      or `interface`; a code this build does not know is a `ProviderFailed` naming the code, never a
+      guess (D-14, AC-22, AC-25). Coverage is declared on the provider: outside the declared box the
+      answer is `outside coverage` with no request at all, and inside it with no polygon the county
+      layer settles whether this is a known negative or a point the source does not cover (D-14,
+      AC-23, AC-24, AC-26). Precision four, matching
+      flood: the interface boundary can run down a street. No time to live: the classification is a
+      2010 census-block product and does not change, which is the same answer elevation gives.
+- [x] T37: `enrich/registry.py`: register it in the shipped tuple, ordered with the other cheap
+      permanent lookups (AC-22).
+- [x] T38: Both surfaces render the three readings distinctly, never one as another (AC-24).
+      `export/columns.py` and the export templates get a Wildland-Urban Interface column outside the
+      default set, as Wildfire Hazard already is. The browser's listing page needs its own renderer
+      rather than the shared one: the known negative here is `null`, and the shared renderer turns
+      `null` into "not known, nobody determined this", which is the one sentence this field must
+      never say. Record the change in feat-011's and feat-010's manifests.
+- [x] T39 [P]: `tests/test_enrich_providers.py`: the two classifications off a fixture response, an
+      empty feature list as a known negative, an unknown code as a failure naming it, and a point
+      outside the coverage answering without any request at all (AC-22, AC-23, AC-25).
+- [x] T40 [P]: `tests/test_enrich_cache.py`: the three readings side by side, asserting not
+      applicable, known negative, and missing are distinguishable and that none renders as another
+      (AC-24).
+- [x] T41: `tests/test_enrich_live.py`: the real layer behind the slow marker, one lookup inside New
+      Mexico and one outside it (AC-12, AC-26).
+- [x] T42: README: what the interface value answers, that it covers New Mexico only, and what
+      `outside coverage` means in a cell. Add the new host to the list of what this tool talks to; it
+      is a state university server rather than a federal one, which is a first here.
+- [x] T43: Coverage is visible where providers are listed: `api.enrich`'s per-provider outcome and
+      the `homescout enrich` rendering carry a declaring provider's coverage, so a column that
+      answers for one state says so without opening the module (AC-26). Providers that cover the
+      country declare nothing and read exactly as they do now.
+- [x] T44: `uv run ruff check .` and the full suite, default and slow, green.
+- [x] T45: `/spec-flow:converge`, then the manifest stamp.

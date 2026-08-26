@@ -45,7 +45,9 @@ replace hours of manual searching and spreadsheet maintenance with a scheduled, 
   `sources` to `merge` to `store` to `enrich` to `rules`, then the two surfaces (`cli`, `web`).
   Layers depend downward only.
 - Data & integration defaults: a single SQLite file. Geospatial work uses `shapely`; address
-  parsing uses `usaddress`. External data comes only from free, public, national-coverage sources.
+  parsing uses `usaddress`. External data comes only from free, public sources, national by default. A source
+  covering only part of the country is permitted only where a location outside its coverage is
+  reported as not applicable rather than as an answer.
 - Platform: Windows is the primary target (Windows Terminal, PowerShell, no WSL). Nothing may
   assume a POSIX-only path, shell, or scheduler. Scheduling targets Windows Task Scheduler.
 - Optional AI extraction speaks the OpenAI-compatible request shape with a configurable base URL,

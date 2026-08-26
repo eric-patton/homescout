@@ -269,6 +269,46 @@ the **block's**, not the property's, because that is the finest grain the public
 **advertised**, not measured, because that is what a provider filed rather than what anybody got.
 Showing a number without those two words would be a more precise claim than the data supports.
 
+### D-14: a provider may cover part of the country, and says so in the value
+
+The wildland-urban interface source covers New Mexico and nothing else, which the governing rule
+now permits on one condition: outside the coverage the answer must read as not applicable rather
+than as an answer. Where that condition lives is the decision.
+
+It does **not** live in `cache.Status`. That is `fresh | stale | missing`, those three describe how
+old a cached thing is, and not-applicable is not a fact about age. Adding a fourth would push a
+change through every reader of every provider, in the export, the rule engine, the command line and
+the browser, to serve one provider, and it would still be describing the wrong thing.
+
+So the provider answers normally and the answer carries it: inside the coverage a point in a polygon
+is its interface kind, a point in none is `None`, which is the known negative this feature already
+has a shape for, and a point outside the coverage is the string `outside coverage`. All three are
+fresh determined values. The cache, the pass, and every reader are untouched.
+
+The cost is that a criterion comparing the field to a kind still behaves correctly, while a criterion
+negating one (`wildland_urban_interface != "interface"`) is true outside New Mexico. That is not a
+bug being hidden: the value is right there in the cell saying which it is, which is exactly what
+`None` could not do and why the sentinel exists. The alternative, leaving the value missing outside
+the coverage, was rejected for a second reason beyond legibility: missing is what the pass re-asks,
+so every out-of-state property would buy a request every single run forever.
+
+Coverage is declared by the provider rather than inferred, so the question "what does this answer
+for" has an answer without reading the module.
+
+Declaring the coverage is not quite a bounding box, and the reason is El Paso. New Mexico's borders
+are nearly all straight lines, so a box around it is a good first cut, but the box also contains a
+city of seven hundred thousand people in Texas, plus a strip of Mexico. A box alone would ask the
+layer about an El Paso property, get no polygon back, and record "not in the interface", which is
+the false good news this feature exists to prevent.
+
+So coverage is settled in two steps and costs at most one extra request. Outside the box is outside
+the coverage, decided locally and for free, which is every property in most of the country. Inside
+the box the interface layer is asked; a polygon is the answer and that is the end of it. Only the
+ambiguous case, inside the box with no polygon, asks a second question, of the same server's county
+layer: in a New Mexico county the answer is the known negative, and in none of them it is outside
+the coverage. Verified on 2026-08-25: El Paso answers with no county, and the bootheel at -109.00
+answers Hidalgo, which is correct and is the case a box would most easily get wrong.
+
 ### D-10: endpoints are configuration, because they move
 
 `settings.py` holds one entry per provider: the address, the timeout, and the fields it reads. Each
@@ -302,6 +342,11 @@ therefore left blank rather than filled from a source covering part of the count
 | AC-13 paced per provider | the shared politeness session, asserting the delay is applied per provider | `feat-007/AC-13` |
 | AC-14 endpoints are configuration | an environment override, asserting the request goes elsewhere | `feat-007/AC-14` |
 | performance NFR | 5,000 fully cached properties, marked slow | `feat-007/NFR-performance` |
+| AC-22 the interface provider exists | `enrich.registry.registered()`, and the pass run with it registered | `feat-007/AC-22` |
+| AC-23 in coverage, in no polygon | a fake transport answering with an empty feature list | `feat-007/AC-23` |
+| AC-24 the three readings stay apart | one place outside coverage, one negative, one never asked, read together | `feat-007/AC-24` |
+| AC-25 an unknown code is a failure | a fake transport answering with a classification this build does not know | `feat-007/AC-25` |
+| AC-26 partial coverage is declared and shown | a live lookup in New Mexico and one outside it, marked slow; and `homescout enrich --json` carrying the declared coverage | `feat-007/AC-26` |
 
 Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_enrich_pass.py`,
 `tests/test_enrich_providers.py`, `tests/test_enrich_live.py` (slow).

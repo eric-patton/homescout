@@ -18,11 +18,11 @@ readiness:
   tasks:    ready
 gate:
   analyze: pass
-  product_global_hash: "sha256:869c75445341"
-  constitution_hash: "sha256:7ed19648690b"
+  product_global_hash: "sha256:d720d6d2ec75"
+  constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-24
-  open: 3
+  last_run: 2026-08-25
+  open: 4
   contradicts: 0
 human_signoff: []
 open_decisions: []
@@ -71,3 +71,27 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
 
   The export reports an empty enriched column as "the enrichment pass has not been run for these
   properties", which is the first place in the product where a person is told to run this.
+
+- **2026-08-25, the wildland-urban interface.** A question about whether `nmwrap.org` could feed
+  New Mexico searches turned into the first provider here that does not cover the country.
+
+  Most of what that portal publishes was rejected on the evidence. Its wildfire-potential raster is
+  the same USFS product the `wildfire` provider already reads. Its historic-fire layer stops at 2017,
+  so a point inside the Hermits Peak and Calf Canyon burn scar answers "no fire here". The national
+  alternative, USDA's Community Wildfire Risk Reduction Zones, is disqualified by its own service
+  description: the pixel values "have been altered" and the service is "intended primarily for data
+  visualization" rather than analysis. Recording an altered value as a property's exposure class is
+  the guess product invariant 10 forbids.
+
+  What was taken is the interface layer, which answers a question hazard potential does not: whether
+  houses are standing in the vegetation rather than how the vegetation would burn. It is an exact
+  vector attribute with no resampling and no disclaimer.
+
+  Two things this cost. The national-coverage rule was amended on main, in both governing documents,
+  to permit a partial-coverage provider on the condition that a location outside its coverage reads
+  as not applicable rather than as an answer; that restaged every feature's pre-build check. And the
+  coverage test is not a bounding box, because New Mexico's box contains El Paso: the ambiguous case,
+  inside the box with no polygon, asks a county layer before recording a negative.
+
+  Checked while verifying: the endpoint the shipped `wildfire` provider uses carries no such
+  alteration notice and its legend matches `WILDFIRE_CLASSES` exactly. No defect there.

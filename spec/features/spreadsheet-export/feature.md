@@ -44,3 +44,16 @@ Brief section 9.
 ## Sources
 
 Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository root.
+
+## Changes recorded here
+
+- **2026-08-25, location enrichment (feat-007).** One column added, outside the default set, where
+  Wildfire Hazard already sits: Wildland-Urban Interface. No change to the default sheet, which is a
+  promise about a document somebody already has.
+
+  It needed its own renderer rather than the shared one, and the reason is worth carrying. Every
+  other enriched column's known negative is a value (`X`, `false`). This one's is `None`, which is
+  also what an unfetched value looks like from the outside, so the renderer reads whether the key is
+  present rather than what it holds. It writes three distinct phrases: in the interface and which
+  kind, not in the interface, and outside coverage. The third exists because the source covers New
+  Mexico only, and a blank cell there would read as the second.

@@ -134,6 +134,8 @@ CANNED: dict[str, Any] = {
     "epqs": {"value": 4009.39},
     "USGS_Aquifers": {"features": [{"attributes": {"AQ_NAME": "High Plains aquifer"}}]},
     "WildfireHazardPotentialClassified": {"value": "3"},
+    "nmwrap_wildfire": {"features": [{"attributes": {"WUIFLAG10": 2}}]},
+    "nmwrap_reference": {"features": [{"attributes": {"NAME": "Bernalillo"}}]},
     "tigerWMS": {"features": [{"geometry": {"type": "Polygon", "coordinates": [[[0, 0]]]}}]},
     "geocoder": {"result": {"geographies": {}}},
 }

@@ -244,8 +244,37 @@ homescout enrich --search nm-acreage --json
 | Elevation | USGS National Map | `elevation_ft` |
 | Principal aquifer | USGS principal aquifers | `over_principal_aquifer` |
 | Wildfire hazard | USFS wildfire hazard potential | `wildfire_hazard` |
+| Wildland-urban interface | New Mexico wildfire portal (New Mexico only) | `wildland_urban_interface` |
 | Boundaries | Census TIGERweb | the shapes a saved search's named areas resolve to |
 | Broadband | FCC National Broadband Map | `upload_mbps`, `download_mbps`, `broadband_provider` |
+
+**The wildland-urban interface covers New Mexico only, and says so elsewhere.** It is the one
+value here that does not answer for the whole country, and it is worth having anyway because it
+answers a question nothing else does. Wildfire hazard describes how the vegetation around a point
+would burn; the interface describes whether houses are standing in it. A remote canyon can be very
+high hazard and no interface at all, and a subdivision can be modest hazard and squarely inside one.
+It is the second that decides what a fire department can defend and what an insurer will write.
+
+It has four readings, and the last two are not the same thing:
+
+| Value | What it means |
+| --- | --- |
+| `intermix` | housing and vegetation mixed together |
+| `interface` | housing against a large continuous block of vegetation |
+| empty | in New Mexico, and in neither. A real answer |
+| `outside coverage` | this source does not answer for that place at all |
+
+One consequence worth knowing before you write a criterion: because everywhere outside New Mexico
+reads as `outside coverage`, a criterion that *negates* an interface kind matches every property in
+every other state. If a search reaches outside New Mexico, compare positively
+(`wildland_urban_interface == "interface"`) rather than negatively.
+
+The source is the public map server at the University of New Mexico's Earth Data Analysis Center,
+which is what [nmwrap.org](https://nmwrap.org/) is drawing when you click a point on it. No key and
+no account. It is the only host here that belongs to a university rather than a federal agency, so
+treat it as the one most likely to move or go quiet; like every other address in this feature it is
+a setting (`HOMESCOUT_ENRICH_WUI_URL`) rather than a constant, and one dead provider costs one
+column rather than a run.
 
 **Broadband needs an account and works differently from the rest.** Two things, and both are worth
 knowing before you set it up.

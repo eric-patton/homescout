@@ -192,6 +192,27 @@ def _aquifer(row: Row) -> str | None:
     return "over a principal aquifer" if over else "not over a principal aquifer"
 
 
+def _wui(row: Row) -> str | None:
+    """The three readings of the interface value, told apart in a cell.
+
+    The only column here whose known negative is `None`, which is why it reads the key rather than
+    the value: a missing value is not in the mapping at all, so `in` separates "nobody asked" from
+    "asked, and this place is in neither kind". Getting that wrong would print an empty cell for a
+    real answer, and the export tells a person an empty enriched cell means the pass has not run.
+
+    `outside coverage` is spelled out rather than left blank for the same reason in the other
+    direction: it is not a negative and must never be read as one.
+    """
+    if "wildland_urban_interface" not in row.enriched:
+        return None
+    found = row.enriched.get("wildland_urban_interface")
+    if found is None:
+        return "not in the wildland-urban interface"
+    if found == "outside coverage":
+        return "outside coverage (New Mexico only)"
+    return f"in the wildland-urban interface: {found}"
+
+
 def _town_notes(row: Row) -> str | None:
     """What the person has written about this property's town, carried onto its row.
 
@@ -254,6 +275,7 @@ COLUMNS: tuple[Column, ...] = (
     # Real columns, filled by real data, and deliberately not in `default`, which is a promise about
     # a document somebody already has rather than a place to put everything this tool knows.
     Column("Wildfire Hazard", "text", "enriched", _enriched("wildfire_hazard")),
+    Column("Wildland-Urban Interface", "text", "enriched", _wui),
     Column("Elevation (ft)", "number", "enriched", _enriched("elevation_ft")),
     Column("Notes", "text", "annotation", _annotated("notes")),
     Column("Flags", "text", "derived", _flags),

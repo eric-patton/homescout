@@ -414,6 +414,7 @@ def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> An
                 "looked_up": found.looked_up,
                 "cached": found.cached,
                 "detail": found.detail,
+                "coverage": found.coverage,
             }
             for found in outcome.providers
         ],

@@ -86,8 +86,11 @@ listing sites do not expose, and honest about what changed since the last time y
 - Geography resolves in two stages: a coarse query in whatever form a source accepts (city, county,
   ZIP, bounding box), then an exact local point-in-polygon test against the saved search's areas.
   The command line and the browser feed identical GeoJSON into the same code path.
-- Enrichment providers must have national coverage. Each declares a cache key and a time-to-live,
-  and a cache hit is never re-fetched.
+- Enrichment providers cover the whole country by default. A provider whose source covers only
+  part of it is permitted, and must report a location outside that coverage as not applicable:
+  a third state, distinct both from a value it determined and from a value nobody obtained, so
+  that partial coverage can never be read as an answer. Each provider declares a cache key and
+  a time-to-live, and a cache hit is never re-fetched.
 - Storage is one SQLite file. Downloaded images live on disk beside it, referenced by path.
 - Scheduling targets Windows Task Scheduler invoking the command line. No daemon, no service, no
   always-on process.
