@@ -415,3 +415,23 @@ alongside its peers.
       The existing edit tests could not have caught it. They read the box in the same tick as the
       keypress, and the scroll that destroyed it is asynchronous, so they held a box that was about
       to be thrown away and asserted against it happily. The new test waits first, deliberately.
+
+### Defect: double-clicking a cell had never opened it, and the box was the wrong shape anyway
+
+- [x] T92: **Selecting a cell redrew the whole window**, which replaced every row in the table. So
+      the first click of a double-click destroyed the element the second click needed to land on,
+      and a browser only reports a double-click when both halves hit the same element. Double
+      -clicking a cell therefore did nothing at all, on every editable column, and never had.
+
+      Selecting is two attributes on two cells and now sets exactly those, redrawing only when the
+      row wanted is not on screen. Pinned by two tests in `tests/test_web_browser.py` citing
+      `feat-010/AC-5`, one of which drives the browser's own input pipeline rather than dispatching
+      events from inside the page: a dispatched `dblclick` asserts that the handler works, not that
+      the browser ever calls it, which is precisely how this survived every existing test.
+
+- [x] T93: A cell holding prose opens into a box the size of a note (`feat-010/AC-4`), anchored over
+      the row and naming the property, fixed to the window so the table cannot clip or scroll it.
+      "Steep gravel drive, one way out, and the turnaround is too tight for a fire truck" is what
+      goes in Fire/Egress, and a twenty-six pixel line is not where anybody writes it. Enter makes a
+      new line; the button, Ctrl with Enter, or clicking away all keep what was written; only Escape
+      discards. Rank keeps its single line, being a number.

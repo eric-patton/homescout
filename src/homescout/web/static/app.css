@@ -646,6 +646,41 @@ button.keep.unsaved, button.pass.unsaved {
 }
 button.keep[disabled], button.pass[disabled] { opacity: 0.5; cursor: default; }
 
+/* Somewhere to write a sentence, over the cell it is about.
+ *
+ * These columns hold prose, and a row of this table is twenty-six pixels tall. Fixed rather than
+ * placed inside the table, because the table clips and scrolls its own contents and this must do
+ * neither. */
+.writing {
+  position: fixed;
+  z-index: 60;
+  width: min(30rem, calc(100vw - 2rem));
+  padding: var(--s3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--lift-high);
+}
+.writing .who { margin: 0 0 var(--s2); font-size: 0.9rem; color: var(--ink-soft); }
+.writing .who strong { color: var(--ink); }
+.writing textarea {
+  width: 100%;
+  font: inherit;
+  line-height: 1.45;
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.writing textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.writing .hint { margin: var(--s2) 0 0; color: var(--ink-soft); font-size: 0.85rem; }
+.writing .actions {
+  display: flex;
+  gap: var(--s2);
+  justify-content: flex-end;
+  margin-top: var(--s3);
+}
+
 /* Asked once, before a house leaves the table. Its own dialog rather than the browser's: a
  * `confirm()` stops every timer and every pending request on the page behind it, including the
  * save of an annotation somebody was in the middle of typing. */

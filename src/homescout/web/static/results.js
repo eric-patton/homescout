@@ -120,6 +120,12 @@ const state = {
  * over the header it started on must not also be read as a request to sort by it. */
 let arranging = null;
 
+/* Set while somebody is writing into the table, and read by the redraw. A redraw replaces every
+ * row, the one being edited included, so a redraw in the middle of an edit throws away the box and
+ * what is in it. That is not a rare corner: the box takes focus, taking focus scrolls the table to
+ * show it, and scrolling is what redraws. */
+let editing = false;
+
 whenReady(() => {
   /* The table wants every pixel the window has; every other surface reads better bounded to a
    * comfortable measure. One class rather than a second stylesheet. */
@@ -733,18 +739,10 @@ function window_() {
   const sizer = document.getElementById("sizer");
   if (!scroller || !body) return;
 
-  /* Never while somebody is typing into the table.
-   *
-   * Redrawing the window replaces every row, and a cell being edited is one of them, so a redraw
-   * in the middle of an edit throws away the box and whatever is in it. That is not a rare corner:
-   * putting focus in the box scrolls the table to bring it into view, scrolling is what calls this,
-   * and every column past the fold is therefore a column that could not be typed into at all. The
-   * box opened and vanished in the same frame.
-   *
-   * So the window holds still until the edit is finished. Nothing is lost by the delay: what is on
-   * screen is already drawn, and the moment the edit ends, by saving or by Escape, this runs and
-   * catches up. */
-  if (body.querySelector("input")) return;
+  /* Never while somebody is writing. The window holds still until the edit is finished, and
+   * nothing is lost by the delay: what is on screen is already drawn, and the moment the edit ends,
+   * by saving or by Escape, this runs and catches up. */
+  if (editing || body.querySelector("input")) return;
 
   const height = rowHeight();
   const first = Math.max(0, Math.floor(scroller.scrollTop / height) - OVERSCAN);
@@ -896,6 +894,30 @@ function elsewhere(row, held) {
 /* Keyboard: the table is a grid with roving focus                     */
 /* ------------------------------------------------------------------ */
 
+/* Move the selection without rebuilding anything, and hand back the cell it landed on.
+ *
+ * Which sounds like a small optimisation and is not. Selecting used to redraw the whole window, so
+ * the first click of a double-click replaced every row in the table: the second click landed on a
+ * different element from the first, and the browser only reports a double-click when both halves
+ * hit the same one. So double-clicking a cell to edit it did nothing at all, on every column, and
+ * had never worked. Selecting is two attributes on two cells; it has no business replacing rows.
+ */
+function mark() {
+  const body = document.getElementById("body");
+  if (!body) return null;
+  for (const held of body.querySelectorAll('td[aria-selected="true"]')) {
+    held.setAttribute("aria-selected", "false");
+    held.setAttribute("tabindex", "-1");
+  }
+  const cell = body.querySelector(
+    `td[data-index="${state.focus.row}"][data-col="${state.focus.column}"]`);
+  if (cell) {
+    cell.setAttribute("aria-selected", "true");
+    cell.setAttribute("tabindex", "0");
+  }
+  return cell;
+}
+
 function focusCell(row, column) {
   state.focus = {
     row: Math.max(0, Math.min(row, state.shown.length - 1)),
@@ -908,8 +930,13 @@ function focusCell(row, column) {
   else if (wanted + height > scroller.scrollTop + scroller.clientHeight) {
     scroller.scrollTop = wanted - scroller.clientHeight + height * 2;
   }
-  window_();
-  const cell = document.querySelector('td[aria-selected="true"]');
+  /* Only when the row wanted is not drawn yet, which is what moving off the end of the window does
+   * and what clicking a row already on screen does not. */
+  let cell = mark();
+  if (!cell) {
+    window_();
+    cell = mark();
+  }
   if (cell) cell.focus({preventScroll: true});
 }
 
@@ -963,10 +990,87 @@ function key(event) {
  * it was not. So a failure keeps the typed value, marks the row in words as well as colour, and
  * leaves the field editable; and a success takes its values from what the store returned rather
  * than from what was typed, which is what makes two tabs editing the same property behave. */
+/* A box worth writing a note in, over the cell it belongs to.
+ *
+ * These columns hold sentences. "Steep gravel drive, one way out, and the turnaround is too tight
+ * for a fire truck" is the sort of thing somebody writes in Fire/Egress, and a twenty-six pixel
+ * line of a table is not where anybody writes it. So the cell opens into a panel the size of the
+ * thought, still anchored to the row it is about so it is obvious which house is being written
+ * about, and fixed to the window so the table's own scrolling cannot clip it.
+ *
+ * Enter makes a new line, because this is prose. Saving is the button, or Ctrl with Enter, or
+ * clicking away, all of which keep what was written; Escape is the only thing that discards it.
+ */
+function writingBox(cell, {title, about, hint, value, save}) {
+  editing = true;
+
+  const box = el("textarea", {rows: "6", value: value === null || value === undefined ? "" : value,
+                              "aria-label": `${title} for ${about}`});
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    editing = false;
+    document.removeEventListener("pointerdown", away, true);
+    panel.remove();
+    if (commit) {
+      save(box.value);
+      return;
+    }
+    window_();
+    focusCell(state.focus.row, state.focus.column);
+  };
+
+  const away = (event) => { if (!panel.contains(event.target)) finish(true); };
+
+  const panel = el("div", {
+    class: "writing",
+    role: "dialog",
+    "aria-label": `${title} for ${about}`,
+    onkeydown: (event) => {
+      if (event.key === "Escape") { event.preventDefault(); finish(false); }
+      else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        finish(true);
+      }
+      event.stopPropagation();
+    },
+  },
+    el("p", {class: "who"}, el("strong", {}, title), " · ", about),
+    box,
+    hint ? el("p", {class: "hint"}, hint) : null,
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "quiet", onclick: () => finish(false)}, "Cancel"),
+      el("button", {type: "button", class: "primary", onclick: () => finish(true)}, "Save"),
+    ),
+  );
+
+  document.body.append(panel);
+  const at = cell.getBoundingClientRect();
+  const size = panel.getBoundingClientRect();
+  panel.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - size.width - 8))}px`;
+  panel.style.top = `${Math.max(8, Math.min(at.bottom + 2,
+                                            window.innerHeight - size.height - 8))}px`;
+  box.focus();
+  box.select();
+  /* Captured, so a press anywhere else closes it and keeps what was written, which is what a click
+   * away from a half-typed cell has always done in this table. */
+  document.addEventListener("pointerdown", away, true);
+  return panel;
+}
+
 function edit(cell, row, column) {
   if (!row) return;
   const field = EDITABLE[column];
   if (column === TOWN_NOTE) return editTownNote(cell, row);
+  if (column !== "Rank") {
+    return writingBox(cell, {
+      title: column,
+      about: row.values["Property"] || row.listing_id,
+      value: row.values[column],
+      save: (typed) => save(cell, row, column, field, typed),
+    });
+  }
   const before = row.values[column];
   const input = el("input", {
     type: column === "Rank" ? "number" : "text",
@@ -1015,36 +1119,13 @@ function editTownNote(cell, row) {
     fail("This property has no town, so there is nowhere to hang a note about one.");
     return;
   }
-  const before = row.values[TOWN_NOTE];
-  const input = el("input", {
-    type: "text",
-    value: before === null || before === undefined ? "" : String(before),
-    "aria-label": `Notes about ${town}, shown on every property there`,
+  return writingBox(cell, {
+    title: "Notes about the town",
+    about: town,
+    hint: `Kept against ${town} rather than against this house, so every property there shows it.`,
+    value: row.values[TOWN_NOTE],
+    save: (typed) => saveTownNote(cell, town, typed),
   });
-
-  let done = false;
-  const finish = (commit) => {
-    if (done) return;
-    done = true;
-    if (!commit) {
-      cell.replaceChildren();
-      window_();
-      focusCell(state.focus.row, state.focus.column);
-      return;
-    }
-    saveTownNote(cell, town, input.value);
-  };
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") { event.preventDefault(); finish(true); }
-    else if (event.key === "Escape") { event.preventDefault(); finish(false); }
-    else if (event.key === "Tab") { finish(true); }
-    event.stopPropagation();
-  });
-  input.addEventListener("blur", () => finish(true));
-
-  cell.replaceChildren(input);
-  input.focus();
-  input.select();
 }
 
 async function saveTownNote(cell, town, typed) {

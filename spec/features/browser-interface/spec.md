@@ -156,7 +156,11 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-3: A saved search opened and re-saved here is unchanged apart from the edits made,
       including parts of the definition this interface does not itself edit.
 - [ ] AC-4: Annotations are editable directly in a results table row without navigating away, and
-      cover rank, verdict, red flags, summary, next step, and free notes.
+      cover rank, verdict, red flags, summary, next step, free notes, and the household's own five
+      headings. A cell holding prose opens into a box the size of what somebody writes in it, over
+      the row it belongs to and naming the property, rather than into a single line the height of a
+      table row; a number keeps the single line. Enter makes a new line in prose, so saving is the
+      button, or Ctrl with Enter, or clicking away, and only Escape discards.
 - [ ] AC-5: An inline edit persists across a page reload and across any number of subsequent runs. A
       test asserts the value survives a run that also changes the property's price.
 - [ ] AC-6: A failed save is surfaced on the affected row, retains the user's typed value, and never

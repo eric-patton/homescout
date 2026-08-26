@@ -351,10 +351,14 @@ def test_an_inline_edit_can_be_made_with_the_keyboard_alone(served) -> None:
                  focusCell(0, column);
                  const cell = document.querySelector('td[aria-selected="true"]');
                  cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-                 const input = cell.querySelector("input");
-                 if (!input) return {error: "Enter did not open an editor"};
-                 input.value = "worth a look";
-                 input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+                 await new Promise(r => setTimeout(r, 200));
+                 const panel = document.querySelector(".writing");
+                 if (!panel) return {error: "Enter did not open an editor"};
+                 const box = panel.querySelector("textarea");
+                 box.value = "worth a look";
+                 // Ctrl with Enter, because a plain Enter in prose is a new line.
+                 box.dispatchEvent(new KeyboardEvent(
+                   "keydown", {key: "Enter", ctrlKey: true, bubbles: true}));
                  for (let i = 0; i < 100; i++) {
                    if (cell.className.includes("saved")) break;
                    await new Promise(r => setTimeout(r, 50));
@@ -398,9 +402,11 @@ def test_a_save_that_fails_keeps_what_was_typed(served) -> None:
                  focusCell(0, column);
                  const cell = document.querySelector('td[aria-selected="true"]');
                  cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-                 const input = cell.querySelector("input");
-                 input.value = "do not lose this";
-                 input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+                 await new Promise(r => setTimeout(r, 200));
+                 const box = document.querySelector(".writing textarea");
+                 box.value = "do not lose this";
+                 box.dispatchEvent(new KeyboardEvent(
+                   "keydown", {key: "Enter", ctrlKey: true, bubbles: true}));
                  for (let i = 0; i < 100; i++) {
                    if (cell.className.includes("unsaved")) break;
                    await new Promise(r => setTimeout(r, 50));
@@ -1055,9 +1061,11 @@ def test_the_columns_a_person_writes_in_can_be_written_in(served) -> None:
         focusCell(0, at);
         const cell = document.querySelector('td[aria-selected="true"]');
         cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-        const input = cell.querySelector("input");
-        input.value = "$1,840 in 2025";
-        input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const panel = await until(() => document.querySelector(".writing"));
+        const box = panel.querySelector("textarea");
+        box.value = "$1,840 in 2025";
+        box.dispatchEvent(new KeyboardEvent(
+          "keydown", {key: "Enter", ctrlKey: true, bubbles: true}));
         await until(() => cell.className.includes("saved"));
 
         const answered = await fetch(`/api/listings/${row.listing_id}`).then(r => r.json());
@@ -1090,14 +1098,17 @@ def test_a_town_note_typed_on_one_row_appears_on_the_others(served) -> None:
         const cell = document.querySelector('td[aria-selected="true"]');
         const before = cell.getAttribute("title");
         cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
-        const input = cell.querySelector("input");
-        input.value = "the water here is hard";
-        input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const panel = await until(() => document.querySelector(".writing"));
+        const saysWhose = panel.textContent;
+        const box = panel.querySelector("textarea");
+        box.value = "the water here is hard";
+        box.dispatchEvent(new KeyboardEvent(
+          "keydown", {key: "Enter", ctrlKey: true, bubbles: true}));
 
         await until(() => state.all[1].values["Town Analysis Notes"]);
         const answered = await fetch("/api/areas").then(r => r.json());
         return {
-          town, alsoThere, before,
+          town, alsoThere, before, saysWhose,
           onFirst: state.all[0].values["Town Analysis Notes"],
           onSecond: state.all[1].values["Town Analysis Notes"],
           stored: (answered.areas || []).map(a => [a.area_type, a.area_value, a.notes]),
@@ -1113,6 +1124,9 @@ def test_a_town_note_typed_on_one_row_appears_on_the_others(served) -> None:
     )
     assert "not about this house" in (found["before"] or ""), (
         "the cell does not say the note belongs to the town before it is opened"
+    )
+    assert "every property there shows it" in found["saysWhose"], (
+        "the box being written in does not say the note belongs to the town"
     )
     assert found["town"] in found["banner"], "nothing said what was written or where it went"
 
@@ -1145,18 +1159,19 @@ def test_a_cell_past_the_fold_can_still_be_typed_into(served) -> None:
         const cell = document.querySelector('td[aria-selected="true"]');
         cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
 
-        const straightAway = !!document.querySelector("#body input");
+        const straightAway = !!document.querySelector(".writing textarea");
         await wait(400);
-        const box = document.querySelector("#body input");
+        const box = document.querySelector(".writing textarea");
         if (box) {
           box.value = "$1,840 in 2025";
-          box.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+          box.dispatchEvent(new KeyboardEvent(
+            "keydown", {key: "Enter", ctrlKey: true, bubbles: true}));
           await until(() => state.all.some(r => r.values["Annual Taxes"]));
         }
         return {offScreen, straightAway,
                 survived: !!box,
                 stored: state.shown[0].values["Annual Taxes"] ?? null,
-                redrawn: !document.querySelector("#body input")};
+                redrawn: !document.querySelector(".writing")};
     """)
 
     assert found["offScreen"], "the column was already on screen, so this measures nothing"
@@ -1181,9 +1196,9 @@ def test_escaping_an_edit_puts_the_table_back(served) -> None:
         const cell = document.querySelector('td[aria-selected="true"]');
         cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
         await wait(200);
-        const opened_ = !!document.querySelector("#body input");
+        const opened_ = !!document.querySelector(".writing textarea");
 
-        document.querySelector("#body input")
+        document.querySelector(".writing textarea")
           .dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
         await wait(200);
 
@@ -1192,7 +1207,7 @@ def test_escaping_an_edit_puts_the_table_back(served) -> None:
         const before = document.querySelector("#body tr").dataset.index;
         scroller.scrollTop = 4000;
         await wait(300);
-        return {opened_, closed: !document.querySelector("#body input"),
+        return {opened_, closed: !document.querySelector(".writing"),
                 before, after: document.querySelector("#body tr").dataset.index};
     """)
 
@@ -1201,3 +1216,143 @@ def test_escaping_an_edit_puts_the_table_back(served) -> None:
     assert found["after"] != found["before"], (
         "the table stopped redrawing, so it is frozen on an edit nobody is making"
     )
+
+
+# ---------------------------------------------------------------------------
+# Real input, rather than events the page dispatches to itself
+#
+# Everything above drives the page by dispatching events from inside it, which is enough for almost
+# everything and was not enough here. A double-click is not an event a page can honestly fake: it is
+# the browser's own judgment that two clicks landed on the same element, and the bug below lived
+# entirely in that judgment. A dispatched `dblclick` skips it and passes on a page where clicking
+# twice does nothing at all. So these go through the browser's input pipeline instead.
+
+
+def command(connection, method, params=None, message_id=1):
+    connection.send(
+        json.dumps({"id": message_id, "method": method, "params": params or {}})
+    )
+    while True:
+        found = json.loads(connection.recv())
+        if found.get("id") == message_id:
+            return found.get("result", {})
+
+
+def click_at(connection, x, y, clicks=1):
+    """A real mouse click, at real coordinates, with a real click count."""
+    for kind in ("mousePressed", "mouseReleased"):
+        command(
+            connection,
+            "Input.dispatchMouseEvent",
+            {"type": kind, "x": x, "y": y, "button": "left", "clickCount": clicks},
+        )
+
+
+def press_enter(connection):
+    for kind in ("keyDown", "keyUp"):
+        command(
+            connection,
+            "Input.dispatchKeyEvent",
+            {"type": kind, "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13},
+        )
+
+
+def test_double_clicking_a_cell_opens_it_for_editing(served) -> None:
+    """feat-010/AC-5: the way a person expects to edit a cell, and the way that never worked.
+
+    Selecting a cell used to redraw the whole window, so the first click of a double-click replaced
+    every row in the table. The second click therefore landed on a different element from the first,
+    and a browser only reports a double-click when both halves hit the same one. So double-clicking
+    a cell did nothing, on every editable column, and had done nothing since the table was written.
+
+    It survived every test because a test can dispatch a `dblclick` event directly, and one that
+    does asserts that the handler works rather than that the browser ever calls it. This one clicks.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 200; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 100));
+                 }
+                 /* Scrolled to, the way somebody reading that column would have. */
+                 const at = state.columns.findIndex(c => c.name === "Verdict");
+                 const scroller = document.getElementById("scroller");
+                 const head = document.querySelectorAll("table.grid thead th")[at];
+                 scroller.scrollLeft = head.offsetLeft - scroller.clientWidth / 2;
+                 await new Promise(r => setTimeout(r, 400));
+                 return true;
+               })()""",
+        )
+        where = evaluate(
+            connection,
+            """(() => {
+                 const at = state.columns.findIndex(c => c.name === "Verdict");
+                 const cell = document.querySelector("#body tr:nth-child(2)").children[at];
+                 const box = cell.getBoundingClientRect();
+                 return {x: Math.round(box.left + box.width / 2),
+                         y: Math.round(box.top + box.height / 2),
+                         column: cell.dataset.column};
+               })()""",
+        )
+        assert where["column"] == "Verdict", where
+
+        click_at(connection, where["x"], where["y"], clicks=1)
+        click_at(connection, where["x"], where["y"], clicks=1)
+        click_at(connection, where["x"], where["y"], clicks=2)
+        time.sleep(0.4)
+        opened_ = evaluate(connection, '!!document.querySelector(".writing textarea")')
+
+        command(connection, "Input.insertText", {"text": "worth a look"})
+        # Saved from the button, which is what a person's hand does after typing a note.
+        evaluate(
+            connection,
+            """[...document.querySelectorAll(".writing button")]
+                 .find(b => b.textContent === "Save").click()""",
+        )
+        time.sleep(1.0)
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const row = state.shown[1];
+                 const answered = await fetch(`/api/listings/${row.listing_id}`)
+                   .then(r => r.json());
+                 return {shown: row.values["Verdict"],
+                         stored: (answered.listing.annotation || {}).verdict ?? null};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert opened_, "double-clicking a cell did not open it for editing"
+    assert found["stored"] == "worth a look", "what was typed did not reach the store"
+    assert found["shown"] == "worth a look", "the row does not hold what the store returned"
+
+
+def test_clicking_a_cell_does_not_rebuild_the_rows(served) -> None:
+    """feat-010/AC-5: the reason double-clicking could not work, pinned directly.
+
+    Selecting is two attributes on two cells. It has no business replacing every row in the table,
+    and while it did, no interaction that depends on two events reaching the same element could
+    survive it.
+    """
+    found = opened(served, """
+        const before = document.querySelector("#body tr").children[3];
+        focusCell(0, 3);
+        await wait(200);
+        const after = document.querySelector("#body tr").children[3];
+        return {sameElement: before === after,
+                selected: after.getAttribute("aria-selected"),
+                focused: document.activeElement === after};
+    """)
+
+    assert found["sameElement"], (
+        "selecting a cell replaced the row it is in, so a second click lands somewhere else"
+    )
+    assert found["selected"] == "true", "the cell was not selected"
+    assert found["focused"], "the keyboard did not follow the selection"
