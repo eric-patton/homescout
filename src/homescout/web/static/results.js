@@ -733,6 +733,19 @@ function window_() {
   const sizer = document.getElementById("sizer");
   if (!scroller || !body) return;
 
+  /* Never while somebody is typing into the table.
+   *
+   * Redrawing the window replaces every row, and a cell being edited is one of them, so a redraw
+   * in the middle of an edit throws away the box and whatever is in it. That is not a rare corner:
+   * putting focus in the box scrolls the table to bring it into view, scrolling is what calls this,
+   * and every column past the fold is therefore a column that could not be typed into at all. The
+   * box opened and vanished in the same frame.
+   *
+   * So the window holds still until the edit is finished. Nothing is lost by the delay: what is on
+   * screen is already drawn, and the moment the edit ends, by saving or by Escape, this runs and
+   * catches up. */
+  if (body.querySelector("input")) return;
+
   const height = rowHeight();
   const first = Math.max(0, Math.floor(scroller.scrollTop / height) - OVERSCAN);
   const many = Math.ceil(scroller.clientHeight / height) + OVERSCAN * 2;
@@ -965,7 +978,14 @@ function edit(cell, row, column) {
   const finish = (commit) => {
     if (done) return;
     done = true;
-    if (!commit) { window_(); focusCell(state.focus.row, state.focus.column); return; }
+    if (!commit) {
+      /* Take the box out before redrawing, or the guard in `window_` reads it as an edit still in
+       * progress and holds still for one that has just been abandoned. */
+      cell.replaceChildren();
+      window_();
+      focusCell(state.focus.row, state.focus.column);
+      return;
+    }
     save(cell, row, column, field, input.value);
   };
 
@@ -1006,7 +1026,12 @@ function editTownNote(cell, row) {
   const finish = (commit) => {
     if (done) return;
     done = true;
-    if (!commit) { window_(); focusCell(state.focus.row, state.focus.column); return; }
+    if (!commit) {
+      cell.replaceChildren();
+      window_();
+      focusCell(state.focus.row, state.focus.column);
+      return;
+    }
     saveTownNote(cell, town, input.value);
   };
   input.addEventListener("keydown", (event) => {

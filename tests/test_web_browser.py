@@ -1115,3 +1115,89 @@ def test_a_town_note_typed_on_one_row_appears_on_the_others(served) -> None:
         "the cell does not say the note belongs to the town before it is opened"
     )
     assert found["town"] in found["banner"], "nothing said what was written or where it went"
+
+
+def test_a_cell_past_the_fold_can_still_be_typed_into(served) -> None:
+    """feat-010/AC-5, feat-010/AC-17: a column you have to scroll to is a column you can edit.
+
+    The failure this pins is complete and was invisible from the code. Putting focus in the box
+    scrolls the table sideways to bring it into view; scrolling is what redraws the window; a redraw
+    replaces every row, the one being edited included. So the box opened and vanished in the same
+    frame, and every column past the right edge could not be typed into at all. Double-clicking
+    appeared to work only because it happened to leave the cell where it already was.
+
+    Asserted after a wait rather than in the same tick, because the scroll event that did the damage
+    is asynchronous: a test that reads the box immediately gets the one that is about to be thrown
+    away, and passes while the feature is broken. That is exactly what the existing edit tests did.
+    """
+    found = opened(served, """
+        const scroller = document.getElementById("scroller");
+        scroller.scrollLeft = 0;
+        await wait(200);
+
+        /* A column well past the right edge of the screen. */
+        const at = state.columns.findIndex(c => c.name === "Annual Taxes");
+        const head = document.querySelectorAll("table.grid thead th")[at];
+        const offScreen = head.offsetLeft > scroller.clientWidth;
+
+        focusCell(0, at);
+        await wait(150);
+        const cell = document.querySelector('td[aria-selected="true"]');
+        cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+
+        const straightAway = !!document.querySelector("#body input");
+        await wait(400);
+        const box = document.querySelector("#body input");
+        if (box) {
+          box.value = "$1,840 in 2025";
+          box.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+          await until(() => state.all.some(r => r.values["Annual Taxes"]));
+        }
+        return {offScreen, straightAway,
+                survived: !!box,
+                stored: state.shown[0].values["Annual Taxes"] ?? null,
+                redrawn: !document.querySelector("#body input")};
+    """)
+
+    assert found["offScreen"], "the column was already on screen, so this measures nothing"
+    assert found["straightAway"], "the box never opened at all"
+    assert found["survived"], (
+        "the box opened and was thrown away by the redraw that focusing it caused"
+    )
+    assert found["stored"] == "$1,840 in 2025", "what was typed did not reach the store"
+    assert found["redrawn"], "the window never caught up after the edit finished"
+
+
+def test_escaping_an_edit_puts_the_table_back(served) -> None:
+    """feat-010/AC-5: the window holds still during an edit, so it has to start again after one.
+
+    The other half of that guard. It reads "is somebody typing" off the box being in the page, so an
+    abandoned edit has to take its box out, or the table freezes on an edit nobody is making.
+    """
+    found = opened(served, """
+        const at = state.columns.findIndex(c => c.name === "Verdict");
+        focusCell(0, at);
+        await wait(150);
+        const cell = document.querySelector('td[aria-selected="true"]');
+        cell.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        await wait(200);
+        const opened_ = !!document.querySelector("#body input");
+
+        document.querySelector("#body input")
+          .dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+        await wait(200);
+
+        /* And the window works again: scrolling redraws the rows it should. */
+        const scroller = document.getElementById("scroller");
+        const before = document.querySelector("#body tr").dataset.index;
+        scroller.scrollTop = 4000;
+        await wait(300);
+        return {opened_, closed: !document.querySelector("#body input"),
+                before, after: document.querySelector("#body tr").dataset.index};
+    """)
+
+    assert found["opened_"], "the box never opened"
+    assert found["closed"], "Escape left the box in the page"
+    assert found["after"] != found["before"], (
+        "the table stopped redrawing, so it is frozen on an edit nobody is making"
+    )

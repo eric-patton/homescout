@@ -396,3 +396,22 @@ alongside its peers.
       so before it is opened. Somebody who writes a note, sees it on one of the nine houses they
       have open in that town and concludes it went in wrong is right to conclude that.
       `tests/test_web_browser.py` types one and asserts the neighbouring rows take it.
+
+### Defect: an edit in a column past the fold was thrown away as it opened
+
+- [x] T91: **Putting focus in the editing box destroyed it.** Focusing the box scrolls the table
+      sideways to bring it into view, scrolling is what redraws the virtual window, and a redraw
+      replaces every row including the one being edited. So the box opened and vanished in the same
+      frame, and every column past the right edge of the screen could not be typed into at all. It
+      was reported as the new writable columns not working; they were working, and so was Verdict,
+      and neither could be reached.
+
+      `window_` now holds still while a box is open in the table, and an abandoned edit takes its
+      box out before asking for a redraw, so the guard is never left reading an edit nobody is
+      making. Pinned by two tests in `tests/test_web_browser.py` citing `feat-010/AC-5`: one edits a
+      column that starts off screen, one escapes an edit and asserts the table starts redrawing
+      again.
+
+      The existing edit tests could not have caught it. They read the box in the same tick as the
+      keypress, and the scroll that destroyed it is asynchronous, so they held a box that was about
+      to be thrown away and asserted against it happily. The new test waits first, deliberately.
