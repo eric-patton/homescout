@@ -810,3 +810,42 @@ def test_a_run_of_everything_that_managed_nothing_never_reports_success(
     assert json.loads(out)["searches"] == []
     assert code != ExitCode.SUCCESS
     assert code == ExitCode.INVALID_INPUT
+
+
+def test_naming_the_database_on_the_command_line_moves_the_secrets_with_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """feat-003/AC-16: `--db` and the environment variable name the same workspace.
+
+    Secrets live in an uncommitted `.env` beside the database, and the code that reads them asks
+    for the database path with no argument, which knows about the environment variable and nothing
+    about the flag. So `--db` opened one workspace while its credentials were looked for beside
+    another, and the failure was the quiet kind: the provider reported itself unconfigured, which
+    is exactly what it should say when a credential really is absent. A whole column read as empty
+    on a machine where the token sat next to the database.
+    """
+    from homescout.enrich import settings
+
+    monkeypatch.delenv("HOMESCOUT_DB", raising=False)
+    monkeypatch.delenv(settings.BROADBAND_TOKEN, raising=False)
+    monkeypatch.delenv(settings.BROADBAND_USERNAME, raising=False)
+
+    workspace = tmp_path / "elsewhere"
+    workspace.mkdir()
+    (workspace / ".env").write_text(
+        "\n".join(
+            [
+                f"{settings.BROADBAND_TOKEN}=a-real-token",
+                f"{settings.BROADBAND_USERNAME}=someone",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    database = workspace / "homescout.db"
+
+    with wired([search("portales")], {"fake": FakeSource()}):
+        invoke(["searches", "list"], db=database)
+
+    assert settings.token(settings.BROADBAND_TOKEN) == "a-real-token"
+    assert settings.token(settings.BROADBAND_USERNAME) == "someone"

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import sys
 from collections.abc import Sequence
 from contextlib import redirect_stderr, redirect_stdout
@@ -686,6 +687,21 @@ def main(
     settings: Any = None
 
     try:
+        # Naming the database on the command line has to mean the same thing as naming it in the
+        # environment, and it did not. Secrets live in an uncommitted `.env` beside the database,
+        # and the code that reads them asks `database_path()` with no argument, which knows about
+        # the environment variable and nothing about this flag. So `--db` opened one workspace and
+        # its credentials were looked for beside another.
+        #
+        # It failed the quiet way: the broadband provider reported itself unconfigured, which is
+        # exactly what it should say when a credential really is absent, so a whole column read as
+        # missing on a machine where the token was sitting right next to the database.
+        #
+        # Settled here, once, by making the flag set the variable, so everything downstream resolves
+        # the same workspace however it asks.
+        if getattr(args, "db", None):
+            os.environ[api.DB_ENVIRONMENT_VARIABLE] = str(Path(args.db))
+
         # Checked before anything is opened or fetched: discovering a missing directory after an
         # hour of throttled requests is the failure this guard exists to prevent.
         if output is not None:

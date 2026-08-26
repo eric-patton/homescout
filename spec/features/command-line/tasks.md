@@ -132,3 +132,22 @@ Decisions referenced below are the `D-N` sections of `plan.md`.
       exit-code contract exists to prevent. Add it, above degraded, and assert that the order
       accounts for every code so a sixth one cannot be forgotten. Regression test citing
       `feat-003/AC-3`.
+
+## Found in use
+
+- [x] **T25: naming the database with `--db` did not move the secrets with it.** Credentials live
+      in an uncommitted `.env` beside the database, and the code that reads them asks
+      `database_path()` with no argument, which knows about `HOMESCOUT_DB` and nothing about this
+      flag. So `--db` opened one workspace while its credentials were looked for beside another.
+
+      It failed the quiet way. The broadband provider reported itself unconfigured, which is exactly
+      what it must say when a credential really is absent (enrichment AC-20), so an entire column
+      read as empty on a machine where the token was sitting next to the database. Nothing errored
+      and nothing looked wrong; a run just produced less than it should have, twice, before anybody
+      noticed the two spellings of "which workspace" disagreed.
+
+      Fixed in `cli/main.py`: the flag now sets the variable, once, before anything is opened, so
+      every lookup downstream resolves the same workspace however it asks. Pinned by
+      `tests/test_cli_operations.py::test_naming_the_database_on_the_command_line_moves_the_secrets_with_it`,
+      which writes a `.env` beside a database somewhere else entirely and asserts the credential is
+      found through the flag alone.
