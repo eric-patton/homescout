@@ -124,3 +124,20 @@ alongside its peers.
       than the composite key (AC-21).
 - [x] T40: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
       manifest stamp.
+
+## Found in use
+
+- [x] **T-defect: the words a New Mexico listing actually uses for a flat roof were not recognised.**
+      Found by screening 792 real descriptions from a statewide search: "flat roof" appeared not
+      once and "TPO roof" appeared fifteen times. So a criterion dropping flat roofs dropped
+      nothing, and fifteen flat-roofed houses sat in the results looking like candidates.
+
+      This is not the `new roof` case, which is coverage given up deliberately because a new roof
+      says nothing about the material. TPO, EPDM, built-up and torch-down are single-ply and
+      bituminous systems for low-slope decks, and nobody puts one on a pitched roof. The phrase
+      states the kind as plainly as "metal roof" does.
+
+      Added to the `flat` claim in `extract/patterns.py`, checked against the measured corpus, and
+      pinned by `tests/test_extract_patterns.py::test_a_membrane_roof_is_a_flat_roof` citing
+      `feat-009/AC-2`, with a counterpart asserting shingle, metal, tile and a bare "new roof" are
+      unchanged, because a pattern added in a hurry is how `shingle` starts reading as `flat`.

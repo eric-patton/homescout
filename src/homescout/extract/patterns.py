@@ -220,6 +220,20 @@ CLAIMS: dict[str, tuple[Claim, ...]] = {
         Claim(re.compile(r"\b shingle \w* \b", X), "shingle"),
         Claim(re.compile(r"\b (?: clay | concrete | ) \s* tile \s+ roof \w* \b", X), "tile"),
         Claim(re.compile(r"\b flat \s+ roof \w* \b", X), "flat"),
+        # The membranes, which are the words a New Mexico listing actually uses for a flat roof.
+        # Over 792 real descriptions "flat roof" appeared not once and "TPO roof" appeared fifteen
+        # times, so a criterion dropping flat roofs dropped nothing while fifteen flat-roofed houses
+        # sat in the results. These are not a guess at the shape from a material: TPO, EPDM,
+        # built-up and torch-down are single-ply and bituminous systems for low-slope decks, and
+        # nobody puts one on a pitched roof.
+        Claim(
+            re.compile(
+                r"\b tpo \s+ roof \w* | \b epdm \b | \b built \s* -? up \s+ roof \w* "
+                r"| \b torch \s* -? down \b | \b modified \s+ bitumen \b",
+                X,
+            ),
+            "flat",
+        ),
         Claim(re.compile(r"\b (?: spray \s+ )? foam \s+ roof \w* \b", X), "foam"),
     ),
 }

@@ -318,3 +318,39 @@ def test_a_sentence_about_only_cooling_fills_only_cooling() -> None:
     found = one("Both homes are equipped with central air conditioning.")
     assert found["cooling"].value == "central"
     assert found["heating"].value is None
+
+
+MEMBRANES = [
+    ("Recent improvements include a TPO roof and stucco completed in 2021", "flat"),
+    ("A full TPO roof replacement with redecking and warranties", "flat"),
+    ("torch-down roof replaced in 2021", "flat"),
+    ("a built-up roof over the addition", "flat"),
+    ("EPDM over the whole deck", "flat"),
+]
+
+
+@pytest.mark.parametrize(("sentence", "expected"), MEMBRANES, ids=[m[0][:24] for m in MEMBRANES])
+def test_a_membrane_roof_is_a_flat_roof(sentence: str, expected: str) -> None:
+    """feat-009/AC-2: the words a New Mexico listing actually uses for a flat roof.
+
+    Found by screening 792 real descriptions from a statewide search: "flat roof" appeared not once,
+    "TPO roof" appeared fifteen times. So a criterion dropping flat roofs dropped nothing, while
+    fifteen flat-roofed houses sat in the results looking like candidates.
+
+    This is not inferring a shape from a material in the way `new roof` would be. TPO, EPDM,
+    built-up and torch-down are single-ply and bituminous systems for low-slope decks. Nobody puts
+    one on a pitched roof.
+    """
+    assert value(sentence, "roof") == expected
+
+
+def test_a_pitched_roof_material_is_still_not_flat() -> None:
+    """feat-009/AC-5: the membranes were added without widening anything else.
+
+    The counterpart to the test above, because a pattern added in a hurry is how `shingle` starts
+    reading as `flat`.
+    """
+    assert value("architectural shingle roof", "roof") == "shingle"
+    assert value("standing-seam metal roof", "roof") == "metal"
+    assert value("clay tile roof", "roof") == "tile"
+    assert value("a new roof", "roof") is None
