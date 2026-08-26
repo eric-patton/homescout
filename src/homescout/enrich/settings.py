@@ -75,6 +75,22 @@ DEFAULTS: dict[str, Endpoint] = {
     ),
 }
 
+def picture_of(name: str) -> str | None:
+    """The same service as `endpoint`, asked for a picture instead of a value.
+
+    Every one of these is an ArcGIS service, and an ArcGIS service that answers about a point at
+    `.../identify` draws the same data at `.../exportImage`. A map wanting the hazard layer behind
+    a property therefore needs no second address and no second thing to keep current: it is the one
+    already configured, asked a different question. Returns nothing for a service whose address does
+    not follow that shape, which is a map with no overlay rather than a broken request.
+    """
+    where = endpoint(name).url
+    for asking, drawing in (("/identify", "/exportImage"), ("/query", "/export")):
+        if where.endswith(asking):
+            return where[: -len(asking)] + drawing
+    return None
+
+
 #: Where a token lives when a provider needs one. Read from the environment or the uncommitted
 #: `.env` beside the database, never from a saved search and never from code, which is where the
 #: constitution puts every secret in this product.

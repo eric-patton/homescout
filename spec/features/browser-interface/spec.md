@@ -149,8 +149,8 @@ in five years. The problem brief is in `research.md`.
 
 ## Acceptance criteria
 
-- [ ] AC-1: Six surfaces exist and are reachable: map and search builder, saved search list, results
-      table, listing detail, run comparison, and merge review queue.
+- [ ] AC-1: Seven surfaces exist and are reachable: map and search builder, saved search list,
+      results table, listing detail, run comparison, merge review queue, and the fire map.
 - [ ] AC-2: Areas can be drawn, named, and edited on the map, including exclusion areas, and are
       saved as geometry in the saved search definition.
 - [ ] AC-3: A saved search opened and re-saved here is unchanged apart from the edits made,
@@ -335,6 +335,17 @@ in five years. The problem brief is in `research.md`.
       prints alongside the kept and passed lists without anything new to read it. Passing asks
       before acting, because it takes the house out of the table; keeping records the keep first and
       asks afterwards, because it hides nothing and the same control undoes it.
+- [ ] AC-55: Every property in a run that has a location is drawn on the wildfire hazard model,
+      using the same layer at the same configured address the enrichment pass reads, with its own
+      legend drawn from this tool rather than fetched. A property with no location is not drawn, and
+      is counted and said so. How strongly the hazard layer is drawn can be turned down to read the
+      map beneath it. Drawing it asks that server for the part of the country on screen, which the
+      page states, because nothing else here does that unless a map background has been turned on.
+- [ ] AC-56: A property can be kept or passed on from its pin, with the same question about why and
+      the same effect as from the results table, and the map reflects the decision at once. The page
+      works nothing out and decides nothing: no property is scored, ranked, hidden or coloured by
+      its distance from anything, because that would be a criterion with no rule behind it and no
+      way to argue with it.
 - [ ] AC-50: The spreadsheet can be downloaded from the results table itself, in either format the
       export writes, without going to another screen and without being told a path to go and find.
       It is the same core operation the terminal calls and still writes its copy into the workspace,

@@ -355,6 +355,8 @@ function draw() {
          "reset columns"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
+      link(`/fire/${encodeURIComponent(state.search)}`, "on the fire map",
+           {title: "Every property on the wildfire hazard model, to see what each one is next to"}),
       /* A plain link rather than a button that fetches: the browser's own download is what a
        * person expects from something that hands them a file, and it survives the page being
        * closed while a thousand rows are being written. */

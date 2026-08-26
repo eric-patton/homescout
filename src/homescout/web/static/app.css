@@ -802,6 +802,56 @@ button.shownall:hover .preview, button.shownall:focus-visible .preview {
 table.grid tr.passed td { color: var(--dim); }
 table.grid tr.kept td.property .what { font-weight: 600; }
 
+/* -- the fire map ------------------------------------------------------- */
+
+.firemap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: var(--s4);
+  align-items: start;
+}
+@media (max-width: 62rem) { .firemap { grid-template-columns: 1fr; } }
+.firemap #map {
+  height: calc(100vh - 20rem);
+  min-height: 24rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--shade);
+}
+.legend {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  background: var(--paper);
+  box-shadow: var(--lift);
+}
+.legend h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em;
+             color: var(--dim); margin: 0 0 var(--s2); }
+.legend h2 + ul + h2 { margin-top: var(--s4); }
+.legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.legend li { display: flex; align-items: center; gap: var(--s2); font-size: 0.9rem; }
+.legend .meta { margin-top: var(--s3); font-size: 0.82rem; }
+.swatch {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+  flex: none;
+}
+.swatch.round { width: 12px; height: 12px; border-radius: 50%;
+                background: #5b9bd5; border-color: #0f3f7a; }
+.swatch.round.kept { background: #ffd75e; border-color: #8a6d00; }
+.swatch.round.passed { background: #e8b6b6; border-color: #8c2b2b; }
+
+/* One property, in a bubble on the map. */
+.pin .what { margin: 0 0 var(--s1); font-weight: 600; }
+.pin .facts { margin: 0 0 var(--s1); color: var(--ink-soft); font-size: 0.9rem; }
+.pin .elsewhere { margin: var(--s2) 0 0; }
+.pin .elsewhere a { margin-right: var(--s2); }
+.pin .actions { display: flex; gap: var(--s2); margin-top: var(--s3); }
+.pin .actions button { flex: 1; padding: 0.25rem 0.5rem; font-size: 0.85rem; }
+
 /* -- one property ------------------------------------------------------ */
 
 .detail {

@@ -25,7 +25,7 @@ import pytest
 
 from homescout import api
 from homescout.store import Store
-from web_fakes import held_workspace, listing, load, shared_store
+from web_fakes import STATIC, held_workspace, listing, load, shared_store
 
 pytestmark = pytest.mark.slow
 
@@ -1463,3 +1463,103 @@ def test_escaping_the_reason_leaves_the_house_kept(served) -> None:
 
     assert found["judgment"] == "keep", "refusing to say why undid the keep"
     assert found["verdict"] is None
+
+
+def on_the_map(served, script):
+    """Run one script against a loaded fire map, and always close the browser."""
+    base, _held, _store = served
+    process, debug = chrome(f"{base}/fire/portales")
+    try:
+        connection = talk(debug, "/fire/portales")
+        return evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                 const until = async (ready, patience = 100) => {
+                   for (let i = 0; i < patience; i++) {
+                     const found = ready();
+                     if (found) return found;
+                     await wait(50);
+                   }
+                   return null;
+                 };
+                 await until(() => held.markers && held.rows.length);
+                 """ + script + """
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+
+def test_a_property_is_passed_on_from_its_pin(served) -> None:
+    """feat-010/AC-56: the decision is made where the reason for it is visible.
+
+    "Half a mile from the red" is a thing somebody can see in a second on this page and cannot
+    easily say from a table of numbers, which is the whole argument for deciding here at all. So
+    the pin offers the same decision the table does, asks the same question about why, and records
+    both in the same place.
+    """
+    found = on_the_map(served, """
+        const row = held.rows[0];
+        const listing = row.listing_id;
+        const before = held.markers.getLayers().length;
+
+        /* Open the pin, then answer what it asks. */
+        held.markers.getLayers()[0].openPopup();
+        const bubble = await until(() => document.querySelector(".pin"));
+        [...bubble.querySelectorAll("button")].find(b => b.textContent.includes("pass")).click();
+
+        const dialog = await until(() => document.querySelector("dialog.ask"));
+        const asks = dialog.textContent;
+        dialog.querySelector("textarea").value = "half a mile from the red";
+        [...dialog.querySelectorAll("button")].find(b => b.textContent === "Pass on it").click();
+
+        await until(() => held.markers.getLayers().length !== before);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {asks, before, after: held.markers.getLayers().length,
+                judgment: (answered.listing.annotation || {}).judgment ?? null,
+                verdict: (answered.listing.annotation || {}).verdict ?? null};
+    """)
+
+    assert "Pass on this property?" in found["asks"]
+    assert found["judgment"] == "pass"
+    assert found["verdict"] == "half a mile from the red"
+    assert found["after"] == found["before"] - 1, "the pin stayed on the map after being passed on"
+
+
+def test_the_map_draws_the_properties_and_says_what_it_cannot(served) -> None:
+    """feat-010/AC-55: a property with no location is not on the map and is not silently gone.
+
+    The count line is the whole of it. A map that quietly drops the properties it cannot place
+    tells somebody they have looked at everything when they have not.
+    """
+    found = on_the_map(served, """
+        return {pins: held.markers.getLayers().length,
+                rows: held.rows.length,
+                without: held.without,
+                says: document.getElementById("counts").textContent,
+                legend: document.querySelector(".legend").textContent,
+                tiles: !!held.hazard};
+    """)
+
+    assert found["pins"] == found["rows"] > 0
+    assert "on the map" in found["says"]
+    assert found["tiles"], "no hazard layer was added, so the map is properties over nothing"
+    for word in ("very high", "non-burnable", "kept", "passed on"):
+        assert word in found["legend"], f"the legend does not explain {word}"
+
+
+def test_the_map_scores_nothing_and_hides_nothing_on_its_own(served) -> None:
+    """feat-010/AC-56: a page that quietly ranked houses by how close they are to red would be a
+    criterion with no rule behind it and no way to argue with it.
+
+    So what a pin looks like is read off the person's own judgment and off nothing else.
+    """
+    fire = (STATIC / "fire.js").read_text(encoding="utf-8")
+
+    assert "PINS[row.judgment" in fire, "a pin's appearance is not read from the judgment"
+    for arithmetic in ("distance", "nearest", "score", "Math.hypot", "radiusOf"):
+        assert arithmetic not in fire, (
+            f"{arithmetic!r} suggests this page works something out about proximity, which is a "
+            "criterion in disguise"
+        )

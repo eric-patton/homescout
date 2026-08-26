@@ -29,6 +29,7 @@ PAGES: dict[str, str] = {
     "/listing/{listing_id}": "listing.html",
     "/changes/{name}": "changes.html",
     "/matches": "matches.html",
+    "/fire/{name}": "fire.html",
 }
 
 #: Kept as names here because the pages read them, and defined once in `settings`.
@@ -119,6 +120,7 @@ def installation(workspace: api.Workspace) -> dict[str, Any]:
             "attribution": attribution,
             "variable": TILES_VARIABLE,
         },
+        "hazards": api.hazard_layers(),
         **api.vocabulary(),
         "model": api.configuration(workspace)["model"],
     }

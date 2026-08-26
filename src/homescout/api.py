@@ -582,6 +582,47 @@ def deliver(
 # -- annotations -----------------------------------------------------------
 
 
+def hazard_layers() -> dict[str, str]:
+    """The public layers a map can draw behind a property, by the name a criterion knows them by.
+
+    Derived from the addresses the enrichment pass already uses rather than written out again: the
+    same ArcGIS service that answers "what is the hazard at this point" draws that hazard as a
+    picture. So a map of where the fire is has nothing of its own to keep current, and pointing the
+    provider at a different server moves the map with it.
+    """
+    from .enrich import settings as where
+
+    found = {}
+    for name in ("wildfire", "wui"):
+        drawn = where.picture_of(name)
+        if drawn:
+            found[name] = drawn
+    return found
+
+
+def hazard_tile(workspace: Workspace, layer: str, bbox: str, size: str = "256,256") -> bytes:
+    """One picture of one rectangle of a hazard layer, fetched by this machine and kept.
+
+    Asked for by the map, and answered here rather than by the browser going and getting it. Two
+    reasons, and the second is the one that matters: a browser refuses a cross-origin image it was
+    not clearly offered, and this product says in one place what talks to the outside world and from
+    where. A public layer fetched by the machine that already fetches public layers is that
+    statement unchanged; a browser reaching out to a federal server is a new line in it.
+    """
+    from .enrich import hazard
+
+    where = hazard_layers().get(layer)
+    if where is None:
+        raise InvalidInput(
+            f"{layer!r} is not a layer this build draws. "
+            f"Known layers: {', '.join(sorted(hazard_layers())) or 'none'}."
+        )
+    with _translating():
+        return hazard.tile(
+            workspace.root, where, layer, hazard.rectangle(bbox), hazard.dimensions(size)
+        )
+
+
 def annotation_fields() -> tuple[str, ...]:
     """Every field of a person's own judgment, in the order they are declared.
 

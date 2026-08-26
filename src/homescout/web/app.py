@@ -359,6 +359,22 @@ def build(workspace: api.Workspace) -> FastAPI:
         rows, count = api.passed(held())
         return answer("passed", passed=list(rows), count=count)
 
+    @app.get("/api/hazard/{layer}")
+    def hazard(layer: str, bbox: str, size: str = "256,256") -> Response:
+        """One tile of a hazard layer, fetched by this machine rather than by the browser.
+
+        Kept on disk once fetched, so the same part of the country costs nothing to look at
+        twice; the browser is told it may keep it too.
+        """
+        return Response(
+            content=api.hazard_tile(held(), layer, bbox, size),
+            media_type="image/png",
+            headers={
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "public, max-age=604800",
+            },
+        )
+
     @app.get("/api/kept")
     def kept() -> dict[str, Any]:
         """The shortlist, the other half of the same judgment the results table writes."""

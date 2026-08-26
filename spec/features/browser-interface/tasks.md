@@ -442,3 +442,33 @@ alongside its peers.
       `Verdict`, which has always meant what the person concluded, so it exports and prints beside
       the kept and passed lists with nothing new needed to read it. Four tests in
       `tests/test_web_browser.py` cover both directions, the empty answer, and Escape.
+
+## Change: on the fire map (`changes/on-the-fire-map/`)
+
+- [x] T95: `web/static/fire.html` and `fire.js`: a seventh surface drawing every located property on
+      the wildfire hazard model, with the model's own legend written into this tool rather than
+      fetched, a control to turn the layer down, and a count that says how many properties have no
+      location and are therefore not on it (`feat-010/AC-55`, `feat-010/AC-1`).
+- [x] T96: `web/static/fire.js`: a pin keeps or passes on its property, asking the same question
+      about why and writing to the same place as the table (`feat-010/AC-56`). Nothing on the page
+      is scored, ranked, hidden or coloured by distance from anything, and a test asserts the page
+      contains no such arithmetic: that would be a criterion with no rule behind it.
+- [x] T97: `enrich/settings.py` and `api.hazard_layers`: the map's address is derived from the one
+      the wildfire provider already uses, because an ArcGIS service that answers about a point at
+      `identify` draws the same data at `exportImage`. No second address to keep current, and
+      pointing the provider elsewhere moves the map with it.
+- [x] T98: `enrich/hazard.py`, `api.hazard_tile` and `/api/hazard/{layer}`: the tiles are fetched by
+      this machine and kept on disk, not by the browser.
+
+      Two reasons, and both were found by looking rather than by reasoning. Chrome refuses the
+      cross-origin image outright (`ERR_BLOCKED_BY_ORB`), so the first version of this page drew the
+      properties over nothing at all and every request came back `net::ERR_ABORTED`; and a browser
+      reaching out to a federal server is a second thing talking to the outside world, which this
+      product's privacy statement does not describe. Fetching it here is the statement unchanged: a
+      public enrichment endpoint, asked by the machine that already asks it.
+
+      Kept forever, because the model is republished every few years, so the same part of the state
+      costs that server nothing to look at twice. Four requests at once rather than the providers'
+      one-second spacing, which would take half a minute to draw one screen.
+      `tests/test_web_hazard.py` covers the rectangle and size being four numbers and two numbers
+      and nothing else, the cache, an answer that is not a picture, and the served headers.
