@@ -435,3 +435,10 @@ alongside its peers.
       goes in Fire/Egress, and a twenty-six pixel line is not where anybody writes it. Enter makes a
       new line; the button, Ctrl with Enter, or clicking away all keep what was written; only Escape
       discards. Rank keeps its single line, being a number.
+- [x] T94: Keeping and passing both ask why (`feat-010/AC-54`), which is the thing a person knows at
+      the moment they decide and reconstructs badly a week later. Passing asks before acting, with
+      the cursor already in the box; keeping records the keep first and offers the box afterwards,
+      so a shortlist still costs one press. Empty is a complete answer. The reason lands in
+      `Verdict`, which has always meant what the person concluded, so it exports and prints beside
+      the kept and passed lists with nothing new needed to read it. Four tests in
+      `tests/test_web_browser.py` cover both directions, the empty answer, and Escape.

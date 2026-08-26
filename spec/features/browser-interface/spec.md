@@ -327,6 +327,14 @@ in five years. The problem brief is in `research.md`.
       shortlist alone, and the number kept is reported alongside the number hidden. The shortlist is
       readable from the command line as well, which is product invariant 5 applying to it exactly as
       it applies to the passed list.
+- [ ] AC-54: Keeping a property and passing on one both ask why, in their own words, at the moment
+      the decision is made, because a reason recorded later is a reconstruction. The reason is
+      wanted and never demanded: an empty answer records the decision and nothing else, and clearing
+      forty houses must not mean typing forty times. It is kept as the property's verdict, which is
+      the field that already means what the person concluded about the house, so it exports and
+      prints alongside the kept and passed lists without anything new to read it. Passing asks
+      before acting, because it takes the house out of the table; keeping records the keep first and
+      asks afterwards, because it hides nothing and the same control undoes it.
 - [ ] AC-50: The spreadsheet can be downloaded from the results table itself, in either format the
       export writes, without going to another screen and without being told a path to go and find.
       It is the same core operation the terminal calls and still writes its copy into the workspace,

@@ -446,14 +446,24 @@ def test_the_controls_come_before_every_column_of_data() -> None:
     assert "Math.max(1, Math.min(to" in results, "nothing may be moved in front of it"
 
 
-def test_passing_asks_and_keeping_does_not() -> None:
-    """feat-010/AC-48: the question is on the action that takes a house away, and only that one."""
-    results = script("results")
-    keeping = results.split("function keepToggle")[1].split("function passToggle")[0]
+def test_passing_asks_first_and_keeping_asks_afterwards() -> None:
+    """feat-010/AC-48, feat-010/AC-54: only one of them is worth stopping somebody for.
 
-    assert "await confirmPass(what)" in results
+    Passing takes a house out of the table, so it asks before doing it. Keeping hides nothing and
+    the same button undoes it, so it does it first and then offers the box. The difference is the
+    order, not whether a reason is wanted: both want one.
+    """
+    results = script("results")
+    keeping = results.split("function keepToggle")[1].split("/* What they liked")[0]
+
+    assert "await confirmPass(what, row.values[\"Verdict\"])" in results
     assert "showModal()" in results, "a browser confirm() stops every pending save on the page"
-    assert "confirmPass" not in keeping, "keeping a house asks a question it does not need to"
+    assert "confirmPass" not in keeping, "keeping a house stops to ask permission it does not need"
+    assert 'await setJudgment(row, undoing ? null : "keep", button)' in keeping, (
+        "keeping does not record the keep before asking anything"
+    )
+    assert 'askWhy(button, row, "Why keep it?")' in keeping, "keeping never asks why"
+    assert "if (!undoing)" in keeping, "taking a house off the shortlist asks for a reason too"
 
 
 def test_a_town_note_can_be_written_from_a_row_and_belongs_to_the_town(

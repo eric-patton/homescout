@@ -1219,14 +1219,57 @@ function keepToggle(row) {
     "aria-label": already ? `Take ${what} off your shortlist` : `Keep ${what}`,
     title: already
       ? "On your shortlist. Press to take it off."
-      : "Keep this one: put it on your shortlist.",
-    onclick: (event) => {
+      : "Keep this one, and say why. Escape if you would rather not.",
+    onclick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      setJudgment(row, already ? null : "keep", button);
+      const undoing = already;
+      await setJudgment(row, undoing ? null : "keep", button);
+      /* The keep is already recorded. The reason is offered, never demanded: the box opens with
+       * the cursor in it and Escape leaves the house kept and unexplained. Not offered at all when
+       * taking one off the list, because that is an undo and nobody owes a reason for one. */
+      if (!undoing) askWhy(button, row, "Why keep it?");
     },
   }, already ? "★" : "☆");
   return button;
+}
+
+/* What they liked, or did not, in their own words, at the moment they decided.
+ *
+ * This is the most valuable thing a person writes in this whole tool and the hardest to get: a
+ * reason recorded a week later is a reconstruction. It is asked for where the decision is made, in
+ * one box, and it is never in the way. It lands in `Verdict`, which is the column that has always
+ * meant "what I concluded about this house", so it exports, it prints from the terminal beside the
+ * kept and passed lists, and anything reading the sheet later reads it without being told to.
+ */
+function askWhy(button, row, title) {
+  const cell = button.closest("td");
+  if (!cell) return;
+  writingBox(cell, {
+    title,
+    about: row.values["Property"] || row.listing_id,
+    hint: "Kept as this property's verdict. It travels into the spreadsheet with everything else.",
+    value: row.values["Verdict"],
+    save: (typed) => saveReason(row, typed),
+  });
+}
+
+async function saveReason(row, typed) {
+  const wanted = typed.trim() === "" ? null : typed;
+  if (wanted === (row.values["Verdict"] ?? null)) {
+    window_();
+    return;
+  }
+  try {
+    const answered = await send(
+      `/api/listings/${encodeURIComponent(row.listing_id)}/annotation`,
+      {verdict: wanted});
+    row.values["Verdict"] = answered.verdict ?? null;
+    apply();
+  } catch (error) {
+    apply();
+    fail(`That reason was not saved: ${error.message}`);
+  }
 }
 
 function passToggle(row) {
@@ -1247,8 +1290,14 @@ function passToggle(row) {
        * and doing it by a mis-aimed click on a 26-pixel row is exactly the accident worth one
        * question. Bringing one back is not: it puts a row in front of you, which is its own undo,
        * and asking about it would be a dialog with nothing to protect. */
-      if (!already && !(await confirmPass(what))) return;
-      setJudgment(row, already ? null : "pass", button);
+      if (already) {
+        setJudgment(row, null, button);
+        return;
+      }
+      const asked = await confirmPass(what, row.values["Verdict"]);
+      if (!asked.yes) return;
+      await setJudgment(row, "pass", button);
+      if (asked.reason !== (row.values["Verdict"] ?? null)) saveReason(row, asked.reason ?? "");
     },
   }, already ? "undo" : "✕");
   return button;
@@ -1261,16 +1310,30 @@ function passToggle(row) {
  * every timer and every pending request behind it, including the save of the annotation somebody
  * was in the middle of typing.
  */
-function confirmPass(what) {
+function confirmPass(what, standing) {
   return new Promise((resolve) => {
     let answered = false;
     const done = (yes) => {
       if (answered) return;
       answered = true;
-      resolve(yes);
+      resolve({yes, reason: yes ? why.value : null});
       dialog.close();
       dialog.remove();
     };
+
+    /* Asked at the moment the decision is made, because a reason recorded a week later is a
+     * reconstruction. Optional, and never in the way: the button is reachable from an empty box by
+     * pressing Enter, and the house is passed on either way. */
+    const why = el("textarea", {
+      rows: "3",
+      value: standing === null || standing === undefined ? "" : standing,
+      "aria-label": `Why you are passing on ${what}`,
+      placeholder: "Why? Optional, and worth having.",
+      onkeydown: (event) => {
+        if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); done(true); }
+        event.stopPropagation();
+      },
+    });
 
     const yes = el("button", {type: "button", class: "primary",
                               onclick: () => done(true)}, "Pass on it");
@@ -1287,15 +1350,17 @@ function confirmPass(what) {
     },
       el("h2", {id: "askwhat"}, "Pass on this property?"),
       el("p", {}, what),
+      why,
       el("p", {class: "hint"},
         "It leaves this table and stays out of every later one. Nothing is deleted: every run " +
-        "still watches it, and \"show properties you passed on\" brings it back."),
+        "still watches it, and \"show properties you passed on\" brings it back. What you write " +
+        "is kept as its verdict."),
       el("div", {class: "actions"}, no, yes),
     );
 
     document.body.append(dialog);
     dialog.showModal();
-    yes.focus();
+    why.focus();
   });
 }
 

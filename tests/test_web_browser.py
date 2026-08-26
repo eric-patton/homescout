@@ -722,8 +722,9 @@ def test_passing_on_a_house_asks_first_and_escape_means_no(served) -> None:
         const dialog = await until(() => document.querySelector("dialog.ask"));
         const asked = {open: !!(dialog && dialog.open),
                        says: dialog ? dialog.textContent : "",
-                       focused: document.activeElement
-                                  ? document.activeElement.textContent : ""};
+                       /* The cursor is in the box, so the reason can simply be typed. */
+                       focused: document.activeElement.tagName,
+                       asksWhy: !!(dialog && dialog.querySelector("textarea"))};
 
         dialog.dispatchEvent(new Event("cancel"));
         await until(() => !document.querySelector("dialog.ask"));
@@ -737,7 +738,10 @@ def test_passing_on_a_house_asks_first_and_escape_means_no(served) -> None:
     assert found["asked"]["open"], "passing on a house did not ask"
     assert "Pass on this property?" in found["asked"]["says"]
     assert "brings it back" in found["asked"]["says"], "the dialog does not say it is reversible"
-    assert found["asked"]["focused"] == "Pass on it", "the dialog does not take focus"
+    assert found["asked"]["asksWhy"], "the dialog does not ask why"
+    assert found["asked"]["focused"] == "TEXTAREA", (
+        "the cursor is not in the box, so the reason cannot simply be typed"
+    )
     assert found["gone"], "the dialog stayed open after being dismissed"
     assert found["judgment"] is None, "escaping the question passed on the house anyway"
 
@@ -1356,3 +1360,106 @@ def test_clicking_a_cell_does_not_rebuild_the_rows(served) -> None:
     )
     assert found["selected"] == "true", "the cell was not selected"
     assert found["focused"], "the keyboard did not follow the selection"
+
+
+def test_passing_on_a_house_records_why(served) -> None:
+    """feat-010/AC-54: the reason is asked for where the decision is made, and kept.
+
+    A reason recorded a week later is a reconstruction. This is the most valuable thing anybody
+    writes in this tool and the easiest to lose, so it is asked for in the same breath as the
+    decision, in the box the cursor is already in, and it lands in the column that has always meant
+    "what I concluded about this house".
+    """
+    found = opened(served, """
+        const listing = state.shown[0].listing_id;
+        document.querySelector("#body tr button.pass").click();
+        const dialog = await until(() => document.querySelector("dialog.ask"));
+        const box = dialog.querySelector("textarea");
+        box.value = "roof is flat at the back and the lot backs onto the highway";
+        [...dialog.querySelectorAll("button")].find(b => b.textContent === "Pass on it").click();
+
+        await until(() => state.all.find(r => r.listing_id === listing).judgment === "pass");
+        await until(() => state.all.find(r => r.listing_id === listing).values["Verdict"]);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {judgment: (answered.listing.annotation || {}).judgment ?? null,
+                verdict: (answered.listing.annotation || {}).verdict ?? null};
+    """)
+
+    assert found["judgment"] == "pass"
+    assert found["verdict"] == "roof is flat at the back and the lot backs onto the highway"
+
+
+def test_passing_without_a_reason_still_passes(served) -> None:
+    """feat-010/AC-54: wanted, never demanded. Clearing forty houses must not mean typing forty."""
+    found = opened(served, """
+        const listing = state.shown[0].listing_id;
+        document.querySelector("#body tr button.pass").click();
+        const dialog = await until(() => document.querySelector("dialog.ask"));
+        [...dialog.querySelectorAll("button")].find(b => b.textContent === "Pass on it").click();
+
+        await until(() => state.all.find(r => r.listing_id === listing).judgment === "pass");
+        await wait(400);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {judgment: (answered.listing.annotation || {}).judgment ?? null,
+                verdict: (answered.listing.annotation || {}).verdict ?? null};
+    """)
+
+    assert found["judgment"] == "pass", "an unexplained pass did not pass"
+    assert found["verdict"] is None, "an empty box wrote an empty reason over the verdict"
+
+
+def test_keeping_a_house_records_the_keep_before_asking_why(served) -> None:
+    """feat-010/AC-54, feat-010/AC-49: the shortlist stays cheap to build.
+
+    Keeping hides nothing and the same button undoes it, so there is nothing to confirm. The house
+    is on the list the moment the star is pressed, and the box that opens afterwards is an offer:
+    Escape leaves it kept and unexplained.
+    """
+    found = opened(served, """
+        const listing = state.shown[0].listing_id;
+        document.querySelector("#body tr button.keep").click();
+        await until(() => state.all.find(r => r.listing_id === listing).judgment === "keep");
+        const keptBeforeAnyTyping =
+          (await fetch(`/api/listings/${listing}`).then(r => r.json()))
+            .listing.annotation.judgment;
+
+        const panel = await until(() => document.querySelector(".writing"));
+        const asks = panel.textContent;
+        const box = panel.querySelector("textarea");
+        box.value = "metal roof, five acres, and the well is new";
+        [...panel.querySelectorAll("button")].find(b => b.textContent === "Save").click();
+
+        await until(() => state.all.find(r => r.listing_id === listing).values["Verdict"]);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {keptBeforeAnyTyping, asks,
+                judgment: (answered.listing.annotation || {}).judgment ?? null,
+                verdict: (answered.listing.annotation || {}).verdict ?? null,
+                stillShown: !!state.shown.find(r => r.listing_id === listing)};
+    """)
+
+    assert found["keptBeforeAnyTyping"] == "keep", (
+        "the keep waited on the reason, so a shortlist costs a sentence per house"
+    )
+    assert "Why keep it?" in found["asks"], "nothing asked why"
+    assert found["judgment"] == "keep"
+    assert found["verdict"] == "metal roof, five acres, and the well is new"
+    assert found["stillShown"], "keeping a house took it out of the table"
+
+
+def test_escaping_the_reason_leaves_the_house_kept(served) -> None:
+    """feat-010/AC-54: the reason is an offer, and an offer has to be refusable."""
+    found = opened(served, """
+        const listing = state.shown[0].listing_id;
+        document.querySelector("#body tr button.keep").click();
+        const panel = await until(() => document.querySelector(".writing"));
+        panel.querySelector("textarea").dispatchEvent(
+          new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+        await until(() => !document.querySelector(".writing"));
+        await wait(300);
+        const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
+        return {judgment: (answered.listing.annotation || {}).judgment ?? null,
+                verdict: (answered.listing.annotation || {}).verdict ?? null};
+    """)
+
+    assert found["judgment"] == "keep", "refusing to say why undid the keep"
+    assert found["verdict"] is None

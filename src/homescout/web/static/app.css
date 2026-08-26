@@ -695,6 +695,16 @@ dialog.ask {
 }
 dialog.ask::backdrop { background: rgba(20, 24, 33, 0.35); }
 dialog.ask h2 { margin: 0 0 var(--s2); font-size: 1.15rem; }
+dialog.ask textarea {
+  width: 100%;
+  font: inherit;
+  line-height: 1.45;
+  padding: var(--s2);
+  margin-top: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
 dialog.ask p { margin: 0 0 var(--s2); }
 dialog.ask .hint { color: var(--ink-soft); font-size: 0.9rem; }
 dialog.ask .actions {
