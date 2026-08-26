@@ -155,9 +155,20 @@ class Annotation:
     summary: str | None = None
     next_step: str | None = None
     notes: str | None = None
+    #: `keep`, `pass`, or nothing. The only annotation field that changes what a person is shown
+    #: rather than only what they have written down: a passed property drops out of the default
+    #: results view. Nothing means undecided, which is not the same as deciding to keep.
+    judgment: str | None = None
     updated_at: str | None = None
 
-    ANNOTATION_FIELDS = ("rank", "verdict", "red_flags", "summary", "next_step", "notes")
+    ANNOTATION_FIELDS = (
+        "rank", "verdict", "red_flags", "summary", "next_step", "notes", "judgment",
+    )
+
+    #: What a judgment may hold. Checked in the core rather than in a form control, so a value
+    #: arriving from a hand-edited file or an older client is refused in the one place every write
+    #: passes through.
+    JUDGMENTS = ("keep", "pass")
 
     def content(self) -> dict[str, Any]:
         """Everything the user wrote, without the bookkeeping. This is what must survive."""

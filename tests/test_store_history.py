@@ -424,3 +424,75 @@ def test_a_sources_days_on_market_changing_is_not_a_market_event(store: Store) -
 
     comparison = store.compare("test-search", target_run_id=second.id)
     assert kinds(comparison) == {"new": 0, "changed": 0, "unchanged": 1, "gone": 0, "returned": 0}
+
+
+def test_a_judgment_survives_every_later_run(store: Store) -> None:
+    """feat-010/AC-33: saying no to a house has to stick, or it is not worth saying.
+
+    The judgment is an annotation for exactly this reason. It could have been a column on the
+    listing, and then it would have needed its own answers for runs, merges and unmerges. Here it
+    inherits three that are already tested.
+    """
+    do_run(store, sources={"realtor": [prop("a1", price=400_000)]})
+    listing_id = store.listings()[0].id
+    store.set_annotation(listing_id, judgment="pass", verdict="backs onto the canyon")
+
+    do_run(store, sources={"realtor": [prop("a1", price=380_000)]})
+    do_run(store, sources={"realtor": []})
+    do_run(store, sources={"realtor": [prop("a1", price=350_000)]})
+
+    assert store.judgment_of(listing_id) == "pass"
+    assert store.get_annotation(listing_id).verdict == "backs onto the canyon", (
+        "the prose is untouched by the state, which is the whole reason they are separate fields"
+    )
+
+
+def test_a_price_cut_does_not_un_pass_a_house(store: Store) -> None:
+    """feat-010/AC-37: hiding is about attention, and the record is untouched.
+
+    A house you said no to does not become a house you said yes to because it got cheaper. It stays
+    passed, and the change is still recorded, so the digest still reports it and un-passing is one
+    action away.
+    """
+    do_run(store, sources={"realtor": [prop("a1", price=400_000)]})
+    listing_id = store.listings()[0].id
+    store.set_annotation(listing_id, judgment="pass")
+
+    run = do_run(store, sources={"realtor": [prop("a1", price=300_000)]})
+    comparison = store.compare("test-search", target_run_id=run.id)
+
+    assert store.judgment_of(listing_id) == "pass"
+    assert kinds(comparison)["changed"] == 1, "still compared, still reported"
+
+
+def test_a_merge_keeps_the_decision_rather_than_losing_it(store: Store) -> None:
+    """feat-010/AC-33: passed if either constituent was.
+
+    The alternative loses a decision on a technicality nobody would accept: the tool noticing that
+    two records were one house does not mean somebody changed their mind about the house.
+    """
+    do_run(
+        store,
+        sources={"realtor": [prop("a1", price=400_000)], "zillow": [prop("z1", price=400_000)]},
+    )
+    first, second = (record.id for record in store.listings()[:2])
+    store.set_annotation(first, judgment="pass")
+
+    merged_id = store.supersede([first, second], join_signal="same address")
+
+    assert store.judgment_of(merged_id) == "pass"
+
+
+def test_a_judgment_it_does_not_recognise_is_refused(store: Store) -> None:
+    """feat-010/AC-33: the closed set is checked in the core, not in a form control.
+
+    A value from a hand-edited database or an older client meets the same check as one from a
+    button, because there is only one way in.
+    """
+    do_run(store, sources={"realtor": [prop("a1")]})
+    listing_id = store.listings()[0].id
+
+    with pytest.raises(ValueError, match="not a judgment"):
+        store.set_annotation(listing_id, judgment="maybe")
+
+    assert store.judgment_of(listing_id) is None

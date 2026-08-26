@@ -153,3 +153,41 @@ alongside its peers.
       one that is not rows comes back as text.
 - [x] T43: `uv run ruff check .` and the full suite green, then `/spec-flow:converge` and the
       manifest stamp.
+- [x] T44: `store/migrations.py` and `store/schema.py`: the `annotations` table gains `judgment` at
+      schema version 8, nullable, holding `keep` or `pass` and nothing else. Migration only, no
+      backfill: every annotation that existed before this is undecided, and leaving it empty says so.
+- [x] T45: `store/models.py`: `judgment` joins `ANNOTATION_FIELDS` and the closed set lives beside
+      it as `JUDGMENTS`, so it is carried by `content()` and inherits the survival guarantees the
+      listing store already tests (AC-33).
+- [x] T46: `store/core.py`: a value that is not `keep`, `pass` or empty is refused, naming what is
+      accepted. `judgment_of` takes the union across everything merged into a listing, reading the
+      constituents' annotations rather than moving them, so `supersede` needed no change at all.
+- [x] T47: `api.py`: the core decides what is hidden and says so. `results` gained `include_passed`
+      mirroring `include_dropped`, every row carries its `judgment` and a `hidden_by_default` the
+      core computed, and the payload carries the count. `passed()` is the read the command line
+      needs, since it has no results table to hang a toggle on.
+- [x] T48: `web/static/results.js`: a `pass` / `passed` button in the row that both sets and clears
+      the judgment (AC-34); a "show properties you passed on" checkbox beside the existing one for
+      disappeared; rows honour the core's `hidden_by_default` rather than testing the judgment
+      themselves (AC-35); the count line reports the number hidden beside the disappeared one
+      (AC-36). Every row is still sent once, so the toggle costs no request.
+- [x] T49: `cli/main.py`: `annotate --judgment keep|pass|none`, where `none` is how a person says
+      undecided where there is no way to type an absence, and a `passed` command that lists what has
+      been passed on with the verdict beside it (AC-39).
+- [x] T50: `tests/test_store_history.py`, beside the annotation survival tests it belongs with
+      rather than a new file: a judgment survives three later runs and a disappearance
+      (`feat-010/AC-33`), a merge keeps it through `supersede`, and an unrecognised value is refused.
+- [x] T51: `tests/test_web_endpoints.py`: a passed property is marked hidden by the core and not by
+      the page, the count comes from the core, every row is still sent either way
+      (`feat-010/AC-35`, `feat-010/AC-36`), and the same control clears it (`feat-010/AC-34`).
+- [x] T52: `tests/test_rules_namespace.py`: a criterion naming `judgment` is refused as a field that
+      does not exist, so the separation between the tool's tests and the person's conclusions is
+      pinned (`feat-010/AC-38`).
+- [x] T53: `tests/test_web_endpoints.py`: both surfaces answer the same question the same way
+      (`feat-010/AC-39`), which is the assertion that catches the predicate drifting back into a
+      surface. `tests/test_web_parity.py` gained the route entry, which is what failed first and
+      made the point unprompted.
+- [x] T54: `tests/test_store_history.py`: a price cut does not un-pass a house, and the change is
+      still compared and still reported (`feat-010/AC-37`) — hiding changed the view and nothing else.
+- [x] T55: `uv run ruff check .` clean and 1,193 tests green, then `/spec-flow:converge` and the
+      manifest stamp.

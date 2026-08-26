@@ -20,6 +20,7 @@ from typing import Any
 from ..store import Store
 from . import settings
 from .provider import ProviderFailed, ask_json
+from .states import STATES as _STATE_NAMES
 
 #: TIGERweb's layer numbers for the shapes a saved search can name. Two for a city, because a place
 #: that is not incorporated is a census designated place and lives in a different layer.
@@ -43,6 +44,19 @@ FIPS: dict[str, str] = {
 }
 
 STATES = {code: postal for postal, code in FIPS.items()}
+
+#: The same states by their written-out names, because a saved search may name one either way and
+#: the rest of this product already treats the two as the same state (`search/areas.py` normalises
+#: `New Mexico` and `NM` to one code before comparing them).
+#:
+#: Without this, a state written in full resolved to no boundary at all, and the failure was close
+#: to invisible: the source that takes a state by name still worked, the two that need a bounding
+#: box reported only that they had no way to express the area, and the empty answer was cached, so
+#: it outlived the bug. Read from the table that already holds all three federal spellings rather
+#: than typed out a second time here.
+BY_NAME: dict[str, str] = {
+    name.upper(): fips for fips, name in _STATE_NAMES.values()
+}
 
 #: A boundary that has been fetched is kept under this provider name, in the same table as every
 #: other cached value.
@@ -169,7 +183,7 @@ class CensusBoundaries:
         if kind == "zip":
             return f"GEOID='{_quote(place)}'"
         if kind == "state":
-            found = FIPS.get(place.upper()) or code
+            found = FIPS.get(place.upper()) or BY_NAME.get(place.upper()) or code
             return f"STATE='{_quote(found or place)}'"
         clause = f"BASENAME='{_quote(place)}'"
         return f"{clause} AND STATE='{_quote(code)}'" if code else clause

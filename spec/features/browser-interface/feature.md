@@ -18,10 +18,10 @@ readiness:
   tasks:    ready
 gate:
   analyze: pass
-  product_global_hash: "sha256:869c75445341"
-  constitution_hash: "sha256:7ed19648690b"
+  product_global_hash: "sha256:d720d6d2ec75"
+  constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-24
+  last_run: 2026-08-25
   open: 4
   contradicts: 0
 human_signoff: []

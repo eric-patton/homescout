@@ -338,8 +338,26 @@ def build(workspace: api.Workspace) -> FastAPI:
     # -- results -----------------------------------------------------------
 
     @app.get("/api/results/{name}")
-    def results(name: str, include_dropped: bool = False) -> dict[str, Any]:
-        return answer("results", **api.results(held(), name, include_dropped=include_dropped))
+    def results(
+        name: str, include_dropped: bool = False, include_passed: bool = False
+    ) -> dict[str, Any]:
+        return answer(
+            "results",
+            **api.results(
+                held(), name, include_dropped=include_dropped, include_passed=include_passed
+            ),
+        )
+
+    @app.get("/api/passed")
+    def passed() -> dict[str, Any]:
+        """What the person has passed on, which the results table keeps out of the way.
+
+        The table reaches the same properties through its own toggle, and this is here so the
+        capability is addressable rather than only visible: non-negotiable 8 says anything one
+        surface can do the other can do, and "list what I said no to" is one of those things.
+        """
+        rows, count = api.passed(held())
+        return answer("passed", passed=list(rows), count=count)
 
     @app.get("/api/changes/{name}")
     def changes(name: str, since: str | None = None) -> dict[str, Any]:
@@ -369,7 +387,9 @@ def build(workspace: api.Workspace) -> FastAPI:
         body = await _body(request)
         values = {
             name: body[name]
-            for name in ("rank", "verdict", "red_flags", "summary", "next_step", "notes")
+            for name in (
+                "rank", "verdict", "red_flags", "summary", "next_step", "notes", "judgment",
+            )
             if name in body
         }
         if not values:

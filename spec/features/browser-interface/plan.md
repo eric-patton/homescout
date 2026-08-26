@@ -221,3 +221,47 @@ product.
 - **The vendored files are verified against their manifest**, byte for byte.
 - **An annotation written here appears in the spreadsheet export's second sheet**, which is AC-19's
   claim about two features agreeing and is the only place it can be checked.
+
+## Design decisions — passing a house (`changes/pass-a-house/`)
+
+- **The judgment is an annotation, not a new kind of state.** It could have been a column on the
+  listing, and that would have been a second kind of user-written data with its own answers for what
+  happens across a merge, an unmerge and a re-export. The annotation already has all three answers
+  and they are tested (listing store AC-15 to AC-17). One migration on `annotations`, one entry in
+  `ANNOTATION_FIELDS`, and the permanence comes free.
+
+- **Three states, and the third is the absence of the other two.** `keep`, `pass`, and nothing.
+  Nothing means nobody has decided, which is not the same as deciding to keep: the first is most of
+  a fresh run and the second is a house somebody looked at. Storing undecided as a value rather than
+  as an absence would mean writing an annotation to every property a run ever saw, which breaks "an
+  annotation is written only by a person".
+
+- **Hiding is the existing pattern, used twice.** The table already hides disappeared listings
+  behind a checkbox and reports the number hidden. This is that, with a second predicate. The count
+  line is not decoration: a table quietly shorter than the run that filled it is how somebody
+  concludes a market has nothing in it.
+
+- **The same control passes and un-passes.** Setting the judgment to the value it already holds
+  clears it. One control, no separate undo, and no way to end up looking at a menu to find how to
+  reverse something you did by accident.
+
+- **A criterion still cannot name it.** Rejected deliberately, and recorded here because it is the
+  kind of decision that gets quietly reversed later by somebody adding one convenient field to the
+  namespace. A criterion is the tool's test over what it observed; an annotation is the person's
+  conclusion. Feeding the second into the first makes a search that agrees with you because you told
+  it to.
+
+- **Merge takes the union.** If either constituent was passed, the merged record is passed. The
+  alternative loses a decision on a technicality nobody would accept: the tool noticing that two
+  records were one house does not mean you changed your mind about the house.
+
+- **The core decides what is hidden; the surfaces only render it.** Held by the pre-build check as a
+  blocking finding against non-negotiable 8, and worth recording because the first draft got it
+  wrong in an ordinary way: the filter went in the browser, and the command line was given its own
+  task to do the same thing. Two implementations of one decision, in two languages.
+
+  So `results` marks each row with what the core decided, and both surfaces honour the mark. The
+  browser still receives every row and toggles locally, so the checkbox stays instant, but "passed
+  means hidden unless asked" is written once. The existing "show gone" toggle is the counter-example
+  that made this easy to get wrong: it filters in the browser, and has never had a second surface to
+  disagree with it.

@@ -880,6 +880,7 @@ class Store:
             summary=row["summary"],
             next_step=row["next_step"],
             notes=row["notes"],
+            judgment=row["judgment"],
             updated_at=row["updated_at"],
         )
 
@@ -888,6 +889,12 @@ class Store:
 
         Last write wins, with a timestamp. Fields not named are left alone.
         """
+        judgment = values.get("judgment")
+        if judgment is not None and judgment not in Annotation.JUDGMENTS:
+            raise ValueError(
+                f"{judgment!r} is not a judgment. Use one of: "
+                f"{', '.join(Annotation.JUDGMENTS)}, or nothing at all for undecided."
+            )
         unknown = set(values) - set(Annotation.ANNOTATION_FIELDS)
         if unknown:
             raise ValueError(
@@ -902,14 +909,15 @@ class Store:
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             conn.execute(
                 "INSERT INTO annotations "
-                "(listing_id, rank, verdict, red_flags, summary, next_step, notes, updated_at) "
+                "(listing_id, rank, verdict, red_flags, summary, next_step, notes, judgment, "
+                "updated_at) "
                 "VALUES (:listing_id, :rank, :verdict, :red_flags, :summary, :next_step, "
-                ":notes, :updated_at) "
+                ":notes, :judgment, :updated_at) "
                 "ON CONFLICT (listing_id) DO UPDATE SET "
                 "rank = excluded.rank, verdict = excluded.verdict, "
                 "red_flags = excluded.red_flags, summary = excluded.summary, "
                 "next_step = excluded.next_step, notes = excluded.notes, "
-                "updated_at = excluded.updated_at",
+                "judgment = excluded.judgment, updated_at = excluded.updated_at",
                 {"listing_id": listing_id, "updated_at": now, **merged},
             )
         annotation = self.get_annotation(listing_id)
@@ -930,6 +938,18 @@ class Store:
         ]
         found = [self.get_annotation(i) for i in ids]
         return [a for a in found if a is not None]
+
+    def judgment_of(self, listing_id: str) -> str | None:
+        """This property's judgment, across everything merged into it. `pass` wins.
+
+        A merge is the tool noticing that two records were one house all along, which is not a
+        reason to undo a decision somebody made about the house. So if either constituent was
+        passed, the merged record is passed, and un-passing it stays one action away.
+        """
+        held = {a.judgment for a in self.annotations_for(listing_id)}
+        if "pass" in held:
+            return "pass"
+        return "keep" if "keep" in held else None
 
     def set_area_note(self, area_type: str, area_value: str, notes: str | None) -> AreaNote:
         """An observation about a place rather than about a property. Never touched by a run."""

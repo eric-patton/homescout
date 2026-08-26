@@ -390,3 +390,53 @@ implemented: AC-1 through AC-32
   simplifies away later.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 6 — 2026-08-25
+
+baseline: spec sha256:ba7cab479535 · plan sha256:b109749920eb · tasks sha256:a33f7dace743
+
+Scope: the change `changes/pass-a-house/`, folded into `spec.md` as AC-33 to AC-39 with AC-7
+modified, plus a re-check of the four gaps this ledger already holds open.
+
+implemented: AC-33, AC-34, AC-35, AC-36, AC-37, AC-38, AC-39, and AC-7 as modified
+
+- AC-33 `store/schema.py` `SCHEMA_V8` and `store/models.py`: `judgment` is an annotation field with
+  its closed set beside it. Survival is inherited rather than reimplemented, which is the point of
+  putting it there: `tests/test_store_history.py` asserts it across three later runs and a
+  disappearance, and across a merge.
+- AC-34 `web/static/results.js` `passToggle`: one button, `aria-pressed`, which sets `pass` when
+  unset and clears it when already passed.
+- AC-35, AC-36 `api.py` `results`: the core marks each row and counts what is hidden;
+  `results.js` honours the mark and reports the count beside the disappeared one.
+- AC-37 `tests/test_store_history.py`: a price cut on a passed house leaves it passed and still
+  reports the change.
+- AC-38 `rules/namespace.py` is unchanged by this feature, and
+  `tests/test_rules_namespace.py` pins that a criterion naming `judgment` is refused.
+- AC-39 `api.py` `passed`, `cli/main.py` `passed` and `--judgment`, `web/app.py` `/api/passed`, and
+  `tests/test_web_endpoints.py` asserting both surfaces answer the same question the same way.
+
+- confirmed gap-004 [unrequested] `HOMESCOUT_ALLOWED_HOSTS`, unchanged by this run.
+- confirmed gap-005 [unrequested] the three changes to how a saved search file is written,
+  unchanged by this run.
+- confirmed gap-006 [unrequested] deletion and the two things it refuses to delete, unchanged by
+  this run.
+- confirmed gap-007 [unrequested] `rules/phrase.py` reading an expression back into rows, unchanged
+  by this run.
+
+No new gap. Two things worth recording anyway, neither of them drift:
+
+**The pre-build check earned its place on this change.** The first draft put the hiding rule in
+`results.js` and gave the command line its own task to do the same thing, which is non-negotiable 8
+broken in the ordinary way: two implementations of one decision, in two languages, free to drift.
+The gate stamped `blocking-hard`, the tasks were rewritten so the core decides and both surfaces
+read the answer, and `tests/test_web_endpoints.py` now asserts the two agree. Recorded here because
+the finding is invisible in the final artifacts, which is exactly the kind of thing this ledger is
+for.
+
+**The parity test found the same class of problem unprompted.** Adding a `passed` command failed
+`test_web_parity.py` until a route reached the same core operation, and failed
+`test_cli_operations.py` until the new operation was named in the facade list. Neither failure was
+anticipated when the tasks were written. A capability added to one surface cannot quietly miss the
+other, and that is machinery rather than discipline.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

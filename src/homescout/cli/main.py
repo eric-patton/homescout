@@ -163,6 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
     annotate.add_argument("listing_id")
     for option in ("rank", "verdict", "red-flags", "summary", "next-step", "notes"):
         annotate.add_argument(f"--{option}", default=None)
+    annotate.add_argument(
+        "--judgment",
+        choices=("keep", "pass", "none"),
+        default=None,
+        help="keep it, pass on it (hidden from results), or none to go back to undecided",
+    )
 
     matches = commands.add_parser(
         "matches", parents=[common], help="review property matches that need a human"
@@ -213,6 +219,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser(
         "overview", parents=[common], help="the few numbers worth seeing before anything else"
+    )
+
+    commands.add_parser(
+        "passed", parents=[common], help="the properties you have passed on, which results hide"
     )
 
     wires = commands.add_parser(
@@ -562,8 +572,13 @@ def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
         for name in ("rank", "verdict", "red_flags", "summary", "next_step", "notes")
         if getattr(args, name) is not None
     }
+    if getattr(args, "judgment", None) is not None:
+        # `none` is how a person says "undecided again" on a command line, where there is no way to
+        # type an absence. It is turned into one here rather than stored as a word, because the
+        # store holds two values and nothing, and "none" is not one of them.
+        values["judgment"] = None if args.judgment == "none" else args.judgment
     if not values:
-        raise InvalidInput("Give at least one thing to record, such as --verdict or --notes.")
+        raise InvalidInput("Give at least one thing to record, such as --verdict or --judgment.")
     if "rank" in values:
         try:
             values["rank"] = int(values["rank"])
@@ -626,6 +641,12 @@ def _dispatch(
     if args.command == "overview":
         found = api.overview(workspace)
         return Answer(digest.envelope("overview", **found), render.overview(found))
+    if args.command == "passed":
+        rows, count = api.passed(workspace)
+        return Answer(
+            digest.envelope("passed", passed=list(rows), count=count),
+            render.passed(rows),
+        )
     if args.command == "broadband":
         return _broadband(workspace, args, note)
     if args.command == "notes":

@@ -13,6 +13,11 @@ in five years. The problem brief is in `research.md`.
   results table, the listing detail, the run comparison, and the merge review queue.
 - An **inline edit** is a change to an annotation made directly in a results table row, without
   navigating away from it.
+- A **judgment** is the person's own decision about whether a property is still worth their
+  attention: `keep`, `pass`, or nothing at all. Nothing is the starting state and means undecided,
+  which is a different thing from `keep`: one is a house nobody has looked at, the other is a house
+  somebody looked at and kept. A property whose judgment is `pass` is **passed**, and a passed
+  property is hidden from the default results view and from nowhere else.
 
 ## User stories
 
@@ -38,6 +43,14 @@ in five years. The problem brief is in `research.md`.
   that its uncertainty becomes my decision rather than a silent error.
 - As the person running searches, I want a search edited here to be the same file I can edit by
   hand, so that the two ways of working never fight.
+
+- As the person running searches, I want to say no to a property once and stop seeing it, so that
+  the houses I have already ruled out do not cost me the same attention every night as the ones I
+  have not seen.
+- As the person running searches, I want to see what I passed on when I ask, so that a decision I
+  made in a hurry is one I can go back and check rather than one that has vanished.
+- As the person running searches, I want saying no to be one click rather than a sentence I have to
+  type, so that clearing a table of forty houses is a thing I actually do.
 
 ## Behavior & scenarios
 
@@ -146,8 +159,10 @@ in five years. The problem brief is in `research.md`.
       test asserts the value survives a run that also changes the property's price.
 - [ ] AC-6: A failed save is surfaced on the affected row, retains the user's typed value, and never
       presents an unsaved edit as saved.
-- [ ] AC-7: The results table shows every available column, and supports sorting and filtering
-      without a round trip to the server for each interaction.
+- [ ] AC-7: The results table shows every available column, minus the properties the person has
+      passed on, and supports sorting and filtering without a round trip to the server for each
+      interaction. Passed properties are shown when asked for; the control for that sits with the
+      one for properties that disappeared, because they are the same pattern.
 - [ ] AC-8: Criteria that fired are shown as badges naming the criterion, and the default ordering
       reflects boost and demote criteria until an explicit sort is chosen.
 - [ ] AC-9: The listing detail shows photographs, the full description, enriched values, a link per
@@ -226,8 +241,42 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-32: The interface offers a set of ready-made criteria that are one click to add and
       ordinary to edit or remove afterwards, so that the first criterion somebody has is not one
       they had to invent.
+- [ ] AC-33: A property carries a judgment of `keep`, `pass`, or unset. It is an annotation: written
+      only by a person, never by a run, and surviving every subsequent run, merge, unmerge and
+      re-export, which is the listing store's AC-15, AC-16 and AC-17 applying to it unchanged.
+- [ ] AC-34: The results table sets a property's judgment in one action from the row, without
+      opening the property and without typing. Setting it again to the same value clears it back to
+      unset, so the control that passes a house is the control that un-passes it.
+- [ ] AC-35: A passed property is absent from the results table by default, and present when "show
+      passed" is asked for. A test covers both.
+- [ ] AC-36: When passed properties are hidden, their number is reported, in the same place and the
+      same form as the count of disappeared listings already hidden. A table that is quietly shorter
+      than the run that produced it is not acceptable; the difference has to be visible without
+      being asked for.
+- [ ] AC-37: Passing a property changes what is displayed and nothing else. It is still observed by
+      every run, still snapshotted, still compared, still counted in a run's totals, and still
+      reported as new, changed, gone or returned in the digest. A test asserts a passed property
+      still appears in a run's comparison.
+- [ ] AC-38: A criterion cannot name a judgment. The rule engine's declared namespace gains nothing
+      from this change, so a person's conclusion can never become an input to the tool's own tests.
+- [ ] AC-39: The judgment is settable and readable from the command line as well as the browser, and
+      the command line can list what has been passed, satisfying product invariant 5. Whether a
+      property is hidden by default is decided in the core and read by both surfaces, so neither
+      holds its own copy of that rule.
 
 ## Edge cases & errors
+
+- A property is passed and then a later run observes a price cut on it. It stays passed and stays
+  hidden, and the change is still recorded and still reported in the digest. Hiding is about
+  attention, not about the record, and a house somebody said no to does not become one they said
+  yes to because it got cheaper. Un-passing it is one action away.
+- A passed property is merged with an unpassed one. The merged record is passed if either
+  constituent was, on the grounds that a decision to stop looking at a house should not be undone by
+  the tool noticing that two records were the same house all along.
+- Every property in a search is passed. The table is empty and says so, naming the number hidden and
+  how to see them, rather than reading as a search that found nothing.
+- An unknown judgment value arrives from a hand-edited database or an older client. Rejected on
+  write with the accepted values named, in the same way an unknown severity in a criterion is.
 
 - A filter is cleared. It is removed from the file rather than left as an empty key, and a field
   left untouched is not written at all. A page that saved on every blur wrote a file nobody had

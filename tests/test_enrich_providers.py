@@ -308,3 +308,38 @@ def test_the_interface_provider_declares_what_it_covers() -> None:
     assert all(not hasattr(p, "coverage") for p in national), (
         "covering the country is the default and is declared by saying nothing"
     )
+
+
+def test_a_state_resolves_written_out_as_well_as_abbreviated(tmp_path) -> None:
+    """feat-007/AC-11: boundary resolution answers for a state named either way.
+
+    A saved search may write `New Mexico` or `NM`, and everything else in this product already
+    treats the two as one state: `search/areas.py` normalises both to a code before comparing them.
+    The Census speaks a third language, FIPS, and the lookup only knew how to translate from the
+    abbreviation. A state written out found no boundary at all.
+
+    The failure was close to invisible, which is why this test asserts the query rather than the
+    result. The one source that takes a state by name kept working; the two that need a bounding box
+    could only report that they had no way to express the area; and the empty answer was cached, so
+    it outlived the bug. A whole-state search quietly ran at a third of its coverage, and a run
+    missing two of three sources can never conclude that a house is gone.
+    """
+    from homescout.enrich.boundaries import CensusBoundaries
+    from homescout.store import Store
+
+    shape = {"features": [{"geometry": {"type": "Polygon", "coordinates": [[[0, 0]]]}}]}
+    for value in ("New Mexico", "NM", "new mexico"):
+        transport = CountingTransport({"tigerweb": shape})
+        provider = CensusBoundaries(
+            Store.open(tmp_path / f"{value.replace(' ', '_')}.db"),
+            session(transport),
+            fetch=True,
+        )
+
+        assert provider.boundary("state", value) is not None, value
+        # 35 is New Mexico's FIPS code. Asserting the query, not the answer, because a wrong
+        # translation here returns no rows rather than the wrong rows.
+        asked = transport.requests
+        assert any("STATE%3D%2735%27" in url or "STATE='35'" in url for url in asked), (
+            f"{value!r} did not ask the Census about state 35: {asked}"
+        )

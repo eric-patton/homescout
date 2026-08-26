@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -533,3 +533,12 @@ def append_only_triggers(tables: Sequence[str] = APPEND_ONLY_TABLES) -> str:
             f"END;"
         )
     return "\n\n".join(statements)
+
+# Version 8. The person's own yes or no about a property, and the only annotation field that changes
+# what they are shown rather than only what they have written down. Nullable with no backfill: every
+# annotation that existed before this is undecided, and saying so by leaving it empty is the honest
+# record. No trigger, because an annotation is the one thing in this store a person is meant to be
+# able to change their mind about.
+SCHEMA_V8 = """
+ALTER TABLE annotations ADD COLUMN judgment TEXT;
+"""

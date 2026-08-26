@@ -21,6 +21,7 @@ from .schema import (
     SCHEMA_V5,
     SCHEMA_V6,
     SCHEMA_V7,
+    SCHEMA_V8,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -38,6 +39,9 @@ MIGRATIONS: tuple[str, ...] = (
     SCHEMA_V6,
     # Nor here, for the same reason. See the note above `SCHEMA_V7`.
     SCHEMA_V7,
+    # One nullable column on an existing table. No trigger: annotations are the one thing here a
+    # person is meant to be able to revise.
+    SCHEMA_V8,
 )
 
 

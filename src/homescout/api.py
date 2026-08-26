@@ -594,6 +594,33 @@ def annotate(workspace: Workspace, listing_id: str, **values: object) -> Annotat
         raise InvalidInput(str(exc)) from exc
 
 
+def passed(workspace: Workspace) -> tuple[dict[str, object], object]:
+    """Every property the person has passed on, and how many there are.
+
+    The command line has no results table to put a "show passed" toggle on, and a capability that
+    exists on one surface only is product invariant 5 broken. So this is the command line's way of
+    asking the same question: what have I said no to, and can I still see it.
+    """
+    with _translating():
+        found = []
+        for record in workspace.store.listings():
+            if workspace.store.judgment_of(record.id) != "pass":
+                continue
+            snapshot = workspace.store.latest_snapshots().get(record.id)
+            fields = snapshot.fields if snapshot is not None else None
+            annotation = workspace.store.get_annotation(record.id)
+            found.append(
+                {
+                    "listing_id": record.id,
+                    "address": getattr(fields, "address_line", None),
+                    "city": getattr(fields, "city", None),
+                    "price": getattr(fields, "price", None),
+                    "verdict": getattr(annotation, "verdict", None),
+                }
+            )
+    return tuple(found), len(found)
+
+
 # -- ambiguous matches -----------------------------------------------------
 
 
@@ -798,6 +825,7 @@ def results(
     *,
     run_id: str | None = None,
     include_dropped: bool = False,
+    include_passed: bool = False,
 ) -> dict[str, Any]:
     """One run's properties as rows, with the columns they are rows of.
 
@@ -805,6 +833,13 @@ def results(
     screen and the sheet in a file cannot disagree about what a column is called or where its value
     comes from. Served in one answer, because sending five thousand rows once and sorting them in
     the browser is what makes an interaction after that cost nothing.
+
+    **What is hidden by default is decided here and nowhere else.** A property the person has passed
+    on is marked rather than dropped, so the browser can still send every row once and toggle
+    without a request, and the command line can ask the same question and get the same answer. The
+    rule lives in one place because non-negotiable 8 says both surfaces are thin wrappers over one
+    library, and two copies of "passed means hidden" in two languages is exactly how they come to
+    disagree.
     """
     from .export import cols, latest_run, rows_of
 
@@ -819,11 +854,24 @@ def results(
         {"name": column.name, "kind": column.kind, "origin": column.origin, "links": column.links}
         for column in cols.COLUMNS
     ]
+    documents = []
+    passed = 0
+    for row in rows:
+        judgment = workspace.store.judgment_of(row.listing_id)
+        if judgment == "pass":
+            passed += 1
+        document = _row_document(row, cols.COLUMNS)
+        document["judgment"] = judgment
+        document["hidden_by_default"] = judgment == "pass" and not include_passed
+        documents.append(document)
+
     return {
         "search": name,
         "run_id": wanted,
         "columns": columns,
-        "rows": [_row_document(row, cols.COLUMNS) for row in rows],
+        "rows": documents,
+        "passed": passed,
+        "include_passed": include_passed,
     }
 
 

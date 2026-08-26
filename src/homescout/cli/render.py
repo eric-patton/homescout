@@ -434,3 +434,21 @@ def deleted(gone: dict[str, Any]) -> str:
     lines.append(f"The definition is kept at {gone['kept_at']}, so it can be brought back:")
     lines.append(f"  homescout searches restore {gone['name']}")
     return "\n".join(lines)
+
+
+def passed(rows: Sequence[Any]) -> str:
+    """What the person has said no to, which the results view keeps out of their way.
+
+    Said plainly rather than as a table: this is a list somebody reads to check a decision, not one
+    they work from.
+    """
+    if not rows:
+        return "You have not passed on anything yet."
+    lines = [f"{len(rows)} passed on, and hidden from results:"]
+    for row in rows:
+        where = ", ".join(part for part in (row.get("address"), row.get("city")) if part)
+        cost = money(row.get("price"))
+        because = f"  {row['verdict']}" if row.get("verdict") else ""
+        lines.append(f"  {where or row['listing_id']}  {cost}{because}")
+    lines.append("Un-pass one with: homescout annotate <id> --judgment none")
+    return "\n".join(lines)

@@ -38,6 +38,7 @@ const state = {
   descending: false,
   query: "",
   showGone: false,
+  showPassed: false,
   focus: {row: 0, column: 0},
 };
 
@@ -77,6 +78,12 @@ function draw() {
     onchange: (event) => { state.showGone = event.target.checked; apply(); },
   });
 
+  const kept = el("input", {
+    type: "checkbox",
+    id: "showpassed",
+    onchange: (event) => { state.showPassed = event.target.checked; apply(); },
+  });
+
   shell(
     `${state.search} results`,
     el("h1", {}, `${state.search}`),
@@ -87,6 +94,7 @@ function draw() {
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),
+      el("label", {for: "showpassed"}, kept, " show properties you passed on"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
     ),
@@ -139,6 +147,9 @@ function apply() {
   let kept = state.all;
 
   if (!state.showGone) kept = kept.filter((row) => row.presence !== "disappeared");
+  /* `hidden_by_default` is the core's answer, not this page's opinion. The rule about what passing
+   * means lives in one place so that this table and the command line cannot come to disagree. */
+  if (!state.showPassed) kept = kept.filter((row) => !row.hidden_by_default);
   if (query) {
     kept = kept.filter((row) =>
       Object.values(row.values).some(
@@ -171,8 +182,10 @@ function compare(a, b) {
 
 function counts(took) {
   const hidden = state.all.filter((row) => row.presence === "disappeared").length;
+  const passed = state.all.filter((row) => row.judgment === "pass").length;
   const parts = [`${state.shown.length} of ${state.all.length} properties`];
   if (!state.showGone && hidden) parts.push(`${hidden} disappeared and hidden`);
+  if (!state.showPassed && passed) parts.push(`${passed} passed and hidden`);
   parts.push(`${took.toFixed(0)}ms`);
   document.getElementById("counts").replaceChildren(document.createTextNode(parts.join(" · ")));
 }
@@ -201,7 +214,8 @@ function window_() {
 function rowFor(row, index) {
   const tr = el("tr", {
     dataset: {listing: row.listing_id, index: String(index)},
-    class: row.presence === "disappeared" ? "gone" : null,
+    class: [row.presence === "disappeared" ? "gone" : null,
+            row.judgment === "pass" ? "passed" : null].filter(Boolean).join(" ") || null,
   });
   state.columns.forEach((column, column_) => tr.append(cellFor(row, column, index, column_)));
   return tr;
@@ -226,6 +240,7 @@ function cellFor(row, column, index, column_) {
   if (column.name === "Property") {
     cell.append(link(`/listing/${encodeURIComponent(row.listing_id)}`, held || "not known"));
     for (const flag of row.flags) cell.append(badge(flag, "flag"));
+    cell.append(passToggle(row));
   } else if (column.name === "Listing URL" && held) {
     cell.append(link(held, "open listing"));
   } else if (column.kind === "number" && column.name === "Price") {
@@ -347,5 +362,49 @@ async function save(cell, row, column, field, typed) {
     });
     cell.replaceChildren(retry, el("span", {class: "rowstate problem"}, ` not saved: ${error.message}`));
     fail(`That edit was not saved: ${error.message}`);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Saying no to a house, and taking it back                            */
+/* ------------------------------------------------------------------ */
+
+/* One control, which both passes and un-passes. There is no separate undo and no menu to go
+ * looking through: the button that hid a property is the button that brings it back, and it says
+ * which of those it will do. */
+function passToggle(row) {
+  const already = row.judgment === "pass";
+  const button = el("button", {
+    type: "button",
+    class: already ? "pass on" : "pass",
+    "aria-pressed": already ? "true" : "false",
+    title: already
+      ? "You passed on this one. Press to undo that."
+      : "Pass on this property and stop seeing it in this table.",
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setJudgment(row, already ? null : "pass", button);
+    },
+  }, already ? "passed" : "pass");
+  return button;
+}
+
+async function setJudgment(row, wanted, button) {
+  const was = row.judgment;
+  button.disabled = true;
+  try {
+    const answered = await send(
+      `/api/listings/${encodeURIComponent(row.listing_id)}/annotation`,
+      {judgment: wanted});
+    /* What the store now holds, not what was asked for. */
+    row.judgment = answered.judgment ?? null;
+    row.hidden_by_default = row.judgment === "pass" && !state.showPassed;
+    apply();
+  } catch (error) {
+    row.judgment = was;
+    button.disabled = false;
+    button.className = "pass unsaved";
+    button.title = `Not saved: ${error.message}. Press to try again.`;
   }
 }

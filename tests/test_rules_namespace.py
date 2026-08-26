@@ -160,3 +160,19 @@ def test_the_interface_field_offers_its_values_including_the_one_that_is_not_a_k
     ]
     means = offered[0]["means"]
     assert "New Mexico only" in means, "the coverage is said where a criterion is built"
+
+
+def test_a_criterion_cannot_name_the_person_s_own_judgment() -> None:
+    """feat-010/AC-38: the tool's tests and the person's conclusions stay separate.
+
+    A judgment is an annotation: what somebody decided about a house. A criterion is a test the tool
+    runs over what it observed. Letting a rule read the first would make a search that agrees with
+    you because you told it to, and it would do so quietly, which is worse.
+
+    Pinned here rather than left to the namespace table, because this is the kind of separation that
+    gets reversed by somebody adding one convenient field.
+    """
+    for expression in ("judgment == 'pass'", "judgment is null"):
+        found = complaints(expression)
+        assert [c.severity for c in found] == ["problem"], expression
+        assert "no field called 'judgment'" in found[0].message

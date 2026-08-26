@@ -139,3 +139,20 @@ alongside its peers.
       country declare nothing and read exactly as they do now.
 - [x] T44: `uv run ruff check .` and the full suite, default and slow, green.
 - [x] T45: `/spec-flow:converge`, then the manifest stamp.
+- [x] T46: A defect found in use, not by inspection: a state named in full resolved to no boundary
+      at all. The Census speaks FIPS and the lookup only translated from the postal abbreviation, so
+      `New Mexico` produced `STATE='New Mexico'` and matched nothing, while `NM` worked. Everything
+      else in this product already treats the two spellings as one state.
+
+      What made it expensive is how quietly it failed. The one source that takes a state by name
+      kept working, so results looked normal; the two that need a bounding box could only report
+      that they had no way to express the area; and because a lookup that finds nothing is cached
+      deliberately, the empty answer outlived the bug. A statewide search ran at a third of its
+      coverage for two runs, and a run missing two of three sources can never conclude a house is
+      gone, so the freshness this product exists for was silently off as well.
+
+      Fixed in `enrich/boundaries.py` with `BY_NAME`, read from the table in `enrich/states.py` that
+      already holds all three federal spellings rather than typed out again. Pinned by
+      `tests/test_enrich_providers.py::test_a_state_resolves_written_out_as_well_as_abbreviated`
+      citing `feat-007/AC-11`, which asserts the query rather than the answer, because a wrong
+      translation here returns no rows rather than wrong ones.

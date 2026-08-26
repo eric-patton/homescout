@@ -362,3 +362,84 @@ def test_a_shape_that_would_not_validate_is_refused_and_nothing_is_written(
             )
         assert response.status_code == 400
         assert (directory / "north.yaml").read_text(encoding="utf-8") == before
+
+
+def test_a_passed_property_is_marked_hidden_by_the_core_not_by_the_page(opened) -> None:
+    """feat-010/AC-35, feat-010/AC-36: the rule lives in one place.
+
+    The page filters rows it already holds, which is what keeps the toggle instant, but it filters
+    on an answer the core gave rather than on a predicate of its own. The pre-build check held this
+    change until that was true: the command line was about to grow its own copy of "passed means
+    hidden", in another language, free to drift.
+    """
+    browser, held = opened
+    rows = browser.get("/api/results/portales", headers=reading()).json()["rows"]
+    first = rows[0]["listing_id"]
+
+    browser.post(
+        f"/api/listings/{first}/annotation", json={"judgment": "pass"}, headers=ours()
+    )
+
+    default = browser.get("/api/results/portales", headers=reading()).json()
+    marked = {row["listing_id"]: row for row in default["rows"]}
+    assert marked[first]["judgment"] == "pass"
+    assert marked[first]["hidden_by_default"] is True
+    assert default["passed"] == 1, "the count comes from the core, not from counting rows"
+    assert all(
+        not row["hidden_by_default"] for row in default["rows"] if row["listing_id"] != first
+    )
+
+    asked = browser.get(
+        "/api/results/portales", params={"include_passed": True}, headers=reading()
+    ).json()
+    shown = {row["listing_id"]: row for row in asked["rows"]}
+    assert shown[first]["judgment"] == "pass", "still passed"
+    assert shown[first]["hidden_by_default"] is False, "no longer hidden, because it was asked for"
+
+    # Every row is still sent either way. That is what lets the checkbox cost nothing.
+    assert len(asked["rows"]) == len(default["rows"])
+
+
+def test_the_control_that_passes_a_house_is_the_one_that_brings_it_back(opened) -> None:
+    """feat-010/AC-34: one control, no separate undo, nothing to go looking for."""
+    browser, held = opened
+    first = browser.get("/api/results/portales", headers=reading()).json()["rows"][0]["listing_id"]
+
+    browser.post(f"/api/listings/{first}/annotation", json={"judgment": "pass"}, headers=ours())
+    assert held.store.judgment_of(first) == "pass"
+
+    browser.post(f"/api/listings/{first}/annotation", json={"judgment": None}, headers=ours())
+    assert held.store.judgment_of(first) is None
+
+    back = browser.get("/api/results/portales", headers=reading()).json()
+    assert back["passed"] == 0
+    assert all(not row["hidden_by_default"] for row in back["rows"])
+
+
+def test_both_surfaces_answer_the_same_question_the_same_way(opened) -> None:
+    """feat-010/AC-39, product invariant 5: the capability exists on both, and agrees.
+
+    This is the assertion that catches the predicate drifting back into a surface later: if either
+    side starts deciding for itself what passing means, these two sets stop matching.
+    """
+    browser, held = opened
+    first = browser.get("/api/results/portales", headers=reading()).json()["rows"][0]["listing_id"]
+    browser.post(f"/api/listings/{first}/annotation", json={"judgment": "pass"}, headers=ours())
+
+    over_http = browser.get("/api/passed", headers=reading()).json()
+    through_core, count = api.passed(held)
+
+    assert count == 1
+    assert over_http["count"] == count
+    assert [row["listing_id"] for row in over_http["passed"]] == [
+        row["listing_id"] for row in through_core
+    ]
+
+    hidden_http = {
+        row["listing_id"]
+        for row in browser.get("/api/results/portales", headers=reading()).json()["rows"]
+        if row["hidden_by_default"]
+    }
+    from_core = api.results(held, "portales")["rows"]
+    hidden_core = {row["listing_id"] for row in from_core if row["hidden_by_default"]}
+    assert hidden_http == hidden_core == {first}
