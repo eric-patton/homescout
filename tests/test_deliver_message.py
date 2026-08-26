@@ -373,3 +373,47 @@ def test_both_surfaces_write_an_address_the_same_way(store: Store) -> None:
     assert render.address(summary) == in_email(summary) == address_of(summary)
     assert render.address({}) == "(no address)", "each still has its own word for nothing"
     assert in_email({}) == "an address this listing did not give"
+
+
+def test_a_busy_night_still_sends_and_still_says_everything(store: Store) -> None:
+    """feat-012/AC-3: the email is sent when something moved, including when a lot moved.
+
+    Found the first time delivery was tried against a real statewide search. The new list is
+    capped and everything else deliberately is not, because a night with thirty price cuts is the
+    news. But a picture was attached per row, so a night with hundreds of moved properties built a
+    message with 501 attachments and Google refused the whole thing at 500. The entire email was
+    lost, on exactly the night with the most to say, and the only warning was a line in a log.
+
+    So the pictures are capped and the news is not. Everything still appears; the rows past the
+    budget appear without a thumbnail, which is a state the message already renders for a property
+    whose stored image cannot be read.
+    """
+    from homescout.deliver.message import MAX_PICTURES
+
+    # A fixed number, deliberately not derived from the cap: a fixture sized by the constant grows
+    # when the constant does, and then the assertions below hold no matter how high it goes.
+    many = [row(str(n), price=300_000 + n) for n in range(100)]
+    run(store, rows=many)
+    second = run(store, rows=[replace_price(r) for r in many])
+
+    found = parts(message_of(store, document(store, second)))
+
+    assert len(found["cids"]) <= MAX_PICTURES, "the declared bound"
+    assert len(found["cids"]) < len(many), (
+        "and actually bounded: without a cap this is one attachment per property, which is how a "
+        "real night reached 501 and Google refused the message whole"
+    )
+    assert len(found["cids"]) < 500, "under the limit of the provider that refused it"
+    assert found["cids"], "but not thrown away entirely"
+
+    # Every property is still in the email. The cap costs thumbnails, never news.
+    for r in many:
+        assert r.fields.address_line in found["html"], r.fields.address_line
+        assert r.fields.address_line in found["text"], r.fields.address_line
+
+
+def replace_price(source_row):
+    """The same property, cheaper, so that every one of them counts as a price change."""
+    from dataclasses import replace
+
+    return replace(source_row, fields=replace(source_row.fields, price=source_row.fields.price - 5))

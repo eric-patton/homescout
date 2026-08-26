@@ -56,6 +56,23 @@ PAPER = "#ffffff"
 #: business but its own.
 CID_DOMAIN = "homescout.invalid"
 
+#: How many stored pictures one email may carry, and how many bytes of them.
+#:
+#: Both exist because of a real failure. The new list is capped and everything else deliberately is
+#: not, because a night with thirty price cuts is the news; but a picture was attached per row, so a
+#: night with five hundred moved properties built a message with 501 attachments and Google refused
+#: the whole thing at 500. The entire email was lost, on exactly the night with the most to say.
+#:
+#: Capping the pictures rather than the rows keeps the news and loses only the thumbnails past the
+#: budget, which is a loss the message already knows how to render: a property whose image cannot be
+#: read appears without one rather than being left out. Sections are ordered with the new properties
+#: first, so the budget is spent where a picture is worth most.
+#:
+#: The byte ceiling matters as much as the count. Five hundred previews is tens of megabytes, and
+#: every provider bounces a message that size well before it counts the parts.
+MAX_PICTURES = 60
+MAX_PICTURE_BYTES = 8 * 1024 * 1024
+
 #: The schemes a link may have. Everything else (`javascript:`, `data:`, `file:`) renders as text.
 SAFE_SCHEMES = frozenset({"http", "https"})
 
@@ -167,10 +184,19 @@ class _Pictures:
     price cut.
     """
 
-    def __init__(self, root: Path | None) -> None:
+    def __init__(
+        self,
+        root: Path | None,
+        *,
+        limit: int = MAX_PICTURES,
+        max_bytes: int = MAX_PICTURE_BYTES,
+    ) -> None:
         self._root = root
         self._by_listing: dict[str, str] = {}
         self.found: list[Picture] = []
+        self._limit = limit
+        self._max_bytes = max_bytes
+        self._bytes = 0
 
     def cid_for(self, summary: Mapping[str, Any]) -> str | None:
         listing_id = str(summary.get("listing_id") or "")
@@ -186,10 +212,15 @@ class _Pictures:
             return None
         if not data:
             return None
+        # Past the budget the property still appears, without its picture. A thumbnail is worth
+        # having; it is not worth losing the whole email for.
+        if len(self.found) >= self._limit or self._bytes + len(data) > self._max_bytes:
+            return None
         guessed, _ = mimetypes.guess_type(path.name)
         subtype = guessed.split("/", 1)[1] if guessed and guessed.startswith("image/") else "jpeg"
         cid = make_msgid(domain=CID_DOMAIN)
         self.found.append(Picture(cid=cid, data=data, subtype=subtype))
+        self._bytes += len(data)
         self._by_listing[listing_id] = cid
         return cid
 

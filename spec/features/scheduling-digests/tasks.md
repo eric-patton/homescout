@@ -92,3 +92,29 @@ that code, so the test tasks below carry no marker.
 - [x] T28 [P]: Document delivery in the README: the flag, the variables, and that email is optional.
 - [x] T29: `uv run ruff check .` and the full suite, default and slow, green.
 - [x] T30: `/spec-flow:converge`, then the manifest stamp.
+
+## Found in use
+
+- [x] **T-defect: a busy night could not send its email at all.** Found the first time delivery was
+      tried against a real statewide search: Google refused the message because it carried 501
+      attachments and the limit is 500. The whole email was lost, on precisely the night with the
+      most to say, and the only trace was a delivery failure line.
+
+      The cause is a good decision applied one level too far. The new list is capped and everything
+      else deliberately is not, because a night with thirty price cuts is the news and hiding it
+      would hide the news. But a stored picture was attached per row, so the attachment count
+      followed the number of properties that moved, with nothing bounding it.
+
+      Fixed by capping the pictures rather than the news: `MAX_PICTURES` and `MAX_PICTURE_BYTES` in
+      `deliver/message.py`. Rows past the budget appear without a thumbnail, which is a state the
+      message already renders for a property whose stored image cannot be read. Sections are ordered
+      with the new properties first, so the budget is spent where a picture is worth most. The byte
+      ceiling is there because five hundred previews is tens of megabytes and every provider bounces
+      that long before it counts the parts.
+
+      Pinned by `tests/test_deliver_message.py::test_a_busy_night_still_sends_and_still_says_everything`
+      citing `feat-012/AC-3`, which asserts the attachment count is bounded and that every property
+      is still named in both renderings. The fixture is a fixed hundred properties rather than one
+      derived from the cap: sized by the constant, it grew when the constant did and the assertions
+      held no matter how high it went, which is how the first version of this test passed against
+      the unfixed code.
