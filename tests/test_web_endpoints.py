@@ -443,3 +443,32 @@ def test_both_surfaces_answer_the_same_question_the_same_way(opened) -> None:
     from_core = api.results(held, "portales")["rows"]
     hidden_core = {row["listing_id"] for row in from_core if row["hidden_by_default"]}
     assert hidden_http == hidden_core == {first}
+
+
+def test_a_record_merged_into_another_still_has_a_page(store: Store, db_path: Path) -> None:
+    """feat-010/AC-9, product invariant 2: a merged constituent is not a missing listing.
+
+    Found in use, while reviewing the merge queue: every link to a record that had been merged into
+    another returned a 500. The page assembles a listing from its own history, which a merged
+    constituent still has, and then asked for its extracted fields through a helper that consults
+    only the listings currently representing a property. The two disagreed about what "this listing
+    exists" means, and the disagreement took the page down.
+
+    That is the wrong record to lose. Invariant 2 says every canonical listing stays traceable to
+    the rows it was built from and that the provenance is visible, which is the whole basis for
+    being able to inspect a merge and undo it. A person reviewing merges is exactly who follows
+    these links.
+    """
+    loaded = load(store, [listing("a"), listing("b", price=90_000)])
+    merged_id = store.supersede([loaded["a"], loaded["b"]], join_signal="same address")
+
+    held = held_workspace(shared_store(db_path))
+    with client(held) as browser:
+        for constituent in (loaded["a"], loaded["b"]):
+            response = browser.get(f"/api/listings/{constituent}", headers=reading())
+            assert response.status_code == 200, f"{constituent}: {response.text[:200]}"
+            assert response.json()["listing"]["superseded_by"] == merged_id, (
+                "and it says what became of it, rather than pretending it is still its own property"
+            )
+
+        assert browser.get(f"/api/listings/{merged_id}", headers=reading()).status_code == 200

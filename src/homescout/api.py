@@ -740,20 +740,33 @@ def extract(
         )
 
 
-def extracted_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
+def extracted_for(
+    workspace: Workspace, listing_id: str, *, snapshot: Any = None
+) -> dict[str, Any]:
     """What is known about one property's six recovered fields, and how each was determined.
 
     The seam both surfaces read: a value, its provenance, and the sentence it came from. Non-
     negotiable 8 says the command line and the browser are thin wrappers over one library, and
     this is the one thing either of them needs to show a person why a column says what it says.
+
+    `snapshot` is for a caller that already holds one, and it exists because of a real failure.
+    `latest_snapshots` answers for the listings that currently represent a property, which is not
+    the same set as the listings that have one: a record merged into another still has its own
+    history, its own page and its own link, and asking this function about it raised "no such
+    listing" and took the page down with it. A merged constituent is not missing. It is exactly
+    what product invariant 2 says must stay visible, because it is the evidence a merge can be
+    inspected and undone.
+
+    Passing the snapshot also stops a full scan of every latest snapshot running once per page view.
     """
     from .extract import values_for
     from .extract.pass_ import model_values
 
     store = workspace.store
-    with _translating():
-        snapshots = store.latest_snapshots()
-    snapshot = snapshots.get(listing_id)
+    if snapshot is None:
+        with _translating():
+            snapshots = store.latest_snapshots()
+        snapshot = snapshots.get(listing_id)
     if snapshot is None:
         raise UnknownListingError(listing_id)
     held = model_values(store, [snapshot], root=workspace.root)
@@ -939,7 +952,9 @@ def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         image = store.get_preview_image(listing_id)
 
     fields = snapshot.fields if snapshot is not None else None
-    extracted = extracted_for(workspace, listing_id) if fields is not None else {}
+    extracted = (
+        extracted_for(workspace, listing_id, snapshot=snapshot) if snapshot is not None else {}
+    )
     return {
         "listing_id": listing_id,
         "presence": record.presence,

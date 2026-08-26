@@ -191,3 +191,26 @@ alongside its peers.
       still compared and still reported (`feat-010/AC-37`) — hiding changed the view and nothing else.
 - [x] T55: `uv run ruff check .` clean and 1,193 tests green, then `/spec-flow:converge` and the
       manifest stamp.
+
+## Found in use
+
+- [x] **T56: every link to a record that had been merged into another returned a 500.** Found while
+      the owner was working through the merge review queue, which is precisely the person who
+      follows those links.
+
+      The listing page assembles a property from its own history, which a merged constituent still
+      has, and then asked for its extracted fields through `extracted_for`, which consulted
+      `latest_snapshots` and raised "no such listing" for anything not currently representing a
+      property. The two disagreed about what "this listing exists" means, and the disagreement took
+      the page down rather than degrading it.
+
+      That is the wrong record to lose. Product invariant 2 keeps a merged listing traceable to the
+      rows it was built from and its provenance visible, which is the whole basis for inspecting a
+      merge and undoing it. 1,195 of the owner's listings were superseded at the time, so this was
+      not an edge case; it was most of the links on the page he was working from.
+
+      Fixed in `api.py`: a caller holding a snapshot passes it, so the page uses the one it already
+      found instead of asking a set that was never going to contain it. That also stops a full scan
+      of every latest snapshot running once per page view. Pinned by
+      `tests/test_web_endpoints.py::test_a_record_merged_into_another_still_has_a_page`, citing
+      `feat-010/AC-9`, verified red before green.
