@@ -584,3 +584,61 @@ alongside its peers.
       difference is who is measuring and what it decides. The ban now sits on the function that
       turns a property into a pin, along with an assertion that the one reason a property is left
       off is the person's own judgment.
+
+
+## Change: which way it pushes (`changes/which-way-it-pushes/`)
+
+- [x] T112: `web/static/fire.js`: every arm turned round to point the way the wind pushes, and the
+      words turned with it (`feat-010/AC-59`).
+
+      The overlay was drawn as a wind rose, which points into the wind the way a weather vane does.
+      That convention is right and it is read backwards by everybody who was never taught it. The
+      question that ended it came from the person the page is for, straight after reading the two
+      sentences written to stop exactly that question: "if a petal is very long on the East side,
+      does that mean FROM the East or TO the East?"
+
+      Explaining harder was the alternative and it had already been tried, in the legend and again
+      in every bubble. What settles it is the cost of being misread here, which is not shared by
+      anything else on this map: "from the west" and "toward the west" name opposite sides of a
+      house as the side to worry about.
+
+      One half-turn, in `pushes()`, and every direction a reader sees goes through it. `wind.py` and
+      the cached answers are untouched: a record of facts should hold what meteorology recorded, and
+      the turn belongs to the drawing.
+
+- [x] T113: `web/static/fire.js`: one head, on the longest arm (`feat-010/AC-59`). Sixteen heads at
+      this size is a smudge, and the job of a head here is to answer "which end of this is the
+      pointed end" once. The glyph went from 64 pixels to 72 to make room for it without shortening
+      the arms, and the head is the arm's own colour rather than the hard-wind violet, because a
+      head in the darker colour reads as another quantity and it is not a quantity.
+
+- [x] T114: `tests/test_web_wind.py` and `tests/test_web_browser.py`: both halves pinned against
+      each other (`feat-010/AC-59`). Arms pointing downwind under a caption saying "from" is the
+      same wrong answer with a second voice agreeing, so the words are checked for the new
+      vocabulary *and* for the absence of the old, and the drawing is measured in a real browser:
+      the fixture's wind comes out of the west, so the shape furthest from the middle of the glyph
+      must sit east of it. Read off the geometry, not off the caption, because the caption is the
+      half that was never wrong.
+
+## Defect: the headings let go partway down a long list
+
+- [x] T115: `web/static/results.js` and `app.css`: the rows the window is not drawing are now blank
+      rows with a height, above and below the drawn ones, instead of a transform on the drawn ones
+      (`feat-010/AC-53`).
+
+      Found in use, at the far end of a thousand rows: "the headers stay sticky/frozen at the top
+      for a while, but eventually it stops doing that for some reason."
+
+      One sentence of cause: a sticky cell is stuck to its own table and no further. The window
+      draws sixty rows and placed them with a transform, and a transform moves paint and never
+      layout, so the table really was sixty rows tall and the headings held for sixty rows. Blank
+      rows are layout.
+
+      The blank blocks are their own row groups, so `#body` still holds the drawn rows and nothing
+      else and every row lookup in the page and in the suite keeps working. They are hidden from
+      anything reading the page aloud, because they are not rows: they are the shape of the rows
+      that are not here.
+
+      The regression test makes the scroller short on purpose, so the drawn window is a small
+      fraction of the list whatever size the machine running it opened its browser at. Against the
+      unfixed page the headings measured 939 pixels outside the box at the end of the list.

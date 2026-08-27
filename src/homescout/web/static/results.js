@@ -393,7 +393,14 @@ function draw() {
         el("table", {class: "grid", role: "grid"},
           el("colgroup", {id: "widths"}),
           el("thead", {}, headerRow()),
+          /* The rows above and below the drawn ones, as height and nothing else. They are what
+           * keeps the headings on screen: see `window_`. Hidden from anything reading this out,
+           * because they are not rows, they are the shape of the ones that are not here. */
+          el("tbody", {id: "above", class: "pad", "aria-hidden": "true"},
+             el("tr", {}, el("td", {}))),
           el("tbody", {id: "body"}),
+          el("tbody", {id: "below", class: "pad", "aria-hidden": "true"},
+             el("tr", {}, el("td", {}))),
         ),
       ),
     ),
@@ -1038,7 +1045,9 @@ function window_() {
   const scroller = document.getElementById("scroller");
   const body = document.getElementById("body");
   const sizer = document.getElementById("sizer");
-  if (!scroller || !body) return;
+  const above = document.getElementById("above");
+  const below = document.getElementById("below");
+  if (!scroller || !body || !above || !below) return;
 
   /* Never while somebody is writing. The window holds still until the edit is finished, and
    * nothing is lost by the delay: what is on screen is already drawn, and the moment the edit ends,
@@ -1053,7 +1062,22 @@ function window_() {
   const frag = document.createDocumentFragment();
   slice.forEach((row, offset) => frag.append(rowFor(row, first + offset)));
   body.replaceChildren(frag);
-  body.style.transform = `translateY(${first * height}px)`;
+
+  /* The rows that are not drawn, given as height above and below the ones that are.
+   *
+   * This used to shift the drawn rows into place with a transform, which put every row exactly
+   * where it belonged and left the table itself sixty rows tall, because a transform moves paint
+   * and never layout. That is invisible until you notice what a sticky heading is stuck to: its
+   * own table, and nothing further. So the headings held for sixty rows of a thousand and then
+   * slid away, which is worse than never sticking at all. A heading that works for a while is a
+   * heading somebody trusts, and the first they know of it is a screen of numbers with nothing
+   * saying which column is which.
+   *
+   * Blank rows are layout. The table is now as tall as the list it stands for, so the headings are
+   * stuck to something that reaches the bottom. */
+  above.firstElementChild.style.height = `${first * height}px`;
+  below.firstElementChild.style.height =
+    `${Math.max(0, state.shown.length - first - slice.length) * height}px`;
   sizer.style.height = Math.max(state.shown.length * height + 30, 30) + "px";
 }
 

@@ -325,7 +325,10 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-53: The table's own box ends within the window, so the horizontal scrollbar on its bottom
       edge is reachable, and the page behind it does not scroll. Its height is measured from where
       the box actually falls rather than assumed, so it stays right as the controls wrap and the
-      window changes.
+      window changes. Its column headings stay on screen for the whole of the list, however far down
+      it is scrolled: a heading that leaves partway is worse than one that never stuck, because it
+      works long enough to be trusted and the first anybody knows is a screen of prices, acreages and
+      years with nothing above them.
 - [ ] AC-48: Passing on a property asks for confirmation first, in a dialog on the page rather than
       the browser's own, which says what passing does and that it is reversible. Dismissing it by
       any means, including the keyboard, leaves the property exactly as it was. Keeping a property
@@ -391,17 +394,20 @@ in five years. The problem brief is in `research.md`.
       and by keyboard, in steps taken from what is on screen rather than in fixed degrees. A scale
       fixed in a corner cannot be held up against two things that are somewhere else on the map,
       which is the whole reason the second one exists.
-- [ ] AC-59: The fire map can draw where the wind comes from, off by default, as a wind rose per
-      weather station over that station's whole recorded history rather than as any forecast. A rose
-      reports, for each of sixteen directions, how often the wind came from it and how often it did
-      so at fifteen miles an hour or more, and opens into those numbers with the number of readings
-      and the years they span. The whole year and the single month that is both windiest and in fire
-      season are both offered. Every claim states that a direction is where the wind comes *from*
-      and what that means for a fire, because the opposite reading inverts every conclusion drawn
-      from the page. Only the stations on screen are asked about, each exactly once ever, and what is
-      on its way is visible as such. A station or a state that cannot be read is reported and does
-      not stop the others being drawn. Nothing is scored, ranked, hidden or coloured by wind: the
-      rose reports what was recorded and the person decides.
+- [ ] AC-59: The fire map can draw which way the wind pushes, off by default, per weather station
+      over that station's whole recorded history rather than as any forecast. It reports, for each of
+      sixteen directions, how often the wind pushed that way and how often it did so at fifteen miles
+      an hour or more, and opens into those numbers with the number of readings and the years they
+      span. The whole year and the single month that is both windiest and in fire season are both
+      offered. Every direction a reader is shown is the direction the wind pushes, in the drawing and
+      in the words together, and never the meteorological direction it came from: the reader is
+      somebody buying a house, the question is which way a fire would run, and the two readings name
+      opposite sides of that house as the side to worry about. What is fetched and stored keeps the
+      archive's own convention; the turn happens once, where the drawing is. Only the stations on
+      screen are asked about, each exactly once ever, and what is on its way is visible as such. A
+      station or a state that cannot be read is reported and does not stop the others being drawn.
+      Nothing is scored, ranked, hidden or coloured by wind: the page reports what was recorded and
+      the person decides.
 
 ## Edge cases & errors
 
@@ -417,6 +423,10 @@ in five years. The problem brief is in `research.md`.
 - An unknown judgment value arrives from a hand-edited database or an older client. Rejected on
   write with the accepted values named, in the same way an unknown severity in a criterion is.
 
+- The list is long enough that the rows drawn are a small fraction of it, which on this table is
+  the ordinary case rather than the extreme one. Whatever stands in for the rows that are not drawn
+  has to be real height and not a shift applied to the ones that are, because the headings are held
+  in place by the table being as tall as the list it stands for.
 - A weather station's record is on its way. It is drawn as what it is, a marker where the rose
   will be, because the first read of a station takes about ten seconds and an empty patch of map
   says nothing about whether anything is happening.

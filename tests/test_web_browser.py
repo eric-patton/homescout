@@ -635,6 +635,78 @@ def opened(served, script):
         process.terminate()
 
 
+def test_the_headings_stay_at_the_top_however_far_down_the_list_goes(served) -> None:
+    """feat-010/AC-53: a heading that leaves is a column of numbers nobody can name.
+
+    The failure this pins is not "the headings were never stuck". They were, and they let go
+    partway down, which is the worse shape of the bug: it works long enough to be trusted, and the
+    first anybody knows is a screen of prices, acreages and years with nothing above them.
+
+    A sticky cell is stuck to its own table and no further. The window draws sixty rows of a
+    thousand, so the table was sixty rows tall, so the headings held for sixty rows. The rows the
+    window is not drawing are now blank rows with a height rather than a transform on the ones it
+    is, because a transform moves paint and the table has to actually be that tall.
+
+    The scroller is made short on purpose so the drawn window is a small fraction of the list
+    whatever size the machine running this opened its browser at. A test that only reproduces on a
+    tall screen is a test that passes on the machine where it matters.
+    """
+    found = opened(served, """
+        const scroller = document.getElementById("scroller");
+        scroller.style.height = "200px";
+        scroller.dispatchEvent(new Event("scroll"));
+        await until(() => document.querySelector("#body tr"));
+
+        const heading = () => document.querySelector("table.grid thead th");
+        const where = () => {
+          const box = heading().getBoundingClientRect();
+          const seen = scroller.getBoundingClientRect();
+          return Math.round(box.top - seen.top);
+        };
+
+        scroller.scrollTop = 0;
+        await until(() => true);
+        const atTop = where();
+
+        /* Past the end of the drawn window, which is where it used to let go. */
+        scroller.scrollTop = Math.round(scroller.scrollHeight / 2);
+        await until(() => document.querySelector("#body tr").dataset.index !== "0");
+        const partway = where();
+
+        scroller.scrollTop = scroller.scrollHeight;
+        await until(() => true);
+        await wait(150);
+        const atEnd = where();
+        const named = heading().dataset.column || heading().textContent.trim();
+        const last = [...document.querySelectorAll("#body tr")].pop();
+
+        return {atTop, partway, atEnd, named,
+                rows: document.querySelectorAll("#body tr").length,
+                total: state.shown.length,
+                lastDrawn: Number(last.dataset.index)};
+    """)
+
+    assert found["rows"] < found["total"], (
+        "every row is in the page, so this cannot tell a table that is tall enough from one that "
+        "is not: the window is not windowing"
+    )
+    assert found["lastDrawn"] == found["total"] - 1, (
+        "the end of the list is not the end of the list"
+    )
+
+    #: Where they sit unscrolled is the baseline, rather than zero: the box has a border, and one
+    #: pixel of it is not the bug.
+    assert found["atTop"] <= 2, f"the headings do not start at the top of the box: {found['atTop']}"
+    assert found["partway"] == found["atTop"], (
+        f"the headings slid {found['partway'] - found['atTop']}px out of the box halfway down"
+    )
+    assert found["atEnd"] == found["atTop"], (
+        f"the headings slid {found['atEnd'] - found['atTop']}px out of the box at the end of the "
+        "list, which is exactly where somebody needs them most and least expects to lose them"
+    )
+    assert found["named"], "the heading is there and says nothing"
+
+
 def test_the_columns_stay_put_when_the_table_is_scrolled(served) -> None:
     """feat-010/AC-44: a width somebody set has to survive them reading the table.
 
@@ -1849,6 +1921,11 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
 
     Every claim on that bubble is a claim about decades, not about Thursday, which is the only
     version of this question worth putting in front of somebody buying a house.
+
+    And which way it points is measured off the drawing, not off the caption. The fixture's wind
+    comes out of the west, so a glyph that answers the question this page is asking leans east. A
+    glyph leaning west is a wind rose: right by a convention older than anybody here, and read
+    backwards by the person it is drawn for.
     """
     from test_web_wind import STATIONS, TABLE
 
@@ -1865,6 +1942,19 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
         const glyph = document.querySelector(".rose");
         const box = glyph.getBoundingClientRect();
         const paths = glyph.querySelectorAll("path").length;
+
+        /* Which way the thing actually points, off its own geometry. The shape furthest from the
+           middle is the longest arm, or the head on the end of it, and where that sits is the
+           whole claim this overlay makes. */
+        const svg = glyph.querySelector("svg");
+        const mid = svg.viewBox.baseVal.width / 2;
+        let leans = {x: 0, y: 0}, furthest = -1;
+        for (const path of svg.querySelectorAll("path")) {
+          const at = path.getBBox();
+          const away = {x: at.x + at.width / 2 - mid, y: at.y + at.height / 2 - mid};
+          const out = Math.hypot(away.x, away.y);
+          if (out > furthest) { furthest = out; leans = away; }
+        }
         /* What a real pointer would land on. A rose behind the map's own surface is decoration:
            it draws, it never opens, and only a hit test finds that. */
         const hit = document.elementFromPoint(Math.round(box.left + box.width / 2),
@@ -1877,6 +1967,7 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
         return {roses: Object.keys(wind.roses).length,
                 stations: wind.stations.length,
                 paths,
+                leans,
                 reachable: !!(hit && hit.closest && hit.closest(".rose")),
                 said: bubble ? bubble.textContent : "",
                 legend: document.querySelector(".legend").textContent,
@@ -1891,10 +1982,18 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
     )
     assert found["season"] == "april", "the default is not the month that both blows and burns"
 
-    assert "Most often from the west" in found["said"], found["said"]
+    assert found["leans"]["x"] > 3, (
+        "the glyph does not lean east, and the wind in this fixture comes out of the west: it is "
+        f"pointing back at where the air came from rather than where it goes ({found['leans']})"
+    )
+    assert abs(found["leans"]["y"]) < abs(found["leans"]["x"]), found["leans"]
+
+    assert "Most often pushes toward the east" in found["said"], found["said"]
     assert "hourly readings" in found["said"], "the bubble does not say what it is a summary of"
-    assert "comes from" in found["said"], (
+    assert "pushes" in found["said"], (
         "the bubble never says which way a direction means, which inverts every conclusion "
         "somebody would draw from it"
     )
-    assert "pushes a fire east" in found["legend"], "the legend leaves the reader to work it out"
+    assert "a fire here would run" in found["legend"], (
+        "the legend leaves the reader to work out what a direction means for a fire"
+    )

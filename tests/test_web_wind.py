@@ -248,17 +248,39 @@ def test_a_rose_is_served_with_the_place_it_belongs_to(
     assert refused.status_code == 400, "a season nobody offers was accepted"
 
 
-def test_the_page_says_which_way_a_direction_means() -> None:
-    """feat-010/AC-59: the sentence that stops every conclusion from this overlay being inverted.
+def test_the_page_talks_about_where_the_wind_pushes_and_never_where_it_comes_from() -> None:
+    """feat-010/AC-59: turned around on purpose, and pinned so nobody turns it back.
 
-    "From the west" and "to the west" are opposite claims about which red matters, and a rose is
-    drawn the way roses have always been drawn, which is the way somebody who has not seen one
-    before will read backwards. So the page says it, in the legend and again in every bubble.
+    A wind rose points into the wind, the way a weather vane does. That convention is right, it is
+    older than anybody working on this, and it is read backwards by everybody who was never taught
+    it. Backwards is not a slightly worse answer here: "from the west" and "toward the west" name
+    opposite sides of a house as the side to worry about.
+
+    So the arms point downwind and the vocabulary goes with them. Both halves are pinned, because
+    half of this is worse than neither: arms pointing downwind under a caption that says "from" is
+    the same wrong answer with a second voice agreeing.
     """
     from web_fakes import STATIC
 
     page = (STATIC / "fire.js").read_text(encoding="utf-8")
 
-    assert page.count("the wind comes ") >= 2, "the page says it once or not at all"
-    assert 'el("strong", {}, "from")' in page, "the word that carries it is not emphasised"
-    assert "pushes a fire east" in page, "the page never spells out what it means for a fire"
+    assert 'el("strong", {}, "pushes")' in page, "the word that carries it is not emphasised"
+    assert "which way the wind pushes" in page, "the control never says which way it means"
+    assert "Which way the wind pushes" in page, "the legend never says which way it means"
+    assert "Most often pushes toward the " in page, "a station's own claim is not in this direction"
+    assert "a fire here would run" in page, "the page never spells out what it means for a fire"
+
+    #: Every direction shown to a reader goes through one half-turn, and this is it. A page that
+    #: drew `one.degrees` straight would look almost right and be exactly inverted.
+    assert "function pushes(degrees)" in page
+    assert "(degrees + 180) % 360" in page
+    assert "compassOf(one.degrees)" not in page, "a direction reached the page without being turned"
+    assert "compassOf(strongest.degrees)" not in page
+    assert "wedge(one.degrees" not in page, "an arm is drawn pointing back the way the wind came"
+
+    for backwards in ("where the wind comes", "comes from the", "Most often from the",
+                      'el("strong", {}, "from")'):
+        assert backwards not in page, (
+            f"{backwards!r} is left over from when this was drawn as a wind rose, and a caption "
+            'saying "from" over arms that point downwind states the wrong answer twice'
+        )

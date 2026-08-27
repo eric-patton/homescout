@@ -469,6 +469,19 @@ table.grid.wrapped td:not(.property) > .cell {
   overflow: hidden;
   max-height: calc(var(--cell-line) * var(--wrap-lines));
 }
+/* The two blank blocks standing in for the rows the window is not drawing.
+ *
+ * Everything a cell is given by default is taken back here: a height, a line to sit on, a
+ * border on two sides. All of it would be added to a block whose whole job is to be an exact
+ * number of pixels tall, and the number is thousands of rows' worth, so being out by one per
+ * row is being out by a screenful. */
+table.grid tbody.pad td {
+  height: 0;
+  line-height: 0;
+  padding: 0;
+  border: 0;
+}
+
 table.grid thead th {
   position: sticky;
   top: 0;

@@ -30,7 +30,7 @@ const held = {name: "", rows: [], settings: null, map: null, markers: null,
  * between them. */
 const rule = {on: false, line: null, a: null, b: null, middle: null, was: null};
 
-/* Where the wind comes from, station by station. `roses` is what has come back, `asking` is what
+/* Which way the wind pushes, station by station. `roses` is what has come back, `asking` is what
  * is on its way: a station's record takes a real query on somebody else's archive and this asks for
  * each one once, ever. */
 const wind = {on: false, season: "april", stations: [], byKey: {}, roses: {}, asking: {},
@@ -138,7 +138,7 @@ function draw() {
       el("label", {for: "showpassed"}, passed, " show properties you passed on"),
       el("label", {for: "fade"}, "fire layer ", fade),
       el("label", {for: "ruler"}, ruler, " measure a distance"),
-      el("label", {for: "wind"}, blowing, " where the wind comes from ", season),
+      el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       el("span", {class: "counts", id: "windcount", role: "status"}, ""),
       link(`/results/${encodeURIComponent(held.name)}`, "back to the table"),
@@ -173,19 +173,29 @@ function legend() {
       el("li", {}, el("span", {class: "swatch round"}), "not decided"),
       el("li", {}, el("span", {class: "swatch round passed"}), "passed on"),
     ),
-    /* The one sentence on this page that is easiest to get backwards and worst to get backwards.
-     * A rose is drawn the way a rose has always been drawn, pointing at where the wind is from,
-     * and somebody reading it as "the way it blows" would conclude the opposite of the truth about
-     * every house on the map. */
-    el("h2", {}, "Where the wind comes from"),
+    /* Deliberately NOT drawn the way a wind rose is drawn, and this note is here because the
+     * next person to read it will assume that is a bug and turn it back.
+     *
+     * A rose points into the wind, the way a weather vane does, and that convention is older than
+     * anybody who will ever work on this. It is also the single easiest thing on this page to read
+     * backwards, and backwards here is not a slightly worse answer: "from the west" and "toward
+     * the west" name opposite sides of a house as the side to worry about. Nothing else on this
+     * map fails that way.
+     *
+     * The reader is two people buying a house, not two meteorologists, and what they want to know
+     * is which way a fire would run. So the arms are turned around to point downwind, the longest
+     * one carries a head, and the word "from" appears nowhere near a direction. The archive still
+     * records it the meteorological way and `enrich/wind.py` still stores it that way, which is
+     * right for a store of facts; the turning around happens here, where the drawing is. */
+    el("h2", {}, "Which way the wind pushes"),
     el("ul", {},
       el("li", {}, el("span", {class: "swatch wind any"}), "any speed"),
       el("li", {}, el("span", {class: "swatch wind strong"}), "15 mph and over"),
     ),
     el("p", {class: "meta"},
-      "A petal points where the wind comes ", el("strong", {}, "from"),
-      ". Wind from the west pushes a fire east, so the red to worry about is the red the wind " +
-      "comes over."),
+      "An arm points the way the wind ", el("strong", {}, "pushes"),
+      ", and the head marks the way it pushes most often. That is the way a fire here would run, " +
+      "so the red to worry about is the red the head points at."),
     el("p", {class: "meta"},
       "Colours are the model's own, redrawn here so the map reads without asking anybody for a " +
       "picture of its legend."),
@@ -575,12 +585,13 @@ function howFar(from, to) {
 
 
 /* ------------------------------------------------------------------ */
-/* Where the wind comes from                                           */
+/* Which way the wind pushes                                           */
 /* ------------------------------------------------------------------ */
 
 /* How the rose is drawn. */
-const ROSE_SIZE = 64;
-const ROSE_FULL = 20;      /* The percent a petal at full length means. */
+const ROSE_SIZE = 72;
+const ROSE_FULL = 20;      /* The percent an arm at full length means. */
+const ROSE_HEAD = 7;       /* How far past its arm the one head reaches. */
 /* Violet, and violet for a reason: this page already spends red through green on the hazard model
  * and blue, gold and pink on what the person has decided about a house. A rose in any of those
  * would be read as one of those. Nothing else here is violet. */
@@ -727,23 +738,36 @@ function roseAt(station, rose) {
   });
   pin.on("add", () => {
     const node = pin.getElement();
-    if (node && !node.firstChild) node.append(petals(rose));
+    if (node && !node.firstChild) node.append(arms(rose));
   });
   pin.bindPopup(() => aboutTheWind(rose), {minWidth: 250, maxWidth: 320});
   return pin;
 }
 
+/* The one line that turns the archive's answer into the page's question.
+ *
+ * A weather archive records a direction the way meteorology has always recorded it, which is where
+ * the air came out of, and that is the right thing for a record of facts to hold. It is the wrong
+ * thing to draw on a fire map, because the question here is where a fire goes. Every direction that
+ * reaches a reader goes through this, and nothing on this page ever shows `degrees` raw. */
+function pushes(degrees) {
+  return (degrees + 180) % 360;
+}
+
 function whatItSays(rose) {
   const best = rose.prevailing;
   if (!best) return `${rose.name}: no wind on record`;
-  return `${rose.name}: the wind comes from the ${best.compass} more than any other direction, ` +
-         `${best.percent.toFixed(1)}% of the time`;
+  return `${rose.name}: the wind pushes toward the ${compassOf(pushes(best.degrees))} more than ` +
+         `any other direction, ${best.percent.toFixed(1)}% of the time`;
 }
 
 /* The glyph. Built with `createElementNS` rather than from a string of markup, which is the same
  * rule every other thing this product draws follows and the reason there is no way to put markup
- * on a page here at all. */
-function petals(rose) {
+ * on a page here at all.
+ *
+ * Every arm is drawn at `pushes(degrees)`, which is a half turn from where the archive put it. The
+ * long note in `legend()` is why. */
+function arms(rose) {
   const where = "http://www.w3.org/2000/svg";
   const box = document.createElementNS(where, "svg");
   box.setAttribute("viewBox", `0 0 ${ROSE_SIZE} ${ROSE_SIZE}`);
@@ -752,37 +776,62 @@ function petals(rose) {
   box.setAttribute("aria-hidden", "true");
 
   const middle = ROSE_SIZE / 2;
-  const most = middle - 3;
+  const most = middle - ROSE_HEAD - 3;
   const half = 360 / (rose.sectors.length * 2);
 
-  const wedge = (degrees, length, fill, alpha) => {
-    if (length <= 0.4) return;
+  const at = (turn, out) => {
+    const radians = (turn * Math.PI) / 180;
+    return [middle + out * Math.sin(radians), middle - out * Math.cos(radians)];
+  };
+
+  /* Every shape here gets the same white edge, because this lies over a raster that is red in some
+   * places and green in others, and a shape with no outline reads on one and disappears on the
+   * other. */
+  const drawn = (d, fill, alpha) => {
     const path = document.createElementNS(where, "path");
-    const at = (turn, out) => {
-      const radians = (turn * Math.PI) / 180;
-      return [middle + out * Math.sin(radians), middle - out * Math.cos(radians)];
-    };
-    const [x1, y1] = at(degrees - half, length);
-    const [x2, y2] = at(degrees + half, length);
-    path.setAttribute(
-      "d",
-      `M ${middle} ${middle} L ${x1.toFixed(2)} ${y1.toFixed(2)} ` +
-      `A ${length.toFixed(2)} ${length.toFixed(2)} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`);
+    path.setAttribute("d", d);
     path.setAttribute("fill", fill);
     path.setAttribute("fill-opacity", String(alpha));
-    /* An edge on every petal, because this lies over a raster that is red in some places and green
-     * in others, and a shape with no outline reads on one and disappears on the other. */
     path.setAttribute("stroke", "#ffffff");
     path.setAttribute("stroke-width", "0.7");
     path.setAttribute("stroke-opacity", "0.85");
     box.append(path);
   };
 
+  const wedge = (degrees, length, fill, alpha) => {
+    if (length <= 0.4) return;
+    const [x1, y1] = at(degrees - half, length);
+    const [x2, y2] = at(degrees + half, length);
+    drawn(
+      `M ${middle} ${middle} L ${x1.toFixed(2)} ${y1.toFixed(2)} ` +
+      `A ${length.toFixed(2)} ${length.toFixed(2)} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`,
+      fill, alpha);
+  };
+
   const outTo = (percent) => Math.min(percent / ROSE_FULL, 1) * most;
-  /* Every direction first, then the hard wind inside it, so a rose says both "where does it come
-   * from" and "where does it come from when it is actually pushing something". */
-  for (const one of rose.sectors) wedge(one.degrees, outTo(one.percent), ROSE_ANY, 0.85);
-  for (const one of rose.sectors) wedge(one.degrees, outTo(one.strong), ROSE_STRONG, 0.9);
+  /* Every direction first, then the hard wind inside it, so one glyph says both "which way does it
+   * push" and "which way does it push when it is pushing hard enough to matter". */
+  for (const one of rose.sectors) wedge(pushes(one.degrees), outTo(one.percent), ROSE_ANY, 0.85);
+  for (const one of rose.sectors) wedge(pushes(one.degrees), outTo(one.strong), ROSE_STRONG, 0.9);
+
+  /* One head, on the arm that matters, and one is the point. Sixteen heads at this size is a
+   * smudge, and what a head has to do here is answer "which end of this thing is the pointed end"
+   * once. Answered for the longest arm, it is answered for all of them.
+   *
+   * Its colour is the arm's own rather than the hard-wind violet: a head in the darker colour reads
+   * as another quantity, and it is not a quantity, it is a direction. */
+  const best = rose.prevailing;
+  if (best) {
+    const turn = pushes(best.degrees);
+    const along = outTo(best.percent);
+    const [tipX, tipY] = at(turn, along + ROSE_HEAD);
+    const [leftX, leftY] = at(turn - half * 1.2, along - 0.5);
+    const [rightX, rightY] = at(turn + half * 1.2, along - 0.5);
+    drawn(
+      `M ${tipX.toFixed(2)} ${tipY.toFixed(2)} L ${leftX.toFixed(2)} ${leftY.toFixed(2)} ` +
+      `L ${rightX.toFixed(2)} ${rightY.toFixed(2)} Z`,
+      ROSE_ANY, 1);
+  }
 
   const middleDot = document.createElementNS(where, "circle");
   middleDot.setAttribute("cx", String(middle));
@@ -805,23 +854,24 @@ function aboutTheWind(rose) {
     el("p", {class: "what"}, rose.name),
     el("p", {class: "facts"},
       best
-        ? el("span", {}, "Most often from the ", el("strong", {}, best.compass),
+        ? el("span", {}, "Most often pushes toward the ",
+             el("strong", {}, compassOf(pushes(best.degrees))),
              `, ${best.percent.toFixed(1)}% of the time`)
         : "No wind on record here"),
     strongest && strongest.strong > 0
       ? el("p", {class: "facts"},
-          "Hard wind, 15 mph and over, most often from the ",
-          el("strong", {}, compassOf(strongest.degrees)),
+          "Hard wind, 15 mph and over, most often pushes toward the ",
+          el("strong", {}, compassOf(pushes(strongest.degrees))),
           `, ${strongest.strong.toFixed(1)}% of the time`)
       : null,
     el("p", {class: "facts"},
       "Then ", ranked.slice(1).map((one, at) =>
-        el("span", {}, at ? " and " : "", compassOf(one.degrees),
+        el("span", {}, at ? " and " : "", compassOf(pushes(one.degrees)),
            ` (${one.percent.toFixed(1)}%)`))),
     el("p", {class: "facts"}, `Calm ${rose.calm.toFixed(1)}% of the time`),
     el("p", {class: "hint"},
-      "A direction is where the wind comes ", el("strong", {}, "from"),
-      ". Wind from the west pushes a fire east."),
+      "Every direction here is the way the wind ", el("strong", {}, "pushes"),
+      ", which is the way a fire here would run."),
     el("p", {class: "meta"},
       `${(rose.observations || 0).toLocaleString()} hourly readings` +
       (rose.period ? `, ${rose.period.replace(/ America\/\w+$/, "")}` : "") +
