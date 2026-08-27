@@ -679,6 +679,71 @@ table.grid thead th.filtered {
 .sifted .chip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .sifted .clearall { margin-left: auto; }
 
+/* -- the ruler on the fire map ------------------------------------------ */
+
+/* Two ends and a middle, all draggable. No content in any of them: the shapes are drawn here so
+ * nothing has to build markup for a marker, and the reading rides in a tooltip that takes a real
+ * element rather than a string. */
+.rule-end, .rule-middle {
+  box-sizing: border-box;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(20, 24, 33, 0.45);
+}
+.rule-end {
+  background: var(--paper);
+  border: 3px solid #12263f;
+  cursor: grab;
+}
+.rule-end:active { cursor: grabbing; }
+.rule-middle {
+  background: #12263f;
+  border: 3px solid var(--paper);
+  cursor: move;
+}
+.rule-end:focus-visible, .rule-middle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.leaflet-tooltip.rule-said {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The scale bar sits in the corner the legend does not use. */
+.firemap .leaflet-control-scale { margin: 0 0 18px 12px; }
+
+/* -- where the wind comes from ------------------------------------------ */
+
+/* The rose is an SVG built at the time it is drawn, so there is nothing to style inside it. What
+ * is styled is the box it sits in: no background, because it lies over a raster whose colours are
+ * the whole point of the page, and a drop shadow instead so the petals read over both the green
+ * and the red. */
+.rose {
+  pointer-events: auto;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(20, 24, 33, 0.55));
+}
+.rose:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
+.rose svg { display: block; }
+
+/* The two squares in the legend, the same two colours the petals use. */
+.legend .swatch.wind { border-radius: 2px; }
+.legend .swatch.wind.any { background: #a276cf; }
+.legend .swatch.wind.strong { background: #4c1d95; }
+
+.pin.wind .facts strong { color: #4c1d95; }
+
+/* The season, beside the box that turns the wind on. */
+.controls select#season {
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.16rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
 /* -- what a row shows ---------------------------------------------------- */
 
 /* The stored photograph, at the size a roof line is still readable at. Inline rather than in a

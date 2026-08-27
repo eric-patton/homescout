@@ -623,6 +623,85 @@ def hazard_tile(workspace: Workspace, layer: str, bbox: str, size: str = "256,25
         )
 
 
+def wind_stations(workspace: Workspace, name: str) -> dict[str, Any]:
+    """The weather stations whose records cover the states this run found properties in.
+
+    Where the states come from matters: they come from the properties themselves rather than from
+    the search's name or its areas, so a search called "nm-statewide" that turned up something over
+    the Colorado line gets Colorado's stations too, and a search named after nothing at all still
+    gets the right ones. Nothing is fetched here beyond one small list per state, and that list is
+    kept: an airport network changes about as often as an airport opens.
+    """
+    from .enrich import settings as where
+    from .enrich import wind
+    from .export import latest_run, rows_of
+
+    with _translating():
+        run_id = latest_run(workspace.store, name)
+        states = sorted(
+            {
+                (row.fields.state or "").strip().upper()
+                for row in rows_of(workspace.store, run_id, root=workspace.root)
+                if (row.fields.state or "").strip()
+            }
+        )
+
+    service = where.endpoint("wind_stations").url
+    found: list[dict[str, Any]] = []
+    unreachable: list[str] = []
+    for state in states:
+        if len(state) != 2:
+            continue
+        try:
+            found.extend(wind.stations(workspace.root, service, wind.network_for(state)))
+        except Exception as exc:  # noqa: BLE001 - one state failing is not the map failing
+            unreachable.append(f"{state}: {exc}")
+
+    return {
+        "search": name,
+        "states": states,
+        "stations": found,
+        "seasons": sorted(wind.WHEN),
+        "unreachable": unreachable,
+    }
+
+
+def wind_rose(
+    workspace: Workspace, network: str, station: str, season: str = "year"
+) -> dict[str, Any]:
+    """One weather station's wind rose: how often the wind came from each of sixteen directions.
+
+    Over the station's whole automated record rather than over a forecast, which is the only version
+    of this question worth putting on a map somebody is buying a house from. Thursday's wind is a
+    fact about Thursday.
+
+    Fetched once ever and then read off the disk. The request is a query over tens of thousands of
+    hourly observations on somebody else's public archive, and its answer is a summary of decades,
+    so asking twice would be rude for no gain at all.
+    """
+    from .enrich import settings as where
+    from .enrich import wind
+
+    with _translating():
+        found = wind.rose(
+            workspace.root, where.endpoint("wind").url, network, station, season
+        )
+        document = found.document()
+
+        # The rose itself carries no coordinates; the station list does. Filled in here so a page
+        # drawing one has everything it needs from the one answer.
+        for held in wind.stations(
+            workspace.root, where.endpoint("wind_stations").url, wind.network_for(network[:2])
+        ):
+            if held["station"] == found.station:
+                document["latitude"] = held["latitude"]
+                document["longitude"] = held["longitude"]
+                document["name"] = held["name"]
+                break
+    document["network"] = wind.named(network, "network")
+    return document
+
+
 def annotation_fields() -> tuple[str, ...]:
     """Every field of a person's own judgment, in the order they are declared.
 

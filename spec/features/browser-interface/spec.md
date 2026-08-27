@@ -29,6 +29,10 @@ in five years. The problem brief is in `research.md`.
 - As the person reading a thousand rows, I want to narrow one column at a time by typing what its
   value should contain, so that I can ask a question about a particular column instead of about
   every column at once.
+- As the person choosing where to live, I want to measure how far a house is from something on the
+  map, so that "too close to the red" is a number rather than an impression.
+- As the person choosing where to live, I want to see which way the wind normally blows here, so
+  that I can tell a house upwind of a hazard from a house downwind of the same hazard.
 - As the person running searches, I want to write my rank, verdict, red flags, and next step on the
   row I am reading, so that my judgment lands in the tool rather than in a separate spreadsheet.
 - As the person running searches, I want one property's full picture on one page, including how its
@@ -347,10 +351,12 @@ in five years. The problem brief is in `research.md`.
       map beneath it. Drawing it asks that server for the part of the country on screen, which the
       page states, because nothing else here does that unless a map background has been turned on.
 - [ ] AC-56: A property can be kept or passed on from its pin, with the same question about why and
-      the same effect as from the results table, and the map reflects the decision at once. The page
-      works nothing out and decides nothing: no property is scored, ranked, hidden or coloured by
-      its distance from anything, because that would be a criterion with no rule behind it and no
-      way to argue with it.
+      the same effect as from the results table, and the map reflects the decision at once. No
+      property is scored, ranked, hidden or coloured by its distance from anything, and the only
+      reason one is left off the map is a judgment the person made themselves, because anything else
+      would be a criterion with no rule behind it and no way to argue with it. The page may measure
+      a distance somebody asked it to measure (AC-58); what it may not do is decide something about
+      a house from one.
 - [ ] AC-50: The spreadsheet can be downloaded from the results table itself, in either format the
       export writes, without going to another screen and without being told a path to go and find.
       It is the same core operation the terminal calls and still writes its copy into the workspace,
@@ -377,6 +383,25 @@ in five years. The problem brief is in `research.md`.
       and changes nothing else: no property is altered, judged or deleted by one, and none of it is
       remembered past the visit, because a narrowing that came back days later would hide rows for a
       reason nobody remembers setting.
+- [ ] AC-58: The fire map carries a scale that reports the distance across the screen in miles and
+      follows the zoom. It also offers a ruler, off by default, laid across the middle of what is on
+      screen: either end can be moved to a point on the map, the whole ruler can be carried
+      elsewhere without changing its length, and it reads the distance between its ends in miles, or
+      in feet below the point where a mile is no longer a useful picture. It is operable by pointer
+      and by keyboard, in steps taken from what is on screen rather than in fixed degrees. A scale
+      fixed in a corner cannot be held up against two things that are somewhere else on the map,
+      which is the whole reason the second one exists.
+- [ ] AC-59: The fire map can draw where the wind comes from, off by default, as a wind rose per
+      weather station over that station's whole recorded history rather than as any forecast. A rose
+      reports, for each of sixteen directions, how often the wind came from it and how often it did
+      so at fifteen miles an hour or more, and opens into those numbers with the number of readings
+      and the years they span. The whole year and the single month that is both windiest and in fire
+      season are both offered. Every claim states that a direction is where the wind comes *from*
+      and what that means for a fire, because the opposite reading inverts every conclusion drawn
+      from the page. Only the stations on screen are asked about, each exactly once ever, and what is
+      on its way is visible as such. A station or a state that cannot be read is reported and does
+      not stop the others being drawn. Nothing is scored, ranked, hidden or coloured by wind: the
+      rose reports what was recorded and the person decides.
 
 ## Edge cases & errors
 
@@ -392,6 +417,15 @@ in five years. The problem brief is in `research.md`.
 - An unknown judgment value arrives from a hand-edited database or an older client. Rejected on
   write with the accepted values named, in the same way an unknown severity in a criterion is.
 
+- A weather station's record is on its way. It is drawn as what it is, a marker where the rose
+  will be, because the first read of a station takes about ten seconds and an empty patch of map
+  says nothing about whether anything is happening.
+- A state has no automated weather network, or the archive is having a bad afternoon. That state is
+  named as unreachable and every other state is still drawn, which is the reliability invariant
+  applying here exactly as it applies to a run: no single outside failure decides the answer.
+- Somebody opens a rose near the edge of the screen. The map pans to fit the bubble, which moves the
+  map, which is what decides which stations to ask about. Whatever is already drawn correctly is
+  left alone rather than replaced, because replacing it takes the open bubble with it.
 - A column with a filter on it is hidden. The filter keeps holding and keeps its place in the list
   above the table, said to be on a hidden column. Lifting it with the column would throw away work
   somebody did; leaving it in force without saying so would take the reason four hundred rows are

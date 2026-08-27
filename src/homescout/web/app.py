@@ -375,6 +375,21 @@ def build(workspace: api.Workspace) -> FastAPI:
             },
         )
 
+    @app.get("/api/wind/stations/{name}")
+    def wind_stations(name: str) -> dict[str, Any]:
+        """Which weather stations cover the states this run found properties in.
+
+        One small list per state, kept once fetched. Separate from the rose itself because a
+        page can draw where the stations are the moment it opens and fill in what each one says
+        as the answers arrive, which is the difference between a map and a wait.
+        """
+        return answer("wind_stations", **api.wind_stations(held(), name))
+
+    @app.get("/api/wind/rose/{network}/{station}")
+    def wind_rose(network: str, station: str, season: str = "april") -> dict[str, Any]:
+        """One station's wind rose, over its whole record rather than over a forecast."""
+        return answer("wind_rose", rose=api.wind_rose(held(), network, station, season))
+
     @app.get("/api/kept")
     def kept() -> dict[str, Any]:
         """The shortlist, the other half of the same judgment the results table writes."""

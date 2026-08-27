@@ -509,3 +509,78 @@ alongside its peers.
       button, with the filter named above the table and absent from this browser's storage; one
       press lifting every filter, the search box included; and the match being against what the cell
       shows, which covers the price, the "not known" and the upper and lower case alike.
+## Change: how far, and which way (`changes/how-far-and-which-way/`)
+
+- [x] T104: `web/static/fire.js`: a scale in the corner that follows the zoom, in miles, because
+      everything else on this page that talks about distance is in miles (`feat-010/AC-58`).
+
+- [x] T105: `web/static/fire.js` and `app.css`: a ruler with two ends and a middle, all draggable,
+      reading its own length (`feat-010/AC-58`, `feat-010/AC-17`). Carrying the middle takes both
+      ends with it, so a length is set once and then held up against one thing after another. The
+      arrow keys move whichever handle has the keyboard, in steps taken from what is on screen: a
+      step of a fixed number of degrees is a jump off the map at one zoom and nothing at all at
+      another. Feet below a fifth of a mile, because "0.03 miles" is a number nobody pictures.
+
+- [x] T106: `enrich/wind.py`: a station's wind rose, from Iowa State's archive of hourly airport
+      observations (`feat-010/AC-59`). Sixteen directions, each carrying how often the wind came
+      from it and how often it did so at fifteen miles an hour and over, which is the half that
+      moves a fire.
+
+      Not a forecast, and that is the whole design. Thursday's wind is a fact about Thursday; a
+      house is a longer question. The archive computes the rose from every hourly reading a station
+      has, so thirty years of Taos is one request rather than a dataset to keep current.
+
+      Two seasons and only two, because the archive answers about one named month or about all of
+      them and nothing in between. April is the default: in New Mexico it is both the windiest month
+      and the middle of fire season.
+
+      Kept on disk for good, and asked exactly once. The request is a query across tens of thousands
+      of rows and takes ten seconds of somebody else's public machine, for an answer that summarises
+      decades. Three at a time, fewer than the map tiles, because a tile is a file and this is work.
+
+- [x] T107: `api.wind_stations`, `api.wind_rose`, `/api/wind/stations/{name}` and
+      `/api/wind/rose/{network}/{station}`: fetched by this machine and never by the browser, which
+      is the privacy statement unchanged rather than gaining a line (`feat-010/AC-59`).
+
+      Which states to ask about comes from the properties themselves rather than from what the
+      search is called: a search named "nm-statewide" that turned up a house over the Colorado line
+      gets Colorado's stations too. A state that will not answer is named and does not take the
+      others with it.
+
+- [x] T108: `web/static/fire.js` and `app.css`: the roses drawn, in a layer of their own between the
+      fire and the properties, at a fixed number of pixels rather than as a shape on the ground
+      (`feat-010/AC-59`, `feat-010/AC-18`).
+
+      Only the stations on screen are asked about, nearest the middle first, so somebody looking at
+      Taos waits ten seconds for Taos rather than four minutes for New Mexico. Violet, because this
+      page already spends red through green on the hazard model and blue, gold and pink on what the
+      person decided, and a rose in any of those reads as one of those.
+
+      Two bugs here that only a pointer finds, both recorded because neither is visible in the
+      source. A large negative `zIndexOffset` paints a marker behind the map's own surface, so every
+      click at a rose landed on the tile underneath it: the roses drew perfectly and could not be
+      opened. And clearing the layer to redraw it takes any open bubble with it, because opening one
+      pans the map and a pan is what triggers the redraw. Both are covered by a test that hit-tests
+      the middle of a rose and then opens it.
+
+- [x] T109: `web/static/fire.js`: the sentence that a direction is where the wind comes **from**,
+      in the legend and again in every bubble, with what it means for a fire spelled out
+      (`feat-010/AC-59`). Read the other way round, every conclusion this overlay supports is
+      exactly inverted, and a rose is drawn the way somebody who has not seen one will read
+      backwards. `tests/test_web_wind.py` asserts the page says it more than once.
+
+- [x] T110: `tests/test_web_wind.py` and `tests/test_web_browser.py`: the parse pinned by the one
+      check that catches a shifted column, which is that sixteen directions and the calm account for
+      exactly a hundred percent of the time; north being north; the hard-wind bands read off the
+      archive's own labels rather than counted in from the right; a table of the wrong shape being a
+      failure rather than a wrong rose; the caching; a state that will not answer; and, in a real
+      browser, the scale following the zoom, the ruler measuring and moving, and a rose being
+      reachable by a pointer and opening into what it recorded.
+
+- [x] T111: `tests/test_web_browser.py`: the map's "scores nothing" guarantee re-aimed
+      (`feat-010/AC-56`). It was asserted by banning the word "distance" anywhere in the page, which
+      stopped being the same claim once the page grew a ruler somebody drags and an overlay that
+      asks about the stations nearest the middle of the screen. Both measure distances; the
+      difference is who is measuring and what it decides. The ban now sits on the function that
+      turns a property into a pin, along with an assertion that the one reason a property is left
+      off is the person's own judgment.

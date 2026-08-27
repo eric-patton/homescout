@@ -1551,19 +1551,55 @@ def test_the_map_draws_the_properties_and_says_what_it_cannot(served) -> None:
         assert word in found["legend"], f"the legend does not explain {word}"
 
 
+def body_of(source: str, name: str) -> str:
+    """One function out of a source file, by counting its braces.
+
+    Crude on purpose. The alternative is a JavaScript parser in the test suite, and what is being
+    asked here is narrow enough that brace counting answers it exactly: what does *this* function
+    have in it.
+    """
+    at = source.index(f"function {name}(")
+    depth = 0
+    for end in range(source.index("{", at), len(source)):
+        if source[end] == "{":
+            depth += 1
+        elif source[end] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[at : end + 1]
+    raise AssertionError(f"{name} has no end")
+
+
 def test_the_map_scores_nothing_and_hides_nothing_on_its_own(served) -> None:
     """feat-010/AC-56: a page that quietly ranked houses by how close they are to red would be a
     criterion with no rule behind it and no way to argue with it.
 
     So what a pin looks like is read off the person's own judgment and off nothing else.
+
+    This used to be asserted by banning the word "distance" anywhere in the file, and that stopped
+    being the same claim the moment the page grew a ruler somebody drags and a wind overlay that
+    asks about the stations nearest the middle of the screen. Both of those measure distances; the
+    difference is who is doing the measuring and what it decides. So the ban moved to where the
+    claim actually lives: the one function that turns a property into a pin.
     """
     fire = (STATIC / "fire.js").read_text(encoding="utf-8")
+    drawing = body_of(fire, "plot")
 
-    assert "PINS[row.judgment" in fire, "a pin's appearance is not read from the judgment"
-    for arithmetic in ("distance", "nearest", "score", "Math.hypot", "radiusOf"):
-        assert arithmetic not in fire, (
-            f"{arithmetic!r} suggests this page works something out about proximity, which is a "
-            "criterion in disguise"
+    assert "PINS[row.judgment" in drawing, "a pin's appearance is not read from the judgment"
+    for arithmetic in ("distance", "nearest", "score", "Math.hypot", "hazard"):
+        assert arithmetic not in drawing, (
+            f"{arithmetic!r} in the function that draws a property means this page works something "
+            "out about that property, which is a criterion in disguise"
+        )
+    assert drawing.count("continue") == 1, (
+        "a property is left off this map for more than one reason, and the one reason allowed is "
+        "the judgment the person made themselves"
+    )
+    assert 'row.judgment === "pass"' in drawing
+
+    for anywhere in ("Math.hypot", "score(", "nearestHazard", "hazardNear"):
+        assert anywhere not in fire, (
+            f"{anywhere!r} suggests this page works out how close a property is to something"
         )
 def test_a_column_is_narrowed_by_typing_into_its_filter(served) -> None:
     """feat-010/AC-57: one search box cannot ask about one column.
@@ -1723,3 +1759,142 @@ def test_a_filter_matches_the_cell_as_it_is_shown(served) -> None:
     )
     assert found["shouted"] == 60, "the filter was fussy about upper and lower case"
     assert found["back"] == 60
+def test_the_map_says_how_far_things_are(served) -> None:
+    """feat-010/AC-58: a fire map with no distances on it asks a question it cannot answer.
+
+    Two of them, because they answer different halves. The bar in the corner says how big the
+    screen is, which is the question at a glance and the one that changes every time somebody
+    zooms. The ruler answers the question actually being asked, which is how far this house is
+    from that red: a bar fixed in a corner cannot be held up against two things somewhere else on
+    the map, so this one comes off the corner and is dragged to them.
+    """
+    found = on_the_map(served, """
+        held.map.setView([34.18, -103.34], 11);
+        await until(() => true);
+        const bar = document.querySelector(".leaflet-control-scale");
+        const wide = bar.textContent;
+
+        held.map.setZoom(8);
+        await until(() => document.querySelector(".leaflet-control-scale").textContent !== wide);
+        const far = document.querySelector(".leaflet-control-scale").textContent;
+
+        document.getElementById("ruler").click();
+        await until(() => document.querySelector(".rule-middle"));
+
+        /* Two points a known way apart: a tenth of a degree of latitude is 11.1 km, near enough
+           to seven miles, and it is the same everywhere so this does not depend on where it is. */
+        rule.a.setLatLng(L.latLng(34.10, -103.34));
+        rule.b.setLatLng(L.latLng(34.20, -103.34));
+        reread();
+        await until(() => rule.middle.getTooltip());
+
+        const reading = rule.middle.getTooltip().getContent().textContent;
+        const metres = Math.round(held.map.distance(rule.a.getLatLng(), rule.b.getLatLng()));
+        const middleWas = rule.middle.getLatLng();
+
+        /* Carry the whole thing somewhere else: both ends move together and the length does not. */
+        rule.middle.fire("dragstart");
+        rule.middle.setLatLng(L.latLng(34.30, -103.10));
+        rule.middle.fire("drag");
+        await until(() => true);
+        const moved = rule.middle.getTooltip().getContent().textContent;
+        const ends = [String(rule.a.getLatLng()), String(rule.b.getLatLng())];
+
+        /* And it comes off again. */
+        document.getElementById("ruler").click();
+        await until(() => !document.querySelector(".rule-middle"));
+
+        return {wide, far, reading, metres, moved, ends,
+                middleWas: String(middleWas),
+                gone: !document.querySelector(".rule-end"),
+                short: howFar(L.latLng(34.10, -103.34), L.latLng(34.1004, -103.34))};
+    """)
+
+    assert "mi" in found["wide"], f"the scale is not in miles: {found['wide']!r}"
+    assert found["far"] != found["wide"], "the scale did not change when the map was zoomed out"
+    assert 11_000 < found["metres"] < 11_300, found["metres"]
+    assert found["reading"] == "6.91 miles", found["reading"]
+    assert found["moved"] == found["reading"], (
+        "carrying the ruler somewhere else changed how long it is"
+    )
+    assert "34.25" in found["ends"][0] and "34.35" in found["ends"][1], found["ends"]
+    assert found["gone"], "switching it off left the ruler on the map"
+    assert "feet" in found["short"], (
+        f"a distance shorter than a house's frontage was given in miles: {found['short']!r}"
+    )
+
+
+def facing(monkeypatch, table: str, stations: str):
+    """The weather archive, replaced, in the server this browser is talking to.
+
+    The server runs in a thread of this same process, so replacing the fetch here replaces it
+    there. Which is the whole reason this test can exist: a rose is a ten-second query on somebody
+    else's public archive and no test suite should ever make one.
+    """
+    from homescout.enrich import wind
+
+    def fetched(url: str, what: str) -> bytes:
+        return (stations if url.endswith(".geojson") else table).encode()
+
+    monkeypatch.setattr(wind, "_fetch", fetched)
+
+
+def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monkeypatch) -> None:
+    """feat-010/AC-59: which red matters depends on which way the weather moves through here.
+
+    A house half a mile from a wall of red is in a different position depending on whether the wind
+    normally comes over that red or normally carries away from it, and no value in this tool says
+    which. So the stations that have measured it for thirty years are drawn where they are, and
+    each one opens into what it actually recorded.
+
+    Every claim on that bubble is a claim about decades, not about Thursday, which is the only
+    version of this question worth putting in front of somebody buying a house.
+    """
+    from test_web_wind import STATIONS, TABLE
+
+    facing(monkeypatch, TABLE, STATIONS)
+
+    found = on_the_map(served, """
+        /* Over the stations. The properties in this fixture are in Portales and the stations in
+           it are up by Taos, and the overlay deliberately only asks about what is on screen. */
+        held.map.setView([36.44, -105.48], 9);
+        await until(() => true);
+        document.getElementById("wind").click();
+        await until(() => document.querySelector(".rose svg"), 200);
+
+        const glyph = document.querySelector(".rose");
+        const box = glyph.getBoundingClientRect();
+        const paths = glyph.querySelectorAll("path").length;
+        /* What a real pointer would land on. A rose behind the map's own surface is decoration:
+           it draws, it never opens, and only a hit test finds that. */
+        const hit = document.elementFromPoint(Math.round(box.left + box.width / 2),
+                                              Math.round(box.top + box.height / 2));
+
+        glyph.dispatchEvent(new MouseEvent("click", {bubbles: true,
+          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2}));
+        const bubble = await until(() => document.querySelector(".pin.wind"));
+
+        return {roses: Object.keys(wind.roses).length,
+                stations: wind.stations.length,
+                paths,
+                reachable: !!(hit && hit.closest && hit.closest(".rose")),
+                said: bubble ? bubble.textContent : "",
+                legend: document.querySelector(".legend").textContent,
+                season: document.getElementById("season").value};
+    """)
+
+    assert found["stations"] == 2, found["stations"]
+    assert found["roses"] >= 1, "no station's record was drawn"
+    assert found["paths"] >= 16, "a rose of sixteen directions drew fewer than sixteen shapes"
+    assert found["reachable"], (
+        "a pointer at the middle of a rose does not land on it, so it can never be opened"
+    )
+    assert found["season"] == "april", "the default is not the month that both blows and burns"
+
+    assert "Most often from the west" in found["said"], found["said"]
+    assert "hourly readings" in found["said"], "the bubble does not say what it is a summary of"
+    assert "comes from" in found["said"], (
+        "the bubble never says which way a direction means, which inverts every conclusion "
+        "somebody would draw from it"
+    )
+    assert "pushes a fire east" in found["legend"], "the legend leaves the reader to work it out"

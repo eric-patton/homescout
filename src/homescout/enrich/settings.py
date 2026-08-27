@@ -69,6 +69,14 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_wildfire/MapServer/2/query",
         "New Mexico wildland-urban interface, from the university server behind nmwrap.org",
     ),
+    "wind": Endpoint(
+        "https://mesonet.agron.iastate.edu/cgi-bin/mywindrose.py",
+        "Iowa State's archive of hourly airport wind observations, summarised as a wind rose",
+    ),
+    "wind_stations": Endpoint(
+        "https://mesonet.agron.iastate.edu/geojson/network",
+        "Which automated weather stations a state has, and where each one is",
+    ),
     "wui_coverage": Endpoint(
         "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_reference/MapServer/8/query",
         "New Mexico counties, which say whether the interface layer covers a point at all",

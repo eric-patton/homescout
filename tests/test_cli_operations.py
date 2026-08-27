@@ -615,6 +615,8 @@ def test_the_facade_is_the_whole_surface() -> None:
         "annotation_fields",
         "hazard_layers",
         "hazard_tile",
+        "wind_stations",
+        "wind_rose",
         "review_queue",
         "run_status",
         "area_notes",
