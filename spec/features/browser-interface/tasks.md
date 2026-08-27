@@ -472,3 +472,40 @@ alongside its peers.
       one-second spacing, which would take half a minute to draw one screen.
       `tests/test_web_hazard.py` covers the rectangle and size being four numbers and two numbers
       and nothing else, the cache, an answer that is not a picture, and the served headers.
+## Change: filter a column (`changes/filter-a-column/`)
+
+- [x] T99: `web/static/results.js`: every sortable heading carries a filter button, always drawn
+      rather than appearing on hover, and it opens a box of plain text that narrows that column as
+      it is typed into (`feat-010/AC-57`, `feat-010/AC-7`). Reachable without a pointer as well:
+      `f` on a focused heading, and an item on the heading's right-click menu under the one that
+      hides it (`feat-010/AC-17`).
+
+      Filters on several columns all hold at once, which is the whole reason for having them: "in
+      Ruidoso" and "single storey" is a question the one box at the top cannot ask, because the
+      second answer replaces the first.
+
+- [x] T100: `web/static/results.js`: a filter is matched against the cell as it is displayed rather
+      than as it is stored (`feat-010/AC-57`, `feat-010/AC-10`). A price reads $425,000 and is held
+      as 425000, and somebody typing what is in front of them is not wrong; a column nothing could
+      be found for reads "not known", so typing that finds exactly those rows, which is a question
+      that has been asked out loud more than once. A column the person writes in themselves is the
+      exception: an empty one there was never unknown, because nobody set out to determine it.
+
+- [x] T101: `web/static/results.js` and `app.css`: every filter in force is written out above the
+      table, each with its own control to lift it, and one control lifts them all including the
+      whole-table search box (`feat-010/AC-57`, `feat-010/AC-18`).
+
+      This is the part that is not a convenience. A table silently missing four hundred rows is the
+      worst thing this screen can do, so the reason is on screen in words the whole time, and a
+      person whose rows have gone missing has one thing to press rather than a column filter here
+      and a search box up there. It is also why a filter on a column that has since been hidden
+      stays in the list: hiding a column must not take the reason its rows are gone with it.
+
+- [x] T102: `web/static/results.js`: the narrow columns are wider by the width of the button now on
+      every heading. A column headed "B..." says nothing about whether it is beds or baths, and the
+      two of them are next to each other.
+
+- [x] T103: `tests/test_web_browser.py`: three real-browser tests — a column narrowed from its own
+      button, with the filter named above the table and absent from this browser's storage; one
+      press lifting every filter, the search box included; and the match being against what the cell
+      shows, which covers the price, the "not known" and the upper and lower case alike.

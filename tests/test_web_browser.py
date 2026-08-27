@@ -501,8 +501,10 @@ def test_a_column_moves_and_resizes_from_the_keyboard(served) -> None:
                  const wasWide = widthOf(moving);
                  press({altKey: true, shiftKey: true});
                  return {before, moved, wasWide, nowWide: widthOf(moving),
+                         /* The name the heading says it is, rather than the text in it: a heading
+                            also holds its sort marker and its filter button. */
                          drawn: [...document.querySelectorAll("table.grid thead th")]
-                                  .map(h => h.textContent.trim())};
+                                  .map(h => h.dataset.column || h.textContent.trim())};
                })()""",
         )
     finally:
@@ -1563,3 +1565,161 @@ def test_the_map_scores_nothing_and_hides_nothing_on_its_own(served) -> None:
             f"{arithmetic!r} suggests this page works something out about proximity, which is a "
             "criterion in disguise"
         )
+def test_a_column_is_narrowed_by_typing_into_its_filter(served) -> None:
+    """feat-010/AC-57: one search box cannot ask about one column.
+
+    Typing a town into the box at the top finds the properties in it, the ones whose description
+    mentions it and the ones whose agent works there, and there is no way to say which was meant.
+    So each heading carries its own, the button is drawn on every column rather than appearing on
+    hover, and what it is narrowed to is written out above the table in words: a table quietly
+    missing four hundred rows is the worst thing this screen can do.
+    """
+    found = opened(served, """
+        const all = state.shown.length;
+        const at = state.columns.findIndex(c => c.name === "Property");
+        const th = document.querySelectorAll("table.grid thead th")[at];
+
+        th.querySelector(".sift").click();
+        const panel = await until(() => document.querySelector(".sifter"));
+        const box = panel.querySelector("input");
+        box.value = "p0001";
+        box.dispatchEvent(new Event("input", {bubbles: true}));
+        await until(() => state.shown.length !== all);
+
+        const bar = document.getElementById("sifted");
+        let remembered = null;
+        try { remembered = window.localStorage.getItem(keep()); } catch (e) { remembered = null; }
+
+        return {
+          all,
+          narrowed: state.shown.length,
+          addresses: state.shown.map(r => r.values["Property"]),
+          marked: th.classList.contains("filtered"),
+          button: th.querySelector(".sift").getAttribute("aria-label"),
+          buttons: document.querySelectorAll("table.grid thead th .sift").length,
+          columns: state.columns.length,
+          said: bar.hidden ? "" : bar.textContent,
+          drawn: document.querySelectorAll("#body tr").length,
+          remembered: remembered || "",
+        };
+    """)
+
+    assert found["all"] == 60, found["all"]
+    assert found["narrowed"] == 10, "the filter did not narrow the table to the ten matching rows"
+    assert all("p0001" in address for address in found["addresses"])
+    assert found["drawn"] == found["narrowed"], "the rows drawn do not match the rows kept"
+    assert found["marked"], "the filtered column is not marked on its heading"
+    assert "p0001" in found["button"], (
+        "the button says nothing about what it is filtering, so the state is colour alone"
+    )
+    assert "Property" in found["said"] and "p0001" in found["said"], (
+        f"the filter is not named above the table: {found['said']!r}"
+    )
+    assert "clear all filters" in found["said"]
+    assert found["buttons"] == found["columns"] - 1, (
+        "every column but the keep-or-pass control should carry a filter button"
+    )
+    assert "p0001" not in found["remembered"], (
+        "the filter was written into this browser's storage, so it would come back days later "
+        "and hide rows for a reason nobody remembers setting"
+    )
+
+
+def test_one_press_lifts_every_filter(served) -> None:
+    """feat-010/AC-57: a person whose rows have gone missing needs one thing to press.
+
+    The whole-table search box goes with the column filters, which is the whole point of it: a
+    filter here and a search box up there, with no way of knowing which is still holding, is how
+    somebody concludes the tool has lost their properties.
+    """
+    found = opened(served, """
+        const all = state.shown.length;
+        const search = document.getElementById("filter");
+        search.value = "Example";
+        search.dispatchEvent(new Event("input", {bubbles: true}));
+        setFilter("Property", "p0001");
+        setFilter("Town/Area", "nowhere at all");
+        await until(() => state.shown.length === 0);
+
+        const bar = document.getElementById("sifted");
+        const chips = bar.querySelectorAll(".chip").length;
+        const said = bar.textContent;
+
+        bar.querySelector(".clearall").click();
+        await until(() => state.shown.length === all);
+
+        return {all, chips, said,
+                after: state.shown.length,
+                query: document.getElementById("filter").value,
+                filters: Object.keys(state.filters).length,
+                packed: bar.hidden,
+                marked: document.querySelectorAll("table.grid thead th.filtered").length};
+    """)
+
+    assert found["all"] == 60
+    assert found["chips"] == 3, "the search box is not listed beside the column filters"
+    assert "any column" in found["said"], "the whole-table search is not named in the list"
+    assert found["after"] == found["all"], "clearing every filter did not bring the rows back"
+    assert found["query"] == "", "the search box still held its text after every filter was lifted"
+    assert found["filters"] == 0
+    assert found["packed"], "the list of filters stayed on screen with nothing in it"
+    assert found["marked"] == 0, "a heading still says it is filtered"
+
+
+def test_a_filter_matches_the_cell_as_it_is_shown(served) -> None:
+    """feat-010/AC-57, feat-010/AC-10: somebody types what is in front of them.
+
+    A price reads $425,000 and is held as the number 425000, and a filter that answered nothing to
+    the first of those would be the wrong one. The same rule makes the other question askable: a
+    column this tool could not fill prints "not known", so typing that finds exactly the properties
+    nobody could determine it for, which is a question that has been asked out loud more than once.
+    A column the person writes in themselves is the exception, because an empty one there was never
+    unknown; nobody set out to determine it.
+    """
+    found = opened(served, """
+        const priced = state.all[0].values["Price"];
+        const asMoney = "$" + Number(priced).toLocaleString();
+        setFilter("Price", asMoney);
+        const money = {typed: asMoney, rows: state.shown.length};
+        setFilter("Price", String(priced));
+        const plain = state.shown.length;
+        setFilter("Price", "");
+
+        const blank = (row, name) => {
+          const held = row.values[name];
+          return held === null || held === undefined || held === "";
+        };
+        const empty = state.columns.find(c =>
+          c.origin !== "annotation" && c.origin !== "control" &&
+          state.all.every(r => blank(r, c.name)));
+        setFilter(empty.name, "not known");
+        const unknown = {column: empty.name, rows: state.shown.length};
+        setFilter(empty.name, "");
+
+        const mine = state.columns.find(c => c.origin === "annotation");
+        setFilter(mine.name, "not known");
+        const yours = {column: mine.name, rows: state.shown.length};
+        setFilter(mine.name, "");
+
+        setFilter("Town/Area", "PORTALES");
+        const shouted = state.shown.length;
+
+        clearFilters();
+        return {money, plain, unknown, yours, shouted, back: state.shown.length};
+    """)
+
+    assert found["money"]["rows"] == 1, (
+        f"a price typed the way it is printed ({found['money']['typed']}) matched "
+        f"{found['money']['rows']} rows"
+    )
+    assert found["plain"] == 1, "the same price typed as bare digits did not match"
+    assert found["unknown"]["rows"] == 60, (
+        f"\"not known\" found {found['unknown']['rows']} of the 60 rows in "
+        f"{found['unknown']['column']}, which is empty for every one of them"
+    )
+    assert found["yours"]["rows"] == 0, (
+        f"\"not known\" matched empty cells in {found['yours']['column']}, a column nobody was "
+        "ever going to fill in but the person themselves"
+    )
+    assert found["shouted"] == 60, "the filter was fussy about upper and lower case"
+    assert found["back"] == 60

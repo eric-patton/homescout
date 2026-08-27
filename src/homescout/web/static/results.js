@@ -41,10 +41,15 @@ const OVERSCAN = 12;
  * house number is not an address, and four digits do not need eleven rems. */
 const DEFAULT_WIDTH = 176;
 const MIN_WIDTH = 52;
+
+/* Every heading now carries a filter button at its right edge, which is twenty-five pixels a
+ * heading's name no longer has. The narrow ones were sized to the word and nothing more, so each
+ * of them here has that room added back: a column headed "B..." tells nobody whether it is beds or
+ * baths, and the two of them sit next to each other. */
 const WIDTHS = {
-  "Rank": 62, "Status": 104, "Property": 340, "Town/Area": 132, "County/Region": 124,
-  "Price": 104, "$/sq ft": 82, "Beds": 58, "Baths": 62, "Sq Ft": 76, "Year Built": 84,
-  "Acres": 72, "Listing URL": 210, "Listing ID": 250, "Description": 420,
+  "Rank": 86, "Status": 112, "Property": 340, "Town/Area": 140, "County/Region": 142,
+  "Price": 110, "$/sq ft": 96, "Beds": 76, "Baths": 78, "Sq Ft": 92, "Year Built": 104,
+  "Acres": 86, "Listing URL": 210, "Listing ID": 250, "Description": 420,
   "Price History & DOM": 210, "Flags": 210, "Sources": 130,
 };
 
@@ -107,6 +112,16 @@ const state = {
   sortBy: null,
   descending: false,
   query: "",
+  /* What each column has been narrowed to, by column name. A column with no entry here is not
+   * narrowed at all, which is why a box emptied removes its key rather than storing "": the
+   * difference between "no filter" and "a filter that happens to be empty" is a difference nothing
+   * downstream should have to think about.
+   *
+   * Deliberately not remembered between visits, unlike the column arrangement beside it. An
+   * arrangement that comes back is a convenience; a narrowing that comes back is a table missing
+   * rows for a reason somebody set on Tuesday and has since forgotten. What is in force is always
+   * on screen, in words, above the table. */
+  filters: {},
   showGone: false,
   showPassed: false,
   onlyKept: false,
@@ -265,6 +280,7 @@ function measure() {
 function reset() {
   state.widths = {};
   state.hidden = {};
+  state.filters = {};
   state.showPhotos = false;
   state.wrap = false;
   try {
@@ -287,7 +303,7 @@ function draw() {
     id: "filter",
     placeholder: "type to narrow the list",
     "aria-label": "Filter the table",
-    oninput: (event) => { state.query = event.target.value; apply(); },
+    oninput: (event) => { state.query = event.target.value; showFilters(); apply(); },
   });
 
   const gone = el("input", {
@@ -336,7 +352,8 @@ function draw() {
     `${state.search} results`,
     el("h1", {}, `${state.search}`),
     el("p", {class: "lede"},
-      "Click a heading to sort by it, drag it to move the column, drag its right edge to resize, " +
+      "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
+      "containing some text, drag it to move the column, drag its right edge to resize, " +
       "right-click it to hide it. Cells with a white background are yours to write in: click one " +
       "and press Enter. What you write survives every later run. Town notes are the exception: " +
       "they belong to the town and appear on every property in it."),
@@ -366,6 +383,10 @@ function draw() {
       link(`/api/export/${encodeURIComponent(state.search)}?format=csv`, "as csv",
            {title: "The same sheet, comma separated", download: ""}),
     ),
+    /* Empty and out of the way until something is filtered, and impossible to miss once
+     * something is. `role="status"` so a filter set from the keyboard is announced rather than
+     * only drawn. */
+    el("div", {id: "sifted", class: "sifted", role: "status", hidden: true}),
     el("div", {id: "scroller", tabindex: "0", role: "region",
                "aria-label": "Results, scrollable"},
       el("div", {id: "sizer"},
@@ -457,6 +478,13 @@ function headerMenu(event, column) {
                   onclick: () => { menu.remove(); hide(column.name); }},
        `Hide ${column.name}`),
     el("button", {type: "button", role: "menuitem",
+                  onclick: () => {
+                    menu.remove();
+                    const th = headingFor(column.name);
+                    filterBox(th ? th.querySelector(".sift") || th : document.body, column);
+                  }},
+       `Filter ${column.name}…`),
+    el("button", {type: "button", role: "menuitem",
                   onclick: () => { menu.remove(); chooseColumns(); }},
        "Choose columns…"),
   );
@@ -514,6 +542,218 @@ function chooseColumns() {
   dialog.showModal();
 }
 
+/* ------------------------------------------------------------------ */
+/* Narrowing one column at a time                                      */
+/* ------------------------------------------------------------------ */
+
+/* The box a heading's filter button opens, anchored under whatever was pressed.
+ *
+ * It narrows as it is typed into rather than on a button, which is the same bargain the whole-table
+ * search box already makes: the answer is in an array in this browser, so the cost of being wrong
+ * about what to type is one keystroke back. Escape puts back whatever the filter was when the box
+ * opened, so trying something out costs nothing. */
+function filterBox(anchor, column) {
+  document.querySelectorAll(".menu, .sifter").forEach((old_) => old_.remove());
+  const was = state.filters[column.name] || "";
+
+  const box = el("input", {
+    type: "search",
+    class: "sifting",
+    value: was,
+    placeholder: "text it should contain",
+    "aria-label": `Show only rows whose ${column.name} contains this text`,
+    oninput: (event) => setFilter(column.name, event.target.value),
+    onkeydown: (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        shut();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setFilter(column.name, was);
+        shut();
+      }
+    },
+  });
+
+  const panel = el("div", {class: "sifter", role: "dialog", "aria-label": `Filter ${column.name}`},
+    el("p", {class: "hint"}, `Show only the rows whose ${column.name} contains:`),
+    box,
+    el("p", {class: "hint"},
+      "Plain text, upper and lower case alike, matched against what the cell shows. A column " +
+      "nothing could be found for reads \u201cnot known\u201d, so that is what finds those rows."),
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "quiet",
+                    onclick: () => { setFilter(column.name, ""); box.value = ""; box.focus(); }},
+         "Clear this column"),
+      el("button", {type: "button", class: "quiet",
+                    onclick: () => { clearFilters(); shut(); }},
+         "Clear every filter"),
+      el("button", {type: "button", class: "primary", onclick: () => shut()}, "Done"),
+    ),
+  );
+
+  const where = anchor.getBoundingClientRect();
+  panel.style.left = `${Math.max(6, Math.min(where.left, window.innerWidth - 300))}px`;
+  panel.style.top = `${where.bottom + 4}px`;
+  document.body.append(panel);
+  box.focus();
+  box.select();
+
+  function shut() {
+    panel.remove();
+    document.removeEventListener("pointerdown", away, true);
+    /* Back to the heading, so the keyboard is where it was rather than at the top of the page. */
+    const th = headingFor(column.name);
+    if (th) th.focus();
+  }
+  function away(moved) {
+    if (!panel.contains(moved.target)) shut();
+  }
+  document.addEventListener("pointerdown", away, true);
+}
+
+function headingFor(name) {
+  return document.querySelector(`table.grid thead th[data-column="${CSS.escape(name)}"]`);
+}
+
+/* Set or lift one column's filter. An empty box is no filter at all rather than a filter for
+ * nothing, so the key goes rather than being left holding an empty string. */
+function setFilter(name, text) {
+  if (String(text).trim() === "") delete state.filters[name];
+  else state.filters[name] = text;
+
+  const th = headingFor(name);
+  if (th) {
+    th.classList.toggle("filtered", Boolean(state.filters[name]));
+    const button = th.querySelector(".sift");
+    if (button) dress(button, name);
+  }
+  showFilters();
+  apply();
+}
+
+/* Everything narrowing the table, lifted in one press.
+ *
+ * The whole-table search box goes with them, and that is the whole point of the button. A person
+ * whose rows have gone missing should have one thing to press and one place to look, not a column
+ * filter here and a search box up there and no way of knowing which of them is still holding. */
+function clearFilters() {
+  const many = active().length + (state.query.trim() ? 1 : 0);
+  state.filters = {};
+  state.query = "";
+  const search = document.getElementById("filter");
+  if (search) search.value = "";
+  redrawHeader();
+  showFilters();
+  apply();
+  if (many) say(many === 1 ? "The filter cleared." : `All ${many} filters cleared.`);
+}
+
+/* The filters actually in force, as pairs. A blank one is not one. */
+function active() {
+  return Object.entries(state.filters).filter(([, text]) => String(text).trim() !== "");
+}
+
+/* Every filter in force, written out above the table.
+ *
+ * This is the part that is not a convenience. A table silently missing four hundred rows is the
+ * worst thing this screen can do, and the only defence against it is that the reason sits on screen
+ * in words the whole time. Which is also why a filter on a column that has since been hidden still
+ * appears here: hiding a column must not take the reason its rows are gone off the screen with
+ * it. */
+function showFilters() {
+  const bar = document.getElementById("sifted");
+  if (!bar) return;
+  const held = active();
+  const query = state.query.trim();
+
+  if (!held.length && !query) {
+    bar.replaceChildren();
+    bar.hidden = true;
+    fit();
+    return;
+  }
+
+  const chip = (label, said, lift, open) => el("span", {class: "chip"},
+    el("button", {type: "button", class: "what", title: `Change this filter`,
+                  onclick: (event) => open(event.currentTarget)}, label),
+    el("button", {type: "button", class: "lift", "aria-label": `Stop ${said}`,
+                  title: `Stop ${said}`, onclick: lift}, "\u00d7"),
+  );
+
+  const chips = [];
+  if (query) {
+    chips.push(chip(
+      `any column contains \u201c${query}\u201d`,
+      `filtering every column by \u201c${query}\u201d`,
+      () => {
+        state.query = "";
+        const search = document.getElementById("filter");
+        if (search) search.value = "";
+        showFilters();
+        apply();
+      },
+      () => {
+        const search = document.getElementById("filter");
+        if (search) search.focus();
+      },
+    ));
+  }
+  for (const [name, text] of held) {
+    const gone = state.hidden[name] ? " (column hidden)" : "";
+    chips.push(chip(
+      `${name} contains \u201c${text}\u201d${gone}`,
+      `filtering ${name} by \u201c${text}\u201d`,
+      () => setFilter(name, ""),
+      (pressed) => filterBox(headingFor(name) || pressed, columnNamed(name)),
+    ));
+  }
+
+  bar.replaceChildren(
+    el("span", {class: "label"}, "Showing only:"),
+    ...chips,
+    el("button", {type: "button", class: "quiet clearall", onclick: clearFilters,
+                  title: "Lift every filter at once, the search box included"},
+       "clear all filters"),
+  );
+  bar.hidden = false;
+  fit();
+}
+
+function columnNamed(name) {
+  return state.declared.find((column) => column.name === name) ||
+    {name, kind: "text", origin: "listing"};
+}
+
+/* What a cell shows, as text.
+ *
+ * A filter is matched against this rather than against the stored value, and the difference is not
+ * cosmetic. A price is printed $425,000 and held as 425000; somebody typing what is in front of
+ * them is not wrong, and a filter that answered nothing would be. A column this tool could not fill
+ * prints "not known", and being able to ask for exactly those rows is a question that has been
+ * asked out loud more than once. The one exception is a column the person writes in themselves,
+ * where an empty cell is empty rather than unknown, because nobody ever set out to determine it. */
+function asShown(row, column) {
+  const held = row.values[column.name];
+  if (held === null || held === undefined || held === "") {
+    return column.origin === "annotation" || column.name === TOWN_NOTE ? "" : "not known";
+  }
+  if (held === true) return "yes";
+  if (held === false) return "no";
+  if (column.name === "Price") return "$" + Number(held).toLocaleString();
+  return String(held);
+}
+
+/* Punctuation somebody types, or does not type, without meaning anything by it. Both sides are
+ * compared with it and without, so "$425,000", "425000" and "425, 000" ask the same question. */
+function bare(text) {
+  return text.replace(/[\s$,]/g, "");
+}
+
+function holds(text, want) {
+  return text.includes(want) || bare(text).includes(bare(want));
+}
+
 function header(column, at) {
   if (!sortable(column)) {
     /* The control column: not sorted, not moved, not resized. Its heading is a word rather than a
@@ -531,12 +771,14 @@ function header(column, at) {
     role: "columnheader",
     tabindex: "0",
     draggable: "true",
-    class: column.origin === "annotation" ? "yours" : null,
+    dataset: {column: column.name},
+    class: [column.origin === "annotation" ? "yours" : null,
+            state.filters[column.name] ? "filtered" : null].filter(Boolean).join(" ") || null,
     "aria-sort": state.sortBy === column.name
       ? (state.descending ? "descending" : "ascending") : "none",
     title: `${column.name}: ${ORIGINS[column.origin] || column.origin}. Drag to move it, or drag ` +
-      "its right edge to resize. Right-click to hide it. Alt with the arrow keys moves it, add " +
-      "Shift to resize, and Delete hides it.",
+      "its right edge to resize. Right-click to hide it. Press f to filter it. Alt with the arrow " +
+      "keys moves it, add Shift to resize, and Delete hides it.",
     onclick: () => { if (!arranging) sortBy(column.name); },
     oncontextmenu: (event) => headerMenu(event, column),
     ondragstart: (event) => {
@@ -565,6 +807,27 @@ function header(column, at) {
     onkeydown: (event) => headerKey(event, column, at),
   }, column.name + (state.sortBy === column.name ? (state.descending ? " down" : " up") : ""));
 
+  /* The filter, on the heading, on every column, always drawn.
+   *
+   * Not on hover, which is what a spreadsheet would do and what this table has already been burned
+   * by once: a control that only appears when the pointer is over it is a control nobody who is not
+   * already looking for it will ever find, and the last one of those had to be asked for twice as a
+   * feature that was already built. */
+  const sift = el("button", {
+    type: "button",
+    class: "sift",
+    draggable: "false",
+    tabindex: "-1",
+    onclick: (event) => { event.stopPropagation(); filterBox(sift, column); },
+    /* A heading is draggable, and a press on anything inside a draggable element starts the
+     * heading's drag rather than the button's press. Both halves of that are refused here, so the
+     * button is a button. */
+    onpointerdown: (event) => { event.stopPropagation(); },
+    ondragstart: (event) => { event.preventDefault(); event.stopPropagation(); },
+  }, "▼");
+  dress(sift, column.name);
+  th.append(sift);
+
   th.append(el("span", {
     class: "grip",
     role: "presentation",
@@ -575,12 +838,34 @@ function header(column, at) {
   return th;
 }
 
+/* What the filter button on a heading says about itself. Its whole state is in its accessible name
+ * and its tooltip, in the words the person typed, because a button that only changed colour would
+ * be telling somebody their rows are missing in the one way AC-18 does not allow. The shape it
+ * takes on is the second telling of the same thing, not the only one. */
+function dress(button, name) {
+  const held = state.filters[name];
+  button.classList.toggle("on", Boolean(held));
+  const said = held
+    ? `${name} is filtered to rows containing "${held}". Press to change or clear it.`
+    : `Filter ${name}: show only the rows containing some text.`;
+  button.setAttribute("aria-label", said);
+  button.setAttribute("title", said);
+}
+
 /* Everything the mouse can do to a column, the keyboard can do too: sort it, move it, size it.
  * Without this the two new arrangements would be mouse-only, which AC-17 does not allow. */
 function headerKey(event, column, at) {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     sortBy(column.name);
+    return;
+  }
+  if (event.key === "f" || event.key === "F") {
+    /* The button on the heading is not a tab stop: forty columns would otherwise be eighty stops
+     * to walk through. This is its keyboard, and the heading's tooltip says so. */
+    event.preventDefault();
+    const th = headingFor(column.name);
+    filterBox(th ? th.querySelector(".sift") || th : document.body, column);
     return;
   }
   if (event.key === "Delete" || event.key === "Backspace") {
@@ -694,6 +979,20 @@ function apply() {
       Object.values(row.values).some(
         (held) => held !== null && held !== undefined &&
                   String(held).toLowerCase().includes(query)));
+  }
+
+  /* One column at a time, and all of them together. Every filter has to hold for a row to be
+   * drawn, which is what makes two of them worth having: "in Ruidoso" and "single storey" is a
+   * question the one search box at the top cannot ask, because the second answer replaces the
+   * first. The columns are looked up once here rather than per row: a thousand rows against three
+   * filters is three thousand of whatever this does. */
+  const narrowed = active().map(([name, text]) => ({
+    column: columnNamed(name),
+    want: text.trim().toLowerCase(),
+  }));
+  if (narrowed.length) {
+    kept = kept.filter((row) =>
+      narrowed.every((one) => holds(asShown(row, one.column).toLowerCase(), one.want)));
   }
 
   if (state.sortBy) {

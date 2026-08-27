@@ -579,6 +579,106 @@ dialog.columns .choices label { display: flex; align-items: center; gap: var(--s
 }
 .grip:hover, .grip:active { border-right-color: var(--accent); }
 
+/* -- narrowing a column -------------------------------------------------- */
+
+/* Room at the right of every heading for the filter button and the resize grip behind it. The
+ * control column has neither, so it keeps its own padding. */
+table.grid thead th { padding-right: 1.55rem; }
+table.grid thead th.control { padding-right: 0.5rem; }
+
+/* Always drawn, on every column, rather than on hover. A control that appears only when the
+ * pointer is already over it is a control nobody discovers, and this table has been through that
+ * once already. */
+.sift {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 0.7rem;
+  line-height: 14px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.sift:hover { color: var(--ink); background: var(--paper); border-color: var(--line); }
+.sift:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sift.on { color: var(--paper); background: var(--accent); border-color: var(--accent); }
+
+/* A filtered column is marked on the heading as well, and never by colour alone: what the filter
+ * actually is appears in words in the bar above the table, which is the telling that counts. */
+table.grid thead th.filtered {
+  box-shadow: inset 0 -3px 0 var(--accent), 0 1px 0 var(--line);
+}
+
+/* The box the button opens. */
+.sifter {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 288px;
+  padding: var(--s3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--lift-high);
+}
+.sifter .hint { margin: 0; font-size: 0.8rem; color: var(--ink-soft); }
+.sifter input.sifting {
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.34rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.sifter .actions { justify-content: flex-end; }
+
+/* Every filter in force, in words, directly above the table it is holding rows out of. Absent
+ * entirely when nothing is filtered, so the table keeps its room. */
+.sifted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin: calc(-1 * var(--s2)) 0 var(--s3);
+  padding: var(--s2) var(--s3);
+  font-size: 0.85rem;
+  background: var(--shade);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.sifted[hidden] { display: none; }
+.sifted .label { font-weight: 600; color: var(--ink-soft); }
+.sifted .chip {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.sifted .chip button { font: inherit; border: none; background: none; cursor: pointer; }
+.sifted .chip .what { padding: 0.16rem 0.15rem 0.16rem 0.7rem; color: var(--ink); }
+.sifted .chip .what:hover { text-decoration: underline; }
+.sifted .chip .lift {
+  padding: 0.1rem 0.55rem 0.16rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+.sifted .chip .lift:hover { color: var(--warn); background: var(--warn-wash); }
+.sifted .chip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sifted .clearall { margin-left: auto; }
+
 /* -- what a row shows ---------------------------------------------------- */
 
 /* The stored photograph, at the size a roof line is still readable at. Inline rather than in a

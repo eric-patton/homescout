@@ -26,6 +26,9 @@ in five years. The problem brief is in `research.md`.
   something I re-apply by eye.
 - As the person running searches, I want every field in one wide table that I can sort and filter
   myself, so that I am not paging through properties one at a time.
+- As the person reading a thousand rows, I want to narrow one column at a time by typing what its
+  value should contain, so that I can ask a question about a particular column instead of about
+  every column at once.
 - As the person running searches, I want to write my rank, verdict, red flags, and next step on the
   row I am reading, so that my judgment lands in the tool rather than in a separate spreadsheet.
 - As the person running searches, I want one property's full picture on one page, including how its
@@ -167,8 +170,10 @@ in five years. The problem brief is in `research.md`.
       presents an unsaved edit as saved.
 - [ ] AC-7: The results table shows every available column, minus the properties the person has
       passed on, and supports sorting and filtering without a round trip to the server for each
-      interaction. Passed properties are shown when asked for; the control for that sits with the
-      one for properties that disappeared, because they are the same pattern.
+      interaction. Filtering is two things and both work that way: one box that searches every
+      column at once, and the per-column filters of AC-57. Passed properties are shown when asked
+      for; the control for that sits with the one for properties that disappeared, because they are
+      the same pattern.
 - [ ] AC-8: Criteria that fired are shown as badges naming the criterion, and the default ordering
       reflects boost and demote criteria until an explicit sort is chosen.
 - [ ] AC-9: The listing detail shows photographs, the full description, enriched values, a link per
@@ -361,6 +366,17 @@ in five years. The problem brief is in `research.md`.
       the site's addressing scheme says how; that is a rule about somebody else's scheme, so a
       rewritten address that fails to load falls back to the stored one rather than showing nothing,
       and an address from a site with no such rule is used exactly as it was given.
+- [ ] AC-57: Every column that can be sorted can be filtered, from a control on its own heading that
+      opens a box for plain text. A row is kept when the text appears in what that column shows for
+      it, matched without regard to case and against the cell as displayed rather than as stored, so
+      that a price typed the way it is printed matches it and "not known" finds the properties
+      nobody could determine that column for. Filters on several columns all apply, together with
+      the whole-table search box, and are applied in the browser without contacting the server.
+      Every filter in force is named in words above the table with its own control to lift it, and
+      one control lifts all of them, the whole-table search included. A filter narrows what is drawn
+      and changes nothing else: no property is altered, judged or deleted by one, and none of it is
+      remembered past the visit, because a narrowing that came back days later would hide rows for a
+      reason nobody remembers setting.
 
 ## Edge cases & errors
 
@@ -375,6 +391,15 @@ in five years. The problem brief is in `research.md`.
   how to see them, rather than reading as a search that found nothing.
 - An unknown judgment value arrives from a hand-edited database or an older client. Rejected on
   write with the accepted values named, in the same way an unknown severity in a criterion is.
+
+- A column with a filter on it is hidden. The filter keeps holding and keeps its place in the list
+  above the table, said to be on a hidden column. Lifting it with the column would throw away work
+  somebody did; leaving it in force without saying so would take the reason four hundred rows are
+  missing off the screen along with the column.
+- A search's own filters and the results table's are different things with the same word. A saved
+  search's filters decide which properties are collected and are written to its file; the table's
+  decide what is drawn on one screen in one browser and are written nowhere. Each screen says which
+  it means.
 
 - A filter is cleared. It is removed from the file rather than left as an empty key, and a field
   left untouched is not written at all. A page that saved on every blur wrote a file nobody had
