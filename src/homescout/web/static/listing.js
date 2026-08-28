@@ -28,10 +28,10 @@ async function load(id) {
     ask("/api/settings"),
   ]);
   for (const field of settings.rule_vocabulary || []) labels[field.name] = field.label;
-  draw(found.listing);
+  draw(found.listing, settings);
 }
 
-function draw(held) {
+function draw(held, settings) {
   const fields = held.fields || {};
   const address = [fields.address_line, fields.unit, fields.city, fields.state, fields.postal_code]
     .filter(Boolean).join(", ");
@@ -50,6 +50,7 @@ function draw(held) {
         provenance(held),
       ),
       el("div", {},
+        whereItIs(held, settings),
         picture(held),
         recovered(held),
         enrichment(held),
@@ -57,6 +58,68 @@ function draw(held) {
       ),
     ),
   );
+}
+
+/* This one house on the fire, small, on its own page.
+ *
+ * Asked for in one sentence: "on the individual property pages, it would be nice if it showed a
+ * small firemap so you could quickly see where that one was." The full map answers "which of these
+ * hundred is near the red" and this answers the other half of the same question, which is the one
+ * somebody has while reading a single listing: what is *this* one next to.
+ *
+ * The same layer at the same address as the big map and the enrichment pass, through the same
+ * cached route, so opening a property twice costs nothing and nothing new talks to the outside
+ * world. Drawn after the page is on screen, because a map built into a detached element measures
+ * itself as zero by zero and comes out grey.
+ */
+function whereItIs(held, settings) {
+  const fields = held.fields || {};
+  if (fields.latitude === null || fields.latitude === undefined
+      || fields.longitude === null || fields.longitude === undefined) {
+    return el("section", {},
+      el("h2", {}, "Where it is"),
+      el("p", {class: "notice"},
+        "No source gave this property a location, so it cannot be drawn on the fire map. It is "
+        + "counted as unplaced there rather than quietly left out."),
+    );
+  }
+  if (typeof L === "undefined") return null;
+
+  const where = el("div", {id: "minimap", role: "application",
+                           "aria-label": "This property on the wildfire hazard map"});
+  /* After the shell has put this in the document. A map measures the element it is given, and an
+   * element that is not on the page yet is zero pixels tall. */
+  setTimeout(() => drawWhereItIs(where, fields, settings), 0);
+
+  return el("section", {},
+    el("h2", {}, "Where it is"),
+    el("div", {class: "minimap"}, where),
+    el("p", {class: "meta"},
+      "Wildfire hazard potential, the same layer the criteria read. A rule asks about the ground "
+      + "this house stands on; the map is for what it is next to. Drag and zoom it."),
+  );
+}
+
+function drawWhereItIs(where, fields, settings) {
+  if (!where.isConnected) return;
+  const at = [fields.latitude, fields.longitude];
+  const map = L.map(where, {center: at, zoom: 12, preferCanvas: true, scrollWheelZoom: false});
+
+  const tiles = settings.map && settings.map.tiles;
+  if (tiles) {
+    L.tileLayer(tiles, {attribution: settings.map.attribution || "", maxZoom: 19}).addTo(map);
+  }
+  if ((settings.hazards || {}).wildfire) {
+    arcgisLayer("wildfire", {opacity: 0.55}).addTo(map);
+  }
+  L.control.scale({position: "bottomleft", imperial: true, metric: false, maxWidth: 140})
+    .addTo(map);
+
+  /* The same blue as an undecided pin on the big map, because it is the same thing: this page
+   * shows a judgment and does not make one, so the pin says nothing about what was decided. */
+  L.circleMarker(at, {
+    radius: 8, color: "#0f3f7a", weight: 2, fillColor: "#5b9bd5", fillOpacity: 0.95,
+  }).addTo(map);
 }
 
 function picture(held) {

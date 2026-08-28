@@ -452,6 +452,14 @@ in five years. The problem brief is in `research.md`.
       network with a disk cache in front and either of which would otherwise stop the interface
       answering for ten seconds at a time. Waiting for a turn does not stop this process answering
       anything else, and a request that fails still lets the next one in.
+- [ ] AC-65: A property's own page draws that property on the wildfire hazard layer, small, using
+      the same layer at the same address through the same cached route the fire map uses, so
+      nothing new talks to the outside world. The fire map answers which of a hundred properties is
+      near the red; this answers the other half of the same question, which is what this one is next
+      to, and it is a map rather than a value for the reason the fire map exists at all: no column
+      in this tool says what a house is beside. It can be dragged and zoomed. A property with no
+      location says so and draws nothing, because an empty map centred on nowhere reads as a fault
+      in the tool rather than as a fact about the listing.
 
 ## Edge cases & errors
 
@@ -476,6 +484,8 @@ in five years. The problem brief is in `research.md`.
   its name and has no number, and the failure is named. A county silently missing its number would
   read as a county with no rainfall record at all, which is a different and much more interesting
   fact.
+- A property has no coordinates and its own page is opened. It says no source gave it a location
+  and that the fire map counts it as unplaced, rather than drawing an empty map.
 - Two overlays are switched on at once, so two requests that both read the run's properties are
   in flight together. They are served one after the other rather than interleaved on one database
   connection, which is a pair of five hundreds and an overlay that silently never appears.

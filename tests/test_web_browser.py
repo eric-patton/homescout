@@ -2133,6 +2133,85 @@ def test_the_counties_and_towns_and_rain_are_drawn_over_the_fire(served, monkeyp
     )
 
 
+def on_a_property(served, listing_id, script):
+    """Run one script against a loaded property page, and always close the browser.
+
+    Its own opener rather than navigating there from the table, because a script that changes
+    `location` is a script whose own answer is thrown away: the page it was evaluated in is gone by
+    the time it returns.
+    """
+    base, _held, _store = served
+    where = f"/listing/{listing_id}"
+    process, debug = chrome(f"{base}{where}")
+    try:
+        connection = talk(debug, where)
+        return evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                 const until = async (ready, patience = 100) => {
+                   for (let i = 0; i < patience; i++) {
+                     const found = ready();
+                     if (found) return found;
+                     await wait(50);
+                   }
+                   return null;
+                 };
+                 await until(() => document.querySelector("h1"));
+                 """ + script + """
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+
+def test_a_property_page_shows_the_one_house_on_the_fire(served) -> None:
+    """feat-010/AC-65: the other half of the question the big map answers.
+
+    The map of every property answers "which of these hundred is near the red". Somebody reading
+    one listing has the other half of it: what is *this* one next to. The reason it is a map rather
+    than a value is the reason the big one exists at all: no column in this tool says what a house
+    is beside.
+
+    Two things are pinned beyond it appearing. The tiles come from this tool's own route, because a
+    browser refuses a cross-origin image it was not clearly offered and because this product states
+    in one place what talks to the outside world. And it is built after the page is on screen: a
+    map handed an element that is not in the document yet measures it as zero by zero and comes out
+    grey, which is a fault that only ever shows on a real page.
+    """
+    _base, _held, store = served
+    one = next(record.id for record in store.listings())
+
+    found = on_a_property(served, one, """
+        await until(() => document.querySelector("#minimap"), 200);
+        await until(() => document.querySelectorAll("#minimap img").length > 0, 200);
+        await wait(300);
+
+        const box = document.querySelector("#minimap");
+        const at = box.getBoundingClientRect();
+        const sources = [...document.querySelectorAll("#minimap img")].map((one) => one.src);
+        return {
+            tall: Math.round(at.height),
+            wide: Math.round(at.width),
+            ours: sources.filter((one) => one.includes("/api/hazard/")).length,
+            elsewhere: sources.filter((one) => one.includes("geoplatform")).length,
+            pins: box.querySelectorAll("path").length,
+            said: [...document.querySelectorAll("h2")].map((one) => one.textContent),
+        };
+    """)
+
+    assert found["tall"] > 100 and found["wide"] > 100, (
+        f"the map came out {found['wide']}x{found['tall']}: it was built before the page had it"
+    )
+    assert "Where it is" in found["said"], found["said"]
+    assert found["ours"] > 0, "no hazard tiles were drawn on the property's own page"
+    assert found["elsewhere"] == 0, (
+        "the page asked the federal server directly, which a browser blocks and which this "
+        "product's account of what talks to the outside world does not describe"
+    )
+    assert found["pins"] >= 1, "the property itself is not marked on its own map"
+
+
 def facing(monkeypatch, table: str, stations: str):
     """The weather archive, replaced, in the server this browser is talking to.
 

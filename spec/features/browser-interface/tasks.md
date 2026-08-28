@@ -778,3 +778,19 @@ alongside its peers.
       The test counts overlap rather than racing and hoping: four requests, and the number ever
       inside the read at once must be one. A test that fires two and asserts both succeeded passes
       on a fast machine with the bug still in place. Checked against the old code, where it fails.
+
+## Change: this one on the fire (`changes/this-one-on-the-fire/`)
+
+- [x] T129: `web/static/listing.js`, `listing.html`, `app.css`: one property on the hazard layer,
+      on its own page (`feat-010/AC-65`).
+
+      Built after the page is on screen and not during the build of it: a map handed an element
+      that is not in the document yet measures it as zero by zero and comes out grey, which is a
+      fault that only ever shows on a real page.
+
+- [x] T130: `web/static/common.js`: the hazard tile layer moved out of the fire map
+      (`feat-010/AC-55`, `feat-010/AC-65`). Two pages draw it now, and the conversion from
+      Leaflet's tile coordinates to the service's rectangle in metres is exactly the thing that
+      gets written twice and then diverges by half a tile, with no way to say which page is right.
+      The contract test that pins "this tool's own route, never the far server" now reads the
+      shared definition and checks all three pages for the far server's address.

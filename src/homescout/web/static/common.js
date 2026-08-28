@@ -103,6 +103,38 @@ async function ask(path, options) {
 const send = (path, body, method) => ask(path, {method: method || "POST", body: body});
 
 /* ------------------------------------------------------------------ */
+/* A hazard layer, drawn as map tiles                                  */
+/* ------------------------------------------------------------------ */
+
+/* Here rather than on the fire map, because two pages draw it now.
+ *
+ * Leaflet asks for a tile by its column, row and zoom; the service answers about a rectangle in
+ * metres. The whole of this function is that conversion, and it is the sort of thing that is
+ * written twice and then diverges: one page would end up half a tile out and nobody would be able
+ * to say which page was right.
+ *
+ * Nothing here runs until it is called, so a page with no Leaflet can still load this file.
+ */
+function arcgisLayer(layer, options) {
+  const Layer = L.TileLayer.extend({
+    getTileUrl(coords) {
+      const size = this.getTileSize();
+      const map = this._map;
+      const topLeft = map.unproject(coords.scaleBy(size), coords.z);
+      const bottomRight = map.unproject(coords.add([1, 1]).scaleBy(size), coords.z);
+      const a = L.Projection.SphericalMercator.project(topLeft);
+      const b = L.Projection.SphericalMercator.project(bottomRight);
+      const query = new URLSearchParams({
+        bbox: `${a.x},${b.y},${b.x},${a.y}`,
+        size: `${size.x},${size.y}`,
+      });
+      return `/api/hazard/${encodeURIComponent(layer)}?${query}`;
+    },
+  });
+  return new Layer("", Object.assign({maxZoom: 16, maxNativeZoom: 16}, options || {}));
+}
+
+/* ------------------------------------------------------------------ */
 /* Showing a value                                                     */
 /* ------------------------------------------------------------------ */
 

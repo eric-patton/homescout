@@ -120,12 +120,36 @@ def test_the_map_asks_this_tool_for_its_tiles_and_not_the_far_server() -> None:
 
     Asking directly draws nothing at all: Chrome blocks it as an opaque response. It is also a
     second thing the browser talks to, which this product's privacy statement does not describe.
-    """
-    fire = (STATIC / "fire.js").read_text(encoding="utf-8")
 
-    assert "/api/hazard/${encodeURIComponent(layer)}" in fire
-    assert "imagery.geoplatform.gov" not in fire, "the far server's address is hard-coded"
-    assert "exportImage" not in fire, "the page builds the far server's request itself"
+    Read from `common.js` rather than from the fire map, because two pages draw this layer now: the
+    map of every property and the small one on a single property's page. One definition, checked
+    once, and every page that draws hazard tiles gets it by using that one.
+    """
+    shared = (STATIC / "common.js").read_text(encoding="utf-8")
+
+    assert "/api/hazard/${encodeURIComponent(layer)}" in shared
+    for page in ("common.js", "fire.js", "listing.js"):
+        held = (STATIC / page).read_text(encoding="utf-8")
+        assert "imagery.geoplatform.gov" not in held, f"{page} hard-codes the far server"
+        assert "exportImage" not in held, f"{page} builds the far server's request itself"
+
+
+def test_a_property_with_nowhere_to_be_drawn_says_so_rather_than_drawing_nothing() -> None:
+    """feat-010/AC-65: an empty map centred on nothing reads as a broken map.
+
+    Some properties reach this tool with no coordinates at all. The map of every property already
+    counts those and says so rather than quietly leaving them out; the small map on one property's
+    page has to do the same, because a grey rectangle over the middle of the Atlantic would read as
+    a fault in the tool rather than as a fact about the listing.
+    """
+    page = (STATIC / "listing.js").read_text(encoding="utf-8")
+
+    assert "fields.latitude === null" in page, "the page draws before asking whether it can"
+    assert "No source gave this property a location" in page
+    assert "counted as unplaced there" in page, (
+        "the page says it cannot draw the property and not that the fire map still counts it, "
+        "which is the difference between a missing house and a house nobody located"
+    )
 
 
 def test_an_unknown_layer_is_refused_by_name(store: Store, db_path: Path) -> None:

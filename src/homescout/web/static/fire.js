@@ -330,35 +330,6 @@ function build() {
   if (bounds.length) map.fitBounds(bounds, {padding: [24, 24]});
 }
 
-/* A hazard layer, drawn as map tiles.
- *
- * Leaflet asks for a tile by its column, row and zoom; the service answers about a rectangle in
- * metres. So the tile's own corners are projected to web mercator and handed over as the rectangle,
- * which is the whole of the translation between the two.
- *
- * Asked of this tool rather than of the federal server directly, which is not a detour: a browser
- * refuses a cross-origin image it was not clearly offered, so asking directly draws nothing at all,
- * and this way the only machine talking to that server is the one that already does.
- */
-function arcgisLayer(layer, options) {
-  const Layer = L.TileLayer.extend({
-    getTileUrl(coords) {
-      const size = this.getTileSize();
-      const map = this._map;
-      const topLeft = map.unproject(coords.scaleBy(size), coords.z);
-      const bottomRight = map.unproject(coords.add([1, 1]).scaleBy(size), coords.z);
-      const a = L.Projection.SphericalMercator.project(topLeft);
-      const b = L.Projection.SphericalMercator.project(bottomRight);
-      const query = new URLSearchParams({
-        bbox: `${a.x},${b.y},${b.x},${a.y}`,
-        size: `${size.x},${size.y}`,
-      });
-      return `/api/hazard/${encodeURIComponent(layer)}?${query}`;
-    },
-  });
-  return new Layer("", Object.assign({maxZoom: 16, maxNativeZoom: 16}, options || {}));
-}
-
 function plot() {
   if (!held.markers) return;
   held.markers.clearLayers();

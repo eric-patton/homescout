@@ -726,6 +726,20 @@ table.grid thead th.filtered {
 /* The scale bar sits in the corner the legend does not use. */
 .firemap .leaflet-control-scale { margin: 0 0 18px 12px; }
 
+/* -- one property, on the fire -------------------------------------------- */
+
+/* Small on purpose. This sits in a column beside a photograph and a list of facts, and its job is
+   "what is this next to", answered at a glance, with dragging and zooming there for the moment
+   that glance raises a question. The big map is where a hundred of them are compared. */
+.minimap {
+  height: 16rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--shade);
+  overflow: hidden;
+}
+.minimap #minimap { width: 100%; height: 100%; }
+
 /* -- the list under the map ---------------------------------------------- */
 
 /* The same properties the map is pinning, as rows. Its own table and not the results grid: that
