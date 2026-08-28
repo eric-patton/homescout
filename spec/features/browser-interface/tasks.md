@@ -747,3 +747,34 @@ alongside its peers.
       (`feat-010/AC-63`). `el` flattens arrays, which is exactly why the DOM's own method reads as
       though it would; handed one it stringifies it, and the chooser filled with "[object
       HTMLLabelElement]" where the tick boxes should be. Also found by the test.
+
+## Defect: two overlays at once were two five hundreds
+
+- [x] T128: `web/app.py`: the one-request-at-a-time lock made to actually serialise
+      (`feat-010/AC-64`).
+
+      Found by switching on the county names and the wind together on the real map, which is the
+      first time anything in this product asked the database two questions at the same time. Both
+      requests read the run's properties, their cursors interleaved on the single connection, and
+      sqlite refused both: "bad parameter or other API misuse", seen as two five hundreds and an
+      overlay that silently never appeared.
+
+      The lock was there and had never worked. `with app.state.lock:` around an `await`, over a
+      reentrant lock, in an async middleware: the middleware runs on the event loop's own thread,
+      so a second request arriving while the first was suspended took the same lock and went
+      straight through. It reads exactly like one request at a time. Nothing failed for months
+      because nothing asked two questions at once.
+
+      Now a plain lock, acquired off the event loop so that waiting does not stop this process
+      answering at all, and released in a `finally` because a request that raises still has to let
+      the next one in.
+
+      Two routes are exempt and named in one list: a hazard tile and a wind rose never open the
+      store, and holding a global lock through ten seconds of somebody else's archive would turn
+      the wind overlay from three at a time into one at a time for no reason. A list rather than a
+      flag per route, so adding a route is not also a chance to opt out of the store's only
+      protection by accident.
+
+      The test counts overlap rather than racing and hoping: four requests, and the number ever
+      inside the read at once must be one. A test that fires two and asserts both succeeded passes
+      on a fast machine with the bug still in place. Checked against the old code, where it fails.

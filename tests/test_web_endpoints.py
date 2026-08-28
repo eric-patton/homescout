@@ -511,3 +511,89 @@ def test_asking_for_the_templates_is_not_asking_for_a_search_called_templates(op
 
     assert answered.status_code == 200
     assert "templates" in answered.json()
+
+
+def test_two_requests_that_read_the_database_do_not_run_at_once(store: Store, db_path: Path):
+    """feat-010/AC-64: one connection, so one question at a time, and it has to be true.
+
+    The server always said it served one request at a time. It did not. The lock was reentrant and
+    was held across an `await` in an async middleware, which runs on the event loop's own thread:
+    a second request arriving while the first was suspended took the same lock and both went
+    through. Nothing failed for months because nothing asked the database two things at once.
+
+    The fire map does. Switching on the county names and the wind together fires two requests that
+    both read the run's properties, their cursors interleave on the one connection, and sqlite
+    refuses both with "bad parameter or other API misuse": two five hundreds, and an overlay that
+    silently never appears.
+
+    Checked by counting overlap rather than by racing and hoping. A test that fires two requests
+    and asserts they both succeeded passes on a fast machine with the bug still in place.
+    """
+    import threading
+
+    from homescout.web.app import build
+
+    load(store, [listing("a"), listing("b")])
+    held = held_workspace(shared_store(db_path))
+    app = build(held)
+
+    inside = 0
+    together = 0
+    counting = threading.Lock()
+
+    original = api.results
+
+    def watched(*args, **kwargs):
+        nonlocal inside, together
+        with counting:
+            inside += 1
+            together = max(together, inside)
+        try:
+            return original(*args, **kwargs)
+        finally:
+            with counting:
+                inside -= 1
+
+    from fastapi.testclient import TestClient
+
+    with pytest.MonkeyPatch.context() as patching:
+        patching.setattr(api, "results", watched)
+        with TestClient(app) as browser:
+            answers: list[int] = []
+
+            def go() -> None:
+                answers.append(
+                    browser.get("/api/results/portales", headers=reading()).status_code
+                )
+
+            threads = [threading.Thread(target=go) for _ in range(4)]
+            for one in threads:
+                one.start()
+            for one in threads:
+                one.join()
+
+    assert answers == [200, 200, 200, 200], answers
+    assert together == 1, (
+        f"{together} requests were reading the database at the same time over one connection, "
+        "which is what the one-request-at-a-time lock exists to stop"
+    )
+
+
+def test_a_tile_and_a_rose_do_not_wait_behind_the_database(store: Store, db_path: Path) -> None:
+    """feat-010/AC-64: the two answers that never open the store must not queue behind it.
+
+    Both are somebody else's network with a disk cache in front: a wind rose is a ten-second query
+    on a public archive. Held behind the one-request-at-a-time lock, forty of those would stop the
+    interface answering anything at all, and would turn the wind overlay from three at a time into
+    one at a time for no reason, because neither of them touches the database.
+    """
+    from homescout.web.app import WITHOUT_THE_DATABASE, _needs_the_database
+
+    assert not _needs_the_database("/api/wind/rose/NM_ASOS/SKX")
+    assert not _needs_the_database("/api/hazard/wildfire")
+    #: Everything else waits its turn. Named as a list rather than as a flag on each route, so that
+    #: adding a route is not also a chance to opt out of the store's only protection by accident.
+    for path in ("/api/results/portales", "/api/ground/portales", "/api/rain/portales",
+                 "/api/wind/stations/portales", "/api/tags", "/api/listings/x"):
+        assert _needs_the_database(path), path
+    assert len(WITHOUT_THE_DATABASE) == 2, WITHOUT_THE_DATABASE

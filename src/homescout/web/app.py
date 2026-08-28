@@ -24,6 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import anyio
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -45,6 +46,23 @@ GUARD_HEADER = "x-homescout"
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]", "::1")
 
 CHANGES_THINGS = ("POST", "PUT", "PATCH", "DELETE")
+
+
+#: The two answers that never reach the database, and must not queue behind anything that does.
+#:
+#: Both are somebody else's network with a disk cache in front of it: a wind rose is a ten-second
+#: query on a public archive, and a hazard tile is a picture of a rectangle of the country. Holding
+#: the one-request-at-a-time lock through ten seconds of that would stop the whole interface
+#: answering, and would turn the wind overlay from "three at a time" into "one at a time" for no
+#: reason at all, because neither of them opens the store.
+#:
+#: A list rather than a flag on each route, so that adding a route is not also a chance to opt out
+#: of the store's only protection by accident. Anything not named here waits its turn.
+WITHOUT_THE_DATABASE: tuple[str, ...] = ("/api/wind/rose/", "/api/hazard/")
+
+
+def _needs_the_database(path: str) -> bool:
+    return not path.startswith(WITHOUT_THE_DATABASE)
 
 
 def _host_is_allowed(header: str | None, also: tuple[str, ...] = ()) -> bool:
@@ -103,7 +121,10 @@ def build(workspace: api.Workspace) -> FastAPI:
     # one person on one machine it is not a constraint anybody will notice, and the alternative is a
     # connection per thread, which would put five copies of a write-ahead log in play to serve a
     # single user.
-    app.state.lock = threading.RLock()
+    #
+    # A plain lock rather than a reentrant one, and taken in a worker thread rather than here. See
+    # the note in `guard`: the reentrant version read as though it serialised requests and did not.
+    app.state.lock = threading.Lock()
     app.state.allowed_hosts = settings.allowed_hosts(workspace.root)
 
     @app.middleware("http")
@@ -126,7 +147,30 @@ def build(workspace: api.Workspace) -> FastAPI:
                 f"A request that changes something has to carry the {GUARD_HEADER} header. "
                 "The interface's own pages set it; a form posted by another site cannot."
             )
-        with app.state.lock:
+        # Serialised, properly, and this is the second attempt at it.
+        #
+        # It was `with app.state.lock:` around this await, over a reentrant lock, which reads
+        # exactly like one request at a time and is not. This middleware runs on the event loop's
+        # own thread; a second request arriving while the first is suspended at the await runs on
+        # that same thread, so the reentrant lock lets it straight through and both requests are
+        # then in flight over one database connection. Nothing failed for months because nothing
+        # asked two questions of the database at once.
+        #
+        # The fire map does. Switching on the county names and the wind together fires two
+        # requests that both read the run's properties, their cursors interleave on the shared
+        # connection, and sqlite refuses both: "bad parameter or other API misuse", as a pair of
+        # five hundreds and an overlay that silently never appears.
+        #
+        # Acquired off the event loop so that waiting for a slow request does not stop this
+        # process answering anything at all, and released in a `finally` because a request that
+        # raises still has to let the next one in.
+        if _needs_the_database(request.url.path):
+            await anyio.to_thread.run_sync(app.state.lock.acquire)
+            try:
+                response = await call_next(request)
+            finally:
+                app.state.lock.release()
+        else:
             response = await call_next(request)
         # Nothing here is meant to be embedded anywhere, cached by anything, or sniffed.
         response.headers["X-Content-Type-Options"] = "nosniff"

@@ -1198,7 +1198,12 @@ table.grid tr.kept td.property .what { font-weight: 600; }
   gap: var(--s4);
   align-items: start;
 }
-@media (max-width: 62rem) { .firemap { grid-template-columns: 1fr; } }
+@media (max-width: 62rem) {
+  .firemap { grid-template-columns: 1fr; }
+  /* Stacked, the legend is above the list rather than beside the map, so a cap would only hide
+     part of it behind a scrollbar nobody expects. */
+  .legend { max-height: none; overflow: visible; }
+}
 .firemap #map {
   height: calc(100vh - 20rem);
   min-height: 24rem;
@@ -1207,6 +1212,13 @@ table.grid tr.kept td.property .what { font-weight: 600; }
   background: var(--shade);
 }
 .legend {
+  /* No taller than the map it stands beside. Side by side in a grid, the taller of the two sets
+     the row's height, and the legend grew past the map when the county and rainfall notes went in:
+     the map stayed the size it was and the list underneath went half a screen down, behind a band
+     of nothing. */
+  max-height: calc(100vh - 20rem);
+  min-height: 0;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--s3);

@@ -446,6 +446,12 @@ in five years. The problem brief is in `research.md`.
       ever say that had happened. What is sent is the whole list, because that is what a set of
       ticked boxes is. The property's own page shows them and does not set them, like every other
       annotation.
+- [ ] AC-64: Two requests that read the database never run at the same time, because there is one
+      connection under all of them. The exceptions are named in one place and are the answers that
+      never open the store at all: a hazard tile and a wind rose, both of which are somebody else's
+      network with a disk cache in front and either of which would otherwise stop the interface
+      answering for ten seconds at a time. Waiting for a turn does not stop this process answering
+      anything else, and a request that fails still lets the next one in.
 
 ## Edge cases & errors
 
@@ -470,6 +476,9 @@ in five years. The problem brief is in `research.md`.
   its name and has no number, and the failure is named. A county silently missing its number would
   read as a county with no rainfall record at all, which is a different and much more interesting
   fact.
+- Two overlays are switched on at once, so two requests that both read the run's properties are
+  in flight together. They are served one after the other rather than interleaved on one database
+  connection, which is a pair of five hundreds and an overlay that silently never appears.
 - The map is moved somewhere none of the run's properties are. The list underneath it is empty and
   says so, because it is a list about what is on screen rather than about the run. It is drawn as what it is, a marker where the rose
   will be, because the first read of a station takes about ten seconds and an empty patch of map
