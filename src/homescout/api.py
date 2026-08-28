@@ -675,7 +675,11 @@ def ground(workspace: Workspace, name: str) -> dict[str, Any]:
 
 
 def rainfall(workspace: Workspace, name: str) -> dict[str, Any]:
-    """How much rain each county on this map gets in a year, averaged over thirty of them.
+    """How much rain and snow each county on this map gets in a year, averaged over thirty of them.
+
+    Snow included, as the water it melts down to, because that is how the national record measures
+    it. Worth knowing before reading two counties against each other: most of the gap between the
+    driest and the wettest county in New Mexico is snow that fell on a mountain.
 
     Fire hazard is modelled from fuel and terrain and says nothing about how dry a place is. In
     this state that is most of what somebody buying land is asking: nine inches a year and twenty

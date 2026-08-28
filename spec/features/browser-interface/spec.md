@@ -421,9 +421,12 @@ in five years. The problem brief is in `research.md`.
       at all, because two names in the same place is neither name. A name takes no pointer: it is
       read, never clicked, and one that could be clicked would make the properties under it
       impossible to open. A state that cannot be read is reported and does not stop the others.
-- [ ] AC-61: The fire map can draw how much rain a county gets in a year, off by default, as an
-      average over the last thirty complete years the national record holds, written under that
-      county's name with its unit. An average and not a year: a single year here is a story about
+- [ ] AC-61: The fire map can draw how much rain and snow a county gets in a year, off by default,
+      as an average over the last thirty complete years the national record holds, written under
+      that county's name with its unit. Rain *and snow*, and the page says so: the national record
+      measures frozen precipitation by melting it, so a mountain county's real winter is written
+      down as a small number, and reading the wettest county against the driest as a difference in
+      rain misses that most of the gap is snow. An average and not a year: a single year here is a story about
       one monsoon, and what somebody buying land is asking is what the place is normally like. It is
       per county because that is the finest grain the record publishes, and the page says so rather
       than interpolating a figure that would look like it was measured at the house. Turning it on

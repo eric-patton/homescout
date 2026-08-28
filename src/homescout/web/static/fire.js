@@ -170,7 +170,7 @@ function draw() {
       el("label", {for: "ruler"}, ruler, " measure a distance"),
       el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
       el("label", {for: "names"}, named, " counties and towns"),
-      el("label", {for: "rain"}, wet, " rain a year"),
+      el("label", {for: "rain"}, wet, " rain and snow a year"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       el("span", {class: "counts", id: "windcount", role: "status"}, ""),
       el("span", {class: "counts", id: "landcount", role: "status"}, ""),
@@ -247,10 +247,17 @@ function legend() {
       "County lines and town names are drawn on top of the fire layer rather than under it, "
       + "because underneath is where the map\u2019s own names already are and they cannot be read "
       + "there. More town names appear as you zoom in."),
+    /* "Rain" was the word here and it was wrong, and the person the page is for found it by
+     * asking whether snow counted. It does, and the way it counts is the part worth spelling out:
+     * the national record measures snow by melting it, so a mountain county's figure is a real
+     * winter written down as a small number. Taos and San Juan are eighteen and nine, and reading
+     * that as "twice the rain" misses that most of the difference is snow. */
     el("p", {class: "meta"},
-      "Rain is the average of the last thirty years, per county, which is the finest grain the "
-      + "national record publishes. It is a fact about the county and not about the house: fire "
-      + "hazard says how a place would burn and says nothing about how dry it is."),
+      "Rain and snow together, averaged over the last thirty years, per county, which is the "
+      + "finest grain the national record publishes. Snow is counted as the water it melts down "
+      + "to, so an inch on this map is an inch of water and roughly a foot of snow. It is a fact "
+      + "about the county and not about the house: fire hazard says how a place would burn and "
+      + "says nothing about how wet it is."),
     el("p", {class: "meta"},
       "Colours are the model's own, redrawn here so the map reads without asking anybody for a " +
       "picture of its legend."),
@@ -890,7 +897,7 @@ function landCount() {
   else if (land.lines && land.counties.length) {
     parts.push(count(land.counties.length, "county", "counties"));
     if (land.rain && land.rainAsked) {
-      parts.push(`rain averaged over ${land.years} years`);
+      parts.push(`rain and snow averaged over ${land.years} years`);
     }
   }
   where.replaceChildren(document.createTextNode(parts.join(" \u00b7 ")));

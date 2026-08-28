@@ -293,7 +293,12 @@ def _box(held: list[dict[str, object]]) -> str:
 
 
 def rainfall(root: Path, service: str, state: str, county_fips: str) -> dict[str, object]:
-    """One county's average yearly rainfall, over the last thirty complete years on record.
+    """One county's average yearly precipitation, over the last thirty complete years on record.
+
+    Precipitation and not rainfall, and the distinction is not pedantry here. The national record
+    measures frozen precipitation by melting it, so this figure includes snow as the water it melts
+    down to: roughly an inch of water for a foot of snow. A mountain county therefore reads as a
+    modest number while having a real winter, and the pages that show it say so.
 
     An average and not a year. Any single year here is a story about a monsoon, and what somebody
     buying land is asking is what the place is normally like. The years it covers travel with the

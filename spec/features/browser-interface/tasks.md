@@ -794,3 +794,18 @@ alongside its peers.
       gets written twice and then diverges by half a tile, with no way to say which page is right.
       The contract test that pins "this tool's own route, never the far server" now reads the
       shared definition and checks all three pages for the far server's address.
+
+## Defect: the page called it rain and the record counts snow
+
+- [x] T131: `web/static/fire.js`, `enrich/ground.py`, `api.py`: "rain and snow" everywhere the
+      figure is shown or described (`feat-010/AC-61`).
+
+      Found by the person the page is for, in one question: "does rainfall include snow?" It does.
+      The national record measures frozen precipitation by melting it, so the figure has always
+      included snow as the water it melts down to, and the word on the page was wrong from the
+      first draft.
+
+      The reason it matters is not tidiness. Taos reads 17.7 and San Juan reads 8.7, and read as
+      rain that is "twice as wet"; most of the gap is snow that fell on a mountain, which is a
+      different fact about living there. So the legend now says snow is counted as the water it
+      melts down to, and that an inch on the map is roughly a foot of snow.

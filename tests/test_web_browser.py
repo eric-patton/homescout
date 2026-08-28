@@ -2125,7 +2125,10 @@ def test_the_counties_and_towns_and_rain_are_drawn_over_the_fire(served, monkeyp
     assert "Clovis" in found["townSaid"] and ", NM" not in found["townSaid"], (
         f"the town is not named the way somebody says it: {found['townSaid']!r}"
     )
-    assert "30 years" in found["note"], found["note"]
+    assert "rain and snow averaged over 30 years" in found["note"], (
+        "the page says rain, and the record it is reading counts snow as the water it melts down "
+        f"to, which is most of the difference between two counties here: {found['note']!r}"
+    )
 
     assert found["throughIt"], (
         "a pointer at the middle of a map label lands on the label, so a name over a town makes "

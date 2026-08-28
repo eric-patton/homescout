@@ -159,6 +159,11 @@ def test_rainfall_is_an_average_of_thirty_years_and_says_which(tmp_path: Path, m
     What somebody buying land is asking is what the place is normally like, and the answer to that
     is a normal: thirty years, which is the length the meteorological world uses. The years travel
     with the number because eleven inches means nothing without them.
+
+    It is precipitation and not rainfall: the national record measures frozen precipitation by
+    melting it, so snow is in here as the water it melts down to. That is why the pages say "rain
+    and snow" rather than "rain", and it is most of the gap between the driest county in this state
+    and the wettest.
     """
     answering(monkeypatch)
 
