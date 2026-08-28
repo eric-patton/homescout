@@ -308,7 +308,15 @@ in five years. The problem brief is in `research.md`.
       control returns it to the declared arrangement. It is a view preference and is never written
       to the workspace, so two people reading one workspace arrange it independently. Where the
       browser cannot store it, the table opens in the declared arrangement and every other part of
-      the page behaves identically.
+      the page behaves identically. A column that did not exist when an arrangement was saved
+      appears beside the column it is declared beside, never on the end: a remembered arrangement
+      names every column there was, so on the end means past the right edge of a table forty
+      columns wide, and a column nobody can see is a capability nobody has. Nothing somebody placed
+      themselves is moved by this. A column that did not exist when an arrangement was saved
+      appears beside the column it is declared beside, never on the end: a remembered arrangement
+      names every column there was, so on the end means past the right edge of a table forty
+      columns wide, and a column nobody can see is a capability nobody has. Nothing somebody placed
+      themselves is moved by this.
 - [ ] AC-46: Every column is either filled by this tool or written by the person, and its heading
       says which, so that an empty cell is never read as the tool having failed at something it was
       not doing. There is no third kind: a column that is neither filled nor writable is a heading
@@ -449,6 +457,20 @@ in five years. The problem brief is in `research.md`.
       ever say that had happened. What is sent is the whole list, because that is what a set of
       ticked boxes is. The property's own page shows them and does not set them, like every other
       annotation.
+
+      The cell opens on a single press, unlike every other writable column, and the difference
+      follows what the cell is: the others are boxes somebody types into, so one press has to mean
+      "select this cell" and leave the keyboard free to move on, while this one holds a list and
+      pressing it opens the list. A cell carrying no tags says so with a mark rather than being
+      blank, because blank is this table's word for "nobody has written anything" and what an
+      empty tag cell also has to say is that there is something here to press.
+
+      The cell opens on a single press, unlike every other writable column, and the difference
+      follows what the cell is: the others are boxes somebody types into, so one press has to mean
+      "select this cell" and leave the keyboard free to move on, while this one holds a list and
+      pressing it opens the list. A cell carrying no tags says so with a mark rather than being
+      blank, because blank is this table's word for "nobody has written anything" and what an
+      empty tag cell also has to say is that there is something here to press.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile and a wind rose, both of which are somebody else's
@@ -487,6 +509,12 @@ in five years. The problem brief is in `research.md`.
   its name and has no number, and the failure is named. A county silently missing its number would
   read as a county with no rainfall record at all, which is a different and much more interesting
   fact.
+- Somebody looks for a column added since they last arranged the table. It is beside the column
+  it belongs with, not at the far right, and the heading text says how tags are opened, because a
+  control that is only found by people who already know it is there was found by nobody.
+- Somebody looks for a column added since they last arranged the table. It is beside the column
+  it belongs with, not at the far right, and the heading text says how tags are opened, because a
+  control that is only found by people who already know it is there was found by nobody.
 - A property has no coordinates and its own page is opened. It says no source gave it a location
   and that the fire map counts it as unplaced, rather than drawing an empty map.
 - Two overlays are switched on at once, so two requests that both read the run's properties are

@@ -809,3 +809,33 @@ alongside its peers.
       rain that is "twice as wet"; most of the gap is snow that fell on a mountain, which is a
       different fact about living there. So the legend now says snow is counted as the water it
       melts down to, and that an inch on the map is roughly a foot of snow.
+
+## Defect: the tags could not be reached
+
+- [x] T132: `web/static/results.js`, `export/columns.py`, `app.css`: the tag cell made reachable
+      (`feat-010/AC-45`, `feat-010/AC-63`).
+
+      Reported by the person it was built for, the first time she went looking for it: "how do you
+      create tags, I'm clicking the field on a row but it's not letting me type." Three separate
+      faults, and every one of them on its own was enough to make the feature not exist.
+
+      **It was column thirty-nine of forty-four.** A remembered column arrangement names every
+      column there was when it was saved, and anything added afterwards went on the end, which on
+      this table is two screens to the right behind a horizontal scrollbar. A new column now goes
+      beside the column it is declared beside. Nothing anybody placed themselves moves.
+
+      **It was declared beside `Notes`**, which is right by family and still lands it in the
+      thirties. A tag is a label on a house, read down the column the way the address is read, so
+      it is declared beside the address. It stays out of the default sheet, which is a promise
+      about a document that already exists.
+
+      **It opened on a double press**, like the columns somebody types into. Those need one press
+      to mean "select this cell"; this one is not typed into at all, it holds a list, and pressing
+      it opens the list. It now opens on a single press, and the heading text above the table says
+      so, and an empty cell carries a faint mark rather than being blank: blank is this table's
+      word for "nobody has written anything", and what this cell also has to say is that there is
+      something here to press.
+
+      The browser test now reaches the control the way she did, with a press on the cell, rather
+      than by calling the edit function. Calling it directly is what let a control that could not
+      be opened pass a test that said it worked.

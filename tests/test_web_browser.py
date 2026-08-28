@@ -655,11 +655,15 @@ def test_a_tag_is_made_and_put_on_a_property_from_its_own_cell(served) -> None:
         await until(() => document.querySelector('#body td[data-column="Tags"]'));
 
         const cell = () => document.querySelector('#body td[data-column="Tags"]');
+        /* One press, the way somebody reaches it. Not `edit(...)` called directly: this control
+           was reachable only by double-pressing a cell that is not a text box, and the person it
+           was built for could not find it. "I'm clicking the field on a row but it's not letting
+           me type." */
         const open = () => {
-          const at = cell();
-          edit(at, state.shown[Number(at.dataset.index)], "Tags");
+          cell().click();
           return document.querySelector(".writing.tagging");
         };
+        const hint = cell().textContent;
         const typeIn = async (panel, word) => {
           const box = panel.querySelector('input[type="text"]');
           box.value = word;
@@ -694,9 +698,13 @@ def test_a_tag_is_made_and_put_on_a_property_from_its_own_cell(served) -> None:
 
         const left = [...cell().querySelectorAll(".tag")].map((one) => one.textContent);
         const vocabulary = (await ask("/api/tags")).tags.map((one) => one.name);
-        return {empty, both, offered, afterShouting, left, vocabulary};
+        return {empty, both, offered, afterShouting, left, vocabulary, hint};
     """)
 
+    assert found["hint"].strip() == "+ tag", (
+        "an untagged cell is blank, so nothing on the row says it does anything: every other "
+        f"writable column is blank when empty, and this one is not typed into: {found['hint']!r}"
+    )
     assert "No tags yet" in found["empty"], found["empty"]
     assert found["both"] == ["Barn", "drive by"], found["both"]
 

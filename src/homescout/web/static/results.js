@@ -245,10 +245,30 @@ function arrange(declared) {
       byName.delete(name);
     }
   }
-  /* Anything the remembered order did not mention keeps the order it was declared in. New columns
-   * therefore appear where the answer puts them rather than shuffling an arrangement somebody
-   * built, and they appear rather than being silently hidden. */
-  ordered.push(...byName.values());
+  /* Anything the remembered order did not mention is new since that order was saved, and it goes
+   * next to the column it was declared next to rather than on the end.
+   *
+   * On the end was the first answer and it is wrong in a way that took a person to find. This
+   * table has forty-odd columns and an arrangement somebody built months ago names all of them, so
+   * every column added after that lands past the right edge of the screen behind a horizontal
+   * scrollbar. Tags shipped there: "how do you create tags, I'm clicking the field on a row but
+   * it's not letting me type." She was not clicking the field. It was two screens to the right.
+   *
+   * This still never moves a column somebody placed. It only decides where a column they have
+   * never seen goes, and the honest answer to that is wherever the product says it belongs: Tags
+   * beside Notes, because they are the same kind of thing. Two new columns declared next to each
+   * other stay next to each other, because the first is placed before the second looks for it. */
+  const declaredAt = new Map(declared.map((column, at) => [column.name, at]));
+  for (const column of declared) {
+    if (!byName.has(column.name)) continue;
+    byName.delete(column.name);
+    let after = -1;
+    for (let at = declaredAt.get(column.name) - 1; at >= 0; at--) {
+      const found = ordered.findIndex((one) => one.name === declared[at].name);
+      if (found >= 0) { after = found; break; }
+    }
+    ordered.splice(after + 1, 0, column);
+  }
   return [PASS_COLUMN, ...ordered];
 }
 
@@ -385,8 +405,9 @@ function draw() {
       "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
       "containing some text, drag it to move the column, drag its right edge to resize, " +
       "right-click it to hide it. Cells with a white background are yours to write in: click one " +
-      "and press Enter. What you write survives every later run. Town notes are the exception: " +
-      "they belong to the town and appear on every property in it."),
+      "and press Enter. What you write survives every later run. Tags open on a single click, " +
+      "because they are chosen rather than typed. Town notes are the exception: they belong to " +
+      "the town and appear on every property in it."),
     el("div", {class: "controls"},
       search,
       el("label", {for: "showgone"}, gone, " show properties that disappeared"),
@@ -1143,7 +1164,19 @@ function cellFor(row, column, index, column_) {
       ? `About ${row.values["Town/Area"] || "this town"}, not about this house. ` +
         `Every property there shows it.${held ? ` — ${held}` : ""}`
       : (held === null || held === undefined ? "" : String(held)),
-    onclick: () => { focusCell(index, column_); },
+    /* One press opens the tags and two presses open everything else, and the difference is not an
+     * inconsistency: it follows what the cell is.
+     *
+     * Every other writable column is a box you type into, so a single press has to mean "select
+     * this cell" and leave the keyboard free to move on. Tags are not typed into at all; the cell
+     * holds a list and pressing it opens the list. Asking somebody to double-press a cell to reach
+     * a control that is not a text box means the control is only found by people who already know
+     * it is there. It was not found: "I'm clicking the field on a row but it's not letting me
+     * type." */
+    onclick: () => {
+      focusCell(index, column_);
+      if (column.name === TAGS) edit(cell, row, column.name);
+    },
     ondblclick: editable ? () => edit(cell, row, column.name) : null,
   });
 
@@ -1166,7 +1199,13 @@ function cellFor(row, column, index, column_) {
     inner.append(said);
   } else if (column.name === TAGS) {
     cell.classList.add("tags");
-    for (const one of tagsOn(row)) inner.append(el("span", {class: "tag"}, one));
+    const carried = tagsOn(row);
+    for (const one of carried) inner.append(el("span", {class: "tag"}, one));
+    /* An empty cell here would be a blank one, like every other column somebody writes in. That
+     * rule is right for those and wrong for this one: a blank says "nobody has written anything",
+     * and what this cell needs to say as well is "there is something here to press". Faint enough
+     * to read past a thousand times, and gone the moment the row carries a word. */
+    if (!carried.length) inner.append(el("span", {class: "addtag"}, "+ tag"));
   } else if (column.name === "Listing URL") {
     inner.append(elsewhere(row, held));
   } else if (column.kind === "number" && column.name === "Price") {

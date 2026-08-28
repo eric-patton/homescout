@@ -1030,6 +1030,15 @@ button.keep[disabled], button.pass[disabled] { opacity: 0.5; cursor: default; }
  * already spends yellow on kept, red on passed and the hazard model's own five on the fire
  * columns, and a filled chip in any of those would read as one of them. What a chip has to say
  * here is only "this is one word, and that is another". */
+/* The hint in an empty cell. Faint, because a thousand rows of it must be readable past, and it
+   is the only thing in this table that says a cell does something other than take typing. */
+.addtag {
+  color: var(--dim);
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+table.grid td.tags:hover .addtag { opacity: 1; }
+
 table.grid td.tags .cell, table.grid td.tags {
   display: flex;
   flex-wrap: wrap;

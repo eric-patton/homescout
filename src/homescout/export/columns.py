@@ -271,6 +271,15 @@ COLUMNS: tuple[Column, ...] = (
     Column("Rank", "number", "annotation", _annotated("rank")),
     Column("Status", "text", "derived", _status),
     Column("Property", "text", "listing", _address, links=True),
+    # Third, beside the address, and deliberately not down with the other things a person writes.
+    #
+    # It went next to `Notes` first, which is where it belongs by family and is column thirty-nine
+    # of forty-four on a real table. Nobody scrolls two screens right to find a feature they have
+    # not been told about: "how do you create tags, I'm clicking the field on a row but it's not
+    # letting me type." A tag is a label on a house and it is read the way the address is read,
+    # down the column, so it goes where the address is. It stays out of the default sheet, which is
+    # a promise about a document that already exists.
+    Column("Tags", "text", "annotation", _tags),
     Column("Town/Area", "text", "listing", _listing("city")),
     Column("County/Region", "text", "derived", _county),
     Column("Price", "number", "listing", _listing("price")),
@@ -309,7 +318,6 @@ COLUMNS: tuple[Column, ...] = (
     Column("County (looked up)", "text", "enriched", _enriched("county_name")),
     Column("Elevation (ft)", "number", "enriched", _enriched("elevation_ft")),
     Column("Notes", "text", "annotation", _annotated("notes")),
-    Column("Tags", "text", "annotation", _tags),
     Column("Flags", "text", "derived", _flags),
     Column("Sources", "text", "derived", _sources),
     Column("Description", "text", "listing", _listing("description")),
