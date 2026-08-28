@@ -17,8 +17,11 @@
  * not only here.
  */
 
-const held = {name: "", rows: [], settings: null, map: null, markers: null,
-              showPassed: false, opacity: 0.55};
+const held = {name: "", rows: [], settings: null, map: null, markers: null, pins: {},
+              showPassed: false, opacity: 0.55,
+              /* How the list under the map is arranged. Cheapest first, because that is the
+               * question everybody asks of a screenful of houses before any other one. */
+              list: {by: "Price", down: false}};
 
 /* The ruler: a rod laid on the map, moved by dragging it, reading its own length.
  *
@@ -35,6 +38,18 @@ const rule = {on: false, line: null, a: null, b: null, middle: null, was: null};
  * each one once, ever. */
 const wind = {on: false, season: "april", stations: [], byKey: {}, roses: {}, asking: {},
               drawn: {}, layer: null, failed: 0};
+
+/* Names on the map, and how wet the ground under them is.
+ *
+ * The hazard layer is a wall of colour with no words on it, and the basemap's own names are
+ * underneath it: the moment the map becomes useful it also becomes anonymous. `lines` is what puts
+ * the names back on top. `rain` is the other half of the same question, asked about the ground
+ * rather than about the map: fire hazard is modelled from fuel and terrain and says nothing at all
+ * about how dry a place is, and nine inches a year and twenty inches a year are different
+ * countries. */
+const land = {lines: false, rain: false, counties: [], towns: [], byCounty: {},
+              years: 30, asked: false, asking: false, raining: false, rainAsked: false,
+              shapes: null, labels: null};
 
 const METRES_TO_A_MILE = 1609.344;
 const FEET_TO_A_METRE = 3.28084;
@@ -110,6 +125,21 @@ function draw() {
     onchange: (event) => showWind(event.target.checked),
   });
 
+  const named = el("input", {
+    type: "checkbox",
+    id: "names",
+    onchange: (event) => showLand(event.target.checked),
+  });
+
+  /* Turning the rain on turns the names on, because the number is written under a county's name
+   * and a number floating on an unnamed patch of map is a number about nothing. The box ticks
+   * itself when that happens, so the page never holds a state it is not showing. */
+  const wet = el("input", {
+    type: "checkbox",
+    id: "rain",
+    onchange: (event) => showRain(event.target.checked),
+  });
+
   const season = el("select", {
     id: "season",
     "aria-label": "Which months the wind is counted over",
@@ -139,13 +169,27 @@ function draw() {
       el("label", {for: "fade"}, "fire layer ", fade),
       el("label", {for: "ruler"}, ruler, " measure a distance"),
       el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
+      el("label", {for: "names"}, named, " counties and towns"),
+      el("label", {for: "rain"}, wet, " rain a year"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       el("span", {class: "counts", id: "windcount", role: "status"}, ""),
+      el("span", {class: "counts", id: "landcount", role: "status"}, ""),
       link(`/results/${encodeURIComponent(held.name)}`, "back to the table"),
     ),
     el("div", {class: "firemap"},
       el("div", {id: "map", role: "application", "aria-label": "Properties on the fire map"}),
       legend(),
+    ),
+    /* The same properties, as a list, under the map they are pinned on.
+     *
+     * A pin is very good at "where" and says nothing at all until it is opened, so reading a
+     * screenful of them means clicking every one. The list is the other half of the same look:
+     * what is on this screen, with the numbers, in one read. It is not a second table with its own
+     * idea of what is going on - it holds exactly the pins the map is drawing, hides what the map
+     * hides, and re-reads itself whenever the map moves. */
+    el("section", {class: "onmap"},
+      el("h2", {}, el("span", {id: "listcount"}, "What is on the map")),
+      el("div", {id: "list"}),
     ),
     el("p", {class: "meta"},
       "The fire layer is the same one the enrichment pass reads, fetched by this machine rather " +
@@ -174,7 +218,7 @@ function legend() {
       el("li", {}, el("span", {class: "swatch round passed"}), "passed on"),
     ),
     /* Deliberately NOT drawn the way a wind rose is drawn, and this note is here because the
-     * next person to read it will assume that is a bug and turn it back.
+     * next person to read it will assume that is a bug and put the rose back.
      *
      * A rose points into the wind, the way a weather vane does, and that convention is older than
      * anybody who will ever work on this. It is also the single easiest thing on this page to read
@@ -182,20 +226,31 @@ function legend() {
      * the west" name opposite sides of a house as the side to worry about. Nothing else on this
      * map fails that way.
      *
-     * The reader is two people buying a house, not two meteorologists, and what they want to know
-     * is which way a fire would run. So the arms are turned around to point downwind, the longest
-     * one carries a head, and the word "from" appears nowhere near a direction. The archive still
-     * records it the meteorological way and `enrich/wind.py` still stores it that way, which is
-     * right for a store of facts; the turning around happens here, where the drawing is. */
+     * So it is not a rose at all now, and it points downwind. The reader is two people buying a
+     * house, not two meteorologists, the question they are asking has one direction in the answer,
+     * and the drawing of one direction is an arrow. The word "from" appears nowhere near a
+     * direction on this page. The archive still records it the meteorological way and
+     * `enrich/wind.py` still stores it that way, which is right for a store of facts; the turning
+     * around happens here, where the drawing is. */
     el("h2", {}, "Which way the wind pushes"),
     el("ul", {},
       el("li", {}, el("span", {class: "swatch wind any"}), "any speed"),
       el("li", {}, el("span", {class: "swatch wind strong"}), "15 mph and over"),
     ),
     el("p", {class: "meta"},
-      "An arm points the way the wind ", el("strong", {}, "pushes"),
-      ", and the head marks the way it pushes most often. That is the way a fire here would run, " +
-      "so the red to worry about is the red the head points at."),
+      "An arrow points the way the wind ", el("strong", {}, "pushes"),
+      ", which is the way a fire would run, so the red to worry about is the red the arrow " +
+      "points at. It is longer where the wind more often does the same thing. The dark arrow " +
+      "appears only where hard wind pushes somewhere else than the everyday wind does."),
+    el("h2", {}, "Where this is"),
+    el("p", {class: "meta"},
+      "County lines and town names are drawn on top of the fire layer rather than under it, "
+      + "because underneath is where the map\u2019s own names already are and they cannot be read "
+      + "there. More town names appear as you zoom in."),
+    el("p", {class: "meta"},
+      "Rain is the average of the last thirty years, per county, which is the finest grain the "
+      + "national record publishes. It is a fact about the county and not about the house: fire "
+      + "hazard says how a place would burn and says nothing about how dry it is."),
     el("p", {class: "meta"},
       "Colours are the model's own, redrawn here so the map reads without asking anybody for a " +
       "picture of its legend."),
@@ -245,11 +300,31 @@ function build() {
   map.createPane("wind");
   map.getPane("wind").style.zIndex = "450";
 
+  /* County lines under the wind and over the fire, so an outline never hides an arrow.
+   *
+   * The names go over everything, properties included, and take no pointer at all. A label is
+   * read, never clicked, and one that can be clicked is a label that swallows the pin underneath
+   * it: on this map that would mean a name over a town quietly making the houses in that town
+   * unopenable, which is the sort of fault nobody reports because it looks like a mis-click. */
+  map.createPane("lines");
+  map.getPane("lines").style.zIndex = "440";
+  map.createPane("labels");
+  map.getPane("labels").style.zIndex = "640";
+  map.getPane("labels").style.pointerEvents = "none";
+
   held.markers = L.layerGroup().addTo(map);
   wind.layer = L.layerGroup();
+  land.shapes = L.layerGroup();
+  land.labels = L.layerGroup();
   /* Only what is on screen is asked about, nearest the middle first. Somebody looking at Taos gets
    * Taos in ten seconds rather than the whole state in four minutes. */
-  map.on("moveend", () => { if (wind.on) blow(); });
+  map.on("moveend", () => {
+    if (wind.on) blow();
+    /* The list is "what is on this screen", so the screen changing is the whole of its news. */
+    listWhatIsOnScreen();
+    /* Which names fit depends on how far out this is, so they are worked out again every move. */
+    if (land.lines) drawLand();
+  });
   plot();
   const bounds = held.rows.map((row) => [row.latitude, row.longitude]);
   if (bounds.length) map.fitBounds(bounds, {padding: [24, 24]});
@@ -287,6 +362,7 @@ function arcgisLayer(layer, options) {
 function plot() {
   if (!held.markers) return;
   held.markers.clearLayers();
+  held.pins = {};
   let drawn = 0;
   for (const row of held.rows) {
     if (row.judgment === "pass" && !held.showPassed) continue;
@@ -300,9 +376,11 @@ function plot() {
     });
     pin.bindPopup(() => popup(row, pin), {minWidth: 260, maxWidth: 320});
     pin.addTo(held.markers);
+    held.pins[row.listing_id] = {pin: pin, look: look};
     drawn += 1;
   }
   counts(drawn);
+  listWhatIsOnScreen();
 }
 
 function counts(drawn) {
@@ -316,6 +394,167 @@ function counts(drawn) {
   }
   const where = document.getElementById("counts");
   if (where) where.replaceChildren(document.createTextNode(parts.join(" · ")));
+}
+
+/* ------------------------------------------------------------------ */
+/* The list under the map                                              */
+/* ------------------------------------------------------------------ */
+
+/* What the list shows, and how each column is compared.
+ *
+ * Not the whole table. The table has every column this tool knows and a way to choose between
+ * them, and it is one click away at the top of this page; putting it here as well would be two
+ * tables that disagree about what is filtered. These are the six things somebody reads off a pin
+ * before deciding whether to open it. */
+const LIST = [
+  {name: "Property", kind: "text", of: (row) => row.values["Property"]},
+  {name: "Price", kind: "money", of: (row) => row.values["Price"]},
+  {name: "Beds", kind: "number", of: (row) => row.values["Beds"]},
+  {name: "Acres", kind: "number", of: (row) => row.values["Acres"]},
+  {name: "Built", kind: "number", of: (row) => row.values["Year Built"]},
+  {name: "Hazard here", kind: "hazard", of: (row) => row.values["Wildfire Hazard"]},
+];
+
+/* Worst first, which is the order the legend is written in, so the eye reads the same ranking in
+ * both places. Anything the model has no word for sorts after everything it does. */
+const HAZARD_ORDER = {};
+HAZARD.forEach(([word], at) => { HAZARD_ORDER[word] = at; });
+
+/* Above this many, the list stops being a list. A run at full zoom-out is the whole state, and a
+ * thousand rows under a map is neither readable nor quick; the honest thing is to draw what can be
+ * read and say plainly that there is more, because the fix is to zoom in and that is the thing
+ * somebody is about to do anyway. */
+const LIST_MOST = 400;
+
+function listWhatIsOnScreen() {
+  const where = document.getElementById("list");
+  const heading = document.getElementById("listcount");
+  if (!where || !held.map) return;
+
+  const bounds = held.map.getBounds();
+  const on = held.rows.filter((row) =>
+    (row.judgment !== "pass" || held.showPassed)
+    && bounds.contains([row.latitude, row.longitude]));
+
+  const column = LIST.find((one) => one.name === held.list.by) || LIST[1];
+  on.sort((a, b) => rank(column, a, b) * (held.list.down ? -1 : 1));
+  const shown = on.slice(0, LIST_MOST);
+
+  if (heading) {
+    heading.replaceChildren(document.createTextNode(
+      on.length
+        ? (shown.length < on.length
+            ? `The first ${LIST_MOST} of ${on.length} properties on the map: zoom in for the rest`
+            : count(on.length, "property", "properties") + " on the map")
+        : "Nothing on this part of the map"));
+  }
+
+  if (!on.length) {
+    where.replaceChildren(
+      el("p", {class: "notice"},
+        "No properties are on this part of the map. Zoom out, or move to where the pins are."));
+    return;
+  }
+
+  where.replaceChildren(
+    el("table", {class: "onscreen"},
+      el("thead", {}, el("tr", {}, LIST.map((one) => listHead(one)))),
+      el("tbody", {}, shown.map((row) => listRow(row)))));
+}
+
+function rank(column, a, b) {
+  const left = column.of(a);
+  const right = column.of(b);
+  if (column.kind === "hazard") {
+    const at = (value) => (value in HAZARD_ORDER ? HAZARD_ORDER[value] : HAZARD.length + 1);
+    return at(left) - at(right);
+  }
+  /* Nothing known sorts last whichever way round the column is, because a blank is not a small
+   * number and a page that says so puts every unpriced house at the top of "cheapest first". */
+  const missing = (value) => value === null || value === undefined || value === "";
+  if (missing(left) && missing(right)) return 0;
+  if (missing(left)) return 1 * (held.list.down ? -1 : 1);
+  if (missing(right)) return -1 * (held.list.down ? -1 : 1);
+  if (column.kind === "text") return String(left).localeCompare(String(right));
+  return Number(left) - Number(right);
+}
+
+function listHead(column) {
+  const sorted = held.list.by === column.name;
+  return el("th", {
+    scope: "col",
+    class: column.kind === "money" || column.kind === "number" ? "numeric" : "",
+    "aria-sort": sorted ? (held.list.down ? "descending" : "ascending") : "none",
+  },
+    el("button", {
+      type: "button",
+      onclick: () => {
+        held.list.down = held.list.by === column.name ? !held.list.down : false;
+        held.list.by = column.name;
+        listWhatIsOnScreen();
+      },
+    }, column.name, sorted ? el("span", {class: "way"}, held.list.down ? " ▾" : " ▴") : null),
+  );
+}
+
+/* One row, and the button on it is the point of the whole list.
+ *
+ * The pin is already on screen: that is what being in this list means. So this opens it where it
+ * stands rather than flying to it, because a map that jumps every time somebody reads a row is a
+ * map that loses the place they were looking at. */
+function listRow(row) {
+  const on = held.pins[row.listing_id];
+  const judged = row.judgment === "keep" ? "kept"
+               : row.judgment === "pass" ? "passed on" : "not decided";
+
+  const lift = (bigger) => {
+    if (!on) return;
+    on.pin.setStyle({radius: bigger ? on.look.size + 5 : on.look.size,
+                     weight: bigger ? 3 : 1.5});
+    if (bigger) on.pin.bringToFront();
+  };
+
+  const what = row.values["Property"] || "this property";
+  const open = el("button", {
+    type: "button",
+    class: "address",
+    /* The dot says which of the three this is, and a dot says nothing to a screen reader, so the
+     * word goes in the name rather than in a title nobody hears. */
+    "aria-label": `${what}, ${judged}. Opens its pin on the map.`,
+    title: `${what} - ${judged}`,
+    onclick: () => { if (on) on.pin.openPopup(); },
+    onmouseenter: () => lift(true),
+    onmouseleave: () => lift(false),
+    onfocus: () => lift(true),
+    onblur: () => lift(false),
+  },
+    el("span", {class: `dot ${row.judgment || "none"}`, "aria-hidden": "true"}),
+    what);
+
+  const money = row.values["Price"];
+  return el("tr", {class: row.judgment === "pass" ? "passed"
+                        : row.judgment === "keep" ? "kept" : ""},
+    el("td", {class: "address"}, open),
+    el("td", {class: "numeric"},
+      money === null || money === undefined ? "" : `$${Number(money).toLocaleString()}`),
+    el("td", {class: "numeric"}, blank(row.values["Beds"])),
+    el("td", {class: "numeric"}, blank(row.values["Acres"])),
+    el("td", {class: "numeric"}, blank(row.values["Year Built"])),
+    el("td", {class: "hazard"},
+      row.values["Wildfire Hazard"]
+        ? el("span", {},
+             el("span", {class: "swatch",
+                         style: `background:${(HAZARD.find(
+                           ([word]) => word === row.values["Wildfire Hazard"]) || [])[1]
+                           || "transparent"}`,
+                         "aria-hidden": "true"}),
+             row.values["Wildfire Hazard"])
+        : ""),
+  );
+}
+
+function blank(value) {
+  return value === null || value === undefined ? "" : String(value);
 }
 
 /* ------------------------------------------------------------------ */
@@ -585,18 +824,233 @@ function howFar(from, to) {
 
 
 /* ------------------------------------------------------------------ */
+/* Where this is, and how much rain falls on it                        */
+/* ------------------------------------------------------------------ */
+
+/* How many town names to draw at each zoom, biggest first.
+ *
+ * A cap and not a threshold, because the right number of labels is a property of the screen rather
+ * than of the towns: forty names on a map of the whole state is a smudge whether or not every one
+ * of them is a real town. Biggest first means the ones that survive the cap are the ones somebody
+ * navigates by, and zooming in is what asks for the rest.
+ */
+const TOWNS_AT = [[6, 5], [7, 10], [8, 18], [9, 30], [10, 50]];
+
+/* Roughly how much room a drawn name takes, in pixels either side of its point. Measured off the
+ * real thing rather than computed from the text, because a label's box is the same order of size
+ * whatever is in it and measuring every one would mean laying them all out to find out which ones
+ * not to lay out. */
+const LABEL_ROOM = {county: [58, 17], town: [42, 9]};
+
+function townsHere(zoom) {
+  for (const [out, many] of TOWNS_AT) {
+    if (zoom <= out) return many;
+  }
+  return 400;
+}
+
+async function showLand(on) {
+  land.lines = Boolean(on);
+  const box = document.getElementById("names");
+  if (box) box.checked = land.lines;
+  if (!land.lines) {
+    if (land.shapes) held.map.removeLayer(land.shapes);
+    if (land.labels) held.map.removeLayer(land.labels);
+    landCount();
+    return;
+  }
+  land.shapes.addTo(held.map);
+  land.labels.addTo(held.map);
+  if (!land.asked) {
+    land.asking = true;
+    landCount();
+    try {
+      const found = await ask(`/api/ground/${encodeURIComponent(held.name)}`);
+      land.counties = found.counties || [];
+      land.towns = found.towns || [];
+      land.asked = true;
+      for (const said of found.unreachable || []) say(said, "problem");
+    } catch (error) {
+      say(`The county lines could not be read: ${error.message}`, "problem");
+    } finally {
+      land.asking = false;
+    }
+  }
+  drawLand();
+}
+
+/* The rain is a second request and a slower one, so it is a second switch. The names are on the
+ * map in a moment; the numbers take a few seconds the first time and never again. */
+async function showRain(on) {
+  land.rain = Boolean(on);
+  if (land.rain && !land.lines) await showLand(true);
+  if (!land.rain) {
+    drawLand();
+    return;
+  }
+  if (!land.rainAsked) {
+    land.raining = true;
+    landCount();
+    try {
+      const found = await ask(`/api/rain/${encodeURIComponent(held.name)}`);
+      land.byCounty = {};
+      for (const one of found.counties || []) land.byCounty[`${one.state}/${one.fips}`] = one;
+      land.years = found.years || land.years;
+      land.rainAsked = true;
+      for (const said of found.unreachable || []) say(said, "problem");
+    } catch (error) {
+      say(`The rainfall record could not be read: ${error.message}`, "problem");
+      land.rain = false;
+      const box = document.getElementById("rain");
+      if (box) box.checked = false;
+    } finally {
+      land.raining = false;
+    }
+  }
+  drawLand();
+}
+
+function landCount() {
+  const where = document.getElementById("landcount");
+  if (!where) return;
+  const parts = [];
+  if (land.asking) parts.push("reading the county lines\u2026");
+  else if (land.raining) parts.push("reading thirty years of rainfall\u2026");
+  else if (land.lines && land.counties.length) {
+    parts.push(count(land.counties.length, "county", "counties"));
+    if (land.rain && land.rainAsked) {
+      parts.push(`rain averaged over ${land.years} years`);
+    }
+  }
+  where.replaceChildren(document.createTextNode(parts.join(" \u00b7 ")));
+}
+
+/* Everything drawn again from what is on screen now.
+ *
+ * Cleared and rebuilt, unlike the wind, and the difference is worth knowing: nothing here opens a
+ * bubble, so there is no popup for a redraw to close. The wind cannot do this and the note above
+ * `drawWind` says why.
+ */
+function drawLand() {
+  if (!land.shapes || !land.labels) return;
+  land.shapes.clearLayers();
+  land.labels.clearLayers();
+  if (!land.lines) return;
+
+  const bounds = held.map.getBounds();
+  /* Where a name has already been written, so the next one does not go on top of it.
+   *
+   * Counties go down first and towns give way, which is the right order because a county name is
+   * the coarse answer: somebody who cannot read "Albuquerque" can still see they are in
+   * Bernalillo, and somebody who cannot read "Bernalillo" is looking at an unlabelled county.
+   * Zooming in is what separates them, and by then both fit. */
+  const taken = [];
+  const roomFor = (where, kind) => {
+    const at = held.map.latLngToContainerPoint(where);
+    const [wide, tall] = LABEL_ROOM[kind];
+    for (const held_ of taken) {
+      if (Math.abs(held_.x - at.x) < held_.wide + wide
+       && Math.abs(held_.y - at.y) < held_.tall + tall) return null;
+    }
+    return {x: at.x, y: at.y, wide: wide, tall: tall};
+  };
+
+  for (const one of land.counties) {
+    for (const ring of one.outline || []) {
+      L.polygon(ring, {
+        pane: "lines",
+        color: "#1f2933",
+        weight: 1.1,
+        opacity: 0.55,
+        fill: false,
+        interactive: false,
+      }).addTo(land.shapes);
+    }
+    if (one.latitude === null || one.longitude === null) continue;
+    if (!bounds.contains([one.latitude, one.longitude])) continue;
+    const room = roomFor([one.latitude, one.longitude], "county");
+    if (!room) continue;
+    taken.push(room);
+    label([one.latitude, one.longitude], "county", countyLabel(one)).addTo(land.labels);
+  }
+
+  const many = townsHere(held.map.getZoom());
+  let drawn = 0;
+  for (const one of land.towns) {
+    if (drawn >= many) break;
+    if (!bounds.contains([one.latitude, one.longitude])) continue;
+    const room = roomFor([one.latitude, one.longitude], "town");
+    /* Not counted against the cap: a name that could not be drawn should cost the next town its
+     * turn, not its own. Otherwise a screen with one crowded corner draws five names instead of
+     * the ten it has room for. */
+    if (!room) continue;
+    taken.push(room);
+    label([one.latitude, one.longitude], "town", [el("span", {class: "dot"}), one.name])
+      .addTo(land.labels);
+    drawn += 1;
+  }
+  landCount();
+}
+
+function countyLabel(one) {
+  const wet = land.rain ? land.byCounty[`${one.state}/${one.fips}`] : null;
+  return [
+    el("span", {class: "name"}, one.name),
+    /* The unit is on every one of them on purpose. "17.7" over a county is a number somebody has
+     * to go and look up; "17.7 in" is an answer. */
+    wet ? el("span", {class: "rain"}, `${wet.inches.toFixed(1)} in`) : null,
+    land.rain && !wet && land.rainAsked
+      ? el("span", {class: "rain none"}, "no record") : null,
+  ];
+}
+
+function label(where, kind, what) {
+  const icon = L.divIcon({
+    className: `mapname ${kind}`,
+    /* Zero, so the box is the text and the text is centred on the place. A divIcon with a size
+     * gets a box that big whatever is in it, and a hundred invisible boxes over a map is a
+     * hundred things for the eye to line up against nothing. */
+    iconSize: [0, 0],
+    html: "",
+  });
+  const pin = L.marker(where, {pane: "labels", icon: icon, interactive: false, keyboard: false});
+  pin.on("add", () => {
+    const node = pin.getElement();
+    if (node && !node.firstChild) node.append(el("span", {}, what));
+  });
+  return pin;
+}
+
+/* ------------------------------------------------------------------ */
 /* Which way the wind pushes                                           */
 /* ------------------------------------------------------------------ */
 
-/* How the rose is drawn. */
-const ROSE_SIZE = 72;
-const ROSE_FULL = 20;      /* The percent an arm at full length means. */
-const ROSE_HEAD = 7;       /* How far past its arm the one head reaches. */
+/* How the arrow is drawn.
+ *
+ * THIS WAS A WIND ROSE, AND THE NOTE IS HERE SO NOBODY PUTS IT BACK. Sixteen arms, one per
+ * direction, each as long as that direction was common. The arms were turned around to point
+ * downwind, which fixed the half of the problem that was about which way, and the person the page
+ * is drawn for read it and asked for an arrow instead.
+ *
+ * She is right, and the reason is that a rose and an arrow answer different questions. A rose
+ * answers "what is the distribution of wind direction at this station", which is a question with
+ * sixteen numbers in the answer and is asked by somebody studying the wind. What she is asking is
+ * "which way would a fire here run", which has one direction in the answer, and the drawing of one
+ * direction is an arrow. Sixteen arms was the right shape for the wrong question.
+ *
+ * The sixteen numbers did not go anywhere. They are in the bubble, where a second question belongs.
+ */
+const WIND_SIZE = 112;     /* The icon's box. The station sits at the middle of it. */
+const WIND_FULL = 20;      /* The percent an arrow at full length means. */
+const WIND_LEAST = 0.5;    /* Never shorter than half of it: a stub does not point anywhere. */
+const WIND_HEAD = 12;      /* How long the head is, along the arrow. */
+const WIND_HEAD_WIDE = 5.5;
+const WIND_SHAFT = 1.4;    /* Half the shaft's width. Thin, because thin is what was asked for. */
 /* Violet, and violet for a reason: this page already spends red through green on the hazard model
- * and blue, gold and pink on what the person has decided about a house. A rose in any of those
+ * and blue, gold and pink on what the person has decided about a house. An arrow in any of those
  * would be read as one of those. Nothing else here is violet. */
-const ROSE_ANY = "#a276cf";
-const ROSE_STRONG = "#4c1d95";
+const WIND_ANY = "#a276cf";
+const WIND_STRONG = "#4c1d95";
 
 /* Turn the overlay on or off. Off by default: this page is about the fire, and a second layer
  * nobody asked for over the top of it is a page that is about neither. */
@@ -688,7 +1142,7 @@ function drawWind(inView) {
     if (wind.drawn[key]) continue;
     const one = wind.byKey[key];
     if (!one) continue;
-    const layer = kind === "rose" ? roseAt(one, wind.roses[key]) : waitingAt(one);
+    const layer = kind === "rose" ? arrowAt(one, wind.roses[key]) : waitingAt(one);
     layer.addTo(wind.layer);
     wind.drawn[key] = {kind: kind, layer: layer};
   }
@@ -717,28 +1171,28 @@ function windCount(drawn) {
 function waitingAt(station) {
   return L.circleMarker([station.latitude, station.longitude], {
     pane: "wind",
-    radius: 5, color: ROSE_STRONG, weight: 1.5, opacity: 0.7,
-    fillColor: ROSE_ANY, fillOpacity: 0.5,
+    radius: 5, color: WIND_STRONG, weight: 1.5, opacity: 0.7,
+    fillColor: WIND_ANY, fillOpacity: 0.5,
   }).bindTooltip(`${station.name}: reading its record\u2026`);
 }
 
-/* One station's rose, as a fixed number of pixels rather than a shape on the ground.
+/* One station's arrow, as a fixed number of pixels rather than a shape on the ground.
  *
- * A rose drawn in degrees would be a speck at one zoom and cover a county at the next, and it is
+ * An arrow drawn in degrees would be a speck at one zoom and cover a county at the next, and it is
  * not a thing that is anywhere: it is a summary of a place, drawn at the place. So it is an icon,
  * and its size is the same at every zoom.
  */
-function roseAt(station, rose) {
+function arrowAt(station, rose) {
   const pin = L.marker([station.latitude, station.longitude], {
     pane: "wind",
-    icon: L.divIcon({className: "rose", iconSize: [ROSE_SIZE, ROSE_SIZE]}),
+    icon: L.divIcon({className: "windarrow", iconSize: [WIND_SIZE, WIND_SIZE]}),
     keyboard: true,
     title: whatItSays(rose),
     alt: whatItSays(rose),
   });
   pin.on("add", () => {
     const node = pin.getElement();
-    if (node && !node.firstChild) node.append(arms(rose));
+    if (node && !node.firstChild) node.append(arrowsFor(rose));
   });
   pin.bindPopup(() => aboutTheWind(rose), {minWidth: 250, maxWidth: 320});
   return pin;
@@ -765,81 +1219,86 @@ function whatItSays(rose) {
  * rule every other thing this product draws follows and the reason there is no way to put markup
  * on a page here at all.
  *
- * Every arm is drawn at `pushes(degrees)`, which is a half turn from where the archive put it. The
- * long note in `legend()` is why. */
-function arms(rose) {
+ * Every arrow is drawn at `pushes(degrees)`, which is a half turn from where the archive put it.
+ * The long note in `legend()` is why. */
+function arrowsFor(rose) {
   const where = "http://www.w3.org/2000/svg";
   const box = document.createElementNS(where, "svg");
-  box.setAttribute("viewBox", `0 0 ${ROSE_SIZE} ${ROSE_SIZE}`);
-  box.setAttribute("width", String(ROSE_SIZE));
-  box.setAttribute("height", String(ROSE_SIZE));
+  box.setAttribute("viewBox", `0 0 ${WIND_SIZE} ${WIND_SIZE}`);
+  box.setAttribute("width", String(WIND_SIZE));
+  box.setAttribute("height", String(WIND_SIZE));
   box.setAttribute("aria-hidden", "true");
 
-  const middle = ROSE_SIZE / 2;
-  const most = middle - ROSE_HEAD - 3;
-  const half = 360 / (rose.sectors.length * 2);
+  const middle = WIND_SIZE / 2;
+  const most = middle - 4;
 
-  const at = (turn, out) => {
+  const at = (turn, along, across) => {
     const radians = (turn * Math.PI) / 180;
-    return [middle + out * Math.sin(radians), middle - out * Math.cos(radians)];
+    const ahead = [Math.sin(radians), -Math.cos(radians)];
+    return [
+      middle + along * ahead[0] + across * -ahead[1],
+      middle + along * ahead[1] + across * ahead[0],
+    ];
   };
 
-  /* Every shape here gets the same white edge, because this lies over a raster that is red in some
-   * places and green in others, and a shape with no outline reads on one and disappears on the
-   * other. */
-  const drawn = (d, fill, alpha) => {
+  /* Long enough to read as a direction, and longer the more of the time the wind actually does
+   * this. A station where every direction is about as likely gets a short arrow, and that is the
+   * truth about that station: it is worth being able to see at a glance that an arrow is a strong
+   * claim in one place and a weak one in another. Never shorter than half, because below that an
+   * arrow stops being a thing with a direction and becomes a smudge with a point on it. */
+  const outTo = (percent) =>
+    (WIND_LEAST + (1 - WIND_LEAST) * Math.min((percent || 0) / WIND_FULL, 1)) * most;
+
+  /* One arrow, as one closed outline: down one side of the shaft, out to the point, back down the
+   * other. Drawn as a single shape rather than a stroked line with a triangle on the end because
+   * of what it lies over. This sits on a raster that is red in some places, green in others and
+   * grey in the rest, and a shape with no edge reads on one and vanishes on the next. One shape
+   * takes one white edge, all the way round, with `paint-order` putting that edge outside the
+   * colour rather than half over it. Two shapes would take two, and show the seam where they
+   * meet. */
+  const arrow = (turn, out, colour) => {
+    const s = WIND_SHAFT;
+    const neck = Math.max(out - WIND_HEAD, 4);
+    const corners = [
+      at(turn, 2, s), at(turn, neck, s), at(turn, neck, WIND_HEAD_WIDE),
+      at(turn, out, 0),
+      at(turn, neck, -WIND_HEAD_WIDE), at(turn, neck, -s), at(turn, 2, -s),
+    ];
     const path = document.createElementNS(where, "path");
-    path.setAttribute("d", d);
-    path.setAttribute("fill", fill);
-    path.setAttribute("fill-opacity", String(alpha));
+    path.setAttribute(
+      "d",
+      corners.map(([x, y], at_) => `${at_ ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`)
+             .join(" ") + " Z");
+    path.setAttribute("fill", colour);
     path.setAttribute("stroke", "#ffffff");
-    path.setAttribute("stroke-width", "0.7");
-    path.setAttribute("stroke-opacity", "0.85");
+    path.setAttribute("stroke-width", "1.6");
+    path.setAttribute("stroke-opacity", "0.9");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("paint-order", "stroke");
     box.append(path);
   };
 
-  const wedge = (degrees, length, fill, alpha) => {
-    if (length <= 0.4) return;
-    const [x1, y1] = at(degrees - half, length);
-    const [x2, y2] = at(degrees + half, length);
-    drawn(
-      `M ${middle} ${middle} L ${x1.toFixed(2)} ${y1.toFixed(2)} ` +
-      `A ${length.toFixed(2)} ${length.toFixed(2)} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`,
-      fill, alpha);
-  };
-
-  const outTo = (percent) => Math.min(percent / ROSE_FULL, 1) * most;
-  /* Every direction first, then the hard wind inside it, so one glyph says both "which way does it
-   * push" and "which way does it push when it is pushing hard enough to matter". */
-  for (const one of rose.sectors) wedge(pushes(one.degrees), outTo(one.percent), ROSE_ANY, 0.85);
-  for (const one of rose.sectors) wedge(pushes(one.degrees), outTo(one.strong), ROSE_STRONG, 0.9);
-
-  /* One head, on the arm that matters, and one is the point. Sixteen heads at this size is a
-   * smudge, and what a head has to do here is answer "which end of this thing is the pointed end"
-   * once. Answered for the longest arm, it is answered for all of them.
-   *
-   * Its colour is the arm's own rather than the hard-wind violet: a head in the darker colour reads
-   * as another quantity, and it is not a quantity, it is a direction. */
   const best = rose.prevailing;
-  if (best) {
-    const turn = pushes(best.degrees);
-    const along = outTo(best.percent);
-    const [tipX, tipY] = at(turn, along + ROSE_HEAD);
-    const [leftX, leftY] = at(turn - half * 1.2, along - 0.5);
-    const [rightX, rightY] = at(turn + half * 1.2, along - 0.5);
-    drawn(
-      `M ${tipX.toFixed(2)} ${tipY.toFixed(2)} L ${leftX.toFixed(2)} ${leftY.toFixed(2)} ` +
-      `L ${rightX.toFixed(2)} ${rightY.toFixed(2)} Z`,
-      ROSE_ANY, 1);
+  if (best) arrow(pushes(best.degrees), outTo(best.percent), WIND_ANY);
+
+  /* The hard wind gets its own arrow ONLY when it pushes somewhere else, because that is the only
+   * time it is news. "It normally pushes east, and when it blows hard enough to move a fire it
+   * pushes north" is worth a second arrow on the map. "It pushes east, and hard wind pushes east"
+   * is one arrow and a line in the bubble, and drawing it twice would say there are two answers
+   * here when there is one. */
+  const strongest = rose.sectors.slice().sort((a, b) => b.strong - a.strong)[0];
+  if (strongest && strongest.strong > 0 && (!best || strongest.degrees !== best.degrees)) {
+    arrow(pushes(strongest.degrees), outTo(strongest.strong), WIND_STRONG);
   }
 
+  /* The station itself. The arrow says which way from here, and this is the here. */
   const middleDot = document.createElementNS(where, "circle");
   middleDot.setAttribute("cx", String(middle));
   middleDot.setAttribute("cy", String(middle));
-  middleDot.setAttribute("r", "2.5");
-  middleDot.setAttribute("fill", ROSE_STRONG);
+  middleDot.setAttribute("r", "2.6");
+  middleDot.setAttribute("fill", WIND_STRONG);
   middleDot.setAttribute("stroke", "#ffffff");
-  middleDot.setAttribute("stroke-width", "1");
+  middleDot.setAttribute("stroke-width", "1.2");
   box.append(middleDot);
   return box;
 }

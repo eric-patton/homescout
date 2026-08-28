@@ -77,6 +77,10 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://mesonet.agron.iastate.edu/geojson/network",
         "Which automated weather stations a state has, and where each one is",
     ),
+    "rainfall": Endpoint(
+        "https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/county/time-series",
+        "NOAA's county rainfall record, back to 1895",
+    ),
     "wui_coverage": Endpoint(
         "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_reference/MapServer/8/query",
         "New Mexico counties, which say whether the interface layer covers a point at all",

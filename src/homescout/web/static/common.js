@@ -97,7 +97,10 @@ async function ask(path, options) {
   return document_;
 }
 
-const send = (path, body) => ask(path, {method: "POST", body: body});
+/* A write. POST unless something says otherwise: PUT is for the handful of places where what
+ * is sent is the whole of a thing rather than a change to it, which is what a set of ticked
+ * boxes is. */
+const send = (path, body, method) => ask(path, {method: method || "POST", body: body});
 
 /* ------------------------------------------------------------------ */
 /* Showing a value                                                     */

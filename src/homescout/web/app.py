@@ -375,6 +375,25 @@ def build(workspace: api.Workspace) -> FastAPI:
             },
         )
 
+    @app.get("/api/ground/{name}")
+    def ground(name: str) -> dict[str, Any]:
+        """County lines and town names over the states this run found properties in.
+
+        Separate from the rainfall below because it costs almost nothing and answers at once: the
+        names can be on the map while the numbers are still being read.
+        """
+        return answer("ground", **api.ground(held(), name))
+
+    @app.get("/api/rain/{name}")
+    def rainfall(name: str) -> dict[str, Any]:
+        """A yearly rainfall average for every county this run touches.
+
+        The first call reads thirty years for each of them and takes a few seconds; every call
+        after it is off the disk, because a thirty-year average changes by a hundredth of an inch
+        a year.
+        """
+        return answer("rainfall", **api.rainfall(held(), name))
+
     @app.get("/api/wind/stations/{name}")
     def wind_stations(name: str) -> dict[str, Any]:
         """Which weather stations cover the states this run found properties in.
@@ -468,6 +487,51 @@ def build(workspace: api.Workspace) -> FastAPI:
             listing_id=written.listing_id,
             updated_at=written.updated_at,
             **written.content(),
+        )
+
+    # -- the household's own vocabulary -------------------------------------
+
+    @app.get("/api/tags")
+    def all_tags() -> dict[str, Any]:
+        """Every tag, with how many properties carry it.
+
+        Read whenever somebody is about to tag something, because the choice worth offering is the
+        words they already use. A vocabulary you have to retype from memory grows a second
+        spelling of every word in it.
+        """
+        return answer("tags", tags=list(api.tags(held())))
+
+    @app.post("/api/tags")
+    async def make_tag(request: Request) -> dict[str, Any]:
+        """Add a word to the vocabulary, whether or not a property carries it yet."""
+        body = await _body(request)
+        return answer("tag", tag=api.create_tag(held(), str(body.get("name", ""))))
+
+    @app.post("/api/tags/{name}/rename")
+    async def rename(name: str, request: Request) -> dict[str, Any]:
+        """Rename a tag everywhere it is used. Onto an existing name, the two merge."""
+        body = await _body(request)
+        return answer("tag", tag=api.rename_tag(held(), name, str(body.get("to", ""))))
+
+    @app.delete("/api/tags/{name}")
+    def drop_tag(name: str) -> dict[str, Any]:
+        """Take a tag out of the vocabulary and off every property carrying it."""
+        return answer("tag_deleted", name=name, properties=api.delete_tag(held(), name))
+
+    @app.put("/api/listings/{listing_id}/tags")
+    async def set_tags(listing_id: str, request: Request) -> dict[str, Any]:
+        """The whole list of tags for one property. Anything not named comes off.
+
+        A PUT and not a POST, and the whole list and not a difference, because that is what the
+        control on the page is: a set of boxes, some ticked. Sending what is ticked cannot drift
+        from what is shown; sending "add this, remove that" can and eventually does.
+        """
+        body = await _body(request)
+        names = body.get("tags", [])
+        if not isinstance(names, list):
+            raise InvalidInput("`tags` should be a list of names.")
+        return answer(
+            "tags", listing_id=listing_id, tags=list(api.set_tags(held(), listing_id, names))
         )
 
     # -- matches -----------------------------------------------------------

@@ -99,3 +99,14 @@ alongside its peers.
       `export/rows.py` re-keys every kept row to the record that represents it now and keeps the
       fullest where several land on the same one. Pinned by `tests/test_export_values.py` citing
       `feat-011/AC-2`, the criterion that says one row per canonical listing.
+
+
+## Change: words of our own
+
+- [x] T-tags-sheet: `export/columns.py`, `export/rows.py`: a `Tags` column outside the default
+      sheet (`feat-011/AC-16`). Joined with commas here rather than in either surface, so the
+      sheet, the table and the terminal print one property's tags the same way. The comma is safe
+      as the join because a tag cannot contain one: refused at the single point a tag is created,
+      rather than escaped in each of the three places one is displayed. Read for the whole sheet in
+      one query, because one query per row is how a table of a thousand becomes a table somebody
+      waits for.

@@ -79,6 +79,16 @@ const EDITABLE = {
  * other rows in that town change under it when it is saved. */
 const TOWN_NOTE = "Town Analysis Notes";
 
+/* The one editable column that is not free text.
+ *
+ * Keeping and passing answer the tool's own question, which is whether a house is still in.
+ * Everything else somebody wants to say in one word is theirs: "septic unknown", "drive by on
+ * Saturday", "too close to the highway". Typed straight into the cell they would grow a second
+ * spelling within a week, so the cell opens a list of the words already in use and typing a new one
+ * is one line at the bottom of it. The store folds case for the same reason; this is the half that
+ * stops the second spelling being typed at all. */
+const TAGS = "Tags";
+
 /* What each site is called on a link back to it. */
 const SITES = {realtor: "Realtor", zillow: "Zillow", redfin: "Redfin"};
 
@@ -129,6 +139,9 @@ const state = {
   wrap: false,
   widths: {},
   focus: {row: 0, column: 0},
+  /* Every tag this workspace knows, newest answer from the server. Held so the chooser can offer
+   * them without a request per cell, and refreshed whenever a save changes what exists. */
+  tags: [],
 };
 
 /* Set while a header is being dragged or resized, and read by the click handler: a drag that ends
@@ -157,6 +170,23 @@ async function load() {
   state.all = found.rows;
   draw();
   apply();
+  /* After the table is up, not before it. The vocabulary is only needed by a cell somebody opens,
+   * and a thousand rows should not wait on a second request to be drawn. A failure here costs the
+   * list of suggestions and nothing else, so it is not worth an error across the page. */
+  ask("/api/tags").then((held) => { state.tags = held.tags || []; }).catch(() => {});
+}
+
+function knownTags() {
+  return state.tags.map((tag) => tag.name);
+}
+
+/* What one property carries, off the cell's own text. The column is a comma-joined list, which is
+ * the same thing the sheet and the terminal print, and a tag cannot contain a comma. */
+function tagsOn(row) {
+  return String(row.values[TAGS] || "")
+    .split(",")
+    .map((one) => one.trim())
+    .filter(Boolean);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1093,7 +1123,9 @@ function rowFor(row, index) {
 }
 
 function writable(name) {
-  return Object.prototype.hasOwnProperty.call(EDITABLE, name) || name === TOWN_NOTE;
+  return Object.prototype.hasOwnProperty.call(EDITABLE, name)
+      || name === TOWN_NOTE
+      || name === TAGS;
 }
 
 function cellFor(row, column, index, column_) {
@@ -1132,6 +1164,9 @@ function cellFor(row, column, index, column_) {
       link(`/listing/${encodeURIComponent(row.listing_id)}`, held || "not known"));
     for (const flag of row.flags) said.append(badge(flag, "flag"));
     inner.append(said);
+  } else if (column.name === TAGS) {
+    cell.classList.add("tags");
+    for (const one of tagsOn(row)) inner.append(el("span", {class: "tag"}, one));
   } else if (column.name === "Listing URL") {
     inner.append(elsewhere(row, held));
   } else if (column.kind === "number" && column.name === "Price") {
@@ -1384,9 +1419,156 @@ function writingBox(cell, {title, about, hint, value, save}) {
   return panel;
 }
 
+/* Choosing which words this house carries.
+ *
+ * A list of what is already in use, ticked or not, and one line to make a new one. Deliberately
+ * not a text box that takes a comma-separated list: that is how a vocabulary of eight words
+ * becomes a vocabulary of fourteen, half of them typos of the other half, and nothing on the page
+ * would ever tell you it had happened.
+ *
+ * What is sent is the whole list, because that is exactly what a set of ticked boxes is. Sending
+ * "add this, remove that" instead is how what is shown and what is stored come apart. */
+function tagBox(cell, row) {
+  editing = true;
+  /* What is ticked, as words rather than as a set of keys into the vocabulary.
+   *
+   * The vocabulary is refreshed in the background, and a word typed here is not in it until it is
+   * saved. Holding the ticks as keys into a list something else is replacing meant a word typed a
+   * moment before that refresh landed was quietly dropped on save: the box was ticked, the word
+   * was on screen, and it was gone. Keyed by lower case so a second spelling cannot be ticked
+   * twice, valued by what somebody actually typed. */
+  const chosen = new Map(tagsOn(row).map((one) => [one.toLowerCase(), one]));
+  const about = row.values["Property"] || row.listing_id;
+
+  const boxes = el("div", {class: "choices"});
+  const drawChoices = () => {
+    const words = [];
+    for (const one of knownTags().concat(tagsOn(row), [...chosen.values()])) {
+      if (!words.some((known) => known.toLowerCase() === one.toLowerCase())) words.push(one);
+    }
+    words.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: "base"}));
+    /* Spread, not an array. `replaceChildren` is the DOM's own and takes nodes one at a time;
+     * handed a single array it stringifies it, and the panel fills with "[object
+     * HTMLLabelElement]" where the tick boxes should be. `el` further down flattens arrays, which
+     * is exactly why this reads as though it would. */
+    boxes.replaceChildren(
+      ...(words.length
+        ? words.map((word) => {
+            const tick = el("input", {
+              type: "checkbox",
+              checked: chosen.has(word.toLowerCase()) ? "checked" : null,
+              onchange: (event) => {
+                if (event.target.checked) chosen.set(word.toLowerCase(), word);
+                else chosen.delete(word.toLowerCase());
+              },
+            });
+            return el("label", {}, tick, word);
+          })
+        : [el("p", {class: "hint"}, "No tags yet. The first one goes in the box below.")]));
+  };
+  drawChoices();
+
+  /* The new word goes on this property and into the vocabulary in one action, because that is the
+   * moment somebody knows they want it: making a tag first and applying it second is a settings
+   * page nobody would visit. */
+  const fresh = el("input", {
+    type: "text",
+    placeholder: "a new tag, and Enter",
+    "aria-label": "A new tag for this property",
+    onkeydown: (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const word = fresh.value.trim();
+        if (!word) return;
+        if (word.includes(",")) {
+          say("A tag cannot have a comma in it: tags are shown separated by commas, so one with " +
+              "a comma inside reads as two.", "problem");
+          return;
+        }
+        chosen.set(word.toLowerCase(), chosen.get(word.toLowerCase()) || word);
+        fresh.value = "";
+        drawChoices();
+      }
+      event.stopPropagation();
+    },
+  });
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    editing = false;
+    document.removeEventListener("pointerdown", away, true);
+    panel.remove();
+    if (commit) {
+      saveTags(cell, row, [...chosen.values()]);
+      return;
+    }
+    window_();
+    focusCell(state.focus.row, state.focus.column);
+  };
+  const away = (event) => { if (!panel.contains(event.target)) finish(true); };
+
+  const panel = el("div", {
+    class: "writing tagging",
+    role: "dialog",
+    "aria-label": `Tags for ${about}`,
+    onkeydown: (event) => {
+      if (event.key === "Escape") { event.preventDefault(); finish(false); }
+      event.stopPropagation();
+    },
+  },
+    el("p", {class: "who"}, el("strong", {}, "Tags"), " · ", about),
+    boxes,
+    fresh,
+    el("p", {class: "hint"},
+      "Your words, not this tool's. Keeping and passing answer one question; these are for all " +
+      "the others."),
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "quiet", onclick: () => finish(false)}, "Cancel"),
+      el("button", {type: "button", class: "primary", onclick: () => finish(true)}, "Save"),
+    ),
+  );
+
+  document.body.append(panel);
+  const at = cell.getBoundingClientRect();
+  const size = panel.getBoundingClientRect();
+  panel.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - size.width - 8))}px`;
+  panel.style.top = `${Math.max(8, Math.min(at.bottom + 2,
+                                            window.innerHeight - size.height - 8))}px`;
+  fresh.focus();
+  document.addEventListener("pointerdown", away, true);
+  return panel;
+}
+
+async function saveTags(cell, row, words) {
+  cell.className = "editable tags saving";
+  cell.replaceChildren();
+  holder(cell).append(el("span", {class: "rowstate"}, "saving…"));
+  try {
+    const answered = await send(
+      `/api/listings/${encodeURIComponent(row.listing_id)}/tags`, {tags: words}, "PUT");
+    /* What the store now holds, not what was ticked: it folds case and it is the authority on
+     * which spelling of a word this workspace uses. */
+    row.values[TAGS] = (answered.tags || []).join(", ") || null;
+    cell.className = "editable tags saved";
+    cell.replaceChildren();
+    const inner = holder(cell);
+    for (const one of tagsOn(row)) inner.append(el("span", {class: "tag"}, one));
+    setTimeout(() => { if (cell.isConnected) cell.className = "editable tags"; }, 2000);
+    ask("/api/tags").then((held) => { state.tags = held.tags || []; }).catch(() => {});
+  } catch (error) {
+    cell.className = "editable tags unsaved";
+    cell.replaceChildren();
+    holder(cell).append(el("span", {class: "rowstate problem"}, `not saved: ${error.message}`));
+    fail(`Those tags were not saved: ${error.message}`);
+  }
+}
+
 function edit(cell, row, column) {
   if (!row) return;
   const field = EDITABLE[column];
+  if (column === TAGS) return tagBox(cell, row);
   if (column === TOWN_NOTE) return editTownNote(cell, row);
   if (column !== "Rank") {
     return writingBox(cell, {

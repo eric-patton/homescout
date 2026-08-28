@@ -623,6 +623,107 @@ def hazard_tile(workspace: Workspace, layer: str, bbox: str, size: str = "256,25
         )
 
 
+def _states_of(workspace: Workspace, name: str) -> list[str]:
+    """The states one run actually found properties in.
+
+    Read off the properties rather than off the search's name or its areas, so a search called
+    "nm-statewide" that turned something up over the Colorado line gets Colorado too, and a search
+    named after nothing at all still gets the right ones.
+    """
+    from .export import latest_run, rows_of
+
+    with _translating():
+        run_id = latest_run(workspace.store, name)
+        return sorted(
+            {
+                (row.fields.state or "").strip().upper()
+                for row in rows_of(workspace.store, run_id, root=workspace.root)
+                if len((row.fields.state or "").strip()) == 2
+            }
+        )
+
+
+def ground(workspace: Workspace, name: str) -> dict[str, Any]:
+    """County lines and town names over the states this run found properties in.
+
+    What this is for: the hazard layer is a wall of colour with no words on it, and the basemap's
+    own names are underneath it. A person looks at a patch of red half an hour north of somewhere
+    and cannot say where. These are the names put back on top.
+
+    One request per state per thing, kept on disk. A county line moves roughly never and an urban
+    area is redrawn once a decade.
+    """
+    from .enrich import ground as land
+    from .enrich import settings as where
+
+    service = where.endpoint("boundaries").url
+    counties: list[dict[str, Any]] = []
+    towns: list[dict[str, Any]] = []
+    unreachable: list[str] = []
+    for state in _states_of(workspace, name):
+        try:
+            counties.extend(land.counties(workspace.root, service, state))
+        except Exception as exc:  # noqa: BLE001 - one state failing is not the map failing
+            unreachable.append(f"{state} counties: {exc}")
+        try:
+            towns.extend(land.towns(workspace.root, service, state))
+        except Exception as exc:  # noqa: BLE001
+            unreachable.append(f"{state} towns: {exc}")
+
+    towns.sort(key=lambda one: -int(one.get("size") or 0))
+    return {"search": name, "counties": counties, "towns": towns, "unreachable": unreachable}
+
+
+def rainfall(workspace: Workspace, name: str) -> dict[str, Any]:
+    """How much rain each county on this map gets in a year, averaged over thirty of them.
+
+    Fire hazard is modelled from fuel and terrain and says nothing about how dry a place is. In
+    this state that is most of what somebody buying land is asking: nine inches a year and twenty
+    inches a year are different countries, and no column in this tool says which one a property is
+    in.
+
+    Per county, because that is the finest grain the federal record publishes. Saying so is better
+    than interpolating a number that would look like it was measured at the property.
+
+    A county that will not answer is named and the rest are still drawn, which is the same rule
+    every other layer on that map follows.
+    """
+    from concurrent import futures
+
+    from .enrich import ground as land
+    from .enrich import settings as where
+
+    held = ground(workspace, name)
+    service = where.endpoint("rainfall").url
+    counties = [one for one in held["counties"] if one.get("fips")]
+
+    found: list[dict[str, Any]] = []
+    unreachable: list[str] = list(held["unreachable"])
+    if counties:
+        # Three at a time, which is what the module's own gate allows anyway; the pool is here so
+        # thirty-three counties take five seconds rather than thirty.
+        with futures.ThreadPoolExecutor(max_workers=land.AT_ONCE) as pool:
+            asked = {
+                pool.submit(
+                    land.rainfall, workspace.root, service, one["state"], one["fips"]
+                ): one
+                for one in counties
+            }
+            for done in futures.as_completed(asked):
+                one = asked[done]
+                try:
+                    answered = done.result()
+                except Exception as exc:  # noqa: BLE001 - one county is not the map
+                    unreachable.append(f"{one['name']}: {exc}")
+                    continue
+                found.append(
+                    {**answered, "latitude": one["latitude"], "longitude": one["longitude"]}
+                )
+
+    found.sort(key=lambda one: (one["state"], one["fips"]))
+    return {"search": name, "counties": found, "years": land.YEARS, "unreachable": unreachable}
+
+
 def wind_stations(workspace: Workspace, name: str) -> dict[str, Any]:
     """The weather stations whose records cover the states this run found properties in.
 
@@ -634,18 +735,8 @@ def wind_stations(workspace: Workspace, name: str) -> dict[str, Any]:
     """
     from .enrich import settings as where
     from .enrich import wind
-    from .export import latest_run, rows_of
 
-    with _translating():
-        run_id = latest_run(workspace.store, name)
-        states = sorted(
-            {
-                (row.fields.state or "").strip().upper()
-                for row in rows_of(workspace.store, run_id, root=workspace.root)
-                if (row.fields.state or "").strip()
-            }
-        )
-
+    states = _states_of(workspace, name)
     service = where.endpoint("wind_stations").url
     found: list[dict[str, Any]] = []
     unreachable: list[str] = []
@@ -723,6 +814,75 @@ def annotate(workspace: Workspace, listing_id: str, **values: object) -> Annotat
     try:
         with _translating():
             return workspace.store.set_annotation(listing_id, **values)
+    except ValueError as exc:
+        raise InvalidInput(str(exc)) from exc
+
+
+# -- the household's own vocabulary ----------------------------------------
+
+
+def tags(workspace: Workspace) -> tuple[dict[str, object], ...]:
+    """Every tag the household has made up, with how many properties carry each one.
+
+    Keeping and passing answer one question the tool asks. This is for the questions it does not:
+    "septic unknown", "drive by on Saturday", "too close to the highway". A fixed field per idea
+    would be a schema change per thought, so the words are theirs and this only keeps them.
+    """
+    with _translating():
+        return tuple(
+            {"name": tag.name, "created_at": tag.created_at, "used": tag.used}
+            for tag in workspace.store.tags()
+        )
+
+
+def create_tag(workspace: Workspace, name: str) -> dict[str, object]:
+    """Add a word to the vocabulary, whether or not anything carries it yet."""
+    try:
+        with _translating():
+            tag = workspace.store.create_tag(name)
+    except ValueError as exc:
+        raise InvalidInput(str(exc)) from exc
+    return {"name": tag.name, "created_at": tag.created_at, "used": tag.used}
+
+
+def rename_tag(workspace: Workspace, name: str, to: str) -> dict[str, object]:
+    """Rename a tag everywhere it is used. Renaming onto an existing name merges the two."""
+    try:
+        with _translating():
+            tag = workspace.store.rename_tag(name, to)
+    except KeyError as exc:
+        raise InvalidInput(str(exc).strip("'\"")) from exc
+    except ValueError as exc:
+        raise InvalidInput(str(exc)) from exc
+    return {"name": tag.name, "created_at": tag.created_at, "used": tag.used}
+
+
+def delete_tag(workspace: Workspace, name: str) -> int:
+    """Take a tag out of the vocabulary and off every property. Answers with how many lost it."""
+    try:
+        with _translating():
+            return workspace.store.delete_tag(name)
+    except KeyError as exc:
+        raise InvalidInput(str(exc).strip("'\"")) from exc
+
+
+def tags_of(workspace: Workspace, listing_id: str) -> tuple[str, ...]:
+    """What one property is tagged, including anything merged into it."""
+    with _translating():
+        workspace.store.get_listing(listing_id)
+        return workspace.store.tags_for(listing_id)
+
+
+def set_tags(workspace: Workspace, listing_id: str, names: Sequence[str]) -> tuple[str, ...]:
+    """The whole list of tags for one property. Anything not named comes off.
+
+    The full list rather than an add and a remove, because that is what a set of checkboxes and a
+    line of typed words both are, and because two operations over the same list is how a surface
+    and a store come to disagree about what is on a house.
+    """
+    try:
+        with _translating():
+            return workspace.store.set_tags(listing_id, list(names))
     except ValueError as exc:
         raise InvalidInput(str(exc)) from exc
 
@@ -1171,6 +1331,7 @@ def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         events = store.events(listing_id)
         annotation = store.get_annotation(listing_id)
         image = store.get_preview_image(listing_id)
+        carried = store.tags_for(listing_id)
 
     fields = snapshot.fields if snapshot is not None else None
     extracted = (
@@ -1209,6 +1370,7 @@ def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
             for field, entry in extracted.items()
         },
         "annotation": annotation.content() if annotation else {},
+        "tags": list(carried),
         "annotation_updated_at": annotation.updated_at if annotation else None,
     }
 

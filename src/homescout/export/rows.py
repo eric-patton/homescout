@@ -41,6 +41,10 @@ class Row:
     #: interchangeable: somebody keeping a list on one site needs that site's page for it.
     source_links: Mapping[str, str] = field(default_factory=dict)
     area_notes: Mapping[tuple[str, str], str] = field(default_factory=dict)
+    #: The household's own words for this property, in name order. Their vocabulary, not this
+    #: tool's: keeping and passing answer one fixed question and everything else somebody wants to
+    #: say about a house is a word they made up.
+    tags: tuple[str, ...] = ()
 
 
 def rows_for(
@@ -74,6 +78,9 @@ def rows_for(
 
     wanted = _as_they_stand_now(store, wanted)
     annotations = _annotations(store, [entry.listing_id for entry in wanted])
+    #: Asked once for the whole sheet. One query per row is how a table of a thousand becomes a
+    #: table somebody waits for.
+    tags = store.tags_for_many([entry.listing_id for entry in wanted])
     enriched = _enriched(store, wanted)
     from_model = _model_values(store, run_id, root)
     notes = _area_notes(store)
@@ -94,6 +101,7 @@ def rows_for(
                 sources=tuple(sorted(links)),
                 source_links=links,
                 area_notes=notes,
+                tags=tags.get(entry.listing_id, ()),
             )
         )
     return tuple(made)

@@ -635,6 +635,88 @@ def opened(served, script):
         process.terminate()
 
 
+def test_a_tag_is_made_and_put_on_a_property_from_its_own_cell(served) -> None:
+    """feat-010/AC-63: the household's own words, made at the moment somebody wants one.
+
+    Keeping and passing answer the tool's question. This is for everything else, and the control is
+    the whole design: a list of the words already in use, ticked or not, and one line to make a new
+    one. Not a box to type a comma-separated list into, because that is how a vocabulary of eight
+    words becomes a vocabulary of fourteen, half of them typos of the other half, with nothing on
+    the page ever saying so.
+
+    Three things are pinned. A new word goes on the property and into the vocabulary in one action,
+    because that is the moment somebody knows they want it. Unticking one takes it off, since the
+    whole list is what is sent. And the cell shows what the store now holds rather than what was
+    ticked, which is what makes the store the authority on which spelling of a word is this
+    workspace's.
+    """
+    found = opened(served, """
+        show("Tags");
+        await until(() => document.querySelector('#body td[data-column="Tags"]'));
+
+        const cell = () => document.querySelector('#body td[data-column="Tags"]');
+        const open = () => {
+          const at = cell();
+          edit(at, state.shown[Number(at.dataset.index)], "Tags");
+          return document.querySelector(".writing.tagging");
+        };
+        const typeIn = async (panel, word) => {
+          const box = panel.querySelector('input[type="text"]');
+          box.value = word;
+          box.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+          await wait(30);
+        };
+
+        let panel = open();
+        const empty = panel.textContent;
+        await typeIn(panel, "Barn");
+        await typeIn(panel, "drive by");
+        panel.querySelector("button.primary").click();
+        await until(() => cell().querySelectorAll(".tag").length === 2);
+        const both = [...cell().querySelectorAll(".tag")].map((one) => one.textContent);
+
+        /* Open it again: the two words are now choices, and both are ticked. */
+        panel = open();
+        const offered = [...panel.querySelectorAll(".choices label")].map((one) => ({
+          word: one.textContent, ticked: one.querySelector("input").checked,
+        }));
+
+        /* A second spelling of a word already in use must not become a second word. */
+        await typeIn(panel, "BARN");
+        const afterShouting = panel.querySelectorAll(".choices label").length;
+
+        /* Untick the first and save: the whole list is what is sent, so it comes off. */
+        const first = panel.querySelector(".choices label input");
+        first.checked = false;
+        first.dispatchEvent(new Event("change", {bubbles: true}));
+        panel.querySelector("button.primary").click();
+        await until(() => cell().querySelectorAll(".tag").length === 1);
+
+        const left = [...cell().querySelectorAll(".tag")].map((one) => one.textContent);
+        const vocabulary = (await ask("/api/tags")).tags.map((one) => one.name);
+        return {empty, both, offered, afterShouting, left, vocabulary};
+    """)
+
+    assert "No tags yet" in found["empty"], found["empty"]
+    assert found["both"] == ["Barn", "drive by"], found["both"]
+
+    assert [one["word"] for one in found["offered"]] == ["Barn", "drive by"], found["offered"]
+    assert all(one["ticked"] for one in found["offered"]), (
+        "the words this property carries are offered unticked, so saving would take them all off"
+    )
+    assert found["afterShouting"] == 2, (
+        "typing a word that is already in the vocabulary in different case made a second word, "
+        f"so the list now holds {found['afterShouting']} of them"
+    )
+
+    assert found["left"] == ["drive by"], (
+        f"unticking a tag did not take it off the property: {found['left']}"
+    )
+    #: The word survives losing its last property. That is what makes it a vocabulary rather than
+    #: a side effect of whichever houses happen to be tagged today.
+    assert sorted(found["vocabulary"]) == ["Barn", "drive by"], found["vocabulary"]
+
+
 def test_the_headings_stay_at_the_top_however_far_down_the_list_goes(served) -> None:
     """feat-010/AC-53: a heading that leaves is a column of numbers nobody can name.
 
@@ -1896,6 +1978,161 @@ def test_the_map_says_how_far_things_are(served) -> None:
     )
 
 
+def test_the_list_under_the_map_holds_exactly_what_the_map_is_showing(served) -> None:
+    """feat-010/AC-62: a pin is very good at "where" and says nothing until it is opened.
+
+    Reading a screenful of them means clicking every one, which is the thing that made somebody
+    ask for a list. The rule that makes the list worth having rather than confusing is that it is
+    not a second table with its own idea of what is going on: it holds the pins the map is drawing,
+    hides what the map hides, and re-reads itself when the map moves.
+
+    Pinned by moving somewhere with nothing on it. A list that stayed full there would be a list
+    about the run rather than about the screen, which is a different and much less useful thing.
+    """
+    found = on_the_map(served, """
+        const heading = () => document.getElementById("listcount").textContent;
+        const rows = () => document.querySelectorAll("table.onscreen tbody tr").length;
+
+        await until(() => rows());
+        const everywhere = rows();
+        const said = heading();
+
+        /* The middle of the Pacific. Nothing this run found is there. */
+        held.map.setView([0, -150], 6);
+        await until(() => rows() === 0);
+        const nowhere = rows();
+        const empty = document.querySelector(".onmap .notice") ? heading() : "";
+
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => rows() > 0);
+
+        /* Cheapest first, and the button on the row is what opens its pin. */
+        const money = "table.onscreen tbody tr td.numeric:first-of-type";
+        const prices = [...document.querySelectorAll(money)]
+          .map((cell) => Number(cell.textContent.replace(/[^0-9]/g, "")))
+          .filter((one) => one > 0);
+        const opener = document.querySelector("table.onscreen td.address button");
+        const address = opener.textContent;
+        opener.click();
+        const bubble = await until(() => document.querySelector(".leaflet-popup .pin"));
+
+        return {everywhere, said, nowhere, empty, prices,
+                back: rows(),
+                address,
+                opened: bubble ? bubble.textContent : ""};
+    """)
+
+    assert found["everywhere"] > 0, "the list under the map was empty with pins on the map"
+    assert "propert" in found["said"], found["said"]
+    assert found["nowhere"] == 0, (
+        "the list still held properties over an empty ocean, so it is a list about the run rather "
+        "than about what is on screen"
+    )
+    assert "No properties" in found["empty"] or "Nothing" in found["empty"], found["empty"]
+    assert found["back"] > 0, "coming back to where the properties are did not refill the list"
+
+    assert found["prices"] == sorted(found["prices"]), (
+        f"the list is not cheapest first: {found['prices']}"
+    )
+    assert found["opened"], "the row's button did not open that property's pin"
+
+
+def test_the_counties_and_towns_and_rain_are_drawn_over_the_fire(served, monkeypatch) -> None:
+    """feat-010/AC-60, feat-010/AC-61: the map is a wall of colour with no words on it.
+
+    The basemap has town names and they are underneath a raster whose whole job is to be opaque
+    enough to read, so the moment this map becomes useful it also becomes anonymous. These are the
+    names put back on top, with the one number the hazard model cannot give: how dry the ground is.
+
+    Two things are checked that a screenshot would not settle. A label must take no pointer at all,
+    because a name sitting over a town would otherwise make the houses in that town unopenable,
+    and that fault looks exactly like a mis-click. And turning the rain on has to turn the names on
+    with it, box and all, because the number is written under a county's name.
+    """
+    from homescout.enrich import ground
+
+    counties = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "properties": {"BASENAME": "Roosevelt", "COUNTY": "041",
+                           "CENTLAT": "+34.1862", "CENTLON": "-103.3452"},
+            "geometry": {"type": "Polygon",
+                         "coordinates": [[[-103.9, 33.8], [-102.9, 33.8], [-102.9, 34.6],
+                                          [-103.9, 34.6], [-103.9, 33.8]]]},
+        }],
+    })
+    #: Two towns, one of them sitting exactly where the county's own name goes. That one must not
+    #: be drawn: two names in the same place is neither name, and the county is the one that wins
+    #: because somebody who cannot read the town can still see which county they are in.
+    towns = json.dumps({"features": [
+        {"attributes": {"BASENAME": "Clovis, NM", "AREALAND": "30000000",
+                        "CENTLAT": "+34.4048", "CENTLON": "-103.2052"}},
+        {"attributes": {"BASENAME": "Portales, NM", "AREALAND": "20000000",
+                        "CENTLAT": "+34.1862", "CENTLON": "-103.3452"}},
+    ]})
+    rain = json.dumps({
+        "description": {"title": "Roosevelt County, New Mexico January-December Precipitation"},
+        "data": {f"{year}12": {"value": 16.0} for year in range(1990, 2026)},
+    })
+
+    def fetched(url: str, what: str) -> bytes:
+        if "/88/query" in url:
+            return towns.encode()
+        if "pcp/ann" in url:
+            return rain.encode()
+        return counties.encode()
+
+    monkeypatch.setattr(ground, "_fetch", fetched)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 9);
+        await until(() => true);
+
+        /* The rain alone, to prove it brings the names with it. The wait is for the number and
+           not for the label: the names are drawn the moment the county lines land and the rain is
+           a second, slower request, so waiting for the label catches the map halfway. */
+        document.getElementById("rain").click();
+        await until(() => document.querySelector(".mapname.county .rain"), 300);
+        const county = document.querySelector(".mapname.county");
+
+        const box = county.getBoundingClientRect();
+        const under = document.elementFromPoint(Math.round(box.left + box.width / 2),
+                                                Math.round(box.top + box.height / 2));
+
+        return {namesTicked: document.getElementById("names").checked,
+                counties: document.querySelectorAll(".mapname.county").length,
+                towns: document.querySelectorAll(".mapname.town").length,
+                outlines: land.shapes.getLayers().length,
+                said: county.textContent,
+                townSaid: (document.querySelector(".mapname.town") || {}).textContent || "",
+                note: document.getElementById("landcount").textContent,
+                throughIt: !!(under && !under.closest(".mapname"))};
+    """)
+
+    assert found["namesTicked"], (
+        "the rain was turned on and the names were not, so the number is written under nothing"
+    )
+    assert found["counties"] == 1 and found["outlines"] >= 1, found
+    assert found["towns"] == 1, (
+        "the town whose name sits exactly under the county's was drawn anyway, so both are "
+        f"unreadable: {found['towns']} town labels"
+    )
+
+    assert "ROOSEVELT" in found["said"].upper(), found["said"]
+    assert "16.0 in" in found["said"], (
+        f"the rainfall is missing or has no unit on it: {found['said']!r}"
+    )
+    assert "Clovis" in found["townSaid"] and ", NM" not in found["townSaid"], (
+        f"the town is not named the way somebody says it: {found['townSaid']!r}"
+    )
+    assert "30 years" in found["note"], found["note"]
+
+    assert found["throughIt"], (
+        "a pointer at the middle of a map label lands on the label, so a name over a town makes "
+        "every house in that town impossible to open"
+    )
+
+
 def facing(monkeypatch, table: str, stations: str):
     """The weather archive, replaced, in the server this browser is talking to.
 
@@ -1926,6 +2163,9 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
     comes out of the west, so a glyph that answers the question this page is asking leans east. A
     glyph leaning west is a wind rose: right by a convention older than anybody here, and read
     backwards by the person it is drawn for.
+
+    One arrow here, not two. In this fixture the hard wind pushes the same way the everyday wind
+    does, and drawing that twice would say there are two answers where there is one.
     """
     from test_web_wind import STATIONS, TABLE
 
@@ -1937,15 +2177,15 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
         held.map.setView([36.44, -105.48], 9);
         await until(() => true);
         document.getElementById("wind").click();
-        await until(() => document.querySelector(".rose svg"), 200);
+        await until(() => document.querySelector(".windarrow svg"), 200);
 
-        const glyph = document.querySelector(".rose");
+        const glyph = document.querySelector(".windarrow");
         const box = glyph.getBoundingClientRect();
         const paths = glyph.querySelectorAll("path").length;
 
-        /* Which way the thing actually points, off its own geometry. The shape furthest from the
-           middle is the longest arm, or the head on the end of it, and where that sits is the
-           whole claim this overlay makes. */
+        /* Which way the thing actually points, off its own geometry. Each arrow is one closed
+           outline, so the middle of its box is somewhere along its own shaft, and where that sits
+           relative to the station is the whole claim this overlay makes. */
         const svg = glyph.querySelector("svg");
         const mid = svg.viewBox.baseVal.width / 2;
         let leans = {x: 0, y: 0}, furthest = -1;
@@ -1968,7 +2208,7 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
                 stations: wind.stations.length,
                 paths,
                 leans,
-                reachable: !!(hit && hit.closest && hit.closest(".rose")),
+                reachable: !!(hit && hit.closest && hit.closest(".windarrow")),
                 said: bubble ? bubble.textContent : "",
                 legend: document.querySelector(".legend").textContent,
                 season: document.getElementById("season").value};
@@ -1976,9 +2216,12 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
 
     assert found["stations"] == 2, found["stations"]
     assert found["roses"] >= 1, "no station's record was drawn"
-    assert found["paths"] >= 16, "a rose of sixteen directions drew fewer than sixteen shapes"
+    assert found["paths"] == 1, (
+        "the everyday wind and the hard wind push the same way in this fixture, so there is one "
+        f"answer here and it should be drawn once: {found['paths']} arrows"
+    )
     assert found["reachable"], (
-        "a pointer at the middle of a rose does not land on it, so it can never be opened"
+        "a pointer at the middle of an arrow does not land on it, so it can never be opened"
     )
     assert found["season"] == "april", "the default is not the month that both blows and burns"
 
@@ -1994,6 +2237,72 @@ def test_the_wind_is_drawn_where_it_is_measured_and_says_which_way(served, monke
         "the bubble never says which way a direction means, which inverts every conclusion "
         "somebody would draw from it"
     )
-    assert "a fire here would run" in found["legend"], (
+    assert "a fire would run" in found["legend"], (
         "the legend leaves the reader to work out what a direction means for a fire"
     )
+
+
+def test_the_hard_wind_gets_its_own_arrow_when_it_pushes_somewhere_else(served, monkeypatch):
+    """feat-010/AC-59: the one case where a station has two answers rather than one.
+
+    "It normally pushes east, and when it blows hard enough to move a fire it pushes north" is two
+    facts about one place and both of them decide which side of a house to worry about. Nothing
+    else on this page can say that, and a single arrow cannot either.
+
+    The other half of the rule is in the test above: when the hard wind agrees with the everyday
+    wind, there is one answer and it is drawn once. Both halves matter, because a second arrow
+    that is always there is not a second answer, it is decoration that looks like one.
+    """
+    from test_web_wind import STATIONS, TABLE
+
+    #: The same station, with the hard wind moved round to the south. Everyday wind still out of
+    #: the west and still the most common, so the pale arrow pushes east; the hard wind now comes
+    #: out of the south, so the dark one pushes north.
+    disagreeing = TABLE.replace(
+        "259-280  ,         ,    8.000,    4.000,    0.000,    2.000,    4.000,    6.000",
+        "259-280  ,         ,   12.000,    4.000,    0.000,    2.000,    1.000,    0.000",
+    ).replace(
+        "169-190  ,         ,    2.000,    4.000,    4.000,    6.000,    0.000,    0.000",
+        "169-190  ,         ,    2.000,    4.000,    4.000,    2.000,    4.000,    0.000",
+    )
+    facing(monkeypatch, disagreeing, STATIONS)
+
+    found = on_the_map(served, """
+        held.map.setView([36.44, -105.48], 9);
+        await until(() => true);
+        document.getElementById("wind").click();
+        await until(() => document.querySelector(".windarrow svg"), 200);
+
+        const glyph = document.querySelector(".windarrow");
+        const svg = glyph.querySelector("svg");
+        const mid = svg.viewBox.baseVal.width / 2;
+        const arrows = [...svg.querySelectorAll("path")].map((path) => {
+          const at = path.getBBox();
+          return {fill: path.getAttribute("fill"),
+                  x: Math.round(at.x + at.width / 2 - mid),
+                  y: Math.round(at.y + at.height / 2 - mid)};
+        });
+
+        const box = glyph.getBoundingClientRect();
+        glyph.dispatchEvent(new MouseEvent("click", {bubbles: true,
+          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2}));
+        const bubble = await until(() => document.querySelector(".pin.wind"));
+        return {arrows, said: bubble ? bubble.textContent : ""};
+    """)
+
+    arrows = found["arrows"]
+    assert len(arrows) == 2, f"the hard wind pushes somewhere else and was not drawn: {arrows}"
+
+    everyday = [one for one in arrows if one["fill"] == "#a276cf"]
+    hard = [one for one in arrows if one["fill"] == "#4c1d95"]
+    assert len(everyday) == 1 and len(hard) == 1, arrows
+
+    assert everyday[0]["x"] > 3 and abs(everyday[0]["y"]) < abs(everyday[0]["x"]), (
+        f"the everyday wind is out of the west and its arrow does not push east: {everyday[0]}"
+    )
+    assert hard[0]["y"] < -3 and abs(hard[0]["x"]) < abs(hard[0]["y"]), (
+        f"the hard wind is out of the south and its arrow does not push north: {hard[0]}"
+    )
+
+    assert "Most often pushes toward the east" in found["said"], found["said"]
+    assert "most often pushes toward the north" in found["said"], found["said"]

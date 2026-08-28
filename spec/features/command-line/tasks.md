@@ -151,3 +151,12 @@ Decisions referenced below are the `D-N` sections of `plan.md`.
       `tests/test_cli_operations.py::test_naming_the_database_on_the_command_line_moves_the_secrets_with_it`,
       which writes a `.env` beside a database somewhere else entirely and asserts the credential is
       found through the flag alone.
+
+
+## Change: words of our own
+
+- [x] T-tags-cli: `cli/main.py`, `cli/render.py`: `homescout tags list|new|rename|delete|set|of`
+      (`feat-003/AC-33`). Non-negotiable 8 requires it, and so does the shape of the job: tagging
+      fifty properties with one word is what somebody wants the first time they decide a word was
+      worth having, and fifty clicks is not how anybody does that. `tags set <id>` with no names is
+      how a command line says "none of them", because there is no other way to type an empty list.

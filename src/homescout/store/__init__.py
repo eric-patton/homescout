@@ -43,6 +43,7 @@ from .models import (
     SourceLink,
     SourceOutcome,
     StoredImage,
+    Tag,
 )
 from .schema import COMPARED_FIELDS, SCHEMA_VERSION, SNAPSHOT_FIELDS
 
@@ -72,6 +73,7 @@ __all__ = [
     "RunRecord",
     "SchemaTooNewError",
     "Snapshot",
+    "Tag",
     "SourceLink",
     "SourceOutcome",
     "SourceRow",

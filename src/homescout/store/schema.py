@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -554,4 +554,40 @@ ALTER TABLE annotations ADD COLUMN crime TEXT;
 ALTER TABLE annotations ADD COLUMN fire_egress TEXT;
 ALTER TABLE annotations ADD COLUMN sewage_exposure TEXT;
 ALTER TABLE annotations ADD COLUMN outbuildings TEXT;
+"""
+
+
+# Version 10. Words the household makes up, put on properties.
+#
+# Keeping and passing are the tool's own three states and they are about one decision: is this
+# house still in. Everything else somebody wants to say about a house is their own vocabulary and
+# this tool cannot know it in advance - "septic unknown", "drive by on Saturday", "her favourite",
+# "too close to the highway". A fixed field per idea is a schema change per thought.
+#
+# Two tables rather than one, so a tag can exist before anything carries it and can outlive the
+# last property that did. Renaming and deleting are then real operations on a real thing rather
+# than a find-and-replace across a text column, which is what a tag list kept in one comma-joined
+# field always turns into.
+#
+# `COLLATE NOCASE` on both, and this is the load-bearing part: somebody typing "barn" a week after
+# typing "Barn" means the same tag, and a store that disagrees hands them two piles of houses that
+# should have been one. The casing they first typed is what is kept and shown.
+#
+# No append-only trigger. A tag is the person's own note, in the same class as an annotation: the
+# whole point is that they can change their mind.
+SCHEMA_V10 = """
+CREATE TABLE tags (
+    name       TEXT PRIMARY KEY COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE listing_tags (
+    listing_id TEXT NOT NULL REFERENCES listings (id),
+    tag        TEXT NOT NULL COLLATE NOCASE
+               REFERENCES tags (name) ON UPDATE CASCADE ON DELETE CASCADE,
+    added_at   TEXT NOT NULL,
+    PRIMARY KEY (listing_id, tag)
+);
+
+CREATE INDEX listing_tags_tag ON listing_tags (tag);
 """

@@ -457,6 +457,27 @@ def deleted(gone: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def tags(found: Sequence[Any]) -> str:
+    """The household's own vocabulary, with what still carries each word.
+
+    The count is the point of printing this at all: it is what somebody looks at before
+    renaming a word, or deciding one has stopped earning its place.
+    """
+    if not found:
+        return (
+            "No tags yet. Make one with:  homescout tags new \"drive by\"\n"
+            "They are your words rather than this tool's: keeping and passing answer one "
+            "question, and tags are for all the others."
+        )
+    width = max(len(str(tag["name"])) for tag in found)
+    lines = [f"{len(found)} tags:"]
+    for tag in found:
+        many = tag.get("used", 0)
+        carried = f"{many} propert{'y' if many == 1 else 'ies'}" if many else "not used"
+        lines.append(f"  {str(tag['name']).ljust(width)}  {carried}")
+    return "\n".join(lines)
+
+
 def passed(rows: Sequence[Any]) -> str:
     """What the person has said no to, which the results view keeps out of their way.
 

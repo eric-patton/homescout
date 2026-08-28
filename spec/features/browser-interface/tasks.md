@@ -642,3 +642,108 @@ alongside its peers.
       The regression test makes the scroller short on purpose, so the drawn window is a small
       fraction of the list whatever size the machine running it opened its browser at. Against the
       unfixed page the headings measured 939 pixels outside the box at the end of the list.
+
+
+## Change: just show arrows (`changes/just-show-arrows/`)
+
+- [x] T116: `web/static/fire.js`: the wind rose replaced by one arrow per station
+      (`feat-010/AC-59`).
+
+      The last change turned the rose's arms around to point downwind. This is the rest of it, and
+      the reason the rose was still wrong is not taste: a rose answers "what is the spread of wind
+      direction at this station", which has sixteen numbers in the answer, and the question on this
+      page has one direction in it. The drawing of one direction is an arrow. Every reading of the
+      rose had to be done twice, find the longest arm and then read its direction, and the person
+      the page is for said so: "it would be more intuitive for me if it just showed actual arrows."
+
+      Length carries what the sixteen arms carried, at a coarser grain: longer where the wind more
+      often does the same thing, with a floor, because below half an arrow stops having a direction
+      and becomes a smudge with a point on it. The sixteen figures are still in the bubble.
+
+- [x] T117: `web/static/fire.js`: the hard wind gets a second arrow only where it pushes somewhere
+      else (`feat-010/AC-59`). "It normally pushes east, and when it blows hard enough to move a
+      fire it pushes north" is two facts about one place and both decide which side of a house to
+      worry about. Drawn always, the second arrow would sit on the first saying nothing, which is
+      decoration shaped like an answer. Both halves of that rule are pinned in
+      `tests/test_web_browser.py`, because a rule with only its positive half tested is a rule that
+      quietly becomes unconditional.
+
+- [x] T118: one arrow, one closed outline, with `paint-order: stroke` putting the white edge
+      outside the colour (`feat-010/AC-59`). A stroked line with a triangle on the end would be two
+      shapes, two white edges, and a visible seam where they meet, over a raster that is red in
+      some places and green in others.
+
+## Change: names on the map (`changes/names-on-the-map/`)
+
+- [x] T119: `enrich/ground.py`: county outlines and town names from the Census, cached per state
+      for ever (`feat-010/AC-60`). Outlines simplified on the server to about a kilometre, which
+      takes a state from a megabyte to seventeen kilobytes and is the only version honest about
+      what it is: a line on a map rather than a survey document.
+
+      Urban areas rather than incorporated places for the town names. Places would give every
+      incorporated village in the state, hundreds of them; an urban area is drawn round where
+      people actually are, so New Mexico has thirty-seven and the list reads as "the towns". It is
+      also the only free national answer to how big a town is that does not need a key, which the
+      Census population API now does.
+
+- [x] T120: `enrich/ground.py`: a thirty-year rainfall average per county from NOAA
+      (`feat-010/AC-61`). Fire hazard is modelled from fuel and terrain and says nothing about how
+      dry a place is, and in this state that is most of what somebody buying land is deciding on:
+      San Juan is 8.7 inches a year and Mora is 18.2, and no column in this tool said so.
+
+      An average, not a year, because a year here is a story about one monsoon. The record refuses
+      a range ending in a year it does not hold, so it is asked from 1895 to last year and sliced
+      here; a gap is marked with a large negative number and is dropped rather than averaged in,
+      which is the difference between a county at twelve inches and a county at minus one.
+
+- [x] T121: `web/static/fire.js`: the names drawn over the fire layer, not under it
+      (`feat-010/AC-60`, `feat-010/AC-61`). Underneath is where the basemap's own names already
+      are, and a raster opaque enough to read is a raster that hides them: the moment this map
+      becomes useful it also becomes anonymous.
+
+      Dark letters with a white outline rather than a white box, because forty white boxes over a
+      hazard map hide the hazard, and the hazard is what the page is for. The labels take no
+      pointer at all: a name sitting over a town would otherwise make every house in that town
+      impossible to open, and that fault looks exactly like a mis-click.
+
+- [x] T122: `web/static/fire.js`: a name that would land on another is not drawn (`feat-010/AC-60`).
+      Counties go down first and towns give way, because somebody who cannot read "Albuquerque" can
+      still see they are in Bernalillo. A skipped town does not cost the next town its turn, or a
+      screen with one crowded corner would draw five names where it has room for ten.
+
+## Change: the list under the map (`changes/the-list-under-the-map/`)
+
+- [x] T123: `web/static/fire.js`, `app.css`: the properties on screen, as a list under the map
+      (`feat-010/AC-62`). Asked for in one sentence: "if when looking at the map view, it could
+      show the list below it." A pin is very good at where and says nothing until it is opened.
+
+      Its own plain table and not the results grid: that one is virtual-windowed, resizable,
+      filterable and sticky-headed, and every one of those exists to survive a thousand rows. This
+      never holds more than four hundred and lives under a map.
+
+      The address is a button that opens the pin where it stands rather than travelling to it. The
+      pin is already on screen, which is what being in this list means, and a map that jumps
+      whenever a row is read loses the place somebody was looking at.
+
+- [x] T124: `app.css`: the numeric cells are `numeric` and not `figure` (`feat-010/AC-62`).
+      `figure` was the obvious name and it is taken: it is the dashboard's stat card, `display:
+      block` and all, which turned every cell in the new table into its own row. Found by looking
+      at the page, which is the only way that one was ever going to be found.
+
+## Change: words of our own (`changes/words-of-our-own/`)
+
+- [x] T125: `web/static/results.js`, `app.css`: a Tags column, shown as chips and set from a
+      chooser (`feat-010/AC-63`). Deliberately not a box to type a comma-separated list into: that
+      is how a vocabulary of eight words becomes fourteen, half of them typos of the other half,
+      with nothing on the page ever saying so. The store folds case for the same reason; this is
+      the half that stops the second spelling being typed at all.
+
+- [x] T126: `web/static/results.js`: what is ticked is its own list of words (`feat-010/AC-63`).
+      It was a set of keys into the vocabulary, and the vocabulary is refreshed in the background,
+      so a word typed a moment before that refresh landed was dropped on save: the box was ticked,
+      the word was on screen, and it was gone. Found by the browser test, not by using the page.
+
+- [x] T127: `web/static/results.js`: `replaceChildren` spread rather than handed an array
+      (`feat-010/AC-63`). `el` flattens arrays, which is exactly why the DOM's own method reads as
+      though it would; handed one it stringifies it, and the chooser filled with "[object
+      HTMLLabelElement]" where the tick boxes should be. Also found by the test.

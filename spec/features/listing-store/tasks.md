@@ -133,3 +133,41 @@ earlier.
       moves anything. It falls back to a constituent's picture, on the read side only.
 - [x] T-notes-4: `store.live_listing_id` made public, for anything assembling what a person reads:
       an id held from before a merge is still a real record and is no longer the one to show.
+
+
+## Change: words of our own
+
+- [x] T-tags-1: `store/schema.py` version 10, `store/models.py`, `store/core.py`: tags as two
+      tables (`feat-001/AC-28`).
+
+      Two rather than one, so a word exists before anything carries it and outlives the last thing
+      that did. That is what makes renaming and deleting real operations on a real thing rather
+      than a find-and-replace over a text column, which is what a tag list kept in one comma-joined
+      field always turns into.
+
+      `COLLATE NOCASE` on both, and it is the load-bearing part: somebody typing "barn" a week
+      after typing "Barn" means the same tag, and a store that disagrees hands them two piles of
+      houses that should have been one. The casing first typed is what is kept and shown, read
+      through a join to `tags` rather than off the row, or every spelling anybody ever typed would
+      reach the sheet.
+
+      No append-only trigger, for the third time in this schema and the same reason as versions 8
+      and 9: a tag is the person's own note and the whole point is that they can change their mind.
+
+- [x] T-tags-2: `store/core.py`: rename and delete (`feat-001/AC-29`). A rename onto a name that
+      already exists merges the two, which is the only sane reading of the request and what
+      somebody fixing a second spelling actually wants; the rows are moved one at a time and the
+      collisions dropped, because `ON UPDATE CASCADE` would try to move a property onto a tag it
+      already carries and that is the primary key twice. Deleting answers with how many properties
+      lost the word, because that is the number somebody wants and the only way to know it
+      afterwards would be to have remembered it.
+
+- [x] T-tags-3: `store/core.py`: a merged property gathers its constituents' tags, and removing one
+      reaches where it lives (`feat-001/AC-30`, constitution 7). Gathered rather than moved, like
+      annotations, because moving is how a person's own data goes missing when a merge is undone.
+      Removal has to reach the constituents anyway, or a tag that arrived on one half could be seen
+      and never taken off, which reads as the tool ignoring the click.
+
+- [x] T-tags-4: `store/core.py`: clearing every tag off a property (`feat-001/AC-28`). `tag NOT IN
+      ()` with nothing in it is not false, it is unknown, so the delete matched no row and asking
+      for no tags left every tag exactly where it was. Found by the test that asks for none.

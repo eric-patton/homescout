@@ -231,6 +231,13 @@ moved. The problem brief is in `research.md`.
       The listing status, because a property whose status just changed is the most interesting thing
       a run can find, and removing its row would replace the source's own evidence with an absence
       the tool could then only report as an unexplained disappearance.
+- [ ] AC-33: The household's own vocabulary is reachable from the terminal: listing every tag with
+      how many properties carry it, adding one, renaming one, deleting one, reading what one
+      property carries, and setting the whole list a property carries. Naming no tags at all when
+      setting means none of them, because a command line has no other way to say an empty list.
+      Non-negotiable 8 requires this, and so does the shape of the job: tagging fifty properties
+      with one word is what somebody wants the first time they decide a word was worth having, and
+      fifty clicks is not how anybody does that.
 
 ## Edge cases & errors
 

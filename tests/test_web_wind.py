@@ -248,6 +248,34 @@ def test_a_rose_is_served_with_the_place_it_belongs_to(
     assert refused.status_code == 400, "a season nobody offers was accepted"
 
 
+def test_the_wind_is_drawn_as_an_arrow_and_not_as_a_rose() -> None:
+    """feat-010/AC-59: sixteen arms answered a question nobody reading this page was asking.
+
+    It was a wind rose, then a wind rose turned round to point downwind, and it was still read
+    wrong. The reason is not the direction: a rose answers "what is the spread of wind direction
+    at this station", which has sixteen numbers in the answer, and the question being asked here
+    is "which way would a fire run", which has one. The drawing of one direction is an arrow.
+
+    The sixteen numbers are still in the bubble, which is where a second question belongs, and
+    `test_north_is_north_and_west_is_west` still holds the parsing of all sixteen.
+    """
+    from web_fakes import STATIC
+
+    page = (STATIC / "fire.js").read_text(encoding="utf-8")
+
+    assert "function arrowsFor(rose)" in page
+    assert "An arrow points the way the wind " in page, "the legend still describes arms"
+    for gone in ("function wedge", "const wedge", "ROSE_SIZE", "ROSE_FULL"):
+        assert gone not in page, f"{gone!r} is left over from the rose"
+
+    #: The second arrow is drawn ONLY where the hard wind pushes somewhere the everyday wind does
+    #: not. A dark arrow that is always there is not a second answer, it is decoration shaped like
+    #: one, and it would sit on top of the first arrow saying nothing.
+    assert "strongest.degrees !== best.degrees" in page, (
+        "the hard wind is drawn unconditionally, so a station with one answer shows two arrows"
+    )
+
+
 def test_the_page_talks_about_where_the_wind_pushes_and_never_where_it_comes_from() -> None:
     """feat-010/AC-59: turned around on purpose, and pinned so nobody turns it back.
 

@@ -190,6 +190,49 @@ class Annotation:
 
 
 @dataclass(frozen=True, slots=True)
+class Tag:
+    """One word the household made up, and how many properties carry it.
+
+    Kept as a thing in its own right rather than as text on a property, so it can be renamed once
+    instead of found and replaced, deleted deliberately instead of by removing the last property
+    that happened to have it, and offered back as a choice when somebody is tagging the next house.
+    A vocabulary somebody has to retype from memory is a vocabulary that grows a second spelling.
+    """
+
+    name: str
+    created_at: str
+    #: How many properties carry it right now. Not stored: counted when asked.
+    used: int = 0
+
+    #: Long enough for a phrase, short enough to read in a cell beside eleven others.
+    LONGEST = 40
+
+    @staticmethod
+    def cleaned(name: str) -> str:
+        """The name as it will be stored, or a refusal saying why.
+
+        Commas are refused rather than escaped. A tag is shown joined by commas in the sheet, in
+        the table and in every list this tool prints, and a tag with a comma in it reads as two
+        tags everywhere it is written down. Anything that has to be escaped in every place it is
+        displayed is better refused in the one place it is created.
+        """
+        cleaned = " ".join(str(name).split())
+        if not cleaned:
+            raise ValueError("A tag needs a name.")
+        if "," in cleaned:
+            raise ValueError(
+                f"{name!r} has a comma in it. Tags are shown separated by commas, so one with a "
+                "comma inside reads as two. Use a different word or a semicolon."
+            )
+        if len(cleaned) > Tag.LONGEST:
+            raise ValueError(
+                f"{cleaned!r} is {len(cleaned)} characters. A tag can be up to {Tag.LONGEST}, "
+                "which is a label rather than a sentence: notes go in Notes."
+            )
+        return cleaned
+
+
+@dataclass(frozen=True, slots=True)
 class AreaNote:
     """An observation about a place rather than about a property."""
 

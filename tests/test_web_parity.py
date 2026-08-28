@@ -51,6 +51,14 @@ REACHES: dict[str, tuple[str, str]] = {
     "searches restore": ("POST", "/api/searches/{name}/restore"),
     "searches edit": ("POST", "/api/searches/{name}"),
     "annotate": ("POST", "/api/listings/{listing_id}/annotation"),
+    "tags list": ("GET", "/api/tags"),
+    "tags new": ("POST", "/api/tags"),
+    "tags rename": ("POST", "/api/tags/{name}/rename"),
+    "tags delete": ("DELETE", "/api/tags/{name}"),
+    "tags set": ("PUT", "/api/listings/{listing_id}/tags"),
+    # What a property is tagged comes back on the property, so the browser reads it where it is
+    # already reading everything else about that property rather than from a route of its own.
+    "tags of": ("GET", "/api/listings/{listing_id}"),
     "matches list": ("GET", "/api/matches"),
     "matches resolve": ("POST", "/api/matches/{match_id}"),
     "enrich": ("POST", "/api/enrich"),

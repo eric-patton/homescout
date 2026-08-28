@@ -118,6 +118,12 @@ has them:
 - [ ] AC-15: A column outside the default sheet, `County (looked up)`, holds only what the public
       record said, so which cells in `County/Region` were borrowed stays answerable by comparing the
       two.
+- [ ] AC-16: A column outside the default sheet, `Tags`, holds the household's own words for a
+      property, comma separated, joined here rather than by either surface so that the sheet, the
+      table and the terminal print one property's tags the same way. A property with no tags reads
+      as empty rather than as an empty string. The comma is safe as the join because a tag cannot
+      contain one, refused at the single point a tag is created rather than escaped in every place
+      one is displayed.
 
 ## Edge cases & errors
 

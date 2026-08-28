@@ -50,6 +50,7 @@ from .models import (
     SourceLink,
     SourceOutcome,
     StoredImage,
+    Tag,
 )
 from .schema import SNAPSHOT_FIELDS
 
@@ -949,6 +950,218 @@ class Store:
         if "pass" in held:
             return "pass"
         return "keep" if "keep" in held else None
+
+    # -- the household's own vocabulary -------------------------------------
+
+    def tags(self) -> list[Tag]:
+        """Every tag, in name order, with how many properties carry it.
+
+        Counted across the whole store rather than one run, because a tag is a fact about a house
+        and not about a search: the count answers "is this word still doing any work", which is the
+        question somebody asks before renaming or deleting it.
+        """
+        rows = self._conn.execute(
+            "SELECT t.name AS name, t.created_at AS created_at, "
+            "       COUNT(lt.listing_id) AS used "
+            "FROM tags t LEFT JOIN listing_tags lt ON lt.tag = t.name "
+            "GROUP BY t.name, t.created_at "
+            "ORDER BY t.name COLLATE NOCASE"
+        )
+        return [Tag(name=r["name"], created_at=r["created_at"], used=r["used"]) for r in rows]
+
+    def create_tag(self, name: str) -> Tag:
+        """Make a tag exist. Making one that already exists is not an error.
+
+        Creating and applying are separate on purpose: a vocabulary somebody is building up is
+        worth having before the house that needs it turns up.
+        """
+        cleaned = Tag.cleaned(name)
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute(
+                "INSERT INTO tags (name, created_at) VALUES (?, ?) ON CONFLICT (name) DO NOTHING",
+                (cleaned, now),
+            )
+        found = self._tag(cleaned)
+        assert found is not None
+        return found
+
+    def _tag(self, name: str) -> Tag | None:
+        for tag in self.tags():
+            if tag.name.casefold() == str(name).casefold():
+                return tag
+        return None
+
+    def rename_tag(self, name: str, to: str) -> Tag:
+        """Rename a tag everywhere it is used, in one write.
+
+        This is the whole reason tags are a table rather than text on a property. The name moves
+        and every property carrying it keeps carrying it, because the rows point at the name.
+
+        Renaming onto a name that already exists merges the two. That is the only sane reading of
+        the request and it is what somebody fixing the second spelling of a word actually wants.
+        """
+        cleaned = Tag.cleaned(to)
+        found = self._tag(name)
+        if found is None:
+            raise KeyError(f"No tag named {name!r}.")
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            standing = conn.execute("SELECT name FROM tags WHERE name = ?", (cleaned,)).fetchone()
+            if standing is not None and standing["name"].casefold() != found.name.casefold():
+                # Merging into a tag that is already there. The rows have to be moved one at a
+                # time and the collisions dropped: `ON UPDATE CASCADE` would try to move a
+                # property onto a tag it already carries, which is the primary key twice.
+                conn.execute(
+                    "UPDATE OR IGNORE listing_tags SET tag = ? WHERE tag = ?", (cleaned, found.name)
+                )
+                conn.execute("DELETE FROM listing_tags WHERE tag = ?", (found.name,))
+                conn.execute("DELETE FROM tags WHERE name = ?", (found.name,))
+            else:
+                conn.execute("UPDATE tags SET name = ? WHERE name = ?", (cleaned, found.name))
+            conn.execute(
+                "INSERT INTO tags (name, created_at) VALUES (?, ?) ON CONFLICT (name) DO NOTHING",
+                (cleaned, now),
+            )
+        renamed = self._tag(cleaned)
+        assert renamed is not None
+        return renamed
+
+    def delete_tag(self, name: str) -> int:
+        """Take a tag out of the vocabulary and off every property carrying it.
+
+        Answers with how many properties lost it, because that is the number somebody wants after
+        doing this and the only way to know it afterwards would be to have remembered it.
+        """
+        found = self._tag(name)
+        if found is None:
+            raise KeyError(f"No tag named {name!r}.")
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            carried = conn.execute(
+                "SELECT COUNT(*) AS held FROM listing_tags WHERE tag = ?", (found.name,)
+            ).fetchone()["held"]
+            conn.execute("DELETE FROM listing_tags WHERE tag = ?", (found.name,))
+            conn.execute("DELETE FROM tags WHERE name = ?", (found.name,))
+        return int(carried)
+
+    def tags_for(self, listing_id: str) -> tuple[str, ...]:
+        """Every tag on this property or on anything merged into it.
+
+        Gathered rather than absorbed, exactly like `annotations_for` and for the same reason:
+        moving a person's own data between records is how it goes missing.
+        """
+        return self.tags_for_many([listing_id]).get(listing_id, ())
+
+    def tags_for_many(self, listing_ids: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        """The same answer for many properties, in two queries rather than two per property.
+
+        A thousand-row table asks this once per row, and one query per row is what turns opening a
+        table into waiting for one.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+
+        #: Which record presents which. A merged record presents its constituents' tags, so a row
+        #: has to ask about itself and about everything folded into it.
+        speaks_for: dict[str, str] = {one: one for one in wanted}
+        marks = ", ".join("?" for _ in wanted)
+        for row in self._conn.execute(
+            f"SELECT id, superseded_by FROM listings WHERE superseded_by IN ({marks})",  # noqa: S608
+            wanted,
+        ):
+            speaks_for[row["id"]] = row["superseded_by"]
+
+        held: dict[str, list[str]] = {one: [] for one in wanted}
+        ids = list(speaks_for)
+        marks = ", ".join("?" for _ in ids)
+        #: Joined to `tags` for the name rather than reading the one on the row, so a property
+        #: carries the spelling the vocabulary holds. The two can differ by case: the row is
+        #: written with whatever somebody typed and matches case-insensitively, so a house tagged
+        #: "BARN" reads back as "Barn" if that is how the word was first written down. Reading the
+        #: row would put every spelling anybody ever typed into the sheet.
+        for row in self._conn.execute(
+            "SELECT lt.listing_id AS listing_id, t.name AS tag "
+            f"FROM listing_tags lt JOIN tags t ON t.name = lt.tag "  # noqa: S608
+            f"WHERE lt.listing_id IN ({marks}) "
+            "ORDER BY t.name COLLATE NOCASE",
+            ids,
+        ):
+            shown = speaks_for.get(row["listing_id"])
+            if shown is None or shown not in held:
+                continue
+            if row["tag"] not in held[shown]:
+                held[shown].append(row["tag"])
+        return {one: tuple(names) for one, names in held.items()}
+
+    def set_tags(self, listing_id: str, names: Sequence[str]) -> tuple[str, ...]:
+        """The whole list of tags this property carries, as given. Anything not named comes off.
+
+        A name this store has never seen is created, because "tags we make up" means the making up
+        happens while looking at the house that needs one, not in a settings page beforehand.
+
+        Two rules that look like details and are not:
+
+        A tag being removed comes off the constituents too, not only off the record itself.
+        Otherwise a tag that arrived on one half of a merged property could be seen and never taken
+        off, which reads as the tool ignoring the click.
+
+        A tag being kept is left exactly where it is, and only genuinely new ones are written onto
+        this record. Nothing a person wrote moves between records here, which is the rule that
+        carries their work through a merge and back out of one again.
+        """
+        wanted: list[str] = []
+        for name in names:
+            cleaned = Tag.cleaned(name)
+            if not any(cleaned.casefold() == already.casefold() for already in wanted):
+                wanted.append(cleaned)
+        self.get_listing(listing_id)  # raises if it does not exist
+
+        family = [listing_id] + [
+            r["id"]
+            for r in self._conn.execute(
+                "SELECT id FROM listings WHERE superseded_by = ?", (listing_id,)
+            )
+        ]
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            for name in wanted:
+                conn.execute(
+                    "INSERT INTO tags (name, created_at) VALUES (?, ?) "
+                    "ON CONFLICT (name) DO NOTHING",
+                    (name, now),
+                )
+            marks = ", ".join("?" for _ in family)
+            if wanted:
+                keeping = ", ".join("?" for _ in wanted)
+                conn.execute(
+                    f"DELETE FROM listing_tags WHERE listing_id IN ({marks}) "  # noqa: S608
+                    f"AND tag NOT IN ({keeping})",
+                    [*family, *wanted],
+                )
+            else:
+                # Not `NOT IN ()` with nothing in it. `tag NOT IN (NULL)` is not false, it is
+                # unknown, so it matches no row and the delete silently does nothing: asking for
+                # no tags left every tag exactly where it was.
+                conn.execute(
+                    f"DELETE FROM listing_tags WHERE listing_id IN ({marks})",  # noqa: S608
+                    family,
+                )
+            already = {
+                r["tag"].casefold()
+                for r in conn.execute(
+                    f"SELECT tag FROM listing_tags WHERE listing_id IN ({marks})",  # noqa: S608
+                    family,
+                )
+            }
+            for name in wanted:
+                if name.casefold() in already:
+                    continue
+                conn.execute(
+                    "INSERT INTO listing_tags (listing_id, tag, added_at) VALUES (?, ?, ?)",
+                    (listing_id, name, now),
+                )
+        return self.tags_for(listing_id)
 
     def set_area_note(self, area_type: str, area_value: str, notes: str | None) -> AreaNote:
         """An observation about a place rather than about a property. Never touched by a run."""

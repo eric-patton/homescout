@@ -726,21 +726,172 @@ table.grid thead th.filtered {
 /* The scale bar sits in the corner the legend does not use. */
 .firemap .leaflet-control-scale { margin: 0 0 18px 12px; }
 
-/* -- where the wind comes from ------------------------------------------ */
+/* -- the list under the map ---------------------------------------------- */
 
-/* The rose is an SVG built at the time it is drawn, so there is nothing to style inside it. What
+/* The same properties the map is pinning, as rows. Its own table and not the results grid: that
+ * one is virtual-windowed, resizable, filterable and sticky-headed, and every one of those things
+ * exists to survive a thousand rows. This one never holds more than four hundred and lives under a
+ * map, so it is a plain table and stays a plain table. */
+.onmap { margin-top: var(--s5); }
+.onmap > h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  margin: 0 0 var(--s2);
+}
+
+table.onscreen {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+table.onscreen th,
+table.onscreen td {
+  padding: 0.28rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+table.onscreen tbody tr:last-child td { border-bottom: 0; }
+table.onscreen th { background: var(--shade); font-weight: 600; padding: 0; }
+/* `figure` was the obvious name and it is taken: it is the stat card used on the dashboard,
+ * `display: block` and all, which turned every cell in this table into its own row. */
+table.onscreen th.numeric, table.onscreen td.numeric { text-align: right; }
+table.onscreen th button {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+table.onscreen th.numeric button { text-align: right; }
+table.onscreen th button:hover { background: var(--line); }
+table.onscreen th .way { color: var(--dim); }
+table.onscreen tbody tr:hover { background: var(--shade); }
+table.onscreen tr.passed td { color: var(--dim); }
+table.onscreen tr.kept .address button { font-weight: 600; }
+
+/* The address is the way back to the pin, so it is a button and looks like the link it behaves
+ * like. Nothing on this row goes anywhere else: the pin's own bubble holds the way to the
+ * listing's page and to the sites it came from, and two routes to the same three places is a row
+ * somebody has to read before clicking. */
+table.onscreen td.address { padding: 0; }
+table.onscreen td.address button {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.28rem 0.5rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+table.onscreen td.address button:hover { text-decoration: underline; }
+
+/* The same three colours the pins use, so a row and its pin are recognisably the same thing. */
+table.onscreen .dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid #0f3f7a;
+  background: #5b9bd5;
+}
+table.onscreen .dot.keep { border-color: #8a6d00; background: #ffd75e; }
+table.onscreen .dot.pass { border-color: #8c2b2b; background: #e8b6b6; }
+table.onscreen td.hazard .swatch { margin-right: 0.35rem; }
+
+/* -- names on the map ---------------------------------------------------- */
+
+/* A county or a town, written over the fire layer.
+ *
+ * The whole difficulty is what it lies on: a raster that is dark red here, mid green there and
+ * grey in between, at whatever opacity the slider is set to. Neither dark text nor light text
+ * reads on all of it. So the letters are dark and carry a white outline drawn round them by
+ * `paint-order: stroke`, which is the same trick the wind arrows use and works for the same
+ * reason: the shape gets an edge everywhere rather than a background somewhere.
+ *
+ * A box would be easier and is wrong here. Forty white boxes over a hazard map hide the hazard,
+ * and the hazard is what the page is for. */
+.mapname {
+  /* The marker's box is zero by zero at the place, so the text is centred on it by hand. */
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.mapname > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+  color: #10161f;
+  paint-order: stroke;
+  -webkit-text-stroke: 3px rgba(255, 255, 255, 0.85);
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+}
+.mapname.county > span .name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+/* The rain, under the county's name and in the same ink. Deliberately not a colour scale: a
+ * number that is also a colour invites reading the colour and skipping the number, and eleven
+ * inches against seventeen is a comparison somebody should make with the figures in front of
+ * them rather than off a legend. */
+.mapname.county > span .rain { font-size: 0.78rem; font-weight: 650; }
+.mapname.county > span .rain.none { font-weight: 400; font-style: italic; opacity: 0.75; }
+.mapname.town > span {
+  flex-direction: row;
+  gap: 0.22rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.mapname.town > span .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10161f;
+  -webkit-text-stroke: 0;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+}
+
+/* -- which way the wind pushes ------------------------------------------ */
+
+/* The arrow is an SVG built at the time it is drawn, so there is nothing to style inside it. What
  * is styled is the box it sits in: no background, because it lies over a raster whose colours are
- * the whole point of the page, and a drop shadow instead so the petals read over both the green
+ * the whole point of the page, and a drop shadow instead so a thin arrow reads over both the green
  * and the red. */
-.rose {
+.windarrow {
   pointer-events: auto;
   cursor: pointer;
   filter: drop-shadow(0 1px 2px rgba(20, 24, 33, 0.55));
 }
-.rose:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
-.rose svg { display: block; }
+.windarrow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.windarrow svg { display: block; }
 
-/* The two squares in the legend, the same two colours the petals use. */
+/* The two squares in the legend, the same two colours the arrows use. */
 .legend .swatch.wind { border-radius: 2px; }
 .legend .swatch.wind.any { background: #a276cf; }
 .legend .swatch.wind.strong { background: #4c1d95; }
@@ -858,6 +1009,65 @@ button.keep[disabled], button.pass[disabled] { opacity: 0.5; cursor: default; }
   justify-content: flex-end;
   margin-top: var(--s3);
 }
+
+/* -- the household's own words ------------------------------------------- */
+
+/* A tag in a cell. Small, outlined rather than filled, and in nobody else's colour: this table
+ * already spends yellow on kept, red on passed and the hazard model's own five on the fire
+ * columns, and a filled chip in any of those would read as one of them. What a chip has to say
+ * here is only "this is one word, and that is another". */
+table.grid td.tags .cell, table.grid td.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+.tag {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 0.34rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--shade);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The box that sets them. Taller than a writing box needs to be, because the list of words grows
+ * and a chooser that scrolls after the fourth tag is a chooser that hides the fifth. */
+.writing.tagging .choices {
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: var(--s1) 0;
+}
+.writing.tagging .choices label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0.12rem 0;
+  width: 100%;
+  cursor: pointer;
+}
+.writing.tagging input[type="text"] {
+  width: 100%;
+  font: inherit;
+  padding: var(--s2);
+  margin-top: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.writing.tagging input[type="text"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* On a property's own page, where there is room to say what they are for. */
+.tagstrip { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.tagstrip .tag { font-size: 0.9rem; padding: 0.1rem 0.5rem; }
+.tagstrip .none { color: var(--dim); font-size: 0.9rem; }
 
 /* Asked once, before a house leaves the table. Its own dialog rather than the browser's: a
  * `confirm()` stops every timer and every pending request on the page behind it, including the

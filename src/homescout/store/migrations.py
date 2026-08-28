@@ -23,6 +23,7 @@ from .schema import (
     SCHEMA_V7,
     SCHEMA_V8,
     SCHEMA_V9,
+    SCHEMA_V10,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -45,6 +46,9 @@ MIGRATIONS: tuple[str, ...] = (
     SCHEMA_V8,
     # Five more of them, for the same reason and on the same terms.
     SCHEMA_V9,
+    # Two tables for the person's own vocabulary. No trigger, for the third time and the same
+    # reason: a tag is a thing somebody is meant to be able to take back off a house.
+    SCHEMA_V10,
 )
 
 

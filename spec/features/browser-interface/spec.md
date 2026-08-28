@@ -395,10 +395,14 @@ in five years. The problem brief is in `research.md`.
       fixed in a corner cannot be held up against two things that are somewhere else on the map,
       which is the whole reason the second one exists.
 - [ ] AC-59: The fire map can draw which way the wind pushes, off by default, per weather station
-      over that station's whole recorded history rather than as any forecast. It reports, for each of
-      sixteen directions, how often the wind pushed that way and how often it did so at fifteen miles
-      an hour or more, and opens into those numbers with the number of readings and the years they
-      span. The whole year and the single month that is both windiest and in fire season are both
+      over that station's whole recorded history rather than as any forecast. It draws one arrow per
+      station, pointing the way the wind most often pushes and longer where the wind more often does
+      the same thing, and a second arrow only where hard wind pushes somewhere the everyday wind
+      does not, because that is the one case where a station has two answers rather than one. It
+      still holds, for each of sixteen directions, how often the wind pushed that way and how often
+      it did so at fifteen miles an hour or more, and opens into those numbers with the number of
+      readings and the years they span: the question the drawing answers has one direction in it and
+      the question the numbers answer has sixteen, and only the first belongs on a map. The whole year and the single month that is both windiest and in fire season are both
       offered. Every direction a reader is shown is the direction the wind pushes, in the drawing and
       in the words together, and never the meteorological direction it came from: the reader is
       somebody buying a house, the question is which way a fire would run, and the two readings name
@@ -408,6 +412,40 @@ in five years. The problem brief is in `research.md`.
       station or a state that cannot be read is reported and does not stop the others being drawn.
       Nothing is scored, ranked, hidden or coloured by wind: the page reports what was recorded and
       the person decides.
+- [ ] AC-60: The fire map can draw county lines and town names over the hazard layer, off by
+      default, from the same public boundary service the rest of this tool uses, fetched once per
+      state and kept. They are drawn over the layer and not under it, because underneath is where
+      the map's own names already are and a raster opaque enough to read is a raster that hides
+      them: the moment this map becomes useful it also becomes anonymous. More town names appear as
+      the map is zoomed in, biggest first, and a name that would sit on top of another is not drawn
+      at all, because two names in the same place is neither name. A name takes no pointer: it is
+      read, never clicked, and one that could be clicked would make the properties under it
+      impossible to open. A state that cannot be read is reported and does not stop the others.
+- [ ] AC-61: The fire map can draw how much rain a county gets in a year, off by default, as an
+      average over the last thirty complete years the national record holds, written under that
+      county's name with its unit. An average and not a year: a single year here is a story about
+      one monsoon, and what somebody buying land is asking is what the place is normally like. It is
+      per county because that is the finest grain the record publishes, and the page says so rather
+      than interpolating a figure that would look like it was measured at the house. Turning it on
+      turns the county names on with it, because the number is written under a name and a number
+      floating on an unnamed patch of map is a number about nothing. Nothing is scored, ranked,
+      hidden or coloured by rainfall. A county that cannot be read is named and the rest are still
+      drawn, with lines and a name and no number.
+- [ ] AC-62: The fire map shows the properties currently on it as a list underneath it, holding
+      exactly the pins the map is drawing and hiding whatever the map hides, re-read whenever the
+      map moves. A pin is very good at "where" and says nothing until it is opened, so reading a
+      screenful of them means opening every one; the list is the same look with the numbers in it.
+      It can be sorted by any of its columns and starts cheapest first. Its address opens that
+      property's pin where it stands rather than travelling to it, because the pin is already on
+      screen and a map that jumps whenever a row is read loses the place somebody was looking at.
+      Beyond a few hundred rows it draws what can be read and says plainly how many there are.
+- [ ] AC-63: A property's tags are shown and set from the results table, in a column like any other
+      and filterable like any other. Setting them offers the words already in use, ticked or not,
+      with one line to make a new one, rather than a box to type a list into: a vocabulary somebody
+      retypes from memory grows a second spelling of every word in it, and nothing on the page would
+      ever say that had happened. What is sent is the whole list, because that is what a set of
+      ticked boxes is. The property's own page shows them and does not set them, like every other
+      annotation.
 
 ## Edge cases & errors
 
@@ -427,7 +465,13 @@ in five years. The problem brief is in `research.md`.
   the ordinary case rather than the extreme one. Whatever stands in for the rows that are not drawn
   has to be real height and not a shift applied to the ones that are, because the headings are held
   in place by the table being as tall as the list it stands for.
-- A weather station's record is on its way. It is drawn as what it is, a marker where the rose
+- A weather station's record is on its way.
+- A county's rainfall record will not answer while the rest will. That county keeps its lines and
+  its name and has no number, and the failure is named. A county silently missing its number would
+  read as a county with no rainfall record at all, which is a different and much more interesting
+  fact.
+- The map is moved somewhere none of the run's properties are. The list underneath it is empty and
+  says so, because it is a list about what is on screen rather than about the run. It is drawn as what it is, a marker where the rose
   will be, because the first read of a station takes about ten seconds and an empty patch of map
   says nothing about whether anything is happening.
 - A state has no automated weather network, or the archive is having a bad afternoon. That state is

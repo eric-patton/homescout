@@ -174,6 +174,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="keep it, pass on it (hidden from results), or none to go back to undecided",
     )
 
+    tags = commands.add_parser(
+        "tags", parents=[common], help="the words you have made up for properties"
+    )
+    vocabulary = tags.add_subparsers(dest="action", required=True)
+    vocabulary.add_parser("list", parents=[common], help="every tag, and what carries it")
+    vocabulary.add_parser("new", parents=[common], help="add a word").add_argument("name")
+    moved = vocabulary.add_parser("rename", parents=[common], help="rename one everywhere")
+    moved.add_argument("name")
+    moved.add_argument("to")
+    vocabulary.add_parser(
+        "delete", parents=[common], help="remove one from every property"
+    ).add_argument("name")
+    put = vocabulary.add_parser("set", parents=[common], help="the tags one property carries")
+    put.add_argument("listing_id")
+    put.add_argument(
+        "name",
+        nargs="*",
+        help="the whole list, so anything left out comes off; give none to clear them",
+    )
+    vocabulary.add_parser(
+        "of", parents=[common], help="what one property is tagged"
+    ).add_argument("listing_id")
+
     matches = commands.add_parser(
         "matches", parents=[common], help="review property matches that need a human"
     )
@@ -614,6 +637,44 @@ def _annotate(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("annotation", annotation=payload), render.annotation(written))
 
 
+def _tags(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    """The household's own vocabulary, from the terminal.
+
+    Here because non-negotiable 8 says so: anything the browser can do, this can do. It is also
+    the only way to tag fifty properties without fifty clicks, which is the shape of the job the
+    first time somebody decides a word was worth having.
+    """
+    if args.action == "list":
+        found = api.tags(workspace)
+        return Answer(digest.envelope("tags", tags=list(found)), render.tags(found))
+    if args.action == "new":
+        tag = api.create_tag(workspace, args.name)
+        return Answer(digest.envelope("tag", tag=tag), f"Added {tag['name']}.")
+    if args.action == "rename":
+        tag = api.rename_tag(workspace, args.name, args.to)
+        return Answer(
+            digest.envelope("tag", tag=tag),
+            f"{args.name} is now {tag['name']}, on {tag['used']} properties.",
+        )
+    if args.action == "delete":
+        many = api.delete_tag(workspace, args.name)
+        return Answer(
+            digest.envelope("tag_deleted", name=args.name, properties=many),
+            f"Deleted {args.name}, off {many} properties.",
+        )
+    if args.action == "of":
+        held = api.tags_of(workspace, args.listing_id)
+        return Answer(
+            digest.envelope("tags", listing_id=args.listing_id, tags=list(held)),
+            ", ".join(held) or "No tags.",
+        )
+    held = api.set_tags(workspace, args.listing_id, args.name)
+    return Answer(
+        digest.envelope("tags", listing_id=args.listing_id, tags=list(held)),
+        ", ".join(held) or "No tags.",
+    )
+
+
 def _matches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     if args.action == "list":
         pending = api.review_queue(workspace)
@@ -643,6 +704,8 @@ def _dispatch(
         return _searches(workspace, args)
     if args.command == "annotate":
         return _annotate(workspace, args)
+    if args.command == "tags":
+        return _tags(workspace, args)
     if args.command == "matches":
         return _matches(workspace, args)
     if args.command == "export":

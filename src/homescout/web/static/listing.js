@@ -315,10 +315,17 @@ function judgment(held) {
     ["next_step", "Next step"],
     ["notes", "Notes"],
   ];
+  const carried = held.tags || [];
   return el("section", {},
     el("h2", {}, "Your own judgment"),
     el("p", {class: "lede"},
       "Edit these in the results table, on the row you are reading. They survive every later run."),
+    /* Shown here and set in the table, like everything else on this panel. This page is for
+     * reading one property; the table is where a decision is made about it against the others. */
+    el("div", {class: "tagstrip"},
+      carried.length
+        ? carried.map((one) => el("span", {class: "tag"}, one))
+        : el("span", {class: "none"}, "no tags")),
     el("dl", {class: "facts"},
       rows.flatMap(([name, said]) => [
         el("dt", {}, said),

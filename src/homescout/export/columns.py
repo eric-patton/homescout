@@ -211,6 +211,17 @@ def _wui(row: Row) -> str | None:
     return f"in the wildland-urban interface: {found}"
 
 
+def _tags(row: Row) -> str | None:
+    """The household's own words for this property, comma separated.
+
+    Joined here rather than in either surface, so the sheet, the table and the terminal print one
+    property's tags the same way. A comma is safe as the join because a tag cannot contain one:
+    `Tag.cleaned` refuses it at the point a tag is made, which is the only place it can be refused
+    once instead of escaped in every place a tag is written down.
+    """
+    return ", ".join(row.tags) or None
+
+
 def _town_notes(row: Row) -> str | None:
     """What the person has written about this property's town, carried onto its row.
 
@@ -298,6 +309,7 @@ COLUMNS: tuple[Column, ...] = (
     Column("County (looked up)", "text", "enriched", _enriched("county_name")),
     Column("Elevation (ft)", "number", "enriched", _enriched("elevation_ft")),
     Column("Notes", "text", "annotation", _annotated("notes")),
+    Column("Tags", "text", "annotation", _tags),
     Column("Flags", "text", "derived", _flags),
     Column("Sources", "text", "derived", _sources),
     Column("Description", "text", "listing", _listing("description")),

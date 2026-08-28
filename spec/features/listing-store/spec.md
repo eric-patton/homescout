@@ -202,6 +202,30 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       one address per site rather than one address in total, because the sites are not
       interchangeable to anyone keeping a list on one of them, and a site the property was never
       seen on contributes no address rather than a broken one.
+- [ ] AC-28: A property carries any number of **tags**, which are words the household makes up.
+      Keeping and passing answer this tool's own question, which is whether a house is still in;
+      tags are for every other thing somebody wants to say about a house in one word, and a fixed
+      field per idea would be a schema change per thought. A tag is a thing in its own right rather
+      than text on a property, so it exists before anything carries it and outlives the last thing
+      that did. Two spellings that differ only in case are one tag, and the spelling first written
+      down is the one kept and shown: nobody remembers the capitalisation they used a week ago, and
+      a store that disagrees hands them two piles of houses that should have been one. A tag may not
+      contain a comma, refused where it is created and said why, because a tag is printed comma
+      separated everywhere it is written down and one with a comma inside reads as two. Setting a
+      property's tags means giving the whole list: anything left out comes off.
+- [ ] AC-29: A tag can be renamed everywhere it is used in one action, keeping every property that
+      carried it, and renaming onto a name that already exists merges the two. A tag can be deleted
+      from the vocabulary and from every property at once, and the deletion answers with how many
+      properties lost it, because that is the number somebody wants after doing it and the only way
+      to know it afterwards would be to have remembered it. A vocabulary that cannot be corrected in
+      one action is a vocabulary nobody corrects, which is how it turns into a list of near
+      synonyms.
+- [ ] AC-30: A merged property presents the tags of everything merged into it, gathered rather than
+      moved, exactly as it presents their annotations and for the same reason. Removing a tag from a
+      merged property reaches the record it was actually written on, because a tag somebody can see
+      and cannot take off reads as the tool ignoring the click. Whatever is kept stays exactly where
+      it is: nothing a person wrote moves between records, which is what carries their work through
+      a merge and back out of one again.
 
 ## Edge cases & errors
 
