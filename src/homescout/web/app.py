@@ -48,17 +48,27 @@ LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]", "::1")
 CHANGES_THINGS = ("POST", "PUT", "PATCH", "DELETE")
 
 
-#: The two answers that never reach the database, and must not queue behind anything that does.
+#: What never reaches the database, and so must not queue behind anything that does.
 #:
-#: Both are somebody else's network with a disk cache in front of it: a wind rose is a ten-second
-#: query on a public archive, and a hazard tile is a picture of a rectangle of the country. Holding
+#: Two of these are somebody else's network with a disk cache in front: a wind rose is a ten-second
+#: query on a public archive and a hazard tile is a picture of a rectangle of the country. Holding
 #: the one-request-at-a-time lock through ten seconds of that would stop the whole interface
 #: answering, and would turn the wind overlay from "three at a time" into "one at a time" for no
-#: reason at all, because neither of them opens the store.
+#: reason at all.
+#:
+#: The other two are files on this disk. A page opening asks for a stylesheet, four scripts and a
+#: map library before it asks the database anything, and making each of those take a turn at the
+#: store's lock is queueing behind a queue for no reason: they cannot see the store and could not
+#: disturb it if they tried.
 #:
 #: A list rather than a flag on each route, so that adding a route is not also a chance to opt out
 #: of the store's only protection by accident. Anything not named here waits its turn.
-WITHOUT_THE_DATABASE: tuple[str, ...] = ("/api/wind/rose/", "/api/hazard/")
+WITHOUT_THE_DATABASE: tuple[str, ...] = (
+    "/api/wind/rose/",
+    "/api/hazard/",
+    "/static/",
+    "/vendor/",
+)
 
 
 def _needs_the_database(path: str) -> bool:
@@ -147,25 +157,33 @@ def build(workspace: api.Workspace) -> FastAPI:
                 f"A request that changes something has to carry the {GUARD_HEADER} header. "
                 "The interface's own pages set it; a form posted by another site cannot."
             )
-        # Serialised, properly, and this is the second attempt at it.
+        # Serialised, and this is the third attempt at it. The first two are worth knowing about
+        # because each fixed the one before and broke something worse.
         #
-        # It was `with app.state.lock:` around this await, over a reentrant lock, which reads
-        # exactly like one request at a time and is not. This middleware runs on the event loop's
-        # own thread; a second request arriving while the first is suspended at the await runs on
-        # that same thread, so the reentrant lock lets it straight through and both requests are
-        # then in flight over one database connection. Nothing failed for months because nothing
-        # asked two questions of the database at once.
+        # It began as `with app.state.lock:` around the await, over a reentrant lock. That reads
+        # exactly like one request at a time and is not: this middleware runs on the event loop's
+        # own thread, so a second request arriving while the first is suspended takes the same
+        # reentrant lock and goes straight through. Two requests then read one database connection,
+        # their cursors interleave, and sqlite refuses both. Switching on two overlays at once was
+        # enough.
         #
-        # The fire map does. Switching on the county names and the wind together fires two
-        # requests that both read the run's properties, their cursors interleave on the shared
-        # connection, and sqlite refuses both: "bad parameter or other API misuse", as a pair of
-        # five hundreds and an overlay that silently never appears.
+        # The fix for that was to take the lock in a worker thread, which serialised correctly and
+        # wedged the whole server. `to_thread` draws from a pool of about forty, shared with every
+        # sync endpoint, and a request waiting for its turn was sitting in one of them. Open the
+        # fire map: a burst of scripts, stylesheets, settings, results and overlays arrives at
+        # once, forty of them park in the pool waiting for the lock, and the request that HOLDS the
+        # lock cannot get a thread to run its endpoint in. It never finishes, so it never releases,
+        # so nobody ever gets a turn. The process stays up and the port stays open and the site
+        # answers nothing at all, which is exactly what was reported.
         #
-        # Acquired off the event loop so that waiting for a slow request does not stop this
-        # process answering anything at all, and released in a `finally` because a request that
-        # raises still has to let the next one in.
+        # So: wait for a turn without occupying anything. `acquire(blocking=False)` takes no thread
+        # and no time when the lock is free, which is almost always; when it is not, the sleep is
+        # the only cost and it is a millisecond of nothing. One person on one machine will never
+        # measure it, and there is no pool to run out of. It is also the only version that cannot
+        # leak the lock: the sole await is the sleep, which happens before the lock is held.
         if _needs_the_database(request.url.path):
-            await anyio.to_thread.run_sync(app.state.lock.acquire)
+            while not app.state.lock.acquire(blocking=False):
+                await anyio.sleep(0.005)
             try:
                 response = await call_next(request)
             finally:

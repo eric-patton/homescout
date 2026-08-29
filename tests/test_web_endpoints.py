@@ -579,21 +579,28 @@ def test_two_requests_that_read_the_database_do_not_run_at_once(store: Store, db
     )
 
 
-def test_a_tile_and_a_rose_do_not_wait_behind_the_database(store: Store, db_path: Path) -> None:
-    """feat-010/AC-64: the two answers that never open the store must not queue behind it.
+def test_what_never_opens_the_store_does_not_queue_behind_what_does(
+    store: Store, db_path: Path
+) -> None:
+    """feat-010/AC-64: four answers that cannot disturb the database, so they never wait for it.
 
-    Both are somebody else's network with a disk cache in front: a wind rose is a ten-second query
-    on a public archive. Held behind the one-request-at-a-time lock, forty of those would stop the
-    interface answering anything at all, and would turn the wind overlay from three at a time into
-    one at a time for no reason, because neither of them touches the database.
+    Two are somebody else's network with a disk cache in front: a wind rose is a ten-second query
+    on a public archive, and a hazard tile is a picture of a rectangle of the country. Held behind
+    the one-request-at-a-time lock, forty of those would stop the interface answering at all, and
+    would turn the wind overlay from three at a time into one at a time for no reason.
+
+    Two are files on this disk. A page opening asks for a stylesheet, four scripts and a map
+    library before it asks the database anything, and making each take a turn at the store's lock
+    is queueing behind a queue: they cannot see the store and could not disturb it if they tried.
     """
     from homescout.web.app import WITHOUT_THE_DATABASE, _needs_the_database
 
-    assert not _needs_the_database("/api/wind/rose/NM_ASOS/SKX")
-    assert not _needs_the_database("/api/hazard/wildfire")
+    for path in ("/api/wind/rose/NM_ASOS/SKX", "/api/hazard/wildfire",
+                 "/static/app.css", "/vendor/leaflet.js"):
+        assert not _needs_the_database(path), path
     #: Everything else waits its turn. Named as a list rather than as a flag on each route, so that
     #: adding a route is not also a chance to opt out of the store's only protection by accident.
     for path in ("/api/results/portales", "/api/ground/portales", "/api/rain/portales",
                  "/api/wind/stations/portales", "/api/tags", "/api/listings/x"):
         assert _needs_the_database(path), path
-    assert len(WITHOUT_THE_DATABASE) == 2, WITHOUT_THE_DATABASE
+    assert len(WITHOUT_THE_DATABASE) == 4, WITHOUT_THE_DATABASE

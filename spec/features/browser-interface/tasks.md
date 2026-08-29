@@ -839,3 +839,40 @@ alongside its peers.
       The browser test now reaches the control the way she did, with a press on the cell, rather
       than by calling the edit function. Calling it directly is what let a control that could not
       be opened pass a test that said it worked.
+
+## Defect: the server stopped answering while she was using it
+
+- [x] T133: `web/app.py`: wait for a turn without occupying a thread (`feat-010/AC-64`).
+
+      Reported as "did this go down? The site isn't responding anymore", and it had: the process
+      up, the port listening, and every request answered with nothing. It stayed that way until it
+      was restarted.
+
+      Caused by T128, two commits earlier. That change fixed a real fault - two requests reading
+      one database connection at once - by taking the lock in a worker thread. Which serialises
+      correctly, and draws from a pool of about forty shared with every synchronous endpoint. A
+      page opening is a burst: scripts, stylesheets, settings, results, two overlays, all at once.
+      Forty of them park in the pool waiting for the lock, and the request that HOLDS the lock
+      cannot then get a thread to run its endpoint in. It never finishes, so it never releases, so
+      nobody ever gets a turn, and the deadlock is permanent.
+
+      Now the wait is a non-blocking attempt and a five-millisecond sleep. It takes no thread, it
+      costs nothing at all when the lock is free, which is almost always, and it is the only
+      version that cannot leak the lock either: the one await happens before the lock is held.
+      This tool's own files were added to the list of things that never wait, because a page asks
+      for a stylesheet, four scripts and a map library before it asks the database anything.
+
+      Measured on the burst test: thirty-seven seconds and ninety-seven failures before, one and a
+      half seconds and none after.
+
+- [x] T134: `tests/test_web_browser.py`: the burst, as a test (`feat-010/AC-64`).
+
+      The test that shipped with T128 fired four requests and said the serialisation worked. It
+      did work. Nothing smaller than a burst finds this, so the test is a burst, and it is against
+      a real server on a real port rather than the test client: through the test client the fault
+      cannot fail the test, it hangs it, and a test that hangs never tells anybody anything. Every
+      request carries a deadline for the same reason, because what is being looked for is silence
+      rather than an error.
+
+      Checked against the broken version, where it reports ninety-seven of a hundred requests
+      unanswered.

@@ -473,10 +473,16 @@ in five years. The problem brief is in `research.md`.
       empty tag cell also has to say is that there is something here to press.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
-      never open the store at all: a hazard tile and a wind rose, both of which are somebody else's
-      network with a disk cache in front and either of which would otherwise stop the interface
-      answering for ten seconds at a time. Waiting for a turn does not stop this process answering
-      anything else, and a request that fails still lets the next one in.
+      never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first
+      two being somebody else's network with a disk cache in front and either of which would
+      otherwise stop the interface answering for ten seconds at a time.
+
+      **Waiting for a turn consumes nothing.** Not a thread, in particular: a page opening is a
+      burst of dozens of requests, and a queue that parks each waiting request in the same limited
+      pool the running one needs is a queue that stops the server dead, with the process up and the
+      port open and nothing answered ever again. A burst larger than that pool is therefore
+      answered in full, and the server still answers afterwards. A request that fails still lets
+      the next one in.
 - [ ] AC-65: A property's own page draws that property on the wildfire hazard layer, small, using
       the same layer at the same address through the same cached route the fire map uses, so
       nothing new talks to the outside world. The fire map answers which of a hundred properties is
@@ -517,6 +523,10 @@ in five years. The problem brief is in `research.md`.
   control that is only found by people who already know it is there was found by nobody.
 - A property has no coordinates and its own page is opened. It says no source gave it a location
   and that the fire map counts it as unplaced, rather than drawing an empty map.
+- A page opens and fires several dozen requests at once, which is what a page opening is. Every
+  one of them is answered and the server is still answering afterwards. This is the case that must
+  be tested with a burst: two requests at a time pass happily under an arrangement that stops the
+  server dead under forty.
 - Two overlays are switched on at once, so two requests that both read the run's properties are
   in flight together. They are served one after the other rather than interleaved on one database
   connection, which is a pair of five hundreds and an overlay that silently never appears.

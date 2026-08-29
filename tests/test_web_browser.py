@@ -68,6 +68,61 @@ def served(store: Store, db_path: Path):
         thread.join(timeout=5)
 
 
+def test_a_page_opening_all_at_once_does_not_wedge_the_server(served) -> None:
+    """feat-010/AC-64: waiting for a turn must not use up the thread the turn will need.
+
+    The fault this pins took the site down while somebody was using it: the process up, the port
+    open, and every request answered with nothing, for ever.
+
+    The cause was the fix before it. Requests were serialised by taking the lock in a worker
+    thread, which serialises correctly and draws from a pool of about forty shared with every sync
+    endpoint. A page opening is a burst - scripts, stylesheets, settings, results, overlays, all at
+    once - so forty of them park in the pool waiting their turn, and the request that HOLDS the
+    lock then cannot get a thread to run its endpoint in. It never finishes, so it never releases,
+    so nobody ever gets a turn.
+
+    Nothing smaller than a burst finds it. Two at a time pass happily, which is why the test that
+    shipped with that fix said everything was fine.
+
+    Against a real server on a real port rather than the test client, and with a deadline on every
+    request, because what is being checked for is silence rather than an error. Through the test
+    client this cannot fail: it hangs, and a test that hangs never tells anybody anything.
+    """
+    import urllib.error
+    import urllib.request
+    from concurrent import futures
+
+    base, _held, _store = served
+
+    def get(path: str, patience: float = 30.0) -> object:
+        try:
+            with urllib.request.urlopen(f"{base}{path}", timeout=patience) as answer:
+                answer.read()
+                return 200
+        except urllib.error.HTTPError as exc:
+            return exc.code
+        except Exception as exc:  # noqa: BLE001 - no answer at all is what this looks for
+            return type(exc).__name__
+
+    #: Comfortably more than the thread pool, and a mixture on purpose: the files never touch the
+    #: store and the rest all do, which is the shape of a real page opening.
+    asked = (
+        ["/static/app.css", "/static/results.js", "/static/common.js"] * 14
+        + ["/api/settings"] * 14
+        + ["/api/results/portales"] * 14
+        + ["/api/kept", "/api/passed", "/api/tags"] * 10
+    )
+
+    with futures.ThreadPoolExecutor(max_workers=len(asked)) as pool:
+        answers = list(pool.map(get, asked))
+
+    bad = [one for one in answers if one != 200]
+    assert not bad, (
+        f"{len(bad)} of {len(asked)} requests in the burst went unanswered: {sorted(set(bad))}"
+    )
+    assert get("/api/searches", 20.0) == 200, "the server stopped answering after a burst"
+
+
 def chrome(url: str):
     """A headless Chrome pointed at the interface, or a skip."""
     import shutil
