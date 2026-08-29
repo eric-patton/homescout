@@ -63,3 +63,31 @@ that does not exist yet is not one of them.
       Redfin's notice means.
 - [x] T21: `uv run ruff check .` and the full suite, default and slow, green.
 - [x] T22: `/spec-flow:converge`, then the manifest stamp.
+
+## Not built: a picture for a house only Redfin has (`changes/a-picture-for-a-house-only-redfin-has/`)
+
+- [x] T-picture-0: measured, built, and taken back out (`feat-005/AC-11`). "Is there any way to get
+      the pictures from Redfin listings (or maybe just these listings are having issues?)"
+
+      They were not having issues. All six named were carried by this source alone, and this
+      source's download has no photograph in it. The property's own page does, in the standard tag,
+      at a better size than either other source hands over, and every piece of it worked: the
+      parser, the host check, nine offline tests, six real properties fetched end to end.
+
+      Then it was pointed at the real site through the tool's own session and every request came
+      back `403`. Measured across three properties: the page refuses
+      `homescout/0.1.0 (personal listing monitor)`, refuses a bare `homescout/0.1.0`, refuses a
+      request naming nobody, and serves Chrome. The CSV endpoint answers `200` to that same agent
+      throughout. The site hands its data to a program that admits to being one and refuses that
+      program the page a person reads.
+
+      The only way through is to claim to be a browser. That is the single thing `politeness.py`
+      is built to make impossible, and a thumbnail does not buy it. Leaving the code in to fail
+      quietly would have been worse than not writing it: twelve properties, four attempts each with
+      backoff, nightly, against a site already refusing us, which is the exact shape of traffic that
+      gets a client blocked.
+
+      Reverted rather than disabled, so there is no dead path to switch back on by accident. What is
+      kept is the measurement, on `fetch_preview` and in the change folder, in place of the older
+      note that explained the absence with a judgment about what a photograph is worth. That
+      judgment was wrong and it was the reason nobody looked. The fact is not wrong.

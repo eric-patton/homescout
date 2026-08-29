@@ -121,16 +121,30 @@ class RedfinSource(BaseSource):
     # -- preview images -----------------------------------------------------
 
     def fetch_preview(self, row: SourceRow) -> Preview | None:
-        """None, always, because the download carries no images.
+        """None, always, because the download carries no images and the page is refused to us.
 
         The interface obliges every adapter to decide what preview retrieval means for it rather
         than letting one quietly inherit nothing, and this source's answer is that there is nothing
         to retrieve: the CSV has twenty-seven columns and not one of them is a photograph.
 
-        Scraping the linked page for one would be a second request per property against a site this
-        tool is trying to be light on, to get an image the digest can already do without. So a
-        Redfin-only property appears in the email without a picture, which is the same thing that
-        happens when an image fetch fails.
+        **The property's own page was tried, and it is not available to this tool.** It publishes
+        the picture in the ordinary way, in the tag that exists so a pasted link shows one, at a
+        better size than either other source hands over. Measured on 2026-08-29 across three
+        properties, spaced and asked once each: the page answers `403` to
+        `homescout/0.1.0 (personal listing monitor)`, `403` to a bare `homescout/0.1.0`, `403` to a
+        request that names nobody, and `200` to a current build of Chrome. The CSV endpoint answers
+        `200` to that same honest agent throughout. This site gives its data to a program that says
+        so and refuses that program the human-facing page.
+
+        The only way through is to claim to be a browser, and the user agent is the one setting in
+        `politeness.py` deliberately left unconfigurable so that no adapter can do that. A picture
+        is not worth unlocking it. Nor is it worth twelve properties' worth of retried 403s every
+        night against a site already refusing us, which is what leaving the attempt in would have
+        meant, and being blocked is the failure that ends this project rather than degrading it.
+
+        So a property this source alone carries appears without a picture, which is the same thing
+        that happens when an image fetch fails. The full write-up, including what else was ruled
+        out, is in `changes/a-picture-for-a-house-only-redfin-has/`.
         """
         return None
 
