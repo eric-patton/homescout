@@ -352,7 +352,7 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     @app.post("/api/searches/{name}/run")
     async def start_run(name: str) -> dict[str, Any]:
-        started = app.state.runs.start(held(), name, app.state.lock)
+        started = app.state.runs.start(held(), name)
         return answer("run-started", **started)
 
     @app.get("/api/runs/{name}/status")
@@ -361,7 +361,7 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     @app.post("/api/run-all")
     async def start_all(request: Request) -> dict[str, Any]:
-        started = app.state.runs.start_all(held(), app.state.lock)
+        started = app.state.runs.start_all(held())
         return answer("run-started", **started)
 
     # -- the passes and the spreadsheet, which are workspace-wide ----------
@@ -371,10 +371,10 @@ def build(workspace: api.Workspace) -> FastAPI:
         body = await _body(request)
         started = app.state.runs.start_task(
             "enrich",
-            lambda say: api.enrich(
-                held(), stale_only=bool(body.get("stale")), search=body.get("search"), progress=say
+            lambda mine, say: api.enrich(
+                mine, stale_only=bool(body.get("stale")), search=body.get("search"), progress=say
             ),
-            app.state.lock,
+            held(),
         )
         return answer("task-started", **started)
 
@@ -383,10 +383,10 @@ def build(workspace: api.Workspace) -> FastAPI:
         body = await _body(request)
         started = app.state.runs.start_task(
             "extract",
-            lambda say: api.extract(
-                held(), search=body.get("search"), limit=body.get("limit"), progress=say
+            lambda mine, say: api.extract(
+                mine, search=body.get("search"), limit=body.get("limit"), progress=say
             ),
-            app.state.lock,
+            held(),
         )
         return answer("task-started", **started)
 
@@ -394,8 +394,8 @@ def build(workspace: api.Workspace) -> FastAPI:
     async def deliver(request: Request) -> dict[str, Any]:
         started = app.state.runs.start_task(
             "deliver",
-            lambda say: api.deliver(held(), progress=say),
-            app.state.lock,
+            lambda mine, say: api.deliver(mine, progress=say),
+            held(),
         )
         return answer("task-started", **started)
 
@@ -449,8 +449,8 @@ def build(workspace: api.Workspace) -> FastAPI:
         body = await _body(request)
         started = app.state.runs.start_task(
             "broadband",
-            lambda say: api.broadband(held(), state=str(body.get("state") or ""), progress=say),
-            app.state.lock,
+            lambda mine, say: api.broadband(mine, state=str(body.get("state") or ""), progress=say),
+            held(),
         )
         return answer("task-started", **started)
 

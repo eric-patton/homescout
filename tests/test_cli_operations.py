@@ -576,6 +576,10 @@ def test_the_facade_is_the_whole_surface() -> None:
     """feat-003/AC-18, feat-003/AC-19: a command needing more than this is logic drifting upward."""
     expected = {
         "open_workspace",
+        # A second view of one workspace, for work that takes minutes. Reached by the browser
+        # interface rather than by a command, because a command is already the only thing in its
+        # own process; see `api.open_beside`.
+        "open_beside",
         "overview",
         "delete_search",
         "restore_search",

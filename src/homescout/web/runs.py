@@ -13,12 +13,16 @@ thing.
 **Nothing here stops two runs colliding.** The store's own claim does, which means a run started
 here while one is running from a terminal is refused by the core, with the message the core already
 has, and the store-is-locked case is answered in the one place that can answer it correctly.
+
+**Nothing here holds up a request.** A pass gets a database connection of its own, so the site
+keeps answering for as long as one takes. It did not always: the interface's request lock was held
+for the whole of a run, which turned a twenty-minute pass into twenty minutes of a site that
+answered nothing, including the endpoint that was meant to report the pass. See `api.open_beside`.
 """
 
 from __future__ import annotations
 
 import threading
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -67,8 +71,15 @@ class Tracker:
         self._held: dict[str, Progress] = {}
         self._tasks: dict[str, Progress] = {}
         self._lock = threading.Lock()
+        #: One heavy operation at a time, and this is the only thing it holds up.
+        #:
+        #: It replaces the interface's own request lock, which used to be held for the whole of a
+        #: run. That serialised the right things and one wrong one: every page and every API call,
+        #: for as long as the run took. This keeps the guarantee that mattered, which is that two
+        #: passes do not fight over the store, and drops the one that took the site down.
+        self._work = threading.Lock()
 
-    def start(self, workspace: api.Workspace, name: str, guard: Any = None) -> dict[str, Any]:
+    def start(self, workspace: api.Workspace, name: str) -> dict[str, Any]:
         with self._lock:
             existing = self._held.get(name)
             if existing is not None and not existing.finished:
@@ -78,10 +89,8 @@ class Tracker:
 
         def go() -> None:
             try:
-                # The same lock every request takes, because this thread reaches the same single
-                # database connection they do.
-                with (guard if guard is not None else _nothing()):
-                    outcome = api.run_search(workspace, name, progress=held.say)
+                with self._work, api.open_beside(workspace) as mine:
+                    outcome = api.run_search(mine, name, progress=held.say)
                 held.outcome = {
                     "run_id": outcome.run.id,
                     "degraded": outcome.degraded,
@@ -105,23 +114,27 @@ class Tracker:
         threading.Thread(target=go, name=f"homescout-run-{name}", daemon=True).start()
         return {"search": name, "already_running": False}
 
-    def start_all(self, workspace: api.Workspace, guard: Any = None) -> dict[str, Any]:
+    def start_all(self, workspace: api.Workspace) -> dict[str, Any]:
         """Run every saved search, which is what a scheduled night does.
 
         Paused and archived ones are left alone by the core, and reported by it as skipped rather
         than passed over in silence.
         """
         return self.start_task(
-            "run-all", lambda say: api.run_all(workspace, progress=say), guard
+            "run-all", lambda mine, say: api.run_all(mine, progress=say), workspace
         )
 
-    def start_task(self, name: str, work: Any, guard: Any = None) -> dict[str, Any]:
+    def start_task(self, name: str, work: Any, workspace: api.Workspace) -> dict[str, Any]:
         """Anything that takes minutes: every search, an enrichment pass, extraction, a digest.
 
         The same shape as a run and for the same reason: politeness makes these slow, and an HTTP
         request that takes minutes is one a browser gives up on. What comes back is a token to ask
         about, and what it says is whatever the operation's own progress callback said, which is the
         same text the terminal prints.
+
+        `work` is handed a workspace rather than closing over one, because the workspace it gets is
+        not the interface's: it has its own database connection, so the site keeps answering while
+        this runs. See `api.open_beside` for why that is safe here and nowhere else.
         """
         with self._lock:
             existing = self._tasks.get(name)
@@ -132,8 +145,8 @@ class Tracker:
 
         def go() -> None:
             try:
-                with (guard if guard is not None else _nothing()):
-                    outcome = work(held.say)
+                with self._work, api.open_beside(workspace) as mine:
+                    outcome = work(mine, held.say)
                 held.outcome = _describe(outcome)
                 if not held.lines:
                     held.say("done")
@@ -175,10 +188,6 @@ class Tracker:
         return found
 
 
-@contextmanager
-def _nothing() -> Any:
-    """No lock at all, for a caller that has already taken one or has no threads to worry about."""
-    yield
 
 
 def _describe(outcome: Any) -> dict[str, Any] | None:

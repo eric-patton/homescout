@@ -230,6 +230,56 @@ def open_workspace(
     )
 
 
+@contextmanager
+def open_beside(workspace: Workspace) -> Iterator[Workspace]:
+    """A second view of one workspace, holding a database connection of its own.
+
+    For work that takes minutes. The browser interface keeps one connection and a lock around every
+    request that touches it, which is right for requests and wrong for a pass over the whole store:
+    an operation that holds that lock through twenty minutes of paced network requests takes the
+    whole site down for twenty minutes, including the progress endpoint that is meant to say how it
+    is going. Measured, that is a request going from a third of a second to sixteen.
+
+    So a pass gets its own connection and the two hold the file the way the interface and a
+    scheduled command already do on this platform, which is write-ahead logging and a busy timeout
+    rather than a lock. Both are short writers; neither blocks a reader at all.
+
+    What is shared and what is not follows from what each thing is bound to. The catalog reads
+    files, so it is shared. The queue is bound to a store, so it is rebuilt. Sources are adapters
+    and carry no cursor.
+
+    Geography is the subtle one, and it is why this is a context manager rather than a function. A
+    saved search that filters by area resolves place names through a provider that reaches into a
+    store, so a pass has to resolve them through the connection it actually holds. Registering that
+    provider the usual way is process-wide and would hand every other thread a connection belonging
+    to this one, which is the interleaved-cursor fault the interface's lock exists to prevent. So it
+    is put in place for the calling thread alone, and taken away again on the way out, along with
+    the connection. A pass that raised still has to give both back.
+    """
+    from .enrich.boundaries import CensusBoundaries
+    from .search.boundaries import boundaries_on_this_thread
+
+    with _translating():
+        store = Store.open(workspace.store.path)
+    mine = Workspace(
+        store=store,
+        catalog=workspace.catalog,
+        queue=default_queue(store),
+        sources=workspace.sources,
+        delay=workspace.delay,
+        images=workspace.images,
+        owns_boundaries=False,
+    )
+    try:
+        # Cache-only, which is what `open_workspace` registers and what the filtering loop needs:
+        # this is asked once per property, and a provider allowed to fetch would put a paced
+        # network request inside a loop that is meant to be local, arithmetic and instant.
+        with boundaries_on_this_thread(CensusBoundaries(store, fetch=False)):
+            yield mine
+    finally:
+        mine.close()
+
+
 # -- saved searches --------------------------------------------------------
 
 
