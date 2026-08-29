@@ -120,3 +120,35 @@ alongside its peers.
       re-wraps every coordinate. Pre-existing, worth knowing, and the strongest argument for this
       change: a reason kept as a comment is a reason one click away from being lost, where a reason
       kept as a field survives the same click.
+
+- [x] T-reason-4: `web/static/search.js`, `app.css`: the reason opens in a window rather than
+      living in the cell (`feat-004/AC-14`, `feat-010/AC-25`).
+
+      "Might be better to have a button you can click to see and edit this in a popup. It is so
+      small", with a picture, and the picture was the argument: a textarea in that cell came out
+      about ninety pixels across and showed two words of a sentence. The row already spends its
+      width on a kind, a place, a name and two controls, and a share of forty per cent asked of a
+      table that is auto-laid-out is a suggestion rather than a width.
+
+      The cell now carries a button showing the reason itself, clamped to two lines, and pressing
+      it opens a window with room to read and write the whole thing. The value rather than the word
+      "Edit", because a column of identical buttons tells somebody scanning the table nothing and
+      being readable at a glance was the whole point of putting it here.
+
+      It borrows `dialog.ask` rather than growing its own frame, adding only the width it needs. A
+      second set of dialog styling is two dialogs that drift apart.
+
+      Nothing here writes: the answer goes back on the row and the panel is marked unsaved, exactly
+      as the name box behaves, and "Save the areas" is still the only thing that writes. Cancel and
+      keep are separate, because a dialog that treats a change of mind as agreement loses work.
+
+      Two things the first attempt got wrong and this one asserts. A minimum width on the cell
+      pushed the table past its panel and put the Remove button off the edge where nobody could
+      reach it, so it is a share now with a scroll behind it: the reason is the least urgent thing
+      in the row and must not cost somebody a control. And an unwritten reason says so rather than
+      showing an empty box, because a blank control reads as broken.
+
+- [x] T-reason-5: `tests/test_web_browser.py`: the button, the window, and both ways out
+      (`feat-004/AC-14`). Asserts the room actually grew, by measuring the window against the cell
+      it replaced rather than trusting a stylesheet; that cancelling keeps what was there; that
+      keeping updates the button and marks the panel unsaved without writing anything.

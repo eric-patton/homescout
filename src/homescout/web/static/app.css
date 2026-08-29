@@ -1378,18 +1378,43 @@ table.plain thead th {
 }
 table.plain tbody tr:last-child > * { border-bottom: 0; }
 
-/* Why an area is in or out. Given the widest cell in the row and a box two lines deep, because a
-   name is two words and this is a sentence somebody will be glad of in a year. Everything else in
-   that table is a word or a control, so without a width of its own this column collapses to the
-   narrowest thing that fits and the reason becomes unreadable at exactly the moment it matters. */
-td.why { width: 40%; }
-td.why textarea {
+/* Why an area is in or out.
+   A box in the cell was the wrong shape for it. The row already spends its width on a name, a
+   place and two controls, so a textarea here came out ninety pixels across and showed two words of
+   a paragraph, which is a setting nobody can read and therefore nobody will write. The cell now
+   holds a button carrying the reason itself, clamped to two lines, and pressing it opens a window
+   with room for the whole thing. */
+/* A share of the row rather than a floor under it. A minimum here pushed the table wider than the
+   panel it sits in, which put the Remove button off the edge where nobody could reach it: the
+   reason is the least urgent thing in the row and must not be the thing that costs somebody a
+   control. The button clamps to two lines whatever width it gets, and the window behind it is
+   where the whole reason is read. */
+td.whycell { width: 30%; }
+/* And if it still does not fit, it scrolls rather than hiding a column. */
+#arealist { overflow-x: auto; }
+button.why {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   width: 100%;
-  min-height: 3.2em;
-  resize: vertical;
+  padding: var(--s1) var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: inherit;
   font: inherit;
   line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
 }
+button.why:hover { border-color: var(--line-strong, var(--line)); background: var(--shade); }
+button.why.unwritten { color: var(--dim); font-style: italic; }
+
+/* Wider than the frame it borrows. `dialog.ask` is sized for a question and an answer of a line
+   or two; this holds a paragraph somebody is writing for their future self. */
+dialog.whybox { max-width: min(46rem, 92vw); }
+textarea.whytext { resize: vertical; }
 table.plain tbody tr:hover td { background: var(--shade); }
 table.plain td input, table.plain td select {
   font: inherit;

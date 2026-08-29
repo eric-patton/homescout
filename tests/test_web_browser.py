@@ -247,6 +247,99 @@ def test_a_textarea_built_by_this_page_holds_its_text(served) -> None:
     )
 
 
+def test_why_an_area_is_in_or_out_opens_in_a_window(served) -> None:
+    """feat-004/AC-14, feat-010/AC-25: a reason is a paragraph, so it gets a paragraph's room.
+
+    This was a text box in the table cell first and the shape was wrong. That row already spends
+    its width on a kind, a place, a name and two controls, so the box came out about ninety pixels
+    across and showed two words of a sentence. Reported as "it is so small", with a picture, and
+    the picture was the argument.
+
+    So the cell carries the reason itself, clamped, and pressing it opens a window with room. What
+    is on the button is the value rather than the word "edit", because a column of identical Edit
+    buttons tells somebody scanning the table nothing, and being readable at a glance was the whole
+    point of putting it on this page.
+
+    Nothing here writes to the file. It puts the answer back on the row and marks the panel
+    unsaved, exactly as typing in the name box does; "Save the areas" is still the only thing that
+    writes. Cancelling keeps what was there, because a dialog that treats a change of mind as
+    agreement is a dialog that loses work.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                 const until = async (ready) => {
+                   for (let i = 0; i < 100; i++) {
+                     const got = ready();
+                     if (got) return got;
+                     await wait(50);
+                   }
+                   return null;
+                 };
+                 const button = await until(() => document.querySelector("td.whycell button.why"));
+                 if (!button) return {opened: false};
+
+                 const before = {
+                   label: button.textContent.trim(),
+                   unwritten: button.classList.contains("unwritten"),
+                   wide: Math.round(button.getBoundingClientRect().width),
+                 };
+
+                 button.click();
+                 const box = await until(() => document.querySelector("dialog[open] textarea"));
+                 const dialog = document.querySelector("dialog[open]");
+                 const room = Math.round(box.getBoundingClientRect().width);
+
+                 /* Cancel first: what was there has to survive a change of mind. */
+                 box.value = "typed and then thought better of";
+                 [...dialog.querySelectorAll("button")]
+                   .find((b) => b.textContent.trim() === "Cancel").click();
+                 await until(() => !document.querySelector("dialog[open]"));
+                 const afterCancel = button.textContent.trim();
+
+                 button.click();
+                 const again = await until(() => document.querySelector("dialog[open] textarea"));
+                 again.value = "the wind comes off the feedlot";
+                 [...document.querySelector("dialog[open]").querySelectorAll("button")]
+                   .find((b) => b.textContent.trim() === "Keep this").click();
+                 await until(() => !document.querySelector("dialog[open]"));
+
+                 return {
+                   opened: true, before, room, afterCancel,
+                   after: button.textContent.trim(),
+                   stillUnwritten: button.classList.contains("unwritten"),
+                   flagged: !!document.querySelector("[data-panel='areas'].unsaved"),
+                   /* Nothing was written; the file is only touched by "Save the areas". */
+                   saidSaved: (document.getElementById("unsaved") || {}).textContent || "",
+                 };
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found and found["opened"], "no button in the Why cell to open anything with"
+    assert found["before"]["unwritten"], "a reason nobody wrote must not read as one somebody did"
+    assert "say why" in found["before"]["label"], found["before"]["label"]
+
+    # The point of the change: the room to write is not the room in the cell.
+    assert found["room"] > found["before"]["wide"] * 2, (
+        f"the window is no bigger than the cell was: {found['room']}px against "
+        f"{found['before']['wide']}px"
+    )
+
+    assert found["afterCancel"] == found["before"]["label"], "cancelling kept the typing"
+    assert found["after"] == "the wind comes off the feedlot", found["after"]
+    assert not found["stillUnwritten"]
+    assert found["flagged"], "the areas panel was not marked unsaved after the reason changed"
+    assert "areas" in found["saidSaved"], found["saidSaved"]
+
+
 def test_the_value_box_follows_the_field(served) -> None:
     """feat-010/AC-29: what a value may be is a property of the field that was chosen.
 

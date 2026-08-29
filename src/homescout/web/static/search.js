@@ -322,20 +322,25 @@ function areaRow(kind, which, holder, remove, position, layer) {
       if (isLayer) holder.__name = given; else holder.name = given;
     },
   });
-  /* Why, beside what. Wider than the name box and deliberately so: a name is two words and a
-   * reason is a sentence somebody will be glad of in a year. It is the same field whether the area
-   * was drawn or typed, because the question it answers does not depend on how the shape got
-   * here. */
-  const why = el("textarea", {
-    rows: "2",
-    value: (isLayer ? holder.__reason : holder.reason) || "",
-    placeholder: "why this is in, or why it is out…",
+  /* Why, opened rather than squeezed in.
+   *
+   * This was a box in the cell first and it was the wrong shape for what goes in it. A reason is a
+   * sentence or three, and this table already spends its width on a name, a place and two
+   * controls, so the box came out ninety pixels wide and showed two words of a paragraph. A
+   * setting nobody can read is a setting nobody will write.
+   *
+   * So the cell holds what the reason says, as much of it as fits, and pressing it opens a window
+   * with room to read and write the whole thing. What is on the button is the value itself rather
+   * than a label, because a row of identical "Edit" buttons tells somebody scanning the table
+   * nothing, and the whole point of putting the reason on this page was that it could be read at
+   * a glance. */
+  const why = el("button", {
+    type: "button",
+    class: "why",
     "aria-label": `Why area ${position} is searched or left out`,
-    onchange: (e) => {
-      const given = e.target.value.trim();
-      if (isLayer) holder.__reason = given; else holder.reason = given;
-    },
+    onclick: () => askWhy(holder, isLayer, position, why),
   });
+  showWhy(why, (isLayer ? holder.__reason : holder.reason) || "");
 
   const sense = el("select", {
     "aria-label": `Whether area ${position} is searched or left out`,
@@ -359,7 +364,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
     el("td", {}, value(kind)),
     el("td", {}, which),
     el("td", {}, naming),
-    el("td", {class: "why"}, why),
+    el("td", {class: "whycell"}, why),
     el("td", {}, sense),
     el("td", {}, el("button", {
       type: "button",
@@ -367,6 +372,82 @@ function areaRow(kind, which, holder, remove, position, layer) {
       "aria-label": `Remove area ${position}`,
     }, "Remove")),
   );
+}
+
+
+/* What the button in the row says: the reason, or an invitation to write one.
+ *
+ * `unwritten` rather than an empty button, because a blank control reads as broken and a reason
+ * nobody has written yet is the ordinary state of a shape somebody just drew. */
+function showWhy(button, reason) {
+  button.classList.toggle("unwritten", !reason);
+  button.title = reason || "";
+  button.replaceChildren(document.createTextNode(reason || "say why…"));
+}
+
+/* The window it opens.
+ *
+ * Nothing is written to the file here, exactly as nothing is written when the name box is typed
+ * into. This puts the answer back on the shape or the row and marks the panel unsaved, and "Save
+ * the areas" is still the one thing that writes. Two ways out on purpose: keeping the change and
+ * discarding it are different intentions and a dialog that treats escape as agreement is a dialog
+ * that loses work.
+ */
+function askWhy(holder, isLayer, position, button) {
+  const called = (isLayer ? holder.__name : holder.name)
+    || (holder.value || `area ${position}`);
+  const before = (isLayer ? holder.__reason : holder.reason) || "";
+
+  const box = el("textarea", {
+    rows: "6",
+    class: "whytext",
+    placeholder: "why this area is searched, or why it is left out…",
+    "aria-label": `Why ${called} is searched or left out`,
+  });
+  box.value = before;
+
+  const keep = () => {
+    const given = box.value.trim();
+    if (isLayer) holder.__reason = given; else holder.reason = given;
+    showWhy(button, given);
+    if (given !== before) touched("areas");
+    dialog.close();
+  };
+
+  const dialog = el("dialog", {
+    /* The page already has a dialog frame, chrome, backdrop and all. This is the same kind of
+     * thing asked in the same kind of window, so it wears the same class and adds only its own
+     * width; a second set of dialog styling is two dialogs that drift apart. */
+    class: "ask whybox",
+    "aria-label": `Why ${called} is searched or left out`,
+    onclose: () => { dialog.remove(); button.focus(); },
+    onclick: (event) => { if (event.target === dialog) dialog.close(); },
+    onkeydown: (event) => {
+      /* Enter alone belongs to the paragraph being written. */
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        keep();
+      }
+    },
+  },
+    el("h2", {}, "Why ", el("strong", {}, called), " is ",
+       (isLayer ? holder.__excluded : holder.excluded) ? "left out" : "searched"),
+    el("p", {class: "meta"},
+      "For whoever reads this in a year, including you. A name says which shape this is; this says "
+      + "why anybody drew it, which is the part that settles the question when somebody asks why a "
+      + "whole town has no houses in it."),
+    box,
+    el("div", {class: "actions"},
+      el("button", {type: "button", class: "primary", onclick: keep}, "Keep this"),
+      el("button", {type: "button", class: "quiet", onclick: () => dialog.close()}, "Cancel"),
+    ),
+  );
+
+  document.body.append(dialog);
+  dialog.showModal();
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
+  return dialog;
 }
 
 function redrawAreaList() {
