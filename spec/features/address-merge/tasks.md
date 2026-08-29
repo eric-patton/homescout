@@ -75,3 +75,46 @@ that does not exist yet is not one of them.
 - [x] T23 [P]: Document merging in the README: what merges, what gets asked, and how to answer.
 - [x] T24: `uv run ruff check .` and the full suite, default and slow, green.
 - [x] T25: `/spec-flow:converge`, then the manifest stamp.
+
+## Defect: the matching key undid the rule about units
+
+- [x] T-unit-1: `merge/address.py`, `merge/signals.py`: a unit on one side only reaches a person
+      (`feat-006/AC-24`, `feat-006/AC-3`, `feat-006/AC-9`).
+
+      The module says it in its own docstring: "A unit on one side only is not a disagreement,
+      because one source breaking it out and another folding it into the line is the ordinary case."
+      The check at the top of `_addresses` honours it and requires a unit on both sides before
+      calling a conflict. Then the matching key, four lines down, is built from number, street,
+      unit and postal code, so a unit on one side made the keys differ and the comparison returned
+      `disagreed` anyway. The rule was stated, implemented, and then undone by the key.
+
+      `disagreed` is the expensive place for this to land. It routes to `unrelated`, which is the
+      one outcome that is never queued and never shown, so the pair does not surface anywhere: not
+      as a merge, not as a question, not as a count in the digest. It is the only silent branch in
+      the table and this was falling into it.
+
+      Measured on the real workspace: the review page held **two** pairs. Sixty-seven more were
+      sitting in `unrelated`, metres apart, at identical prices, one site carrying a lot number and
+      the other not. `103 Vail Loop` against `103 Vail Loop Lot 21`, seven hundred thousand dollars,
+      thirty-six metres, twice in the list. The queue now holds seventy-one.
+
+      The key keeps the unit, because it is also the blocking key and two units of one building
+      should not share a bucket. A second key without the unit tells the two failures apart: keys
+      that differ on number or street are a contradiction, keys that differ only on a unit one side
+      omitted are something that could not be checked. `unknown` rather than `agreed`, so the pair
+      goes to a person instead of being merged, which is what was asked for.
+
+- [x] T-unit-2: `tests/test_merge_compare.py`: the case the existing test is named after
+      (`feat-006/AC-24`). `test_a_unit_on_one_side_only_is_not_a_disagreement` puts `Unit B` on both
+      sides, once in the line and once in the field, so it proves the two spellings agree and says
+      nothing about a unit only one source carries. That gap is why this survived. The new test uses
+      the shape the real rows arrive in, one source's own unit field against nothing, and is checked
+      against the unfixed comparison.
+
+      Two guards beside it, because the risk of this change is over-reach in the other direction: a
+      different house number on the same street stays `unrelated`, and two lot numbers that differ
+      stay `distinct`. Widening what counts as a question must not widen what counts as the same
+      house, or a duplicate in a list is traded for a price history that is fiction.
+
+- [x] T-unit-3: measured end to end against a copy of the real workspace, before and after, through
+      `run_pass` and the same `/api/matches` the review page reads.

@@ -149,6 +149,68 @@ def test_a_unit_on_one_side_only_is_not_a_disagreement() -> None:
     assert outcome == "matched"
 
 
+def test_a_lot_number_on_one_side_and_nothing_on_the_other_is_a_question() -> None:
+    """feat-006/AC-3, feat-006/AC-24: the case the test above is named for and does not reach.
+
+    That one puts `Unit B` on both sides, once in the line and once in the field, so it proves the
+    two spellings agree rather than proving anything about a unit that only one source carries.
+    Here one source breaks the lot out into its own field and the other never mentions it, which is
+    how the real rows arrive.
+    This is the real shape, and it was the largest silent failure in the feature: the module says a
+    unit on one side only is not a disagreement, the check at the top of `_addresses` honours it,
+    and then the matching key folded the unit back in and undid it.
+
+    Measured on a real workspace before the fix: sixty-seven pairs, metres apart and at identical
+    prices, one site carrying a lot number and the other not, every one of them `unrelated`, which
+    is the single outcome that is never shown to anybody. The review page had two pairs on it.
+
+    Ambiguous rather than matched, and that is the whole point. One site recording a lot number the
+    other folded into the line is the ordinary case; a development where `103 Vail Loop` is the
+    entrance and `Lot 21` is one parcel on it is the case that makes merging these automatically
+    unsafe. From here the two are indistinguishable, so a person is asked.
+    """
+    outcome, signals = outcome_for(
+        row("a", "103 Vail Loop", at=NEAR),
+        row("b", "103 Vail Loop", unit="Lot 21", at=CLOSE),
+    )
+
+    assert outcome == "ambiguous"
+    assert any("the other does not" in note for note in signals.unknown), signals
+    assert not signals.conflicted, "a lot number one source omitted is not a contradiction"
+
+
+def test_a_different_house_number_is_still_a_different_house() -> None:
+    """feat-006/AC-1: the fix above must not swallow the ordinary case it sits next to.
+
+    `103` against `104` on one street, metres apart, is two houses in a row. If a key difference
+    stopped meaning anything, every neighbour on every street would arrive as a question and the
+    queue would be worth less than no queue.
+    """
+    outcome, signals = outcome_for(
+        row("a", "103 Vail Loop", at=NEAR),
+        row("b", "104 Vail Loop", at=CLOSE),
+    )
+
+    assert outcome == "unrelated"
+    assert any("different addresses" in note for note in signals.conflicted)
+
+
+def test_two_lot_numbers_that_differ_are_still_two_properties() -> None:
+    """feat-006/AC-3: the rule the fix is careful not to touch.
+
+    A unit present on both sides and different stays decisive. It has to: the change above widens
+    what counts as a question, and if it had also widened what counts as the same house it would
+    have traded a duplicate in a list for a price history that is fiction.
+    """
+    outcome, signals = outcome_for(
+        row("a", "103 Vail Loop", unit="Lot 21", at=NEAR),
+        row("b", "103 Vail Loop", unit="Lot 22", at=NEAR),
+    )
+
+    assert outcome == "distinct"
+    assert any("unit designation" in note for note in signals.conflicted)
+
+
 def test_land_with_no_street_address_is_never_matched_on_coordinates() -> None:
     """feat-006/AC-8: the spec's scenario, and the reason the whole queue exists for acreage.
 

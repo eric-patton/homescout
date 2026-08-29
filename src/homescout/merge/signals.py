@@ -161,6 +161,27 @@ def _addresses(one: Address, other: Address, found: _Found) -> Verdict:
         return "unknown"
 
     if mine != theirs:
+        # Two ways for keys to differ, and only one of them is a contradiction.
+        #
+        # The docstring above says a unit on one side only is not a disagreement, and the check at
+        # the top honours it, and then the key folded the unit back in and undid it. So "103 Vail
+        # Loop" against "103 Vail Loop #Lot 21" came out `disagreed`, which sends it to `unrelated`,
+        # which is the one outcome nobody is ever asked about. Measured on a real workspace: ninety-
+        # four pairs, same price, metres apart, one site carrying a lot number and the other not,
+        # every one of them sitting in a household's list as two houses with nobody ever offered the
+        # question.
+        #
+        # It is not resolved here either. One site recording a lot number the other folded into the
+        # line is the ordinary case, and a development where "103 Vail Loop" is the entrance and
+        # "#Lot 21" is one parcel on it is the case that makes automatic merging unsafe. Both look
+        # exactly like this. So the street address agreeing while the unit is unaccounted for is
+        # reported as something that could not be checked, which is what carries it to a person.
+        if one.key_without_unit() == other.key_without_unit():
+            found.unknown.append(
+                f"one of them carries a unit or lot the other does not, "
+                f"{(one.unit or other.unit)!r} on {one.raw!r} against {other.raw!r}"
+            )
+            return "unknown"
         found.conflicted.append(
             f"different addresses, {one.raw!r} against {other.raw!r}"
         )

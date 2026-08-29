@@ -130,6 +130,20 @@ problem brief is in `research.md`.
       street types, directionals, and casing differences do not affect the outcome.
 - [ ] AC-3: A fractional or lettered unit designation is preserved through normalization and is
       compared. Rows differing only in unit designation produce `distinct`.
+- [ ] AC-24: A unit or lot designation that only one row carries is never read as a contradiction.
+      One site breaking it into its own field while another folds it into the line, or omits it, is
+      the ordinary case rather than the exception. So when the street address agrees and exactly one
+      side names a unit, that is something the comparison could not check, and the pair carries the
+      unmatched designation into the queue as a question.
+
+      Not merged automatically, and the distinction is the reason the queue exists. From the two
+      rows alone, one site recording a lot number the other left off and a development whose
+      entrance carries the street address while a lot on it is a separate property look identical.
+      Both are common. The first is a duplicate in a list, the second is two properties, and the
+      cost of confusing them runs one way only, so a person is asked.
+
+      This must not widen what counts as agreement. A unit present on both sides and different stays
+      decisive under AC-3, and a different house number on the same street stays two houses.
 - [ ] AC-4: When both rows carry a parcel number, that comparison decides the outcome: agreement
       produces `matched` regardless of address, disagreement produces `distinct` regardless of
       address.

@@ -138,6 +138,22 @@ class Address:
             return None
         return "|".join((self.postal, self.number, self.street, self.unit))
 
+    def key_without_unit(self) -> str | None:
+        """The same key with the unit left out, for telling two failures apart.
+
+        Keys that differ can differ for two very different reasons, and the difference decides
+        whether anybody is ever asked. "103 Vail Loop" against "104 Vail Loop" is two houses.
+        "103 Vail Loop" against "103 Vail Loop #Lot 21" is one house that one site described more
+        precisely than the other, and reading that as two houses is how a duplicate stays in a
+        person's list forever without ever being offered to them.
+
+        The comparison uses both: this one says whether the street address itself lines up, and the
+        full key then says whether anything is left over.
+        """
+        if not self.has_street:
+            return None
+        return "|".join((self.postal, self.number, self.street))
+
 
 def _clean(text: str) -> str:
     return re.sub(r"[^a-z0-9/ ]+", " ", text.lower()).strip()
