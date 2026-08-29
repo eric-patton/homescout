@@ -289,9 +289,12 @@ def test_a_town_added_to_the_areas_stays_added(served) -> None:
                  await until(() => rows() > before);
                  const afterAdd = {count: rows(), values: shown()};
 
-                 /* And straight back out again, with the bin. */
+                 /* And straight back out again, with the bin, which asks first. */
                  const bins = document.querySelectorAll("td.bincell button.bin");
                  bins[bins.length - 1].click();
+                 const box = await until(() => document.querySelector("dialog.ask[open]"));
+                 [...box.querySelectorAll("button")]
+                   .find((b) => b.textContent.trim() === "Remove it").click();
                  await until(() => rows() < afterAdd.count);
 
                  return {before, afterAdd, afterRemove: rows(),
@@ -344,12 +347,28 @@ def test_removing_an_area_is_a_bin_that_still_says_what_it_is(served) -> None:
                  const head = [...document.querySelectorAll("#arealist thead th")].pop();
 
                  const rows = () => document.querySelectorAll("#arealist tbody tr").length;
+                 const answer = async (which) => {
+                   const box = await until(() => document.querySelector("dialog.ask[open]"));
+                   if (!box) return false;
+                   [...box.querySelectorAll("button")]
+                     .find((b) => b.textContent.trim() === which).click();
+                   await until(() => !document.querySelector("dialog.ask[open]"));
+                   return true;
+                 };
+
                  const before = rows();
+
+                 /* Asked, and a change of mind keeps the area. */
                  button.click();
+                 const asked = await answer("Keep it");
+                 const afterKeeping = rows();
+
+                 button.click();
+                 await answer("Remove it");
                  await until(() => rows() !== before);
 
                  return {
-                   there: true,
+                   there: true, asked, afterKeeping,
                    drawn: !!button.querySelector("svg"),
                    shownWords: button.textContent.trim(),
                    said: button.getAttribute("aria-label") || "",
@@ -357,6 +376,7 @@ def test_removing_an_area_is_a_bin_that_still_says_what_it_is(served) -> None:
                    headingSays: head ? head.textContent.trim() : "",
                    headingShows: head ? Math.round(head.getBoundingClientRect().width) : 0,
                    cellWide: Math.round(cell.getBoundingClientRect().width),
+                   before,
                    removed: before - rows(),
                  };
                })()""",
@@ -384,7 +404,12 @@ def test_removing_an_area_is_a_bin_that_still_says_what_it_is(served) -> None:
         f"{found['headingShows']}px"
     )
 
-    assert found["removed"] == 1, "pressing it did not take the area out of the table"
+    assert found["asked"], "the bin took an area out of the search without asking"
+    assert found["afterKeeping"] == found["before"], (
+        "answering \"Keep it\" removed the area anyway, which is the worst way for a "
+        "confirmation to be wrong"
+    )
+    assert found["removed"] == 1, "pressing it and confirming did not take the area out"
 
 
 def test_why_an_area_is_in_or_out_opens_in_a_window(served) -> None:

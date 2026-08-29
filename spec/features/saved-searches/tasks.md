@@ -189,3 +189,28 @@ alongside its peers.
 
 - [x] T-named-2: `tests/test_web_browser.py`: a town added stays added and a town removed stays
       removed (`feat-004/AC-2`). Checked against the rebuilding version, which fails both.
+
+- [x] T-named-3: `web/static/search.js`: the bin asks first (`feat-004/AC-2`, `feat-010/AC-3`).
+      "Removing should have a confirmation modal."
+
+      The word was a wide target that said what it did. The picture is a small one that does not,
+      and one click on it took a row out with nothing in between, so the question belongs here now
+      rather than before the icon.
+
+      What it asks about is proportionate to what is behind it, because those are not the same. A
+      town is a name somebody retypes in ten seconds. A drawn shape is a boundary somebody traced
+      on a map and there is no retyping that, so the dialog says which of the two this is. The
+      reason is shown when one is written, because it is the part somebody would actually be sorry
+      to lose and the decision should be made looking at it rather than at a name.
+
+      It is careful not to overstate itself. Nothing is written until "Save the areas", so this is a
+      change to a draft rather than a deletion, and the dialog says so: frightening somebody about
+      the wrong thing is its own kind of lie. "Keep it" takes the focus, so a stray Enter keeps the
+      area, and the backdrop, Escape and every other way out mean no, which is the rule the results
+      table's confirmation already follows.
+
+- [x] T-named-4: `tests/test_web_browser.py`: asked, and a change of mind is honoured
+      (`feat-004/AC-2`). The two tests that pressed the bin now answer the question, and the bin
+      test asserts both halves: that it is asked at all, and that "Keep it" leaves the area alone,
+      which is the worst way for a confirmation to be wrong. Checked against a bin that does not
+      ask, which fails it.

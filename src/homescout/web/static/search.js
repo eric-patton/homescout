@@ -400,7 +400,12 @@ function areaRow(kind, which, holder, remove, position, layer) {
     el("td", {class: "bincell"}, el("button", {
       type: "button",
       class: "bin",
-      onclick: remove,
+      onclick: async () => {
+        const called = (isLayer ? holder.__name : holder.name)
+          || holder.value || `area ${position}`;
+        const why = (isLayer ? holder.__reason : holder.reason) || "";
+        if (await confirmRemoval(called, kind, why)) remove();
+      },
       title: `Remove area ${position}`,
       "aria-label": `Remove area ${position}`,
     }, binIcon())),
@@ -519,6 +524,65 @@ function binIcon() {
   draw("M6.7 6.7v5");                                      /* and the two ribs, which are what */
   draw("M9.3 6.7v5");                                      /* make it read as a bin at 16px */
   return box;
+}
+
+/* Before taking an area out of the search.
+ *
+ * The bin is one click on a small target, and the thing behind it is not all equally easy to get
+ * back. A town is a name somebody retypes in ten seconds. A drawn shape is a boundary somebody
+ * traced on a map, and there is no retyping that. The reason beside it, if it is written, is a
+ * paragraph somebody wrote for whoever reads the file in a year, and it goes with the row.
+ *
+ * The wording is careful about what this is and is not. Nothing is written until "Save the areas",
+ * so this is a change to a draft rather than a deletion, and saying otherwise would be frightening
+ * somebody about the wrong thing. What it does cost is what is in the row, now, and that is what
+ * the dialog shows: the shape, and the reason if there is one, so the decision is made looking at
+ * the thing rather than at its name.
+ *
+ * Every way out that is not the one button means no, which is the same rule the results table's
+ * confirmation follows.
+ */
+function confirmRemoval(called, kind, reason) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const done = (yes) => {
+      if (answered) return;
+      answered = true;
+      resolve(yes);
+      dialog.close();
+      dialog.remove();
+    };
+
+    const drawn = kind === "polygon" || kind === "radius";
+    const yes = el("button", {type: "button", class: "danger",
+                              onclick: () => done(true)}, "Remove it");
+    const no = el("button", {type: "button", class: "primary",
+                             onclick: () => done(false)}, "Keep it");
+
+    const dialog = el("dialog", {
+      class: "ask",
+      "aria-labelledby": "askremove",
+      onclose: () => done(false),
+      oncancel: () => done(false),
+      onclick: (event) => { if (event.target === dialog) done(false); },
+    },
+      el("h2", {id: "askremove"}, "Take this area out of the search?"),
+      el("p", {}, el("strong", {}, called)),
+      reason ? el("p", {class: "hint"}, "Why it is here now: ", reason) : null,
+      el("p", {class: "hint"},
+        drawn
+          ? "This is a shape somebody drew on the map, so putting it back means drawing it again."
+          : "This is a named place, so putting it back means typing the name again."),
+      el("p", {class: "hint"},
+        "Nothing is written yet either way. The file changes when you press “Save the "
+        + "areas”, and leaving this page without saving leaves the file as it was."),
+      el("div", {class: "actions"}, no, yes),
+    );
+
+    document.body.append(dialog);
+    dialog.showModal();
+    no.focus();  /* The safe one, so a stray Enter keeps the area. */
+  });
 }
 
 function redrawAreaList() {
