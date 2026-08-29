@@ -9,8 +9,15 @@ in five years. The problem brief is in `research.md`.
 
 ## Vocabulary used in this feature
 
-- A **surface** is one screen. There are six: the map and search builder, the saved search list, the
-  results table, the listing detail, the run comparison, and the merge review queue.
+- A **surface** is one screen. There are nine: the search builder, the saved search list, the
+  results table, the listing detail, the run comparison, the merge review queue, the map, the
+  settings surface, and the surface holding what has been set aside.
+
+  The first is the search builder rather than "the map and search builder", and the seventh is the
+  map. The surface that draws the wildfire hazard model also draws either background, which way the
+  wind pushes, county lines, town names, rainfall and a ruler, so it has the word outright: two
+  surfaces whose names both contain "map" is the ambiguity that rename exists to remove. The search
+  builder still has a map on it, and what that map is for is drawing the areas a search covers.
 - An **inline edit** is a change to an annotation made directly in a results table row, without
   navigating away from it.
 - A **judgment** is the person's own decision about whether a property is still worth their
@@ -41,10 +48,23 @@ in five years. The problem brief is in `research.md`.
   catch up after being away.
 - As the person running searches, I want to make a new search, copy one, set one aside without
   deleting it, and delete one I am truly finished with, so that the browser is somewhere I can keep
-  the set of searches rather than only look at it, and so that a search I no longer want stops
-  cluttering the list without taking the properties it found with it.
+  the set of searches rather than only look at it, and so that a search I no longer want leaves the
+  list entirely, is still somewhere I can find it and bring it back, and can finally be discarded
+  when I am sure, without taking the properties it found with it.
+- As the person running searches, I want everything I have set aside kept somewhere other than the
+  list of what I am watching, so that opening the tool in the morning shows me the searches that
+  ran and not the ones I stopped caring about.
+- As the person running searches, I want to be finished with a search for good, so that a tool I
+  have used for a year is not carrying every experiment I ever made.
+- As the person running searches, I want a link to say where it goes, so that I do not have to open
+  a screen to find out it does more than its name admits.
+- As the person running searches, I want the controls on a screen sorted by what they do, so that I
+  can find the one I want by looking rather than by reading all of them.
+- As the person running searches, I want to move between the screens about one search without going
+  back to the list each time, so that reading a property, checking what changed and looking at
+  where it is are one task rather than three.
 - As the person running searches, I want to set up the optional parts (a model to read descriptions,
-  a background for the map) from the screen that tells me they are off, so that turning one on does
+  a background for the maps) from the screen that tells me they are off, so that turning one on does
   not mean finding a file and knowing its variable names.
 - As the person running searches, I want to see both houses on the card, so that the pairs that are
   obviously one house take a glance rather than two tabs.
@@ -64,7 +84,7 @@ in five years. The problem brief is in `research.md`.
 ## Behavior & scenarios
 
 - **Scenario: drawing and saving a search**
-  - Given the map surface
+  - Given the search builder
   - When areas are drawn and named, exclusions are drawn, filters and criteria are set, and the
     search is saved
   - Then a saved search definition exists containing that geometry, and running it from a terminal
@@ -150,15 +170,18 @@ in five years. The problem brief is in `research.md`.
 
 - **Scenario: a map with nothing behind it**
   - Given no tile server configured, which is the default
-  - When the map is opened
+  - When the search builder is opened
   - Then it draws a labelled coordinate grid that can be drawn over, says what is missing, and offers
     to turn a background on with what that costs stated beside the offer
 
 ## Acceptance criteria
 
-- [ ] AC-1: Seven surfaces exist and are reachable: map and search builder, saved search list,
-      results table, listing detail, run comparison, merge review queue, and the fire map.
-- [ ] AC-2: Areas can be drawn, named, and edited on the map, including exclusion areas, and are
+- [ ] AC-1: Nine surfaces exist and are reachable: the search builder, the saved search list,
+      the results table, the listing detail, the run comparison, the merge review queue, the map,
+      the settings surface, and the surface holding what has been set aside. The settings surface
+      has existed since the optional parts became configurable from the screen that reports them
+      off, and was not written down here until the count moved for another reason.
+- [ ] AC-2: Areas can be drawn, named, and edited on the search builder's map, including exclusion areas, and are
       saved as geometry in the saved search definition.
 - [ ] AC-3: A saved search opened and re-saved here is unchanged apart from the edits made,
       including parts of the definition this interface does not itself edit.
@@ -210,9 +233,16 @@ in five years. The problem brief is in `research.md`.
       property in that town, and those rows take it there and then rather than at the next reload.
 - [ ] AC-20: Properties whose presence is `disappeared` are hidden from the results table by
       default and are shown by an explicit filter, which is always available and reports how many
-      are hidden. It is one of the table's four view toggles, alongside the ones for passed
-      properties (AC-35), photographs (AC-43) and wrapped text (AC-47); only the toggles that hide
-      something report a count.
+      are hidden. The number is reported where every other reason a row is missing is reported, in
+      the bar above the table (AC-57), with its own control to lift it.
+
+      This criterion used to name the mechanism as well: "one of the table's four view toggles,
+      alongside the ones for passed properties, photographs and wrapped text". There are not four
+      any more, because the two that hid rows became one control with four answers and this one
+      became a statement in the bar. A criterion that counts the controls on a screen dates the
+      moment the screen is rearranged, and this one had dated twice. What must be true of the
+      hiding is that it is explicit, reversible, and counted where the other reasons are counted.
+      Photographs (AC-43) and wrapped text (AC-47) hide no rows and belong with the columns.
 - [ ] AC-21: The server answers to the loopback names and to no others, unless a name is explicitly
       configured. A configured name is how a reverse proxy running on the same machine reaches it,
       and it changes nothing about where the server listens. A name that was not configured is
@@ -225,25 +255,32 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-23: A saved search can be created, copied, paused, resumed, archived, and brought back from
       the interface. None of these six deletes anything. A paused or archived search is skipped by a
       run of everything, which reports that it skipped it, and still runs when asked for by name.
+
+      Bringing an archived search back happens on the set-aside surface (AC-69) rather than from a
+      control that reveals archived searches among the watched ones. A paused search stays on the
+      list, because a pause is a search somebody is still watching and means to resume, and a pause
+      that made the search vanish is a pause nobody would use.
 - [ ] AC-24: The parts of a saved search this interface edits (its description, its sources, its
       filters, whether a model reads its descriptions, and its criteria) are editable here, and
       AC-3's guarantee holds for every edit made through them. A criterion is sent as the conditions
       a person chose, and the expression is composed by the rule engine rather than by the
       interface, so the grammar has one home and the file gets the same line somebody would have
       typed.
-- [ ] AC-25: The optional configuration (which model reads descriptions, where the map's tiles come
+- [ ] AC-25: The optional configuration (which model reads descriptions, where map tiles come
       from, where the digest is written) is editable here and written to the uncommitted file beside
       the database, taking effect without a restart and leaving the rest of that file, comments
       included, exactly as it was. A setting whose name looks like a credential is refused, and no
       credential is ever displayed.
-- [ ] AC-26: With no tile server configured, the map draws a labelled coordinate grid, says what is
+- [ ] AC-26: With no tile server configured, the search builder's map draws a labelled coordinate grid, says what is
       missing, and offers to turn a background on with the privacy cost stated beside the offer
       rather than in a document.
 - [ ] AC-27: A saved search can be deleted. It leaves the list at once, is skipped by a run of
       everything, and is not found when asked for by name. Two limits hold and are stated where the
       deletion is offered rather than only in a document. The definition is kept rather than
       unlinked, so it can be restored with its areas and comments intact, and the interface offers
-      that restoration. And nothing a run recorded is removed: the properties, their price history
+      that restoration on the set-aside surface (AC-69) rather than at the foot of the list of
+      searches. Deleting is still offered from the search's own card, because that is where somebody
+      decides it. And nothing a run recorded is removed: the properties, their price history
       and any judgment written on them survive, because non-negotiable 2 and product invariant 1
       make snapshot history append-only. The answer reports how many runs were kept, so nobody is
       left believing more was removed than was.
@@ -268,12 +305,28 @@ in five years. The problem brief is in `research.md`.
       on every row (AC-49), in one action, without
       opening the property and without typing. Setting it again to the same value clears it back to
       unset, so the control that passes a house is the control that un-passes it.
-- [ ] AC-35: A passed property is absent from the results table by default, and present when "show
-      passed" is asked for. A test covers both.
+- [ ] AC-35: A passed property is absent from the results table by default. Which properties are
+      shown by judgment is one control with one answer in force at a time: the ones still in play,
+      the ones kept, the ones passed on, or all of them. In play means everything not passed on,
+      which is the undecided and the kept together, and it is the default because a kept property
+      is on the shortlist and AC-49 says it is hidden from nothing. A test covers each answer.
+
+      One control because it is one question about one field. Two controls over it could express a
+      state the table could not be in, and had to be applied in a careful order so that "only what
+      you kept" and "show passed" could not contradict each other. One answer cannot contradict
+      itself.
 - [ ] AC-36: When passed properties are hidden, their number is reported, in the same place and the
-      same form as the count of disappeared listings already hidden. A table that is quietly shorter
-      than the run that produced it is not acceptable; the difference has to be visible without
-      being asked for.
+      same form as every other reason the table is narrowed: as a statement in the bar above it,
+      in words, carrying the number it is holding back and its own control to lift it (AC-57). A
+      table that is quietly shorter than the run that produced it is not acceptable; the difference
+      has to be visible without being asked for, and the defence against it is one place a person
+      looks rather than two.
+
+      Two kinds of fact were run together in one line: how many properties there are, which is a
+      total nobody can act on, and why some are missing, which is a reason and is something a
+      person may want to undo. The totals stay in a line under the controls, which says how many
+      are drawn, out of how many the run found, and how many are kept. The reasons are in the bar.
+      Nothing is said in both places, and how long the table took to draw is said in neither.
 - [ ] AC-37: Passing a property changes what is displayed and nothing else. It is still observed by
       every run, still snapshotted, still compared, still counted in a run's totals, and still
       reported as new, changed, gone or returned in the digest. A test asserts a passed property
@@ -356,8 +409,10 @@ in five years. The problem brief is in `research.md`.
       asks nothing: it hides nothing, and the same control undoes it.
 - [ ] AC-49: Keeping and passing are the first thing on a row, in a column of their own that cannot
       be moved or displaced, so the controls are in one place on every row of every arrangement. A
-      kept property is on the shortlist and is hidden from nothing; the table can be narrowed to the
-      shortlist alone, and the number kept is reported alongside the number hidden. The shortlist is
+      kept property is on the shortlist and is hidden from nothing; narrowing to the shortlist alone
+      is one of the answers of AC-35's control rather than a box of its own, and the number kept is
+      reported in the line of totals, because how many have been kept is a fact about the search
+      rather than a reason a row is missing. The shortlist is
       readable from the command line as well, which is product invariant 5 applying to it exactly as
       it applies to the passed list.
 - [ ] AC-54: Keeping a property and passing on one both ask why, in their own words, at the moment
@@ -398,7 +453,7 @@ in five years. The problem brief is in `research.md`.
       way. A format the export does not write is refused in words rather than written.
 - [ ] AC-51: Every photograph a listing carried can be looked through, one at a time and at the size
       the window allows, from the stored thumbnail on the results table, from the picture in a pin's
-      bubble on the fire map, and from the property's own page. These pictures are the listing site's rather than this tool's, so nothing is asked of
+      bubble on the map, and from the property's own page. These pictures are the listing site's rather than this tool's, so nothing is asked of
       any listing site until somebody opens the gallery, and the gallery says where they come from:
       it is the one place in this product where looking at a property is not free of the site it was
       found on. A listing that carried none says so rather than opening an empty gallery. What a
@@ -412,12 +467,18 @@ in five years. The problem brief is in `research.md`.
       that a price typed the way it is printed matches it and "not known" finds the properties
       nobody could determine that column for. Filters on several columns all apply, together with
       the whole-table search box, and are applied in the browser without contacting the server.
-      Every filter in force is named in words above the table with its own control to lift it, and
-      one control lifts all of them, the whole-table search included. A filter narrows what is drawn
+      Every reason the table is showing fewer rows than the run found is named in words above the
+      table with its own control to lift it, and one control lifts all of them. That is the column
+      filters, the whole-table search, the judgment being narrowed to anything but all of them, and
+      the properties that have come off the market being held back; each says how many rows it is
+      holding, which is what satisfies AC-36 and AC-20 for the two that hide by the thousand. The
+      bar is drawn on arrival rather than once somebody touches a filter, because the judgment
+      narrows the table by default and a bar that waited would be silent for exactly the person who
+      has not worked out why the table is short. A filter narrows what is drawn
       and changes nothing else: no property is altered, judged or deleted by one, and none of it is
       remembered past the visit, because a narrowing that came back days later would hide rows for a
       reason nobody remembers setting.
-- [ ] AC-58: The fire map carries a scale that reports the distance across the screen in miles and
+- [ ] AC-58: The map carries a scale that reports the distance across the screen in miles and
       follows the zoom. It also offers a ruler, off by default, laid across the middle of what is on
       screen: either end can be moved to a point on the map, the whole ruler can be carried
       elsewhere without changing its length, and it reads the distance between its ends in miles, or
@@ -425,7 +486,7 @@ in five years. The problem brief is in `research.md`.
       and by keyboard, in steps taken from what is on screen rather than in fixed degrees. A scale
       fixed in a corner cannot be held up against two things that are somewhere else on the map,
       which is the whole reason the second one exists.
-- [ ] AC-59: The fire map can draw which way the wind pushes, off by default, per weather station
+- [ ] AC-59: The map can draw which way the wind pushes, off by default, per weather station
       over that station's whole recorded history rather than as any forecast. It draws one arrow per
       station, pointing the way the wind most often pushes and longer where the wind more often does
       the same thing, and a second arrow only where hard wind pushes somewhere the everyday wind
@@ -448,7 +509,7 @@ in five years. The problem brief is in `research.md`.
       empty, and it and the mark for a station still being read are both drawn over the properties.
       Only the arrow's own ink answers to the pointer, under the rule in AC-60: nothing drawn over
       the properties takes the pointer off them except at the pixels where it is actually drawn.
-- [ ] AC-60: The fire map can draw county lines and town names over the hazard layer, off by
+- [ ] AC-60: The map can draw county lines and town names over the hazard layer, off by
       default, from the same public boundary service the rest of this tool uses, fetched once per
       state and kept. They are drawn over the layer and not under it, because underneath is where
       the map's own names already are and a raster opaque enough to read is a raster that hides
@@ -465,7 +526,7 @@ in five years. The problem brief is in `research.md`.
       and the empty box around it does not. And a layer of outlines nobody clicks still has to say
       so at the layer, not at the shapes, because these shapes are drawn on a canvas and a canvas
       is one element covering everything beneath it whether anything is painted there or not.
-- [ ] AC-61: The fire map can draw how much rain and snow a county gets in a year, off by default,
+- [ ] AC-61: The map can draw how much rain and snow a county gets in a year, off by default,
       as an average over the last thirty complete years the national record holds, written under
       that county's name with its unit. Rain *and snow*, and the page says so: the national record
       measures frozen precipitation by melting it, so a mountain county's real winter is written
@@ -478,7 +539,7 @@ in five years. The problem brief is in `research.md`.
       floating on an unnamed patch of map is a number about nothing. Nothing is scored, ranked,
       hidden or coloured by rainfall. A county that cannot be read is named and the rest are still
       drawn, with lines and a name and no number.
-- [ ] AC-62: The fire map shows the properties currently on it as a list underneath it, holding
+- [ ] AC-62: The map shows the properties currently on it as a list underneath it, holding
       exactly the pins the map is drawing and hiding whatever the map hides, re-read whenever the
       map moves. A pin is very good at "where" and says nothing until it is opened, so reading a
       screenful of them means opening every one; the list is the same look with the numbers in it.
@@ -536,6 +597,74 @@ in five years. The problem brief is in `research.md`.
       is answered in full rather than refused, and something already compressed is not compressed
       again. The answer a reader ends up with is byte for byte the answer they would have had
       without it.
+- [ ] AC-69: A saved search that has been set aside is not on the list of searches. Archived and
+      deleted searches are read on a surface of their own, reachable from the list, which says how
+      many are there before it is opened and is not offered at all while there are none. Each one is
+      shown as what it was rather than as a name on a button: its description, how many areas it
+      had, which sources it used, when it last ran, and when it was set aside. An archived search is
+      brought back from there; a deleted one is restored from there, with its areas and comments
+      intact, which is AC-27's guarantee unchanged and now offered in one place rather than two. The
+      list of searches gains no control for showing archived ones among the watched ones, because
+      there is nowhere left for them to be shown.
+- [ ] AC-70: A deleted search can be discarded for good, from that surface and nowhere else. It is
+      the only operation in this interface that removes a file, and it is built as the only one: it
+      asks for the search's name to be typed before it will act, and it says what survives before it
+      is confirmed rather than after. What survives is everything the runs recorded. Every property
+      that search ever found, its price history and every judgment written on it stay in the store,
+      because snapshot history is append-only under non-negotiable 2 and product invariant 1, and
+      the answer reports how much of it there is, so nobody is left believing more was removed than
+      was. A discard of a search that is not deleted is refused in words rather than performed: the
+      two steps are deliberate, because the reversible one is what makes the irreversible one safe
+      to offer.
+
+      The file it removes is found the same way every other operation on a saved search finds one:
+      through the strict name rule and the containment check, and never by a pattern built from the
+      name. The name reaches this operation as a segment of a URL, and this is the one operation in
+      the product where being wrong about which file that names cannot be undone.
+
+      The typed name is a guard against the hand, not against an attacker. This server has no
+      authentication by design, the route is reachable directly, and nothing the browser does can
+      prove to it that a person typed anything. What stands between a hostile page and this
+      operation is the check on the request that already covers every write: the permitted host, the
+      origin, and the header no cross-site form can set. The two are different jobs and neither
+      substitutes for the other.
+
+      Whether the search is already deleted is read from the catalogue inside the request that
+      performs the removal, and no claim the client makes about that state is accepted.
+- [ ] AC-71: A surface is named for everything it does, on every link that reaches it and in its own
+      heading. The map is called the map: it draws the wildfire hazard model, either configured
+      background, which way the wind pushes, county lines, town names, rainfall by county, a movable
+      ruler, and the properties themselves as pins that can be kept or passed on, and a name that
+      says "fire" describes one of those.
+
+      Its address is renamed with it, and the old one keeps working: the surface is at `/map/{name}`
+      and `/fire/{name}` answers with a permanent redirect rather than a not-found. Every surface
+      here is reloadable and bookmarkable by design and this one is reached from a phone, so an
+      address that stops answering is a bookmark that breaks with nothing on screen to say where the
+      page went.
+- [ ] AC-72: The controls on a surface are grouped by the question they answer, each group named in
+      words, rather than set out as one row of everything. On the results table the groups are which
+      rows are shown, which columns are shown, and where else to go. On the map they are which
+      properties are drawn and what is drawn underneath them. A group's name is a word rather than
+      an icon, and a group is open rather than a menu: this reorders and labels controls and hides
+      none of them.
+
+      Two things go with the regrouping, both about a screen saying one thing once. A surface
+      announces a change of state to anything reading the page out through one region rather than
+      several: three regions that announce themselves separately are three interruptions for one
+      change, and to somebody who cannot see that they landed together they read as three unrelated
+      events. And a measurement of how long the page took to draw is not shown to the person reading
+      it; that is a number for whoever is writing the table.
+- [ ] AC-73: Every surface about one saved search says which search it is about and offers the
+      others. From the results table, the run comparison, the map or the search builder, the other
+      three and the list of searches are each one press away, from the same place on every one of
+      them. A property's own page offers the way back to the table it was read from, carried in the
+      address because a property can appear in several saved searches and "back to the search" has
+      no single answer; a property page opened without one offers no trail rather than guessing.
+
+      The navigation that names the same three destinations everywhere is not this: a bar that
+      reports "the list of searches" while standing on a search's own results is naming somewhere
+      the reader is not.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first
@@ -549,10 +678,10 @@ in five years. The problem brief is in `research.md`.
       answered in full, and the server still answers afterwards. A request that fails still lets
       the next one in.
 - [ ] AC-65: A property's own page draws that property on the wildfire hazard layer, small, using
-      the same layer at the same address through the same cached route the fire map uses, so
-      nothing new talks to the outside world. The fire map answers which of a hundred properties is
+      the same layer at the same address through the same cached route the map uses, so
+      nothing new talks to the outside world. The map answers which of a hundred properties is
       near the red; this answers the other half of the same question, which is what this one is next
-      to, and it is a map rather than a value for the reason the fire map exists at all: no column
+      to, and it is a map rather than a value for the reason the map exists at all: no column
       in this tool says what a house is beside. It can be dragged and zoomed. A property with no
       location says so and draws nothing, because an empty map centred on nowhere reads as a fault
       in the tool rather than as a fact about the listing.
@@ -599,7 +728,7 @@ in five years. The problem brief is in `research.md`.
   it belongs with, not at the far right, and the heading text says how tags are opened, because a
   control that is only found by people who already know it is there was found by nobody.
 - A property has no coordinates and its own page is opened. It says no source gave it a location
-  and that the fire map counts it as unplaced, rather than drawing an empty map.
+  and that the map counts it as unplaced, rather than drawing an empty map.
 - A page opens and fires several dozen requests at once, which is what a page opening is. Every
   one of them is answered and the server is still answering afterwards. This is the case that must
   be tested with a burst: two requests at a time pass happily under an arrangement that stops the

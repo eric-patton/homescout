@@ -63,6 +63,6 @@ is, for the same reason deleting already reports how many runs were kept: nobody
 believing more was removed than was.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

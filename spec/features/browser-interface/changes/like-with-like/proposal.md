@@ -76,6 +76,6 @@ Not fewer controls. Every control that exists still exists and still does what i
 the two that become one. Grouping is not hiding: a group is named and open, not a menu.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

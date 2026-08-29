@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,9 +15,9 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
-  analyze: pass
+  analyze: not-run
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
@@ -38,9 +38,11 @@ extends: []
 
 ## Scope
 
-Five screens on localhost: the map and search builder with polygon drawing, the saved search
-list, the results table with every column and inline-editable annotations, the listing detail
-with photos and enrichment and merge provenance and a price timeline, and the run history diff.
+Nine screens on localhost: the search builder with polygon drawing, the saved search list, the
+results table with every column and inline-editable annotations, the listing detail with photos
+and enrichment and merge provenance and a price timeline, the run history diff, the merge review
+queue, the map, the settings surface, and the surface holding what has been set aside. Five when
+this was written; the rest arrived as recorded changes below.
 Editing annotations directly in the table is what makes this replace the spreadsheet rather than
 merely produce one. Plain HTML and vanilla JavaScript, no framework, no second build toolchain.
 
@@ -85,3 +87,30 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   nobody checked about a place that was checked. The criterion builder is unaffected and needed no
   change: it reads the rule namespace over the API, so the new field and its values appeared there
   on their own.
+
+- **2026-08-29, what you set aside has a page (`changes/the-list-is-what-you-watch/`).** A saved
+  search can be in four states and the list showed all four. Archived and deleted ones move to a
+  surface of their own, each shown as what it was rather than as a name on a button, and the list
+  holds what is being watched. A deleted search can finally be discarded for good, which was
+  previously impossible: the file was kept forever and nothing removed it, so the strip at the foot
+  of the list only ever grew. It is the only operation here that removes a file, so it is the only
+  one that asks for the name to be typed, and it says what survives before it is confirmed.
+
+  The pre-build check held this one on a security finding, and the finding was not about the new
+  code. Asked what the permanent removal would be written next to, it found that restoring a search
+  built a glob pattern out of the raw name while every other operation on a saved search resolved
+  through the strict name rule, and a pattern with `..` in it walks out of its own directory.
+  Nothing could actually be moved by it: the name check runs after the search and refuses before
+  anything happens. It was saved by the order its checks fall in, which protects that function and
+  not the pattern, and the pattern was about to be copied into the one function that deletes. Fixed
+  in the defect lane, with a regression test that reads why the name was refused, because the first
+  version of that test passed against the unfixed function.
+
+- **2026-08-29, like with like (`changes/like-with-like/`).** The map is called the map, and moved
+  to an address that says so with the old one still answering. The results toolbar is three named
+  groups rather than eleven controls in a row. Two checkboxes over the judgment became one control
+  with four answers. Every reason a row is missing is in the bar above the table with the number it
+  is holding and its own control to lift it, which is what that bar was built for and what it was
+  built without: 737 of 951 rows were held back by the judgment and the bar was empty. Every screen
+  about a search now offers the others, built once rather than five times, which is how the search
+  builder came to reach none of them.
