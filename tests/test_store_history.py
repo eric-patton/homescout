@@ -352,6 +352,33 @@ def test_a_later_failed_retrieval_cannot_replace_a_good_image(store: Store) -> N
     assert store.preview_image_path(listing_id).read_bytes() == b"the-good-one"  # type: ignore[union-attr]
 
 
+def test_a_picture_survives_being_merged_twice(store: Store) -> None:
+    """feat-001/AC-25: the picture belongs to the property, however many merges got it here.
+
+    Merging writes a *new* listing and points the old ones at it, so merging an already-merged
+    property puts the picture two links down a chain rather than one. A lookup that took one link
+    found nothing and the property showed as having no photograph while its photograph sat on the
+    disk. Measured on a real workspace before the fix: six properties, every one of them a house
+    seen on three sites and merged in two passes.
+    """
+    do_run(store, sources={"realtor": [prop("a1")], "zillow": [prop("b1")]})
+    first, second = (listing.id for listing in store.listings())
+    store.store_preview_image(first, b"the-only-copy")
+
+    once = store.supersede([first, second], join_signal="address")
+    do_run(store, sources={"realtor": [prop("a1")], "zillow": [prop("b1")], "redfin": [prop("c1")]})
+    third = next(listing.id for listing in store.listings() if listing.id != once)
+    twice = store.supersede([once, third], join_signal="address")
+
+    found = store.get_preview_image(twice)
+    assert found is not None, "a picture went missing down a second merge"
+    assert store.preview_image_path(twice).read_bytes() == b"the-only-copy"  # type: ignore[union-attr]
+
+    # And the bulk answer agrees with the one-at-a-time answer, which is the whole reason there are
+    # two of them: the table asks once for a thousand rows and the pin asks for one.
+    assert twice in store.listings_with_preview_images()
+
+
 def test_full_size_image_addresses_are_recorded_but_not_the_images(store: Store) -> None:
     """feat-001/AC-25: the gallery is linked, only the preview is kept."""
     urls = ("http://example.test/1.jpg", "http://example.test/2.jpg")

@@ -171,3 +171,30 @@ earlier.
 - [x] T-tags-4: `store/core.py`: clearing every tag off a property (`feat-001/AC-28`). `tag NOT IN
       ()` with nothing in it is not false, it is unknown, so the delete matched no row and asking
       for no tags left every tag exactly where it was. Found by the test that asks for none.
+
+## Defect: a picture went missing down a second merge
+
+- [x] T-image-chain: `store/core.py`: a picture is found however many merges deep it lies
+      (`feat-001/AC-25`).
+
+      A merged property reads its picture from its constituents, and that worked for one merge. A
+      merge writes a *new* listing and points the old ones at it, so merging an already-merged
+      property leaves the picture two links down a chain, and both lookups followed exactly one
+      link: the one that answers for a single property, and the one that answers for a whole table
+      at once. Both said no photograph about a property whose photograph was on the disk.
+
+      Found while answering why six Redfin properties had no picture. They were not these six. On
+      the real workspace, eighteen properties showed none; twelve were Redfin-only, which is that
+      source carrying no photographs at all, and the other six were this, every one of them a house
+      seen on three sites and merged in two passes. The fix put all six back without a single
+      request.
+
+      A recursive walk down the chain rather than a join across one link, which is the shape
+      `store/diff.py` already uses for the same reason. `UNION` rather than `UNION ALL`, because
+      this walks links a person can create and undo, and a cycle has to end the query rather than
+      the process.
+
+- [x] T-image-chain-2: `tests/test_store_history.py`: a picture stored before two merges is still
+      found after them (`feat-001/AC-25`). Both answers are asserted, the one for a single property
+      and the one for the whole table, because they are separate queries and either could drift
+      from the other. Checked against the one-link version, which fails it.

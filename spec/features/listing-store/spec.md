@@ -194,6 +194,14 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       outside the database and referenced by path, survives the property becoming `disappeared`, and
       is never overwritten by a later failed retrieval. Full-size image addresses are recorded but
       the images themselves are not retained.
+
+      A picture is retrieved against whichever record was being looked at when it was retrieved, and
+      merging moves nothing, so a merged property reads its picture from the records merged into it
+      and does so however many merges deep they lie. Nothing is copied and nothing is moved: this is
+      what a merged property is asked, not what it is made to hold, which is why undoing a merge
+      cannot lose a picture. A property whose picture is on this machine must never report having
+      none, because "no photograph" is a thing this tool says about a listing that carried none and
+      it has to keep meaning that.
 - [ ] AC-26: Notes about an area or a town are stored independently of any property, are addressed
       by the area they describe, and survive every run exactly as property annotations do. They are
       never created or modified by a run.

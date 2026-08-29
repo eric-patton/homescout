@@ -1240,9 +1240,21 @@ class Store:
             # record was observed when it was fetched, and merging never moves anything. So a
             # merged property would show as having no photograph while its own constituents each
             # had one. Read-side only; nothing is copied or moved.
+            #
+            # The whole chain, not one link of it. A merge writes a *new* listing and points its
+            # constituents at that, so merging an already-merged property leaves the picture two
+            # hops down and a lookup that took one hop reported no photograph for a property whose
+            # photograph was on the disk the whole time. `UNION` rather than `UNION ALL` because
+            # this walks user-editable links, and a cycle here has to end the query rather than the
+            # process.
             row = self._conn.execute(
-                "SELECT i.* FROM listing_images i JOIN listings l ON l.id = i.listing_id "
-                "WHERE l.superseded_by = ? ORDER BY i.retrieved_at DESC LIMIT 1",
+                "WITH RECURSIVE merged(id) AS ("
+                "  SELECT ?"
+                "  UNION"
+                "  SELECT l.id FROM listings l JOIN merged ON l.superseded_by = merged.id"
+                ") "
+                "SELECT i.* FROM listing_images i JOIN merged ON merged.id = i.listing_id "
+                "ORDER BY i.retrieved_at DESC LIMIT 1",
                 (listing_id,),
             ).fetchone()
         if row is None:
@@ -1262,13 +1274,19 @@ class Store:
         and the answer is one column of one small table.
         """
         # A merged record counts as having one when any record merged into it has one, which is
-        # the same answer `get_preview_image` gives for it one at a time.
+        # the same answer `get_preview_image` gives for it one at a time - including down a chain
+        # of merges rather than one link of it.
         return {
             row["listing_id"]
             for row in self._conn.execute(
+                "WITH RECURSIVE live(id, live_id) AS ("
+                "  SELECT id, id FROM listings WHERE superseded_by IS NULL"
+                "  UNION"
+                "  SELECT l.id, live.live_id FROM listings l JOIN live ON l.superseded_by = live.id"
+                ") "
                 "SELECT i.listing_id FROM listing_images i "
-                "UNION SELECT l.superseded_by FROM listing_images i "
-                "JOIN listings l ON l.id = i.listing_id WHERE l.superseded_by IS NOT NULL"
+                "UNION SELECT live.live_id FROM listing_images i "
+                "JOIN live ON live.id = i.listing_id"
             )
         }
 
