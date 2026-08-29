@@ -145,8 +145,15 @@ const state = {
    * on screen, in words, above the table. */
   filters: {},
   showGone: false,
-  showPassed: false,
-  onlyKept: false,
+  /* Which properties are shown, by the judgment written on them. One answer at a time, because it
+   * is one question about one field.
+   *
+   * `play` is everything not passed on, which is the undecided and the kept together, and it is
+   * the default because a kept property is on the shortlist and is hidden from nothing (AC-49).
+   * This replaces two checkboxes over the same field, "show properties you passed on" and "only
+   * what you kept", which between them could express states the table could not be in and had to
+   * be applied in a careful order so they could not contradict each other. */
+  judgment: "play",
   showPhotos: false,
   wrap: false,
   /* What a wrapped row measured, by property, for every row that has been on the screen once.
@@ -188,6 +195,12 @@ async function load() {
   state.all = found.rows;
   forget();
   draw();
+  /* Before the first `apply`, not only when somebody changes a filter. The bar used to be empty on
+   * arrival and that was true: nothing narrowed the table until it was asked to. It is not true
+   * now, because the judgment narrows it by default, and a bar that only appears once you touch
+   * something is a bar that is silent for exactly the person who has not worked out why the table
+   * is short. */
+  showFilters();
   apply();
   /* After the table is up, not before it. The vocabulary is only needed by a cell somebody opens,
    * and a thousand rows should not wait on a second request to be drawn. A failure here costs the
@@ -412,6 +425,24 @@ function reset() {
 /* The page around the table                                           */
 /* ------------------------------------------------------------------ */
 
+/* One named group of controls.
+ *
+ * Eleven controls in one flow read as eleven things to consider. They are three questions: which
+ * rows am I looking at, which columns am I looking at, and where else can I go. Naming the three
+ * costs one line of height and removes the need to read every label to find one.
+ */
+function group(name, ...items) {
+  const held = items.flat().filter(Boolean);
+  if (!held.length) return null;
+  return el("div", {class: name === "Elsewhere" ? "group elsewhere" : "group"},
+    el("span", {class: "name"}, name),
+    el("div", {class: "items"}, held));
+}
+
+function judgmentControl() {
+  return judgmentChooser(state.judgment, (wanted) => setJudgmentFilter(wanted));
+}
+
 function draw() {
   const search = el("input", {
     type: "search",
@@ -427,17 +458,6 @@ function draw() {
     onchange: (event) => { state.showGone = event.target.checked; apply(); },
   });
 
-  const shown = el("input", {
-    type: "checkbox",
-    id: "showpassed",
-    onchange: (event) => { state.showPassed = event.target.checked; apply(); },
-  });
-
-  const only = el("input", {
-    type: "checkbox",
-    id: "onlykept",
-    onchange: (event) => { state.onlyKept = event.target.checked; apply(); },
-  });
 
   const photos = el("input", {
     type: "checkbox",
@@ -465,6 +485,7 @@ function draw() {
 
   shell(
     `${state.search} results`,
+    aboutSearch(state.search, "results"),
     el("h1", {}, `${state.search}`),
     el("p", {class: "lede"},
       "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
@@ -473,35 +494,39 @@ function draw() {
       "and press Enter. What you write survives every later run. Tags open on a single click, " +
       "because they are chosen rather than typed. Town notes are the exception: they belong to " +
       "the town and appear on every property in it."),
-    el("div", {class: "controls"},
-      search,
-      el("label", {for: "showgone"}, gone, " show properties that disappeared"),
-      el("label", {for: "showpassed"}, shown, " show properties you passed on"),
-      el("label", {for: "onlykept"}, only, " only what you kept"),
-      el("label", {for: "showphotos"}, photos, " show photos"),
-      el("label", {for: "wraptext"}, wrapping, " wrap long text"),
-      el("button", {type: "button", class: "quiet", onclick: chooseColumns,
-                    title: "Show or hide columns"}, "choose columns"),
-      el("button", {type: "button", class: "quiet", onclick: reset,
-                    title: "Put every column back, in its original order and width"},
-         "reset columns"),
-      el("span", {class: "counts", id: "counts", role: "status"}, ""),
-      link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
-      /* "Map", not "on the fire map". That name was right when the hazard layer was all that
-       * surface drew; it now draws either background, the wind, county lines, town names, rainfall
-       * and a ruler, and a house can be kept or passed on from a pin. */
-      link(`/map/${encodeURIComponent(state.search)}`, "Map",
-           {title: "Every property on the map: wildfire hazard, the wind, rainfall, and what each "
-                   + "one is next to"}),
-      /* A plain link rather than a button that fetches: the browser's own download is what a
-       * person expects from something that hands them a file, and it survives the page being
-       * closed while a thousand rows are being written. */
-      link(`/api/export/${encodeURIComponent(state.search)}?format=xlsx`, "download the spreadsheet",
-           {title: "Every column and every property in this run, as a spreadsheet",
-            download: ""}),
-      link(`/api/export/${encodeURIComponent(state.search)}?format=csv`, "as csv",
-           {title: "The same sheet, comma separated", download: ""}),
+    el("div", {class: "grouped"},
+      group("Which rows",
+        search,
+        judgmentControl(),
+        el("label", {for: "showgone"}, gone, " include ones off the market"),
+      ),
+      group("Which columns",
+        el("label", {for: "showphotos"}, photos, " photos"),
+        el("label", {for: "wraptext"}, wrapping, " wrap long text"),
+        el("button", {type: "button", class: "quiet", onclick: chooseColumns,
+                      title: "Show or hide columns"}, "choose columns"),
+        el("button", {type: "button", class: "quiet", onclick: reset,
+                      title: "Put every column back in its original order and width, and turn "
+                             + "off the column filters, the photos and the wrapping with it. What "
+                             + "rows are shown is not changed."},
+           "reset"),
+      ),
+      group("Elsewhere",
+        /* A plain link rather than a button that fetches: the browser's own download is what a
+         * person expects from something that hands them a file, and it survives the page being
+         * closed while a thousand rows are being written. */
+        link(`/api/export/${encodeURIComponent(state.search)}?format=xlsx`, "Spreadsheet",
+             {title: "Every column and every property in this run, as a spreadsheet",
+              download: ""}),
+        link(`/api/export/${encodeURIComponent(state.search)}?format=csv`, "CSV",
+             {title: "The same sheet, comma separated", download: ""}),
+      ),
     ),
+    /* The totals, and only the totals. How many there are is a fact nobody can act on; why any are
+     * missing is a reason, and every reason is in the bar below with its own control to lift it.
+     * The line used to carry both, plus how many milliseconds the table took to draw, which is a
+     * number for whoever is writing this table rather than whoever is reading it. */
+    el("p", {class: "counts", id: "counts", role: "status"}, ""),
     /* Empty and out of the way until something is filtered, and impossible to miss once
      * something is. `role="status"` so a filter set from the keyboard is announced rather than
      * only drawn. */
@@ -774,15 +799,35 @@ function setFilter(name, text) {
  * whose rows have gone missing should have one thing to press and one place to look, not a column
  * filter here and a search box up there and no way of knowing which of them is still holding. */
 function clearFilters() {
-  const many = active().length + (state.query.trim() ? 1 : 0);
+  let many = active().length + (state.query.trim() ? 1 : 0);
+  if (state.judgment !== "all") many += 1;
+  if (!state.showGone && state.all.some((row) => row.presence === "disappeared")) many += 1;
+
   state.filters = {};
   state.query = "";
   const search = document.getElementById("filter");
   if (search) search.value = "";
+  /* Everything, which is the point of the button and now includes the two that hide the most. A
+   * person whose rows have gone missing should have one thing to press. */
+  state.judgment = "all";
+  state.showGone = true;
+  redrawChooser(state.judgment, setJudgmentFilter);
+  const box = document.getElementById("showgone");
+  if (box) box.checked = true;
+
   redrawHeader();
   showFilters();
   apply();
   if (many) say(many === 1 ? "The filter cleared." : `All ${many} filters cleared.`);
+}
+
+/* Setting the judgment from somewhere other than its own control, which has to put the control
+ * back in step: the chip that lifts it lives above the table and the control lives in the row. */
+function setJudgmentFilter(wanted) {
+  state.judgment = wanted;
+  redrawChooser(state.judgment, setJudgmentFilter);
+  showFilters();
+  apply();
 }
 
 /* The filters actually in force, as pairs. A blank one is not one. */
@@ -803,7 +848,10 @@ function showFilters() {
   const held = active();
   const query = state.query.trim();
 
-  if (!held.length && !query) {
+  const narrowedByJudgment = state.judgment !== "all";
+  const holdingBackGone =
+    !state.showGone && state.all.some((row) => row.presence === "disappeared");
+  if (!held.length && !query && !narrowedByJudgment && !holdingBackGone) {
     bar.replaceChildren();
     bar.hidden = true;
     fit();
@@ -818,6 +866,54 @@ function showFilters() {
   );
 
   const chips = [];
+
+  /* The two narrowings that hide by the thousand, in the same bar as the ones that hide by the
+   * dozen, and looking exactly like them. This bar was built because a table silently missing four
+   * hundred rows is the worst thing this screen can do, and it was built holding only the column
+   * filters and the search box: in the workspace this was written against, 737 of 951 rows were
+   * held back by the judgment and this bar was empty. Each one says how many it is holding. */
+  if (state.judgment !== "all") {
+    const showing = state.judgment === "play"
+      ? state.all.filter((row) => !row.hidden_by_default).length
+      : state.all.filter((row) => row.judgment === state.judgment).length;
+    const behind = state.all.length - showing;
+    const said = state.judgment === "play"
+      ? heldBack(behind, "pass")
+      : `only the ones ${state.judgment === "keep" ? "you kept" : "you passed on"}, ` +
+        `${behind} hidden`;
+    if (behind) {
+      chips.push(chip(
+        said,
+        "narrowing by what you decided",
+        () => setJudgmentFilter("all"),
+        () => {
+          const held = document.getElementById("judgment");
+          const button = held && held.querySelector("button");
+          if (button) button.focus();
+        },
+      ));
+    }
+  }
+
+  const offMarket = state.all.filter((row) => row.presence === "disappeared").length;
+  if (!state.showGone && offMarket) {
+    chips.push(chip(
+      heldBack(offMarket, "gone"),
+      "holding back the ones that came off the market",
+      () => {
+        state.showGone = true;
+        const box = document.getElementById("showgone");
+        if (box) box.checked = true;
+        showFilters();
+        apply();
+      },
+      () => {
+        const box = document.getElementById("showgone");
+        if (box) box.focus();
+      },
+    ));
+  }
+
   if (query) {
     chips.push(chip(
       `any column contains \u201c${query}\u201d`,
@@ -1103,18 +1199,22 @@ function sortBy(name) {
 /* ------------------------------------------------------------------ */
 
 function apply() {
-  const started = performance.now();
   const query = state.query.trim().toLowerCase();
   let kept = state.all;
 
   if (!state.showGone) kept = kept.filter((row) => row.presence !== "disappeared");
-  /* `hidden_by_default` is the core's answer, not this page's opinion. The rule about what passing
-   * means lives in one place so that this table and the command line cannot come to disagree. */
-  if (!state.showPassed) kept = kept.filter((row) => !row.hidden_by_default);
-  /* The shortlist, when that is what somebody is working from. Applied after the passed filter and
-   * not instead of it, so "only what you kept" and "show passed" cannot contradict each other: a
-   * property is one judgment or the other and never both. */
-  if (state.onlyKept) kept = kept.filter((row) => row.judgment === "keep");
+  /* The default still asks the core rather than restating its rule: `hidden_by_default` is the
+   * core's answer to "is this hidden unless somebody asks for it", so this table and the command
+   * line cannot come to disagree about what passing means. The other three answers are this person
+   * choosing what to look at, which is a different question and this page's to answer.
+   *
+   * One answer at a time, so there is no ordering to get right. The two checkboxes this replaces
+   * had to be applied in a careful sequence because between them they could express a state the
+   * table could not be in. */
+  if (state.judgment === "play") kept = kept.filter((row) => !row.hidden_by_default);
+  else if (state.judgment !== "all") {
+    kept = kept.filter((row) => row.judgment === state.judgment);
+  }
   if (query) {
     kept = kept.filter((row) =>
       Object.values(row.values).some(
@@ -1144,7 +1244,7 @@ function apply() {
 
   state.shown = kept;
   window_();
-  counts(performance.now() - started);
+  counts();
 }
 
 /* A property with no value for the column being sorted goes last whichever way the sort points. A
@@ -1159,16 +1259,20 @@ function compare(a, b) {
   return String(a).localeCompare(String(b), undefined, {numeric: true});
 }
 
-function counts(took) {
-  const hidden = state.all.filter((row) => row.presence === "disappeared").length;
-  const passed = state.all.filter((row) => row.judgment === "pass").length;
+/* The totals, and nothing else.
+ *
+ * This line used to be both kinds of fact at once: how many properties there are, why some of them
+ * are missing, and how many milliseconds the table took to draw. Only the first is a total, only
+ * the second is something a person can act on, and the third is a number for whoever is writing
+ * this table. So the reasons moved to the bar above, where every other reason a row is missing
+ * already lives and where each one has a control to lift it, and the timing went.
+ */
+function counts() {
   const kept = state.all.filter((row) => row.judgment === "keep").length;
   const parts = [`${state.shown.length} of ${state.all.length} properties`];
-  if (!state.showGone && hidden) parts.push(`${hidden} disappeared and hidden`);
-  if (!state.showPassed && passed) parts.push(`${passed} passed and hidden`);
   if (kept) parts.push(`${kept} kept`);
-  parts.push(`${took.toFixed(0)}ms`);
-  document.getElementById("counts").replaceChildren(document.createTextNode(parts.join(" · ")));
+  const where = document.getElementById("counts");
+  if (where) where.replaceChildren(document.createTextNode(parts.join(" · ")));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1328,7 +1432,7 @@ function cellFor(row, column, index, column_) {
     cell.classList.add("property");
     if (state.showPhotos) inner.append(thumbnail(row));
     const said = el("span", {class: "what"},
-      link(`/listing/${encodeURIComponent(row.listing_id)}`, held || "not known"));
+      propertyLink(row.listing_id, held || "not known", state.search));
     for (const flag of row.flags) said.append(badge(flag, "flag"));
     inner.append(said);
   } else if (column.name === TAGS) {
@@ -2057,7 +2161,7 @@ async function setJudgment(row, wanted, button) {
       {judgment: wanted});
     /* What the store now holds, not what was asked for. */
     row.judgment = answered.judgment ?? null;
-    row.hidden_by_default = row.judgment === "pass" && !state.showPassed;
+    row.hidden_by_default = row.judgment === "pass";
     apply();
   } catch (error) {
     row.judgment = was;

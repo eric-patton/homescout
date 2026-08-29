@@ -6,6 +6,9 @@
  * about what happened, which is what AC-11 asks for.
  */
 
+/* Which search this page is about, so a property link can carry the way back to its table. */
+let currently = "";
+
 whenReady(() => {
   nav("/");
   const name = pathParts()[1];
@@ -36,7 +39,9 @@ function draw(name, entry, since) {
     "aria-label": "Compare against the last run on or before this date",
   });
 
+  currently = name;
   shell(`${name} changes`,
+    aboutSearch(name, "changes"),
     el("h1", {}, name),
     el("p", {class: "lede"},
       `${counts.matched || 0} properties · ${counts.new || 0} new · ` +
@@ -46,7 +51,6 @@ function draw(name, entry, since) {
       el("label", {for: "since"}, "Compare against "),
       picker,
       el("button", {type: "button", onclick: () => load(name, picker.value)}, "Show"),
-      link(`/results/${encodeURIComponent(name)}`, "the whole table"),
     ),
     section("New", entry.new, plain),
     section("Price changed", entry.price_changes, priced),
@@ -70,7 +74,7 @@ function section(title, rows, render) {
 function address(summary) {
   const parts = [summary.address_line, summary.unit, summary.city, summary.state]
     .filter(Boolean).join(", ");
-  return link(`/listing/${encodeURIComponent(summary.listing_id)}`, parts || summary.listing_id);
+  return propertyLink(summary.listing_id, parts || summary.listing_id, currently);
 }
 
 function plain(summary) {

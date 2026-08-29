@@ -43,6 +43,7 @@ async function load() {
 function draw() {
   const search = held.search;
   shell(`${held.name}`,
+    aboutSearch(held.name, "search"),
     el("h1", {}, held.name),
     el("p", {class: "lede"},
       "Where to look, what to look for, and what matters to you about what turns up. Nothing is " +

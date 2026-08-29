@@ -77,12 +77,16 @@ looking at where it is are one task rather than three.
   - Was: a passed property is absent from the results table by default, and present when "show
     passed" is asked for.
   - Now: a passed property is absent from the results table by default. Which properties are shown
-    by judgment is one control with one answer in force at a time: the ones still to decide, the
-    ones kept, the ones passed on, or all of them. The default answer shows the ones still to
-    decide, which is exactly what the two unticked boxes it replaces showed, so nobody's table
-    changes under them. Two controls over one field is a state a person cannot read off the
-    controls, and it forced the two to be applied in a careful order so they could not contradict
-    each other.
+    by judgment is one control with one answer in force at a time: the ones still in play, the ones
+    kept, the ones passed on, or all of them. In play means everything not passed on, which is the
+    undecided and the kept together, and it is the default because it is exactly what the two
+    unticked boxes it replaces showed: a kept property is on the shortlist and AC-49 says it is
+    hidden from nothing. So nobody's table changes under them.
+
+    Two controls over one field is a state a person cannot read off the controls, and it forced the
+    two to be applied in a careful order so that "only what you kept" and "show passed" could not
+    contradict each other. One control with one answer cannot contradict itself, and the ordering
+    goes with the boxes.
 
 - **AC-36.**
   - Was: when passed properties are hidden, their number is reported, in the same place and the same

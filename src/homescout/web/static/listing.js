@@ -36,7 +36,17 @@ function draw(held, settings) {
   const address = [fields.address_line, fields.unit, fields.city, fields.state, fields.postal_code]
     .filter(Boolean).join(", ");
 
+  const from = fromSearch();
   shell(address || held.listing_id,
+    /* The way back to the table this was read from, which is a fact about this visit rather than
+     * about the property: a house can be in several saved searches, so "back to the search" has no
+     * single answer. Opened without one, this page simply offers no trail rather than guessing. */
+    from
+      ? el("p", {class: "crumbs"},
+          link("/", "Searches"), " / ",
+          link(`/results/${encodeURIComponent(from)}`, from), " / ",
+          el("span", {}, "This property"))
+      : el("p", {class: "crumbs"}, link("/", "Searches"), " / ", el("span", {}, "This property")),
     el("h1", {}, address || "This property has no address"),
     el("p", {class: "lede"},
       held.presence === "disappeared"
@@ -323,7 +333,7 @@ function enrichment(held) {
   const found = held.enrichment || {};
   const names = Object.keys(found);
   if (!names.length) {
-    return el("section", {}, el("h2", {}, "Where it is"),
+    return el("section", {}, el("h2", {}, "What is around it"),
       el("p", {class: "unknown"},
         "nothing looked up yet. Settings and tools has a button that fills these in."));
   }
@@ -332,8 +342,12 @@ function enrichment(held) {
 
   const interfaceHeld = "wildland_urban_interface" in found;
 
+  /* "What is around it", not "Where it is", which is what the map section above is called and
+   * what this one was called as well: every listing page carried two sections with the same
+   * heading, one holding a map and one holding the flood zone, the aquifer and the speeds. This is
+   * the public record about the place rather than the place. */
   return el("section", {},
-    el("h2", {}, "Where it is"),
+    el("h2", {}, "What is around it"),
     el("dl", {class: "facts"},
       names.sort().flatMap((name) => [
         el("dt", {}, labelFor(name)),

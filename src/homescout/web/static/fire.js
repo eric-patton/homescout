@@ -18,7 +18,7 @@
  */
 
 const held = {name: "", rows: [], settings: null, map: null, markers: null, pins: {},
-              showPassed: false, showGone: false, satellite: false, opacity: 0.55,
+              judgment: "play", showGone: false, satellite: false, opacity: 0.55,
               /* The two tile layers, whichever of them is configured. */
               backgrounds: {},
               /* How the list under the map is arranged. Cheapest first, because that is the
@@ -100,11 +100,6 @@ async function load() {
 /* ------------------------------------------------------------------ */
 
 function draw() {
-  const passed = el("input", {
-    type: "checkbox",
-    id: "showpassed",
-    onchange: (event) => { held.showPassed = event.target.checked; plot(); },
-  });
 
   /* The same box the results table has, with the same words and the same default, because it is
    * the same question. Without it this map drew fifty-five houses that were no longer for sale,
@@ -179,24 +174,47 @@ function draw() {
 
   shell(
     `${held.name} map`,
-    el("h1", {}, "Where the fire is"),
+    aboutSearch(held.name, "map"),
+    el("h1", {}, "The map"),
     el("p", {class: "lede"},
       "Every property this run kept, on the wildfire hazard model the criteria read. A rule asks " +
       "about the ground a house stands on; this is for the other question, which is what it is " +
       "next to. Click a pin to keep the house or pass on it, and say why."),
-    el("div", {class: "controls"},
-      el("label", {for: "showpassed"}, passed, " show properties you passed on"),
-      el("label", {for: "showgone"}, gone, " show properties that disappeared"),
-      photo ? el("label", {for: "satellite"}, photo, " satellite view") : null,
-      el("label", {for: "fade"}, "fire layer ", fade),
-      el("label", {for: "ruler"}, ruler, " measure a distance"),
-      el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
-      el("label", {for: "names"}, named, " counties and towns"),
-      el("label", {for: "rain"}, wet, " rain and snow a year"),
-      el("span", {class: "counts", id: "counts", role: "status"}, ""),
-      el("span", {class: "counts", id: "windcount", role: "status"}, ""),
-      el("span", {class: "counts", id: "landcount", role: "status"}, ""),
-      link(`/results/${encodeURIComponent(held.name)}`, "back to the table"),
+    /* Two questions, not ten controls. Which houses are pinned, and what is drawn under them.
+     * The labels used to run together in one flow, so "satellite view fire layer" read as a phrase
+     * before the slider beside it was noticed. The ruler is here in the second group because what
+     * it does is draw a rod on the map. */
+    el("div", {class: "grouped"},
+      el("div", {class: "group"},
+        el("span", {class: "name"}, "Which properties"),
+        el("div", {class: "items"},
+          /* The table's control, not one of this page's own. AC-67 says both surfaces hide
+           * the same properties with the same controls and the same words on them, and this is
+           * the same question asked in the same words. */
+          judgmentChooser(held.judgment, pickJudgment),
+          el("label", {for: "showgone"}, gone, " include ones off the market"),
+        ),
+      ),
+      el("div", {class: "group"},
+        el("span", {class: "name"}, "What is under them"),
+        el("div", {class: "items"},
+          photo ? el("label", {for: "satellite"}, photo, " satellite") : null,
+          el("label", {for: "fade"}, "wildfire hazard ", fade),
+          el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
+          el("label", {for: "names"}, named, " counties and towns"),
+          el("label", {for: "rain"}, wet, " rain and snow a year"),
+          el("label", {for: "ruler"}, ruler, " a ruler"),
+        ),
+      ),
+    ),
+    /* One region, not three. Three that announce themselves separately are three interruptions for
+     * one change of state, and to somebody who cannot see that they landed together they read as
+     * three unrelated events. The three spans stay, because three parts of the page write them;
+     * what they are inside is one thing that speaks. */
+    el("p", {class: "counts", role: "status"},
+      el("span", {id: "counts"}, ""),
+      el("span", {id: "windcount"}, ""),
+      el("span", {id: "landcount"}, ""),
     ),
     el("div", {class: "firemap"},
       el("div", {id: "map", role: "application", "aria-label": "Properties on the map"}),
@@ -225,6 +243,15 @@ function draw() {
   );
 
   build();
+}
+
+/* Choosing which properties are pinned, from the control every surface uses for this. Named rather
+ * than written inline, because putting the control back in step means building a new one with the
+ * same handler, and a handler cannot be handed itself if it has no name. */
+function pickJudgment(wanted) {
+  held.judgment = wanted;
+  redrawChooser(held.judgment, pickJudgment);
+  plot();
 }
 
 function legend() {
@@ -431,7 +458,9 @@ function build() {
  * answers, which is exactly what was reported: a hundred and sixty-two on the table against two
  * hundred and thirteen here. */
 function worthDrawing(row) {
-  if (row.judgment === "pass" && !held.showPassed) return false;
+  if (held.judgment === "play" && row.judgment === "pass") return false;
+  if (held.judgment !== "play" && held.judgment !== "all"
+      && row.judgment !== held.judgment) return false;
   if (row.presence === "disappeared" && !held.showGone) return false;
   return true;
 }
@@ -484,9 +513,9 @@ function counts(drawn) {
   const gone = held.rows.filter((row) => row.presence === "disappeared").length;
   const parts = [`${drawn} on the map`];
   if (kept) parts.push(`${kept} kept`);
-  if (!held.showPassed && passed) parts.push(`${passed} passed and hidden`);
+  if (held.judgment === "play" && passed) parts.push(heldBack(passed, "pass"));
   /* The table's own wording, so that two pages saying the same thing say it the same way. */
-  if (!held.showGone && gone) parts.push(`${gone} disappeared and hidden`);
+  if (!held.showGone && gone) parts.push(heldBack(gone, "gone"));
   if (held.without) {
     parts.push(count(held.without, "property", "properties") + " with no location, not shown");
   }
@@ -675,7 +704,7 @@ function popup(row, pin) {
   const held_ = el("div", {class: "pin"},
     picture(row, say_),
     el("p", {class: "what"},
-      link(`/listing/${encodeURIComponent(row.listing_id)}`, values["Property"] || "this property")),
+      propertyLink(row.listing_id, values["Property"] || "this property", held.name)),
     facts ? el("p", {class: "facts"}, facts) : null,
     el("p", {class: "facts"},
       "hazard here: ", el("strong", {}, values["Wildfire Hazard"] || "not known")),

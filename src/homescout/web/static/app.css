@@ -1605,3 +1605,101 @@ code.expression {
 }
 .crumbs a { color: var(--link); }
 .crumbs > span:last-child { color: var(--ink-soft); font-weight: 500; }
+
+/* -- the screens about one search --------------------------------------- */
+
+/* Under the trail, above the heading. Every screen about a search shows the same four in the same
+   place, so moving between them is a press rather than a trip back to the list. */
+.surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin: 0 0 var(--s4);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--s2);
+}
+.surfaces .surface {
+  padding: var(--s1) var(--s3);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--link);
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+.surfaces a.surface:hover { background: var(--shade-deep); color: var(--ink); }
+/* The one you are on is not a link, and says so to a reader as well as by looking different. */
+.surfaces .surface.here {
+  color: var(--ink);
+  background: var(--link-wash);
+  box-shadow: inset 0 0 0 1px rgba(18, 87, 165, 0.16);
+}
+
+/* -- a row of controls, grouped by what they answer ---------------------- */
+
+/* Eleven controls in one flow read as eleven things to consider. They are three questions: which
+   rows, which columns, and where else to go. Naming the groups costs one line and removes the need
+   to read every label to find one. */
+.grouped {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  align-items: flex-start;
+  margin-bottom: var(--s3);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 0;
+}
+.group > .name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.group > .items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+}
+.group > .items label { display: inline-flex; align-items: center; gap: var(--s1);
+                        color: var(--ink-soft); }
+/* The group that is a row of links to elsewhere sits at the end and reads as links, not controls. */
+.group.elsewhere > .items { gap: var(--s3); }
+
+/* One control, four answers, one in force. Two checkboxes over one field is a state nobody can
+   read off the controls; this is the same question asked once. */
+.choice {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--paper);
+}
+.choice button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  background: var(--paper);
+}
+.choice button:last-child { border-right: 0; }
+.choice button[aria-pressed="true"] {
+  background: var(--link-wash);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.choice button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Several parts of a page write into one region that speaks, so the parts need separating without
+   any of them knowing whether the others have anything to say. */
+.counts > span:not(:empty) ~ span:not(:empty)::before {
+  content: " · ";
+  color: var(--line);
+}

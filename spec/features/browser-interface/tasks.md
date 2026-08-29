@@ -1214,30 +1214,39 @@ alongside its peers.
 
 ## Change: like with like (`changes/like-with-like/`)
 
-- [ ] T161: `web/static/common.js`: one builder for a search's own navigation (`feat-010/AC-73`).
+- [x] T161: `web/static/common.js`: one builder for a search's own navigation (`feat-010/AC-73`).
       Which search this is, and one press to each of the other surfaces about it. Here rather than
       on five pages, because five copies of a navigation is how one of them ends up missing the
       surface added last, which is exactly how the search builder came to reach none of the others.
 
-- [ ] T162: `web/static/{results,changes,fire,search}.js`, `web/static/listing.js`: every per-search
+- [x] T162: `web/static/{results,changes,fire,search}.js`, `web/static/listing.js`: every per-search
       surface uses it (`feat-010/AC-73`). The listing page is the one that needs thinking about: it
       is about a property rather than a search, and the way back has to be to the table it was read
-      from rather than to a search picked arbitrarily from the ones the property appears in.
+      from rather than to a search picked arbitrarily from the ones the property appears in. So the
+      table hands it over in the address when it links, and a property page opened without one
+      offers no trail rather than guessing at a search.
 
-- [ ] T163: `web/static/results.js`, `app.css`: the toolbar grouped by the question it answers
+      Two defects fixed while in that file, both of them things this task was standing next to.
+      Every listing page carried two sections headed "Where it is": the hazard map, and the flood
+      zone, aquifer, elevation and speeds. The second is about the public record of the place
+      rather than about where the place is, and is now "What is around it". And the map link on
+      that page said "the fire map" in its prose, which the naming sweep would have missed because
+      it is a sentence rather than a link.
+
+- [x] T163: `web/static/results.js`, `app.css`: the toolbar grouped by the question it answers
       (`feat-010/AC-72`). Which rows, which columns, where else to go. Named groups, all open, no
       menus. The line under them keeps the totals and loses everything else: how many are drawn, out
       of how many the run found, how many are kept. The render time in milliseconds goes, which
       AC-72 now says out loud rather than leaving as a tidy-up somebody later mistakes for an
       accident.
 
-- [ ] T164: `web/static/results.js`: one control for the judgment (`feat-010/AC-35`,
+- [x] T164: `web/static/results.js`: one control for the judgment (`feat-010/AC-35`,
       `feat-010/AC-49`). Four answers, one in force: still to decide, kept, passed on, all of them.
       The default answer draws exactly what the two unticked boxes drew, so the table nobody asked
       to change does not change. The careful ordering in `apply` that stopped the two boxes
       contradicting each other goes with them, because a single answer cannot contradict itself.
 
-- [ ] T165: `web/static/results.js`: every reason rows are missing, in the one bar
+- [x] T165: `web/static/results.js`: every reason rows are missing, in the one bar
       (`feat-010/AC-36`, `feat-010/AC-57`, `feat-010/AC-20`, `feat-010/AC-49`). The judgment and the
       properties that came off the market join the column filters and the search box as statements
       with their own control to lift them, each carrying the number it is holding back, and "clear
@@ -1245,7 +1254,7 @@ alongside its peers.
       narrowings it was built without: in the workspace this was read against, 737 of 951 rows were
       held back by one of them and the bar was empty.
 
-- [ ] T166: `web/static/fire.js`, `app.css`: the map's controls in two groups, and its own name
+- [x] T166: `web/static/fire.js`, `app.css`: the map's controls in two groups, and its own name
       (`feat-010/AC-71`, `feat-010/AC-72`). Which properties are drawn, and what is drawn underneath
       them. The three live count regions become one, which AC-72 now requires rather than leaving to
       this task's own judgment: three regions announcing themselves separately are three
@@ -1270,7 +1279,7 @@ alongside its peers.
       link in the interface now points at, so the redirect is a courtesy to old bookmarks rather
       than a path this tool still uses.
 
-- [ ] T168: `tests/test_web_browser.py`, `tests/test_web_accessible.py`: the groups, the one
+- [x] T168: `tests/test_web_browser.py`, `tests/test_web_accessible.py`: the groups, the one
       judgment control and the bar (`feat-010/AC-72`, `feat-010/AC-35`, `feat-010/AC-57`). Each
       group reachable and named to something reading the page out, the judgment control's four
       answers each drawing what they say, and the bar naming a judgment narrowing and lifting it.

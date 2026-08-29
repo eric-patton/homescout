@@ -223,6 +223,111 @@ function nav(active) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Where you are, on a page about one search                           */
+/* ------------------------------------------------------------------ */
+
+/* The four screens a saved search has, and the order they are read in.
+ *
+ * Built here rather than on each page, and that is the whole point of it. Five pages each grew the
+ * links their author needed that day: the results table reached the comparison and the map, the
+ * comparison reached the table, the map reached the table, and the search builder reached none of
+ * them. Nobody decided that. It is what five copies of a navigation look like after a year.
+ *
+ * The nav bar above this is not a substitute. It names the same three destinations everywhere, so
+ * on any page about a search it reports "Searches", which is where the reader is not.
+ */
+const SEARCH_PAGES = [
+  ["results", "Results", "/results/"],
+  ["changes", "What changed", "/changes/"],
+  ["map", "Map", "/map/"],
+  ["search", "Edit", "/search/"],
+];
+
+/** Which search this is, and one press to each of its other screens. */
+function aboutSearch(name, here) {
+  if (!name) return null;
+  return [
+    el("p", {class: "crumbs"},
+      link("/", "Searches"), " / ", el("span", {}, name)),
+    el("nav", {class: "surfaces", "aria-label": `The screens about ${name}`},
+      SEARCH_PAGES.map(([key, said, path]) =>
+        key === here
+          ? el("span", {class: "surface here", "aria-current": "page"}, said)
+          : link(path + encodeURIComponent(name), said, {class: "surface"}))),
+  ];
+}
+
+/* The way back from a property to the table it was read from.
+ *
+ * A property can be in several saved searches, so "back to the search" has no single answer. What
+ * it has is the table the reader arrived from, which is a fact about this visit rather than about
+ * the property, so it travels in the address: every link to a property carries where it was linked
+ * from, and a property page opened without one simply offers no way back rather than guessing.
+ */
+function fromSearch() {
+  try {
+    return new URL(window.location.href).searchParams.get("from") || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+/** A link to one property, remembering the table it is being opened from. */
+function propertyLink(listingId, text, search, attributes) {
+  const where = `/listing/${encodeURIComponent(listingId)}` +
+    (search ? `?from=${encodeURIComponent(search)}` : "");
+  return link(where, text, attributes);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which properties, by what was decided about them                    */
+/* ------------------------------------------------------------------ */
+
+/* One question, one control, and the same one on both surfaces that ask it.
+ *
+ * `play` is everything not passed on: the ones still to look at and the ones kept, because a kept
+ * property is on the shortlist and is hidden from nothing. It is the default, and it draws exactly
+ * what the two checkboxes it replaces drew when neither was ticked.
+ *
+ * Here rather than on the results table, because AC-67 says the map and the table hide the same
+ * properties with the same controls and the same words on them, and two copies of a control is how
+ * two surfaces come to disagree about what a word means. The words below are the only ones either
+ * page uses for this.
+ */
+const JUDGMENTS = [
+  ["play", "In play",
+   "Everything you have not passed on: the ones still to look at, and the ones you kept."],
+  ["keep", "Kept", "Your shortlist, and nothing else."],
+  ["pass", "Passed on", "The ones you said no to. Nothing was deleted; they are still watched."],
+  ["all", "All", "Every property in the run, whatever you decided about it."],
+];
+
+/** How each narrowing is said, wherever it is said. One phrasing, both surfaces. */
+function heldBack(many, why) {
+  return why === "pass" ? `${many} passed on, hidden` : `${many} off the market, hidden`;
+}
+
+/** The chooser itself. `pick` is handed the new answer; redrawing is the caller's business. */
+function judgmentChooser(current, pick) {
+  const held = el("div", {class: "choice", id: "judgment", role: "group",
+                          "aria-label": "Which properties to show"},
+    JUDGMENTS.map(([key, said, why]) =>
+      el("button", {
+        type: "button",
+        "aria-pressed": current === key ? "true" : "false",
+        title: why,
+        onclick: () => { if (current !== key) pick(key); },
+      }, said)));
+  return held;
+}
+
+/** Put the chooser back in step when the answer was changed from somewhere else. */
+function redrawChooser(current, pick) {
+  const held = document.getElementById("judgment");
+  if (held) held.replaceWith(judgmentChooser(current, pick));
+}
+
 /* A list of places to go and get something this tool cannot get for you.
  *
  * Every entry is a page a person signs into as themselves. Nothing here is fetched and nothing is

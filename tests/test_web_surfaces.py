@@ -98,8 +98,17 @@ def test_a_property_that_disappeared_is_hidden_and_counted(store: Store, db_path
     results = script("results")
     assert "state.showGone" in results
     assert 'row.presence !== "disappeared"' in results, "hidden unless asked for"
-    assert "disappeared and hidden" in results, "and the count is said"
     assert 'id: "showgone"' in results, "the filter is always available"
+    # The count is still said, and now it is said where every other reason a row is missing is
+    # said: in the bar above the table, in words, with its own control to lift it. AC-20 asks for
+    # the number and no longer counts the controls on the screen, because the two that hide rows
+    # became one and this one moved.
+    assert "holding back the ones that came off the market" in results, "and it can be lifted"
+    # The phrasing itself lives in the shared file, because AC-67 says the map and the table say
+    # this in the same words and two copies of a sentence is how two surfaces come to differ.
+    assert "off the market, hidden" in script("common"), "said as a reason, not as a tally"
+    assert "off the market, hidden" not in results, "and said in exactly one place"
+    assert "heldBack(offMarket" in results, "which the table asks for rather than restating"
 
 
 def test_an_annotation_survives_a_later_run_that_changes_the_price(
@@ -493,3 +502,112 @@ def test_a_town_note_can_be_written_from_a_row_and_belongs_to_the_town(
     assert 'const TOWN_NOTE = "Town Analysis Notes"' in results
     assert '"/api/areas"' in results, "the table writes it to the town rather than to the property"
     assert "not about this house" in results, "the cell does not say whose note it is"
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-71, AC-72, AC-73: named, grouped, and joined up
+# ---------------------------------------------------------------------------
+
+
+def test_the_table_controls_are_grouped_by_the_question_they_answer() -> None:
+    """feat-010/AC-72: three questions, named, rather than eleven controls in one flow."""
+    results = script("results")
+    for name in ("Which rows", "Which columns", "Elsewhere"):
+        assert f'group("{name}"' in results, f"{name} is a named group"
+    assert 'class: "grouped"' in results, "and they are laid out as groups"
+    # Grouping reorders and labels; it hides nothing.
+    for control in ('id: "showgone"', 'id: "showphotos"', 'id: "wraptext"',
+                    "chooseColumns", "format=xlsx", "format=csv"):
+        assert control in results, f"{control} survived the regrouping"
+
+
+def test_one_control_asks_which_properties_and_both_surfaces_use_it() -> None:
+    """feat-010/AC-35, AC-49, AC-67: one field, one control, same words on both surfaces.
+
+    Two checkboxes over the judgment could express a state the table could not be in, and had to be
+    applied in a careful order so they could not contradict each other. AC-67 additionally says the
+    map and the table hide the same properties with the same controls and the same words, so the
+    control lives in the shared file and neither page owns a copy.
+    """
+    common = script("common")
+    assert "function judgmentChooser(" in common
+    for key in ('"play"', '"keep"', '"pass"', '"all"'):
+        assert key in common, f"{key} is one of the answers the chooser holds"
+    for answer in ("In play", "Kept", "Passed on", "All"):
+        assert f'"{answer}"' in common, f"{answer} is one of the answers"
+
+    for page in ("results", "fire"):
+        body = script(page)
+        assert "judgmentChooser(" in body, f"{page} uses the shared control"
+        assert "showPassed" not in body, f"{page} no longer holds its own passed flag"
+        assert "onlyKept" not in body, f"{page} no longer holds a second control over one field"
+
+
+def test_every_reason_a_row_is_missing_is_in_the_one_bar() -> None:
+    """feat-010/AC-36, AC-20, AC-57: the bar holds all of them, and one control lifts all of them.
+
+    The bar was built because a table silently missing four hundred rows is the worst thing this
+    screen can do, and it was built holding only the column filters and the search box, which are
+    the two narrowings that hide the fewest rows.
+    """
+    results = script("results")
+    assert "heldBack(behind" in results, "the judgment is named in the bar"
+    assert "heldBack(offMarket" in results, "so are the ones off the market"
+    assert "narrowing by what you decided" in results, "each with its own control to lift it"
+
+    # And it is drawn on arrival, not only once somebody touches a filter: the judgment narrows the
+    # table by default, so a bar that waited would be silent for exactly the person wondering why.
+    load_body = results[results.index("async function load()"):results.index("function knownTags")]
+    assert "showFilters();" in load_body
+
+    # One control lifts all of them, which now means all of them.
+    clearing = results[results.index("function clearFilters()"):results.index("function setJudgmentFilter")]
+    assert 'state.judgment = "all"' in clearing
+    assert "state.showGone = true" in clearing
+
+    # The totals line keeps the totals and loses the rest, the render time included.
+    counting = results[results.index("function counts()"):results.index("function window_")]
+    assert "properties`" in counting and "kept`" in counting
+    assert "toFixed" not in counting and "performance" not in counting, (
+        "the render time is a number for whoever is writing this table, not for whoever reads it"
+    )
+    assert "performance.now" not in script("results"), "and it is not measured either"
+
+
+def test_every_screen_about_a_search_offers_the_others() -> None:
+    """feat-010/AC-73: four screens, one strip, and no page that reaches none of them.
+
+    The search builder reached none of the other three, and a property's page reached nothing at
+    all. Five copies of a navigation is how one of them ends up missing the surface added last.
+    """
+    common = script("common")
+    assert "function aboutSearch(" in common
+    for said in ("Results", "What changed", "Map", "Edit"):
+        assert f'"{said}"' in common
+
+    for page, here in (("results", "results"), ("changes", "changes"),
+                       ("fire", "map"), ("search", "search")):
+        assert f'"{here}")' in script(page), f"{page} says which screen it is"
+        assert "aboutSearch(" in script(page), f"{page} draws the strip"
+
+    # A property's page is about a property rather than a search, so its way back is to the table it
+    # was read from, carried in the address because a house can be in several searches.
+    listing_body = script("listing")
+    assert "fromSearch()" in listing_body
+    assert 'class: "crumbs"' in listing_body
+    assert "propertyLink(" in script("results"), "and the table hands it over when it links"
+
+
+def test_the_listing_page_has_one_heading_per_section() -> None:
+    """feat-010/AC-9: two sections called the same thing is one of them being unfindable.
+
+    Every listing page carried two headed "Where it is": the hazard map, and the flood zone, the
+    aquifer, the elevation and the speeds. The second is about the public record of the place
+    rather than about where the place is.
+    """
+    listing_body = script("listing")
+    assert '"What is around it"' in listing_body
+    # The map section keeps the name, and the two ways it can be drawn are one section, not two.
+    assert listing_body.count('el("h2", {}, "Where it is")') == 2, (
+        "the map section and its no-location form, which never render together"
+    )
