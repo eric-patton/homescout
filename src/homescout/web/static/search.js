@@ -85,6 +85,7 @@ async function load() {
     ask("/api/areas"),
   ]);
   held.search = search.search;
+  held.named = null;  /* A fresh fetch: the draft below is seeded from it again. */
   held.settings = settings;
   /* The places this store has properties in, and what is already written about them. Fetched here
    * rather than typed into a blank box: a note only reaches a property's row when it matches that
@@ -223,12 +224,32 @@ function namedArea(area) {
  * row edits a copy of the file's entry; a drawn one has no value to keep, so its row edits the map
  * layer that holds its geometry. Both are read back by `saveAreas`.
  */
-function areaList() {
-  const search = held.search;
-  const named = [
+/* The towns, counties and postal codes this search names, as the table edits them.
+ *
+ * Copies rather than the fetched objects, because everything in this panel is a draft until "Save
+ * the areas" is pressed and nothing may write back into what the server said.
+ */
+function namedFrom(search) {
+  return [
     ...(search.areas || []).filter((a) => !a.geometry).map((a) => ({...a, excluded: false})),
     ...(search.exclusions || []).filter((a) => !a.geometry).map((a) => ({...a, excluded: true})),
   ];
+}
+
+function areaList() {
+  const search = held.search;
+  /* Seeded once from what the server said and then kept, which is the whole fix here.
+   *
+   * This used to be rebuilt from `held.search` on every redraw, and both controls that change it
+   * redraw immediately, so both of them undid themselves. Adding a town pushed it onto this list,
+   * redrew, and the redraw read the fetched search again and dropped it; the page then said
+   * "Added Portales. Save the areas to write it into the file" about a row that was already gone.
+   * Removing one was the same in reverse: the row blinked and came back.
+   *
+   * The drawn shapes never had this, because the layer group they live in *is* the state and a
+   * redraw reads it rather than replacing it. This gives the named places the same footing. Reset
+   * where the fetched search is replaced, which is the one moment the draft is genuinely stale. */
+  const named = held.named || namedFrom(search);
   held.named = named;
 
   const shapes = [];
@@ -248,7 +269,7 @@ function areaList() {
         el("th", {scope: "col"}, "Called"),
         el("th", {scope: "col"}, "Why"),
         el("th", {scope: "col"}, "In or out"),
-        el("th", {scope: "col"}, "Remove"),
+        el("th", {scope: "col"}, el("span", {class: "visually-hidden"}, "Remove")),
       )),
       el("tbody", {},
         named.map((area, index) => areaRow(
@@ -366,11 +387,23 @@ function areaRow(kind, which, holder, remove, position, layer) {
     el("td", {}, naming),
     el("td", {class: "whycell"}, why),
     el("td", {}, sense),
-    el("td", {}, el("button", {
+    /* A bin rather than the word.
+     *
+     * The word cost this row about sixty pixels of a table that had already run past its panel,
+     * and it was the least informative sixty pixels in it: every row says the same thing and
+     * nobody reads it twice. The picture says it in sixteen.
+     *
+     * What does not change is what the button announces. `aria-label` was already there and stays,
+     * `title` is added so a pointer says it too, and the column heading is still the word, kept for
+     * anything reading this aloud and taken out of the layout so the column can actually narrow. A
+     * control whose only label is a drawing is a control somebody has to guess at. */
+    el("td", {class: "bincell"}, el("button", {
       type: "button",
+      class: "bin",
       onclick: remove,
+      title: `Remove area ${position}`,
       "aria-label": `Remove area ${position}`,
-    }, "Remove")),
+    }, binIcon())),
   );
 }
 
@@ -448,6 +481,44 @@ function askWhy(holder, isLayer, position, button) {
   box.focus();
   box.setSelectionRange(box.value.length, box.value.length);
   return dialog;
+}
+
+/* A bin, drawn rather than written.
+ *
+ * `createElementNS` rather than a string of markup, which is the rule everything this product
+ * draws follows and the reason there is no way to put markup on a page here at all. The wind
+ * arrows on the fire map are built the same way.
+ *
+ * `currentColor` throughout, so it takes the button's colour and turns red with it on hover
+ * without a second copy of the palette living in here. `aria-hidden`, because the button already
+ * says what it does: a picture that also announces itself reads the word twice.
+ */
+function binIcon() {
+  const where = "http://www.w3.org/2000/svg";
+  const box = document.createElementNS(where, "svg");
+  box.setAttribute("viewBox", "0 0 16 16");
+  box.setAttribute("width", "16");
+  box.setAttribute("height", "16");
+  box.setAttribute("aria-hidden", "true");
+  box.setAttribute("focusable", "false");
+
+  const draw = (d) => {
+    const line = document.createElementNS(where, "path");
+    line.setAttribute("d", d);
+    line.setAttribute("fill", "none");
+    line.setAttribute("stroke", "currentColor");
+    line.setAttribute("stroke-width", "1.3");
+    line.setAttribute("stroke-linecap", "round");
+    line.setAttribute("stroke-linejoin", "round");
+    box.append(line);
+  };
+
+  draw("M2.6 4.2h10.8");                                   /* the rim */
+  draw("M6.2 4.2V2.9a0.5 0.5 0 0 1 0.5-0.5h2.6a0.5 0.5 0 0 1 0.5 0.5v1.3");  /* the handle */
+  draw("M4.2 4.2l0.7 9.1a1 1 0 0 0 1 0.9h4.2a1 1 0 0 0 1-0.9l0.7-9.1");      /* the body */
+  draw("M6.7 6.7v5");                                      /* and the two ribs, which are what */
+  draw("M9.3 6.7v5");                                      /* make it read as a bin at 16px */
+  return box;
 }
 
 function redrawAreaList() {
@@ -989,6 +1060,7 @@ async function save(changes, panel) {
   try {
     const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`, {set: changes});
     held.search = answered.search;
+    held.named = null;  /* What was saved is now what the server says; re-seed from it. */
     /* Cleared before the redraw, because the redraw rebuilds the panels and re-reads this. */
     if (panel) saved(panel);
     say("Saved. The file keeps its comments and everything you did not change.", "good");

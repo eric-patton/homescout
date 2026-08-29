@@ -1392,6 +1392,41 @@ table.plain tbody tr:last-child > * { border-bottom: 0; }
 td.whycell { width: 30%; }
 /* And if it still does not fit, it scrolls rather than hiding a column. */
 #arealist { overflow-x: auto; }
+
+/* Said but not shown. A table heading that is only there for something reading the page aloud
+   still has to be in the document, and still has to be out of the layout, or the column is as wide
+   as the word nobody can see. Clipped rather than `display: none`, which would take it out of the
+   reading too, and rather than a zero width, which some readers skip. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The bin. Narrow on purpose: this column exists to hold one small control, and every pixel it
+   does not take is a pixel the reason beside it does. */
+td.bincell { width: 1%; white-space: nowrap; }
+button.bin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+}
+button.bin:hover { border-color: var(--line); color: var(--bad); background: var(--shade); }
+button.bin:focus-visible { color: var(--bad); }
 button.why {
   display: -webkit-box;
   -webkit-line-clamp: 2;

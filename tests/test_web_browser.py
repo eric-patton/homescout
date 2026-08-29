@@ -247,6 +247,146 @@ def test_a_textarea_built_by_this_page_holds_its_text(served) -> None:
     )
 
 
+def test_a_town_added_to_the_areas_stays_added(served) -> None:
+    """feat-004/AC-2: a draft the page keeps, rather than one it rebuilds away.
+
+    Found by a test for the bin icon, and it was two broken controls rather than one. The table's
+    list of named places was rebuilt from the fetched search on every redraw, and both controls
+    that change it redraw immediately, so both undid themselves. Adding a town pushed it on,
+    redrew, and the redraw read the fetched search again and dropped it, leaving the page saying
+    "Added Portales. Save the areas to write it into the file" about a row that was already gone.
+    Removing one was the same in reverse: the row blinked and came back.
+
+    The drawn shapes never had this, because the layer group they live in is the state and a redraw
+    reads it rather than replacing it. This asserts the named places now stand on the same footing.
+    Nothing is written to the file either way; that is still "Save the areas".
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const until = async (ready) => {
+                   for (let i = 0; i < 100; i++) {
+                     const got = ready();
+                     if (got) return got;
+                     await new Promise(r => setTimeout(r, 50));
+                   }
+                   return null;
+                 };
+                 await until(() => document.getElementById("newplace"));
+                 const rows = () => document.querySelectorAll("#arealist tbody tr").length;
+                 const shown = () => [...document.querySelectorAll("#arealist tbody input")]
+                   .map((box) => box.value);
+
+                 const before = rows();
+                 document.getElementById("newplace").value = "Clovis, NM";
+                 [...document.querySelectorAll("#arealist button")]
+                   .find((b) => b.textContent.trim() === "Add").click();
+                 await until(() => rows() > before);
+                 const afterAdd = {count: rows(), values: shown()};
+
+                 /* And straight back out again, with the bin. */
+                 const bins = document.querySelectorAll("td.bincell button.bin");
+                 bins[bins.length - 1].click();
+                 await until(() => rows() < afterAdd.count);
+
+                 return {before, afterAdd, afterRemove: rows(),
+                         stillThere: shown().includes("Clovis, NM")};
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found["afterAdd"]["count"] == found["before"] + 1, (
+        "the town was added and the redraw dropped it again"
+    )
+    assert "Clovis, NM" in found["afterAdd"]["values"], found["afterAdd"]["values"]
+    assert found["afterRemove"] == found["before"], "the bin did not take it back out"
+    assert not found["stillThere"], "the removed town came back on the redraw"
+
+
+def test_removing_an_area_is_a_bin_that_still_says_what_it_is(served) -> None:
+    """feat-004/AC-14, feat-010/AC-3: a drawing may replace a word, never the label.
+
+    The word cost this row about sixty pixels of a table that had already run past the panel it
+    sits in, and it was the least informative sixty pixels in it: every row says the same thing and
+    nobody reads it twice.
+
+    What may not go with it is what the control announces. A button whose only label is a picture
+    is a button somebody has to guess at, and the guess is expensive here because pressing it takes
+    an area out of the search. So the name stays on the button for anything reading the page aloud,
+    the pointer gets it too, and the column heading is still the word, kept in the document and
+    taken out of the layout so the column can actually narrow.
+    """
+    base, _held, _store = served
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const until = async (ready) => {
+                   for (let i = 0; i < 100; i++) {
+                     const got = ready();
+                     if (got) return got;
+                     await new Promise(r => setTimeout(r, 50));
+                   }
+                   return null;
+                 };
+                 const button = await until(() => document.querySelector("td.bincell button.bin"));
+                 if (!button) return {there: false};
+                 const cell = button.closest("td");
+                 const head = [...document.querySelectorAll("#arealist thead th")].pop();
+
+                 const rows = () => document.querySelectorAll("#arealist tbody tr").length;
+                 const before = rows();
+                 button.click();
+                 await until(() => rows() !== before);
+
+                 return {
+                   there: true,
+                   drawn: !!button.querySelector("svg"),
+                   shownWords: button.textContent.trim(),
+                   said: button.getAttribute("aria-label") || "",
+                   hovered: button.getAttribute("title") || "",
+                   headingSays: head ? head.textContent.trim() : "",
+                   headingShows: head ? Math.round(head.getBoundingClientRect().width) : 0,
+                   cellWide: Math.round(cell.getBoundingClientRect().width),
+                   removed: before - rows(),
+                 };
+               })()""",
+        )
+    finally:
+        process.terminate()
+
+    assert found and found["there"], "no bin button in the areas table"
+    assert found["drawn"], "the button carries no drawing"
+    assert found["shownWords"] == "", (
+        f"the button still shows words as well as a picture: {found['shownWords']!r}"
+    )
+
+    # The label survived losing its text. Both of these, because they answer different people.
+    assert "Remove" in found["said"], found["said"]
+    assert "Remove" in found["hovered"], found["hovered"]
+    assert "Remove" in found["headingSays"], (
+        "the column heading stopped saying what the column is, so a reader hears an unnamed column"
+    )
+
+    # And it bought the width it was supposed to buy.
+    assert found["cellWide"] < 80, f"the column did not narrow: {found['cellWide']}px"
+    assert found["headingShows"] < 80, (
+        f"the heading is still laying out at its full width, so nothing was saved: "
+        f"{found['headingShows']}px"
+    )
+
+    assert found["removed"] == 1, "pressing it did not take the area out of the table"
+
+
 def test_why_an_area_is_in_or_out_opens_in_a_window(served) -> None:
     """feat-004/AC-14, feat-010/AC-25: a reason is a paragraph, so it gets a paragraph's room.
 

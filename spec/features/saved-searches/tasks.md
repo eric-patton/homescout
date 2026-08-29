@@ -152,3 +152,40 @@ alongside its peers.
       (`feat-004/AC-14`). Asserts the room actually grew, by measuring the window against the cell
       it replaced rather than trusting a stylesheet; that cancelling keeps what was there; that
       keeping updates the button and marks the panel unsaved without writing anything.
+
+- [x] T-reason-6: `web/static/search.js`, `app.css`: a bin instead of the word "Remove"
+      (`feat-004/AC-14`, `feat-010/AC-3`). "Instead of the word Remove, can you have an icon of a
+      trash bin to free up more horizontal space?"
+
+      It was the least informative sixty pixels in a row that had already run past its panel: every
+      row said the same word and nobody reads it twice. Drawn with `createElementNS` rather than
+      from markup, which is the rule everything this product draws follows, and in `currentColor`
+      so it turns red with the button rather than carrying a second copy of the palette.
+
+      What did not go with the word is what the control announces. The name stays on the button for
+      anything reading the page aloud, `title` puts it under a pointer, and the column heading is
+      still the word, kept in the document and clipped out of the layout so the column can actually
+      narrow. A button whose only label is a drawing is a button somebody has to guess at, and the
+      guess is expensive here because pressing it takes an area out of the search.
+
+## Defect: adding or removing a named place undid itself
+
+- [x] T-named-1: `web/static/search.js`: the table's named places are a draft that is kept
+      (`feat-004/AC-2`).
+
+      Found by the test for the bin above, which pressed it and watched the row come back.
+
+      The list of towns, counties and postal codes was rebuilt from the fetched search on every
+      redraw, and both controls that change it redraw immediately, so both undid themselves. Adding
+      a town pushed it onto the list, redrew, and the redraw read the fetched search again and
+      dropped it: the page then said "Added Portales. Save the areas to write it into the file"
+      about a row that was already gone. Removing one was the same in reverse, and looked like a
+      flicker.
+
+      The drawn shapes never had this, because the layer group they live in *is* the state and a
+      redraw reads it rather than replacing it. The named places now stand on the same footing:
+      seeded once from what the server said, kept across redraws, and reset at the two moments the
+      draft is genuinely stale, which are a fresh fetch and a successful save.
+
+- [x] T-named-2: `tests/test_web_browser.py`: a town added stays added and a town removed stays
+      removed (`feat-004/AC-2`). Checked against the rebuilding version, which fails both.
