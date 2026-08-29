@@ -1,7 +1,7 @@
 """Where the interface listens, what names it will answer to, and what the map draws over.
 
-Three settings, read through the same `.env`-and-environment loader the digest and the extraction
-model already use, so there is one place to look for every setting in this product.
+A handful of settings, read through the same `.env`-and-environment loader the digest and the
+extraction model already use, so there is one place to look for every setting in this product.
 
 The interesting one is `HOMESCOUT_ALLOWED_HOSTS`, and it is worth reading before changing.
 
@@ -56,6 +56,21 @@ TILES_ATTRIBUTION_VARIABLE = "HOMESCOUT_MAP_ATTRIBUTION"
 SATELLITE_VARIABLE = "HOMESCOUT_MAP_SATELLITE"
 SATELLITE_ATTRIBUTION_VARIABLE = "HOMESCOUT_MAP_SATELLITE_ATTRIBUTION"
 
+#: How deep this particular imagery actually goes, which is the one thing that differs between two
+#: otherwise interchangeable sources and the one thing neither of them will tell you.
+#:
+#: Measured, because both services *publish* a maximum of twenty-three and neither means it. The
+#: government's imagery answers 404 past zoom sixteen at every New Mexico address tried, downtown
+#: Albuquerque included, so it is the whole cache rather than a rural gap. Esri's answers to
+#: twenty-one everywhere tried.
+#:
+#: It matters because of what a tile server does when asked past its own depth: it returns nothing,
+#: and nothing paints as a hole. A map that goes blank when somebody zooms in reads as broken,
+#: where a picture that goes soft reads as a picture running out, which is the truth. So the deepest
+#: real level is recorded and the map stretches that one rather than asking for a level that is not
+#: there. Blank means no cap, which is the right default for an address nobody here has measured.
+SATELLITE_MAX_ZOOM_VARIABLE = "HOMESCOUT_MAP_SATELLITE_MAX_ZOOM"
+
 VARIABLES: tuple[str, ...] = (
     PORT_VARIABLE,
     ALLOWED_HOSTS_VARIABLE,
@@ -63,6 +78,7 @@ VARIABLES: tuple[str, ...] = (
     TILES_ATTRIBUTION_VARIABLE,
     SATELLITE_VARIABLE,
     SATELLITE_ATTRIBUTION_VARIABLE,
+    SATELLITE_MAX_ZOOM_VARIABLE,
 )
 
 
@@ -113,3 +129,19 @@ def satellite(root: Path, environ: Any = None) -> tuple[str | None, str | None]:
         (found.get(SATELLITE_VARIABLE) or "").strip() or None,
         (found.get(SATELLITE_ATTRIBUTION_VARIABLE) or "").strip() or None,
     )
+
+
+def satellite_max_zoom(root: Path, environ: Any = None) -> int | None:
+    """The deepest zoom the imagery actually has, or nothing if nobody has measured it.
+
+    An unreadable value is nothing rather than a failure, for the reason `port` gives: a map that
+    will not draw because of a typo in a file is a map somebody discovers is broken.
+    """
+    raw = (values(root, environ).get(SATELLITE_MAX_ZOOM_VARIABLE) or "").strip()
+    if not raw:
+        return None
+    try:
+        found = int(raw)
+    except ValueError:
+        return None
+    return found if 0 < found <= 24 else None

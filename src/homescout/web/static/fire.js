@@ -320,13 +320,20 @@ function build() {
     });
   }
   if (map_.satellite) {
+    /* A tile server asked past its own depth answers with nothing, and nothing paints as a hole,
+     * so a map that goes blank when somebody zooms in reads as broken. `maxNativeZoom` keeps
+     * asking for the deepest picture that exists and lets leaflet stretch it, so zooming further
+     * goes soft rather than blank, which is the honest way for a photograph to run out.
+     *
+     * How deep that is belongs to the source rather than to this page: the government's imagery
+     * stops at sixteen and Esri's runs to twenty-one, and neither of them says so. It is measured
+     * once and written down beside the address. Unset means nobody has measured this one, and the
+     * server is asked for whatever the map asks for. */
+    const deepest = map_.satellite_max_zoom;
     held.backgrounds.satellite = L.tileLayer(map_.satellite, {
       attribution: map_.satellite_attribution || "",
-      /* The national imagery stops here and a tile server asked past its own depth answers with
-       * nothing, which reads on screen as the map having broken. `maxNativeZoom` keeps asking for
-       * the deepest picture there is and lets leaflet stretch it, so zooming further gets blurry
-       * rather than blank, which is the honest way for a photograph to run out. */
-      maxZoom: 19, maxNativeZoom: 16,
+      maxZoom: 19,
+      ...(deepest ? {maxNativeZoom: deepest} : {}),
     });
   }
   background();

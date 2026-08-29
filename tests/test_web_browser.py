@@ -2358,6 +2358,7 @@ def test_the_map_switches_between_the_drawn_map_and_the_photograph(served, monke
     monkeypatch.setenv("HOMESCOUT_MAP_ATTRIBUTION", "Drawn by somebody")
     monkeypatch.setenv("HOMESCOUT_MAP_SATELLITE", f"{base}/static/photo/{{z}}/{{y}}/{{x}}")
     monkeypatch.setenv("HOMESCOUT_MAP_SATELLITE_ATTRIBUTION", "Photographed by somebody else")
+    monkeypatch.setenv("HOMESCOUT_MAP_SATELLITE_MAX_ZOOM", "16")
 
     found = on_the_map(served, """
         const box = document.getElementById("satellite");
@@ -2382,6 +2383,12 @@ def test_the_map_switches_between_the_drawn_map_and_the_photograph(served, monke
           drawnFirst, photo, backAgain,
           pinsSurvive: Object.keys(held.pins).length,
           mapAlive: !!held.map.getCenter(),
+          /* How deep this source's pictures go is the source's fact, not this page's. Asked past
+           * it, a tile server answers with nothing and nothing paints as a hole, so the deepest
+           * real level is stretched instead. The two sources worth offering differ here (the
+           * government's stops at sixteen, Esri's runs to twenty-one), which is the whole reason
+           * it is configured rather than assumed. */
+          deepest: held.backgrounds.satellite.options.maxNativeZoom,
         };
     """)
 
@@ -2406,6 +2413,10 @@ def test_the_map_switches_between_the_drawn_map_and_the_photograph(served, monke
 
     assert found["pinsSurvive"], "switching the background took the properties off the map"
     assert found["mapAlive"], "tiles that answered 404 took the map down with them"
+    assert found["deepest"] == 16, (
+        "the configured depth of the imagery did not reach the layer, so zooming past the pictures "
+        f"would ask for tiles that do not exist and paint holes: {found['deepest']!r}"
+    )
 
 
 def test_no_satellite_configured_offers_no_switch(served, monkeypatch) -> None:

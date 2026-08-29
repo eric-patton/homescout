@@ -1690,13 +1690,20 @@ WHERE: dict[str, list[dict[str, str]]] = {
     ],
     "satellite": [
         {
+            "what": "Esri's World Imagery",
+            "url": "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
+            "note": "Free and needs no key. About six times finer than the government's: measured "
+            "at four New Mexico addresses, it has real pictures down to zoom twenty-one where the "
+            "USGS cache stops at sixteen. It is a company's service rather than public domain, so "
+            "the credit line it asks for is not optional and the service is theirs to change.",
+        },
+        {
             "what": "The USGS national imagery basemap",
             "url": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer",
-            "note": "Free, needs no key, and is public domain because it is the government's own "
-            "photography. The address to paste is that one with "
-            "'/tile/{z}/{y}/{x}' on the end. It covers the United States only, which is what this "
-            "tool searches, and it is the same kind of federal service the fire layer and the "
-            "broadband map already come from.",
+            "note": "Free, needs no key, and public domain because it is the government's own "
+            "photography, refreshed June 2024. Coarser: it stops at zoom sixteen, which is about "
+            "two metres to a pixel, so a house is a smudge. The safe fallback rather than the "
+            "first choice, and the same kind of federal service the fire layer already comes from.",
         },
     ],
 }
@@ -1821,6 +1828,7 @@ def configuration(workspace: Workspace) -> dict[str, Any]:
             "satellite": web.satellite(root)[0],
             "satellite_attribution": web.satellite(root)[1],
             "satellite_variable": web.SATELLITE_VARIABLE,
+            "satellite_max_zoom": web.satellite_max_zoom(root),
             "satellite_where": WHERE["satellite"],
         },
         "interface": {
@@ -1925,6 +1933,7 @@ _WRITABLE_SETTINGS: tuple[str, ...] = (
     "HOMESCOUT_MAP_ATTRIBUTION",
     "HOMESCOUT_MAP_SATELLITE",
     "HOMESCOUT_MAP_SATELLITE_ATTRIBUTION",
+    "HOMESCOUT_MAP_SATELLITE_MAX_ZOOM",
     "HOMESCOUT_EXTRACT_BASE_URL",
     "HOMESCOUT_EXTRACT_MODEL",
     "HOMESCOUT_EXTRACT_REASONING_EFFORT",

@@ -126,6 +126,9 @@ def installation(workspace: api.Workspace) -> dict[str, Any]:
             "satellite": photograph,
             "satellite_attribution": photograph_credit,
             "satellite_variable": settings.SATELLITE_VARIABLE,
+            # How deep this source's pictures go, which decides whether zooming past them goes
+            # soft or goes blank. See the note on the variable.
+            "satellite_max_zoom": settings.satellite_max_zoom(workspace.root),
         },
         "hazards": api.hazard_layers(),
         **api.vocabulary(),

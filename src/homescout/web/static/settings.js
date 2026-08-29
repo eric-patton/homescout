@@ -292,13 +292,26 @@ function mailPanel() {
 const OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_CREDIT = "© OpenStreetMap contributors";
 
-/* The government's own photography of its own country, which is the right default for a tool that
- * only searches this one. Public domain, no key, and the same kind of federal service the fire
- * layer and the broadband map already come from, so turning it on adds a background rather than a
- * new kind of relationship. */
+/* Two imagery sources worth offering by name, and the difference between them is depth.
+ *
+ * Measured at four New Mexico addresses, three of them properties in this workspace: the
+ * government's cache stops at zoom sixteen everywhere, downtown Albuquerque included, and Esri's
+ * has real pictures down to twenty-one. At sixteen a house is a smudge about two metres to the
+ * pixel; at nineteen you can see which trees are up against it, which is the entire question
+ * somebody opens a satellite view to ask about rural land.
+ *
+ * So Esri first, and the government's kept beside it rather than dropped. One is a company's
+ * service that could be rate-limited or withdrawn, the other is public domain and cannot be. One
+ * button each means the fallback is a click rather than an afternoon. */
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery"
+           + "/MapServer/tile/{z}/{y}/{x}";
+const ESRI_CREDIT = "Imagery: Esri, Vantor, Earthstar Geographics";
+const ESRI_DEEPEST = "21";
+
 const USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly"
            + "/MapServer/tile/{z}/{y}/{x}";
 const USGS_CREDIT = "Imagery: USGS National Map";
+const USGS_DEEPEST = "16";
 
 function mapPanel() {
   const source = el("input", {
@@ -349,17 +362,29 @@ function mapPanel() {
     el("h3", {}, "Satellite view ", present(held.map.satellite, "on", "off")),
     el("p", {class: "meta"},
       "A second tile server, and so a second computer being told which part of the world you are "
-      + "looking at. The one offered here is the United States Geological Survey's own imagery: "
-      + "public domain, no account, and the same kind of federal service the fire layer already "
-      + "comes from. It covers this country only, and it stops at about the depth of a house."),
+      + "looking at. Two are offered because they are not equally good and not equally safe. "
+      + "Esri's is about six times finer: measured at four New Mexico addresses it has real "
+      + "pictures down to zoom twenty-one, where the government's cache stops at sixteen and a "
+      + "house is a smudge. The government's is public domain and cannot be withdrawn; Esri's is "
+      + "a company's service, asks for its credit line, and is theirs to change."),
     el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        class: held.map.satellite ? null : "primary",
+        onclick: () => write({
+          HOMESCOUT_MAP_SATELLITE: ESRI,
+          HOMESCOUT_MAP_SATELLITE_ATTRIBUTION: ESRI_CREDIT,
+          HOMESCOUT_MAP_SATELLITE_MAX_ZOOM: ESRI_DEEPEST,
+        }),
+      }, "Use Esri's imagery (sharper)"),
       el("button", {
         type: "button",
         onclick: () => write({
           HOMESCOUT_MAP_SATELLITE: USGS,
           HOMESCOUT_MAP_SATELLITE_ATTRIBUTION: USGS_CREDIT,
+          HOMESCOUT_MAP_SATELLITE_MAX_ZOOM: USGS_DEEPEST,
         }),
-      }, "Use the USGS imagery"),
+      }, "Use the USGS imagery (public domain)"),
       held.map.satellite
         ? el("button", {
             type: "button",
@@ -367,6 +392,7 @@ function mapPanel() {
             onclick: () => write({
               HOMESCOUT_MAP_SATELLITE: "",
               HOMESCOUT_MAP_SATELLITE_ATTRIBUTION: "",
+              HOMESCOUT_MAP_SATELLITE_MAX_ZOOM: "",
             }),
           }, "Turn it off")
         : null,

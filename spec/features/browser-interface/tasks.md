@@ -1094,3 +1094,29 @@ alongside its peers.
       resolve to the test's own server: a browser test about tiles that asks somebody for a tile is
       a test that fails on a train. Beside it, the case that decides the shape of the control: with
       nothing configured, nothing is offered.
+
+- [x] T152: `web/settings.py`, `web/wire.py`, `api.py`, `web/static/{fire,settings}.js`: sharper
+      imagery, and how deep it goes recorded rather than guessed (`feat-010/AC-68`). "I assume we
+      can't get access to higher quality satellite tiles at closer zoom levels?"
+
+      We can, by a lot. Measured at four New Mexico addresses, three of them properties in this
+      workspace: the government's cache answers 404 past zoom sixteen at every one of them,
+      downtown Albuquerque included, so it is the whole cache rather than a rural gap. Esri's has
+      real pictures down to twenty-one everywhere tried. Both services *publish* a maximum of
+      twenty-three and neither means it.
+
+      Looked at rather than only counted. At Esri's zoom nineteen over one of the six properties
+      the household asked about, individual pinon crowns, a parked vehicle and a neighbouring roof
+      are all legible; the same vehicle is about one pixel at the government's deepest. Roughly six
+      times finer in practice.
+
+      Esri is offered first and the government's is kept beside it rather than dropped, one button
+      each. One is a company's service that can be rate-limited or withdrawn and asks for its credit
+      line; the other is public domain and cannot be. A fallback that is a click is worth having.
+
+      The depth is now a setting rather than a constant, because it belongs to the source and the
+      two differ by five levels. Asked past its own depth a tile server returns nothing and nothing
+      paints as a hole, so a map that goes blank when somebody zooms in reads as broken. The deepest
+      real level is written down beside the address and the map stretches that one, so zooming
+      further goes soft, which is the honest way for a photograph to run out. Unset means nobody has
+      measured that source and the server is asked for whatever the map asks for.
