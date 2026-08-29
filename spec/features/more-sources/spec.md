@@ -83,6 +83,17 @@ problem brief is in `research.md`.
 - [ ] AC-10: Both adapters tag every row with the producing source and a fetch timestamp, and
       retain the source's original payload, as the interface requires.
 - [ ] AC-11: Neither adapter reads a credential, an API key, or a login.
+- [ ] AC-14: An adapter declares a filter applied only when the source can express the question that
+      was actually asked. A source's vocabulary is its own and does not have to match this tool's:
+      where two of the tool's kinds collapse onto one of the source's, asking for either one asks
+      for both, and the answer that comes back is to a different question. So the test is not
+      whether a parameter exists but whether it can carry the meaning without widening it, and a
+      filter that cannot go out intact is not declared, not sent, and applied by the caller instead.
+
+      This is the one failure in the whole arrangement that has no symptom. An undeclared filter is
+      applied locally and is merely slower; a wrongly declared one is applied by nobody, and what
+      reaches the household is a list quietly answering something they did not ask, with every
+      source reporting success.
 - [ ] AC-12: Registering both adapters requires no change to the adapter interface, the politeness
       layer, the run loop, or the store. A test asserts that a run naming all three sources succeeds
       with both adapters supplied only through registration, touching no core behavior.

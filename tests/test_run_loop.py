@@ -53,6 +53,54 @@ def test_the_filters_a_source_would_not_apply_are_applied_here(store: Store) -> 
     assert kept == ["new Example Road"]
 
 
+def test_a_kind_of_property_nobody_asked_for_is_dropped_here(store: Store) -> None:
+    """feat-003/AC-7, feat-005/AC-14: the half of the contract that was not being kept.
+
+    Written for a real fault. Redfin has no code for a farm, so the adapter mapped `farm` onto its
+    code for land, and a search for houses and farms went out as a search for houses and land. The
+    adapter then declared that it had narrowed by kind, so nothing checked, and six vacant lots sat
+    in a household's results for days looking like a photograph problem, because a lot has no
+    photograph.
+
+    The adapter no longer declares it. This is the other end: given a source that says it did not
+    narrow by kind, the run drops what the search did not ask for.
+    """
+    source = FakeSource(
+        applies=["price_max"],
+        rows=[
+            row("house", property_type="single_family"),
+            row("ranch", property_type="farm"),
+            row("lot", property_type="land"),
+            row("trailer", property_type="mobile"),
+        ],
+    )
+    definition = search(price_max=1_000_000, property_types=("single_family", "farm"))
+
+    outcome = run(store, definition, sources={"fake": source})
+
+    kept = sorted(s.fields.property_type for s in store.snapshots_for_run(outcome.run.id))
+    assert kept == ["farm", "single_family"]
+    assert "property_types" in outcome.sources[0].applied_locally
+
+
+def test_a_property_whose_kind_nobody_recorded_is_still_kept(store: Store) -> None:
+    """feat-003/AC-28: an unfiltered field is not a failed test.
+
+    The rule that makes the fix above safe. Dropping every property whose kind no site bothered to
+    state would trade six lots for an unknown number of houses, which is the worse error: a lot in
+    the list is an annoyance, and a house missing from it is the thing this tool exists to prevent.
+    """
+    source = FakeSource(
+        applies=[],
+        rows=[row("named", property_type="single_family"), row("silent", property_type=None)],
+    )
+
+    outcome = run(store, search(property_types=("single_family",)), sources={"fake": source})
+
+    kept = sorted(s.fields.address_line for s in store.snapshots_for_run(outcome.run.id))
+    assert kept == ["named Example Road", "silent Example Road"]
+
+
 def test_the_result_says_who_applied_what(store: Store) -> None:
     """feat-003/AC-8: a source's opinion and the tool's, told apart rather than merged."""
     source = FakeSource(applies=["price_max"], rows=[row("a")])

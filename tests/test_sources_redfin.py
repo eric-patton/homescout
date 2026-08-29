@@ -164,22 +164,42 @@ def test_only_declared_filters_reach_the_request() -> None:
     assert result.applied["price_min"] is True
 
 
-def test_asking_for_one_kind_of_property_narrows_the_codes() -> None:
-    """feat-005/AC-1: the site takes a list of its own codes."""
+def test_the_kind_of_property_is_not_asked_for_and_the_caller_is_told_so() -> None:
+    """feat-005/AC-1, feat-005/AC-14: this source has no word for a farm.
+
+    Its codes are house, condo, townhouse, multi-family, land, other, manufactured and co-op. A
+    ranch is not among them, so `farm` was mapped to land and a search for houses and farms went
+    out as a search for houses and land. Six vacant lots reached a household's results that way.
+
+    So kind joins lot size: not declared, therefore not sent, and the caller is told it has to do
+    the narrowing. The declaration and the request are the same set by construction, which is what
+    makes "not sent" and "not claimed" impossible to get out of step.
+    """
     source, transport = answering(recorded())
 
-    source.run_search(SearchQuery(area=BOX, property_types=("single_family", "land")))
-
-    assert parameters(transport)["uipt"] == ["1,5"]
-
-
-def test_a_property_type_nobody_recognizes_widens_rather_than_empties() -> None:
-    """feat-005/AC-1: an unfamiliar name must not silently return nothing."""
-    source, transport = answering(recorded())
-
-    source.run_search(SearchQuery(area=BOX, property_types=("houseboat",)))
+    result = source.run_search(SearchQuery(area=BOX, property_types=("single_family", "farm")))
 
     assert parameters(transport)["uipt"] == [queries.ALL_PROPERTY_CODES]
+    assert result.applied["property_types"] is False, "the caller must be told to filter by kind"
+
+
+def test_asking_for_houses_does_not_quietly_ask_for_land() -> None:
+    """feat-005/AC-14: the regression, stated as the thing that actually went wrong.
+
+    The old behaviour sent `uipt=1,5`, and 5 is this site's code for land. The test that covered it
+    asserted exactly that string and so agreed with the bug: it read as the adapter speaking the
+    site's vocabulary, which it was, while asking a question nobody had asked.
+    """
+    source, transport = answering(recorded())
+
+    source.run_search(SearchQuery(area=BOX, property_types=("single_family", "farm")))
+
+    sent = parameters(transport)["uipt"][0]
+    assert sent != "1,5", "asked the site for land while the search asked for farms"
+    assert queries._PROPERTY_CODES["farm"] == queries._PROPERTY_CODES["land"], (
+        "the collision is the reason this cannot be pushed to the source; if the site ever grows "
+        "a code for a ranch, this test is the place that says so"
+    )
 
 
 def test_exactly_the_cap_is_read_as_there_being_more() -> None:

@@ -41,7 +41,6 @@ APPLIES = frozenset(
         "sqft_max",
         "year_built_min",
         "year_built_max",
-        "property_types",
         "listing_status",
     }
 )
@@ -60,14 +59,32 @@ _PARAMETERS: dict[str, str] = {
     "year_built_max": "max_year_built",
 }
 
-#: The tool's property vocabulary, and the code Redfin uses for each in `uipt`.
+#: The tool's property vocabulary against the codes Redfin's `uipt` parameter takes, and the reason
+#: this table narrows nothing.
+#:
+#: **There is no code for a farm.** Redfin's list is house, condo, townhouse, multi-family, land,
+#: other, manufactured, co-op, and a ranch is not on it, so `farm` was pointed at land as the
+#: nearest thing. That is not a near miss, it is a different question: a search for "houses and
+#: farms" went out as "houses and land" and came back with every vacant lot in the state. Six of
+#: them were sitting in a household's results, and the reason nobody spotted it sooner is that a lot
+#: has no photograph, so it looked like a picture problem rather than a filter problem.
+#:
+#: The site does honour this parameter. Measured on one box: asked for houses, three hundred and
+#: forty-nine rows and not one lot; asked for houses and farms, four lots. So the fault is entirely
+#: in what we can say to it, which is why the fix is to stop claiming we said it. `property_types`
+#: is no longer declared and so is no longer sent, and the caller filters by kind locally. Exactly
+#: what lot size does, three fields up, and for the same reason: a narrowing this source cannot
+#: express honestly is one the caller has to do itself.
+#:
+#: Kept rather than deleted because the mapping is true about the site and the next person to reach
+#: for it needs to find this note rather than write the table again.
 _PROPERTY_CODES: dict[str, str] = {
     "single_family": "1",
     "condo": "2",
     "townhouse": "3",
     "multi_family": "4",
     "land": "5",
-    "farm": "5",
+    "farm": "5",  # Wrong, and unreachable. See above.
     "other": "6",
     "mobile": "7",
     "apartment": "8",
@@ -121,16 +138,8 @@ def parameters(query: SearchQuery, box: BoundingBox, applies: frozenset[str]) ->
             continue
         values[parameter] = f"{value:g}" if isinstance(value, float) else str(value)
 
-    if "property_types" in applies and query.property_types:
-        codes = [
-            _PROPERTY_CODES[str(kind)]
-            for kind in query.property_types
-            if str(kind) in _PROPERTY_CODES
-        ]
-        if codes:
-            # A type the table does not know contributes no code, so an unrecognized name widens
-            # the search rather than emptying it, and the caller filters it locally.
-            values["uipt"] = ",".join(dict.fromkeys(codes))
+    # `uipt` stays at every code. This source is asked for all kinds and the caller keeps the ones
+    # the search wanted; see `_PROPERTY_CODES` for why it is not asked to narrow.
 
     if "listing_status" in applies and query.listing_status:
         values["status"] = _STATUS_CODES.get(query.listing_status, _STATUS_CODES["for_sale"])

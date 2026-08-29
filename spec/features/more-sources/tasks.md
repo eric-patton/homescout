@@ -91,3 +91,50 @@ that does not exist yet is not one of them.
       kept is the measurement, on `fetch_preview` and in the change folder, in place of the older
       note that explained the absence with a judgment about what a photograph is worth. That
       judgment was wrong and it was the reason nobody looked. The fact is not wrong.
+
+## Defect: a search for farms was a search for vacant land
+
+- [x] T-kind-1: `sources/redfin/queries.py`: kind is not declared and not sent
+      (`feat-005/AC-14`, `feat-005/AC-1`).
+
+      Found by pulling a thread. Six properties had no photograph, which read as a picture problem,
+      and every one of them turned out to be raw land that the search had never asked for.
+
+      This source's property-type parameter takes codes for house, condo, townhouse, multi-family,
+      land, other, manufactured and co-op. **There is no code for a farm.** So `farm` had been
+      mapped onto land as the nearest thing, and a search for `[single_family, farm]` went out as
+      `uipt=1,5`, which is this site's way of saying houses and vacant lots.
+
+      The parameter itself works, which is what made this invisible. Measured on one box: asked for
+      houses, three hundred and forty-nine rows and not one lot; asked for houses and farms, four
+      lots. Nothing was broken at the site's end and nothing failed. The adapter asked a question
+      nobody had asked and then declared it had narrowed by kind, so the caller did not check.
+
+      Kind now follows lot size, three fields up in the same file and undeclared for the same
+      reason: a narrowing this source cannot express honestly is one the caller has to do itself.
+      The declaration and the request are one set by construction, so not-claimed and not-sent
+      cannot drift apart.
+
+      The cost is real and worth naming. This source has the lowest cap of the three, and it now
+      spends some of it on condos and mobile homes that are discarded here. A filter that quietly
+      means something else is worse than a filter that costs rows.
+
+      The table of codes is kept rather than deleted, with the note on it, because the mapping is
+      true about the site and the next person to reach for it should find the reason rather than
+      write the table again.
+
+- [x] T-kind-2: `tests/test_sources_redfin.py`: two tests replaced, because they agreed with it
+      (`feat-005/AC-14`). One asserted that `uipt` was exactly `1,5`, which is the bug written down
+      as an expectation: it reads as the adapter speaking the site's vocabulary, which it was, while
+      asking for something else. Replaced by what is now true, plus the collision itself asserted,
+      so that if this site ever grows a code for a ranch there is a test that says where to look.
+
+- [x] T-kind-3: `tests/test_run_loop.py`: the other end of the contract (`feat-005/AC-14`,
+      `feat-003/AC-7`). A source that says it did not narrow by kind, and a run that drops the lot
+      and the mobile home and keeps the house and the ranch. Beside it, the rule that makes the fix
+      safe: a property whose kind nobody recorded is kept. Dropping those would trade six lots for
+      an unknown number of houses, which is the worse error by a long way.
+
+- [x] T-kind-4: measured against the real site before and after, on one box in the east mountains.
+      Realtor was checked too and is clean: it honours the same filter exactly, and the wrong-typed
+      rows in the workspace all came from a `portales` test search that carried no kind filter.

@@ -16,6 +16,15 @@ result, while every other filter measured does work. So lot size is not declared
 filters it locally and is told that it has to. For a search about acreage that matters: this
 source's 350 rows will be mostly properties the local test is about to discard.
 
+**It has no word for a farm, and kind is not declared either.** Its property-type parameter takes
+codes for house, condo, townhouse, multi-family, land, other, manufactured and co-op. A ranch is not
+among them, so `farm` was mapped to land, and a search for houses and farms went out as a search for
+houses and land. The parameter itself works: asked for houses, one box returned 349 rows and no
+lots; asked for houses and farms, four lots. The fault is in what can be said to it, so kind follows
+lot size and is filtered by the caller. That is the more expensive answer, because this source's cap
+is the lowest of the three and it now spends some of it on condos, but a filter that quietly means
+something else is worse than a filter that costs rows.
+
 **It cannot say when a region's listing service forbids downloads.** Every response in every region
 carries the same line about local rules, and a metropolitan box in one state returns two properties
 where a town of twelve thousand in another returns sixty-one. The restriction is real and invisible.
