@@ -1342,3 +1342,71 @@ is written in this file beside this function and the wrong pattern is the one cu
       restore of an ordinary deleted search still works, with its areas and its comments intact,
       which is AC-27's actual promise and the thing a stricter path resolution could plausibly
       break. Full suite green, 1,280 tests.
+
+## Change: not forty-three columns (`changes/not-forty-three-columns/`)
+
+- [x] T172: `web/static/results.js`: three named views, and the table opens on one
+      (`feat-010/AC-74`). Deciding, Hazards, Everything, held as lists of column names and
+      intersected with what the answer declares, so a renamed or retired column narrows a view:
+      the rest are drawn, nothing is raised, and the table is never left blank.
+
+      **The remembered arrangement is read first and wins.** This decides what a table nobody has
+      arranged yet looks like and nothing else, which is the whole difference between a default and
+      a redesign of somebody's screen. The existing `remembered()` already tells the two apart:
+      what it returns for a search nobody has touched is empty.
+
+      Held in the same stored object as the order, the widths and the hidden set, because it is the
+      same kind of thing and a second place to keep a view preference is a second place for it to
+      disagree with itself.
+
+      **The view is applied at two moments and no others**: nothing remembered at all, and somebody
+      picking one. What is stored is the resulting hidden set, which `remember()` already writes
+      whole rather than as a delta; the view's name is one more key beside it and is a label. Never
+      recomputed from the name on a later load, because that would put back the thirty-one columns
+      somebody had just deviated from, and would let a release that edits a view rearrange a table
+      already in use. A stored arrangement carrying no view name is somebody's existing arrangement
+      from before this change, and reads as Custom rather than as an invitation to impose a
+      default.
+
+- [x] T173: `web/static/results.js`, `app.css`: the control, in the "which columns" group
+      (`feat-010/AC-74`, `feat-010/AC-72`). It says which view is in force and how many columns it
+      draws, counted against what the answer declares, because "twelve of forty-three" is the fact
+      that stops the opening screen being a mystery.
+
+      Hiding or showing one column afterwards drops the view to "Custom" rather than being
+      reasserted by it. A view that quietly put a column back after somebody hid it would be a
+      control fighting the person using it, and the two ways of hiding a column (the chooser and
+      the right-click) both have to do this or one of them lies.
+
+- [x] T174: `web/static/results.js`: the chooser grouped by where a value comes from
+      (`feat-010/AC-75`). Five groups under the words the core declares with the columns, which the
+      table already reads for the heading tooltips, so the chooser and the tooltip cannot describe
+      the same column differently. Each group says how many of its columns are shown and can be
+      shown or put away as a group: "all the public data" and "everything I write in myself" are
+      the two most common of the thirty decisions this replaces.
+
+      The origin reaches the browser already; nothing new is asked of the server, which is the test
+      that this has been designed in the right place.
+
+- [x] T175: `tests/test_web_surfaces.py`: the views and the grouping (`feat-010/AC-74`,
+      `feat-010/AC-75`, `feat-010/AC-45`, `feat-010/AC-52`, `feat-010/AC-17`).
+
+      That the table opens on a view and not on forty-three columns. That a remembered arrangement
+      is read first and is not overwritten, which is the assertion that keeps this a default, and
+      that a stored arrangement with no view name is read as Custom rather than replaced. That
+      deviating from a view keeps the rest of it: hide one column of the twelve, reload, and the
+      other thirty-one are still hidden, which is the case where the wrong implementation is
+      silently and exactly backwards. That one hide or show drops the control to Custom. That a view
+      naming a column the answer does not declare draws the rest, raises nothing and leaves no blank
+      table. That every declared column is still in the chooser and still in the answer. That the
+      group headings are the core's words rather than a second set written here. And that the view
+      control and the group toggles are reachable and operable from the keyboard, which
+      product-global requires of this whole surface.
+
+      The reload case is in `tests/test_web_browser.py` rather than here, because it is a property
+      of a page: it needs real storage, a real reload, and the arrangement read back the way a
+      browser reads it. Checked against a deliberately wrong implementation first, and the first
+      attempt at breaking it did not fail the test, because after deviating the view is already
+      Custom and there is nothing left to recompute from. The implementation that actually loses
+      somebody's arrangement is the one where deviating keeps the view's name, and that is what the
+      red run had to use.

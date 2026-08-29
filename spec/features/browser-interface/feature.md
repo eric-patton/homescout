@@ -114,3 +114,18 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   built without: 737 of 951 rows were held back by the judgment and the bar was empty. Every screen
   about a search now offers the others, built once rather than five times, which is how the search
   builder came to reach none of them.
+
+- **2026-08-29, not forty-three columns (`changes/not-forty-three-columns/`).** The results table
+  opened on every column it has, forty-three of them and about five screens, and the ones a person
+  decides with were scattered among them. It opens on a named view of a dozen now, with Hazards and
+  Everything beside it, and the chooser groups all forty-three by where each value comes from rather
+  than listing them flat.
+
+  The pre-build check caught the one decision that mattered and I had not made it. "A remembered
+  arrangement wins over the view" has two implementations that behave oppositely: store the view's
+  name and recompute what it hides on each load, and hiding one column of the twelve brings the
+  other thirty-one back on the next visit, because only the column that was touched was written
+  down. So a view is applied at exactly two moments, nothing remembered at all and somebody picking
+  one, and what is stored is the resulting set with the name as a label on it. That opened a second
+  case: everybody who used this table before today has an arrangement stored and no view name, and
+  reading that as "apply the default" would rearrange exactly the people the rule protects.

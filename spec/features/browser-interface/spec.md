@@ -36,6 +36,10 @@ in five years. The problem brief is in `research.md`.
 - As the person reading a thousand rows, I want to narrow one column at a time by typing what its
   value should contain, so that I can ask a question about a particular column instead of about
   every column at once.
+- As the person reading a thousand rows, I want the table to open on the columns I decide with, so
+  that the address and the price are not four screens apart on a table I have not arranged yet.
+- As the person putting columns away, I want the chooser sorted by where a value comes from, so
+  that finding the flood zone is looking in one place rather than reading forty-three names.
 - As the person choosing where to live, I want to measure how far a house is from something on the
   map, so that "too close to the red" is a number rather than an impression.
 - As the person choosing where to live, I want to see which way the wind normally blows here, so
@@ -358,18 +362,14 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-44: A column can be moved to another position and set to another width, by pointer and by
       keyboard, and doing either changes nothing about what the column holds or what it is called.
 - [ ] AC-45: The arrangement of the columns is remembered per browser and per saved search, and a
-      control returns it to the declared arrangement. It is a view preference and is never written
+      control returns it to the opening view (AC-74). It is a view preference and is never written
       to the workspace, so two people reading one workspace arrange it independently. Where the
-      browser cannot store it, the table opens in the declared arrangement and every other part of
-      the page behaves identically. A column that did not exist when an arrangement was saved
-      appears beside the column it is declared beside, never on the end: a remembered arrangement
-      names every column there was, so on the end means past the right edge of a table forty
-      columns wide, and a column nobody can see is a capability nobody has. Nothing somebody placed
-      themselves is moved by this. A column that did not exist when an arrangement was saved
-      appears beside the column it is declared beside, never on the end: a remembered arrangement
-      names every column there was, so on the end means past the right edge of a table forty
-      columns wide, and a column nobody can see is a capability nobody has. Nothing somebody placed
-      themselves is moved by this.
+      browser cannot store it, the table opens on that view and every other part of the page
+      behaves identically. A column that did not exist when an arrangement was saved appears beside
+      the column it is declared beside, never on the end: a remembered arrangement names every
+      column there was, so on the end means past the right edge of a table forty columns wide, and
+      a column nobody can see is a capability nobody has. Nothing somebody placed themselves is
+      moved by this.
 - [ ] AC-46: Every column is either filled by this tool or written by the person, and its heading
       says which, so that an empty cell is never read as the tool having failed at something it was
       not doing. There is no third kind: a column that is neither filled nor writable is a heading
@@ -392,7 +392,8 @@ in five years. The problem brief is in `research.md`.
       needs. With wrapping off, every row is one height and is placed by arithmetic, which is what a
       thousand rows without measuring any of them requires.
 - [ ] AC-52: A column can be hidden from this screen, by right-clicking its heading and by the
-      keyboard, and brought back from a chooser that lists every column. Hiding is remembered
+      keyboard, and brought back from a chooser that lists every column, grouped by where each
+      value comes from (AC-75) rather than as one flat list of them all. Hiding is remembered
       alongside the order and the widths, and a column comes back where it was rather than on the
       end. It changes what this screen draws and nothing else: every column stays in the answer and
       in the spreadsheet. The control column cannot be hidden.
@@ -665,6 +666,49 @@ in five years. The problem brief is in `research.md`.
       The navigation that names the same three destinations everywhere is not this: a bar that
       reports "the list of searches" while standing on a search's own results is naming somewhere
       the reader is not.
+- [ ] AC-74: The results table opens on a named view rather than on every column it has. Three
+      exist: the columns a property is decided with, the columns about what a place is next to, and
+      all of them. Which one is in force is shown in words with the number of columns it draws,
+      counted against what the answer declares rather than a number written down here, and changing
+      it is one control. Everything a view leaves out is still in the answer, still in the
+      spreadsheet, and still one tick away in the chooser, which is AC-52's guarantee unchanged.
+
+      A remembered arrangement wins over the view, always. A person who has arranged this table
+      opens it as they left it, and the view decides only what a table nobody has arranged yet
+      looks like. That is what makes this a default rather than a redesign of somebody's screen.
+
+      **What is remembered is the set of columns, and the view's name is a label on it.** A view is
+      applied at exactly two moments: when there is nothing remembered at all, and when a person
+      picks one. It is never recomputed from its name on a later load. Two things follow and both
+      are required. Somebody who deviates from a view keeps every other column exactly as the view
+      left it, rather than having the thirty the view was hiding reappear because only the one they
+      touched was written down. And a release that changes what a view contains does not silently
+      rearrange a table already in use.
+
+      A stored arrangement carrying no view name is somebody's arrangement from before views
+      existed, and reads as one rather than as an invitation to impose a default.
+
+      A view is a starting point and not a lock: hiding or showing a single column afterwards
+      leaves the view rather than being reasserted by it, and the control says so rather than
+      continuing to claim a view the table is no longer showing.
+
+      A view naming a column this answer does not declare draws the columns it does declare: a view
+      is a list of names, so a release that renames or retires one narrows the view. The table
+      draws the rest, raises nothing, and is never left blank.
+
+      Both this control and the chooser are operable from the keyboard, like everything else on
+      this surface (AC-17).
+- [ ] AC-75: The chooser groups every column by where its value comes from, under the same five
+      names the table already uses to say what an empty cell in that column means: reported by the
+      listing, worked out by this tool, read out of the description, public data about the place,
+      and yours to write in. The words are the core's, declared once with the columns themselves,
+      so the chooser and the heading tooltips cannot come to describe the same column differently.
+
+      The grouping is the answer to "where in this list is the flood zone", which a flat list of
+      forty-three names makes somebody read all of them to answer. Each group says how many of its
+      columns are shown, and can be shown or put away as a group, from the pointer and from the
+      keyboard, because "all the public data" and "everything I write in myself" are the two most
+      common of those thirty decisions.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first

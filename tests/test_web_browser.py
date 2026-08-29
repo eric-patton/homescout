@@ -2916,3 +2916,68 @@ def test_the_hard_wind_gets_its_own_arrow_when_it_pushes_somewhere_else(served, 
 
     assert "Most often pushes toward the east" in found["said"], found["said"]
     assert "most often pushes toward the north" in found["said"], found["said"]
+
+
+def test_deviating_from_a_view_survives_a_reload_with_the_rest_of_it(served) -> None:
+    """feat-010/AC-74, feat-010/AC-45: the case where the wrong implementation is exactly backwards.
+
+    Here rather than against the source, because it is a property of a page: it needs real storage,
+    a real reload, and the arrangement read back the way a person's browser reads it.
+
+    The table opens on Deciding, about a dozen of the forty-three. Show one more, reload, and the
+    other thirty must still be hidden. An implementation that stored the view's name and recomputed
+    which columns it hides would put every one of them back, because only the column that was
+    touched got written down, and nothing in the source would look wrong.
+    """
+    base, _held, _store = served
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 200; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 50));
+                 }
+                 const opened = {view: state.view, shown: visible().filter(sortable).length,
+                                 declared: state.declared.filter(sortable).length};
+                 // Show one column the opening view was hiding.
+                 const extra = state.declared.filter(sortable)
+                   .find(c => state.hidden[c.name]);
+                 show(extra.name);
+                 return {opened, extra: extra.name,
+                         after: {view: state.view, shown: visible().filter(sortable).length}};
+               })()""",
+        )
+        assert found["opened"]["view"] == "deciding", found
+        assert found["opened"]["shown"] < found["opened"]["declared"], (
+            "the table opened on every column it has, which is the thing this change fixes"
+        )
+        assert found["after"]["view"] == "custom", "deviating leaves the view behind"
+        assert found["after"]["shown"] == found["opened"]["shown"] + 1
+
+        # The reload, which is the whole point.
+        evaluate(connection, "window.location.reload()", message_id=2)
+        time.sleep(1.0)
+        connection = talk(debug, "/results/portales")
+        back = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 200; i++) {
+                   if (document.querySelector("#body tr")) break;
+                   await new Promise(r => setTimeout(r, 50));
+                 }
+                 return {view: state.view, shown: visible().filter(sortable).length,
+                         declared: state.declared.filter(sortable).length};
+               })()""",
+            message_id=3,
+        )
+        assert back["view"] == "custom", "the label came back with the arrangement"
+        assert back["shown"] == found["after"]["shown"], (
+            f"the arrangement was recomputed rather than remembered: opened on "
+            f"{found['opened']['shown']}, deviated to {found['after']['shown']}, "
+            f"came back as {back['shown']} of {back['declared']}"
+        )
+    finally:
+        process.terminate()

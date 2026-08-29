@@ -373,3 +373,65 @@ product.
 - **The listing page's way back is to where it came from, not to a search.** A property can appear
   in several saved searches, so "back to the search" has no single answer. What it has is the table
   the reader arrived from, which is a fact about this visit rather than about the property.
+
+## Design decisions: not forty-three columns (`changes/not-forty-three-columns/`)
+
+- **The views live in the browser, and that follows from AC-45 rather than from convenience.** The
+  arrangement of this table is a view preference that is never written to the workspace, so that two
+  people reading one workspace arrange it independently. A view is the same kind of thing: the
+  opening arrangement. Putting the lists in the core would make one person's idea of "deciding"
+  everybody's, and would make adding a view a release.
+
+- **A view is a list of column names, not a list of positions or a filter over origins.** Names,
+  because that is what the arrangement already remembers and what survives a release that adds a
+  column. Not origins, because the useful views cut across them: deciding with a house means its
+  price, which the listing reported, and its wildfire hazard, which is public data, and the verdict
+  written on it. An origin-shaped view would be a view of the data model rather than of the job.
+
+- **The remembered arrangement wins, and that is the load-bearing decision here.** Everything else in
+  this change is reversible in one press; overwriting an arrangement somebody spent an afternoon on
+  is not. So the view decides only what a table nobody has arranged yet opens on. It also means the
+  change is invisible to anybody who has already arranged this table, which is the right blast
+  radius for a default.
+
+- **What is stored is the resulting set of columns; the view's name is a label on it.** Two plausible
+  implementations here produce opposite behaviour and only one is right, so it is written down.
+
+  A view is *applied*, meaning it computes which columns are hidden, at exactly two moments: when
+  nothing is remembered at all, and when a person picks one. It is never recomputed from its name on
+  a later load. The stored hidden set is authoritative and the name only says where that set came
+  from.
+
+  The alternative, storing the name and deriving the set on every load, breaks twice. Somebody who
+  hides one column of the twelve would come back to the other thirty-one reappearing, because the
+  view would be reasserted around the single thing they wrote down. And a release that changed what
+  Deciding contains would silently rearrange a table somebody was already using, which is the thing
+  "the remembered arrangement wins" exists to prevent.
+
+  This falls out of how `remember()` already works: it writes the whole hidden set on every save
+  rather than a delta. The name is one more key beside it.
+
+- **A stored arrangement with no view name is somebody's existing arrangement, and is left alone.**
+  Anybody who used this table before this change has an order and a hidden set stored and no view.
+  Reading that as "no view, so apply the default" would rearrange exactly the people this decision
+  is protecting. It reads as Custom.
+
+- **The five groups are the origins the columns already declare**, in the same order the table's own
+  `ORIGINS` table lists them: `listing` is reported by the listing, `derived` is worked out by this
+  tool, `extracted` is read out of the description, `enriched` is public data about the place, and
+  `annotation` is yours to write in. The words are read from the same declaration the heading
+  tooltips read rather than written out again here.
+
+- **Deviating leaves the view rather than fighting it.** Hide one column and the control says Custom.
+  The alternative, a view that reasserts itself, is a control that undoes what the person just did,
+  and the two ways of hiding a column would have to agree about it or one of them would be lying.
+
+- **Three, and named for the job rather than for the data.** Deciding, Hazards, Everything. Hazards
+  exists because it is what this household is actually filtering for and the reason the enrichment
+  pass exists at all; without it "the public data" is a group in a chooser rather than a way of
+  reading the table. A fourth would need somebody to want it.
+
+- **The chooser's groups are the core's words, read from the same declaration the heading tooltips
+  read.** Two sets of words for five origins is how a chooser comes to call something "public data"
+  while the tooltip over the same column calls it something else, and nothing on the page would ever
+  say that had happened.

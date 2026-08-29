@@ -114,6 +114,85 @@ const ORIGINS = {
   annotation: "yours to write in",
 };
 
+/* What a group of columns is called in the chooser, in the order the origins are declared in. The
+ * same five the tooltips above use to say what an empty cell means, because two sets of words for
+ * five origins is how a chooser comes to call something "public data" while the heading over the
+ * same column calls it something else. */
+const ORIGIN_GROUPS = [
+  ["listing", "Reported by the listing"],
+  ["derived", "Worked out by this tool"],
+  ["extracted", "Read out of the description"],
+  ["enriched", "Public data about the place"],
+  ["annotation", "Yours to write in"],
+];
+
+/* The named views the table can open on.
+ *
+ * Forty-three columns is about seven thousand four hundred pixels, five screens on an ordinary
+ * window, and the ones a person decides with are scattered among them. So the table opens on a
+ * dozen and everything else is one tick away in the chooser, still in the answer and still in the
+ * spreadsheet.
+ *
+ * Names rather than origins, because the useful views cut across them: deciding on a house means
+ * its price, which the listing reported, its wildfire hazard, which is public data, and the verdict
+ * written on it. A view shaped by origin would be a view of the data model rather than of the job.
+ *
+ * `null` means every column, which is what this table did before there were views.
+ */
+const VIEWS = [
+  ["deciding", "Deciding", [
+    "Property", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres", "Year Built",
+    "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
+  ]],
+  ["hazards", "Hazards", [
+    "Property", "Town/Area", "Price", "Wildfire Hazard", "Wildland-Urban Interface",
+    "FEMA Flood Zone", "Principal Aquifer", "Elevation (ft)", "Water Source", "Sewer/Septic",
+    "Fire/Egress/Terrain", "Sewage & Reclaimed-Water Exposure", "Crime/Safety",
+  ]],
+  ["everything", "Everything", null],
+];
+
+const CUSTOM = "custom";
+
+function viewNamed(key) {
+  return VIEWS.find(([name]) => name === key) || null;
+}
+
+function viewCalled(key) {
+  const held = viewNamed(key);
+  return held ? held[1] : "Custom";
+}
+
+/* Which columns a view shows, as a set of names, or `null` for all of them.
+ *
+ * A view is a list of names, so a column that has been renamed or retired simply is not found: the
+ * view narrows, the rest are drawn, nothing is raised. A view that matched nothing at all would be
+ * a blank table, which is worse than the thing it is trying to fix, so that falls back to all of
+ * them. */
+function shownBy(key) {
+  const held = viewNamed(key);
+  if (!held || !held[2]) return null;
+  const wanted = new Set(held[2]);
+  const found = state.declared.filter((column) => sortable(column) && wanted.has(column.name));
+  return found.length ? new Set(found.map((column) => column.name)) : null;
+}
+
+/* Put a view in force, which is one of exactly two moments a view is ever applied. The other is a
+ * first visit, in `arrange`. It is never recomputed from its name on a later load: see `remember`. */
+function useView(key) {
+  state.view = key;
+  const shown = shownBy(key);
+  state.hidden = {};
+  if (shown) {
+    for (const column of state.declared) {
+      if (sortable(column) && !shown.has(column.name)) state.hidden[column.name] = true;
+    }
+  }
+  relayout();
+  say(`${viewCalled(key)}: ${count(visible().filter(sortable).length, "column")} of ` +
+      `${state.declared.filter(sortable).length}. The rest are in "choose columns".`);
+}
+
 /* Saying no to a house has a column of its own, first, and it is not one of the export's columns.
  * It was inside the address cell, after the address and after however many badges the property
  * carried, which on a narrow column put it past the right edge and out of sight: a control nobody
@@ -129,6 +208,9 @@ const state = {
   declared: [],
   hidden: {},
   columns: [],
+  /* Which named view is in force, or `custom` once somebody has arranged past one. A label on the
+   * hidden set rather than a thing the hidden set is derived from: see `arrange` and `remember`. */
+  view: "deciding",
   all: [],
   shown: [],
   sortBy: null,
@@ -249,6 +331,9 @@ function remember() {
       /* The control column is not the person's to arrange, so it is not in what is remembered. */
       order: state.declared.filter(sortable).map((column) => column.name),
       hidden: Object.keys(state.hidden),
+      /* The label, beside the set rather than instead of it. Nothing ever reads this to work out
+       * which columns to hide; it says where the set came from, so the control can name it. */
+      view: state.view,
       widths: state.widths,
       photos: state.showPhotos,
       wrap: state.wrap,
@@ -267,7 +352,34 @@ function arrange(declared) {
   state.showPhotos = held.photos === true;
   state.wrap = held.wrap === true;
   state.hidden = {};
-  for (const name of held.hidden || []) state.hidden[name] = true;
+
+  /* A view is applied here and in `useView` and nowhere else, and this is the moment that decides
+   * whether this change is a default or a redesign of somebody's screen.
+   *
+   * WHAT IS REMEMBERED IS THE SET OF COLUMNS. The view's name is a label on it, written down beside
+   * it, never the thing it is recomputed from. Deriving the hidden set from the name on every load
+   * looks equivalent and is exactly backwards twice over: somebody who hides one column of the
+   * twelve would come back to the other thirty-one, because only the column they touched was
+   * written down, and a release that edited what a view contains would silently rearrange a table
+   * already in use.
+   *
+   * So a stored arrangement is honoured as it stands, always. Only a table nobody has arranged at
+   * all gets the opening view. And a stored arrangement carrying no view name is somebody's
+   * arrangement from before views existed, which reads as Custom rather than as an invitation to
+   * impose one: that case is every existing user, and they are exactly the people this protects. */
+  const stored = Object.keys(held).length > 0;
+  state.view = held.view || (stored ? CUSTOM : "deciding");
+  if (stored) {
+    for (const name of held.hidden || []) state.hidden[name] = true;
+  } else {
+    const shown = new Set(
+      (VIEWS.find(([key]) => key === state.view) || [null, null, null])[2] || []);
+    for (const column of declared) {
+      if (shown.size && !shown.has(column.name)) state.hidden[column.name] = true;
+    }
+    /* A view that matched nothing would be a blank table, which is worse than what it fixes. */
+    if (Object.keys(state.hidden).length >= declared.length) state.hidden = {};
+  }
 
   const byName = new Map(declared.map((column) => [column.name, column]));
   const ordered = [];
@@ -317,6 +429,7 @@ function relayout() {
   forget();
   state.focus.column = Math.max(0, Math.min(state.focus.column, state.columns.length - 1));
   remember();
+  redrawViewControl();
   redrawHeader();
   window_();
 }
@@ -324,12 +437,16 @@ function relayout() {
 function hide(name) {
   if (name === PASS_COLUMN.name) return;
   state.hidden[name] = true;
+  /* A view is where you start, not what you are held to. Both ways of hiding a column do this, or
+   * one of them would be claiming a view the table is no longer showing. */
+  state.view = CUSTOM;
   relayout();
   say(`${name} hidden. Bring it back from "choose columns".`);
 }
 
 function show(name) {
   delete state.hidden[name];
+  state.view = CUSTOM;
   relayout();
 }
 
@@ -410,6 +527,7 @@ function rowAt(rungs, top) {
 function reset() {
   state.widths = {};
   state.hidden = {};
+  state.view = "deciding";
   state.filters = {};
   state.showPhotos = false;
   state.wrap = false;
@@ -441,6 +559,40 @@ function group(name, ...items) {
 
 function judgmentControl() {
   return judgmentChooser(state.judgment, (wanted) => setJudgmentFilter(wanted));
+}
+
+/* Which view is in force, and how many columns it draws.
+ *
+ * A `select` rather than a row of buttons: it is four choices that are one answer, it is keyboard
+ * operable without anything being written here, and it costs one control's width in a group that
+ * already has four. The count beside it is the fact that stops the opening screen being a mystery,
+ * and it is counted against what this answer declares rather than a number written down here.
+ */
+function viewControl() {
+  const shown = visible().filter(sortable).length;
+  const declared = state.declared.filter(sortable).length;
+  const chooser = el("select", {
+    id: "view",
+    "aria-label": "Which columns to open on",
+    onchange: (event) => { if (event.target.value !== CUSTOM) useView(event.target.value); },
+  },
+    /* Only offered while it is the answer: "custom" is somewhere the table arrives rather than
+     * somewhere a person chooses to go, and an option that cannot be meaningfully picked is a
+     * control that does nothing when pressed. */
+    state.view === CUSTOM ? el("option", {value: CUSTOM, selected: "selected"}, "Custom") : null,
+    VIEWS.map(([key, said]) =>
+      el("option", {value: key, selected: state.view === key ? "selected" : null}, said)),
+  );
+  return el("span", {class: "viewpick"},
+    chooser,
+    el("span", {class: "howmany"}, `${shown} of ${declared}`));
+}
+
+/* Put the control back in step when the view changed from somewhere other than the control, which
+ * is every hide and every show. */
+function redrawViewControl() {
+  const held = document.querySelector(".viewpick");
+  if (held) held.replaceWith(viewControl());
 }
 
 function draw() {
@@ -501,6 +653,7 @@ function draw() {
         el("label", {for: "showgone"}, gone, " include ones off the market"),
       ),
       group("Which columns",
+        viewControl(),
         el("label", {for: "showphotos"}, photos, " photos"),
         el("label", {for: "wraptext"}, wrapping, " wrap long text"),
         el("button", {type: "button", class: "quiet", onclick: chooseColumns,
@@ -668,15 +821,53 @@ function headerMenu(event, column) {
 /* Every column, with a box each. The way back for anything hidden, and the way to hide several at
  * once without right-clicking each of them in turn. */
 function chooseColumns() {
-  const boxes = state.declared.filter(sortable).map((column) => {
-    const box = el("input", {
-      type: "checkbox",
-      id: `col-${column.name.replace(/\W+/g, "-")}`,
-      checked: state.hidden[column.name] ? null : "checked",
-      onchange: (event) => (event.target.checked ? show : hide)(column.name),
+  /* Five groups rather than forty-three names in one flat list. The grouping is the answer to
+   * "where in this list is the flood zone", which a flat list makes somebody read all of them to
+   * answer, and the words are the ones the headings already use for the same five origins. */
+  const draw = () => {
+    const groups = ORIGIN_GROUPS.map(([origin, said]) => {
+      const columns = state.declared.filter(
+        (column) => sortable(column) && column.origin === origin);
+      if (!columns.length) return null;
+      const shown = columns.filter((column) => !state.hidden[column.name]).length;
+
+      const boxes = columns.map((column) => {
+        const box = el("input", {
+          type: "checkbox",
+          id: `col-${column.name.replace(/\W+/g, "-")}`,
+          checked: state.hidden[column.name] ? null : "checked",
+          onchange: (event) => { (event.target.checked ? show : hide)(column.name); redraw(); },
+        });
+        return el("li", {}, el("label", {for: box.id}, box, ` ${column.name}`));
+      });
+
+      /* Shown or put away as a group, because "all the public data" and "everything I write in
+       * myself" are the two most common of the thirty decisions this replaces. A button rather
+       * than a third state on a box, so the keyboard reaches it like everything else here. */
+      const all = shown === columns.length;
+      return el("div", {class: "colgroup"},
+        el("h3", {}, said,
+          el("span", {class: "howmany"}, ` ${shown} of ${columns.length}`),
+          el("button", {
+            type: "button",
+            class: "quiet",
+            onclick: () => {
+              for (const column of columns) {
+                if (all) state.hidden[column.name] = true;
+                else delete state.hidden[column.name];
+              }
+              state.view = CUSTOM;
+              relayout();
+              redraw();
+            },
+          }, all ? "put them all away" : "show them all")),
+        el("ul", {class: "choices"}, boxes));
     });
-    return el("li", {}, el("label", {for: box.id}, box, ` ${column.name}`));
-  });
+    return groups.filter(Boolean);
+  };
+
+  const where = el("div", {class: "colgroups"}, draw());
+  function redraw() { where.replaceChildren(...draw()); }
 
   const dialog = el("dialog", {
     class: "ask columns",
@@ -687,12 +878,14 @@ function chooseColumns() {
     el("h2", {id: "whichcolumns"}, "Which columns to show"),
     el("p", {class: "hint"},
       "Unticking one only takes it off this screen. Nothing is deleted, the spreadsheet still has "
-      + "every column, and this is remembered in this browser alone."),
-    el("ul", {class: "choices"}, boxes),
+      + "every column, and this is remembered in this browser alone. The groups are where each "
+      + "column's value comes from, which is also what an empty cell in it means."),
+    where,
     el("div", {class: "actions"},
       el("button", {type: "button", class: "quiet",
                     onclick: () => {
                       state.hidden = {};
+                      state.view = "everything";
                       relayout();
                       dialog.close();
                     }}, "Show them all"),

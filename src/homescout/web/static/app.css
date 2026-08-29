@@ -1703,3 +1703,30 @@ code.expression {
   content: " · ";
   color: var(--line);
 }
+
+/* -- choosing which columns, by where their values come from ------------- */
+
+.viewpick { display: inline-flex; align-items: center; gap: var(--s2); }
+.viewpick select { font: inherit; padding: 0.2rem 0.3rem; border: 1px solid var(--line);
+                   border-radius: var(--radius-sm); background: var(--paper); color: var(--ink); }
+.howmany { color: var(--dim); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+.colgroups { display: grid; gap: var(--s4); margin: 0 0 var(--s4); }
+.colgroup > h3 {
+  margin: 0 0 var(--s2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--line-soft);
+}
+/* The group's own show-or-hide sits at the end of its heading, where it reads as being about the
+   group rather than about whichever column happens to be first in it. */
+.colgroup > h3 button { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
+.colgroup .choices { columns: 2; column-gap: var(--s4); }
+@media (max-width: 34rem) { .colgroup .choices { columns: 1; } }

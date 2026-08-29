@@ -7,6 +7,7 @@ only honest place, which is `test_web_browser.py`.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from homescout import api
@@ -611,3 +612,98 @@ def test_the_listing_page_has_one_heading_per_section() -> None:
     assert listing_body.count('el("h2", {}, "Where it is")') == 2, (
         "the map section and its no-location form, which never render together"
     )
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-74, AC-75: a view to open on, and a chooser sorted by origin
+# ---------------------------------------------------------------------------
+
+
+def test_the_table_opens_on_a_view_rather_than_on_every_column(store: Store, db_path: Path) -> None:
+    """feat-010/AC-74: forty-three columns is five screens, and nobody chose it.
+
+    The views name columns the answer declares, so this checks the names against the real answer
+    rather than against a list written twice.
+    """
+    load(store, [listing("a")])
+    held = held_workspace(shared_store(db_path))
+    with client(held) as browser:
+        declared = browser.get("/api/results/portales", headers=reading()).json()["columns"]
+
+    results = script("results")
+    assert "const VIEWS" in results
+    for said in ('"Deciding"', '"Hazards"', '"Everything"'):
+        assert said in results
+
+    named = set(re.findall(r'"([^"]+)"', results[results.index("const VIEWS"):results.index("const CUSTOM")]))
+    declared_names = {column["name"] for column in declared}
+    unknown = {
+        one for one in named
+        if one not in declared_names and one not in {"deciding", "Deciding", "hazards", "Hazards",
+                                                     "everything", "Everything"}
+    }
+    assert not unknown, f"a view names columns the answer does not declare: {sorted(unknown)}"
+    # And the point of the whole thing: the opening view is a fraction of what there is.
+    assert len(declared) > 30, "this test is only interesting while the table is wide"
+
+
+def test_a_remembered_arrangement_is_never_recomputed_from_a_view(store: Store, db_path: Path) -> None:
+    """feat-010/AC-74, feat-010/AC-45: the load-bearing rule, asserted against how it is written.
+
+    Two implementations satisfy "a remembered arrangement wins" and behave oppositely. Deriving the
+    hidden set from the view's name on every load puts back the thirty-one columns somebody just
+    deviated from, and lets a later edit to a view rearrange a table already in use. So the stored
+    set is authoritative and the name is a label on it, and a view is applied at exactly two
+    moments: nothing stored at all, and somebody picking one.
+    """
+    results = script("results")
+    arranging = results[results.index("function arrange("):results.index("function visible(")]
+
+    assert "const stored = Object.keys(held).length > 0;" in arranging
+    assert "if (stored) {" in arranging, "anything stored is honoured as it stands"
+    assert "held.view || (stored ? CUSTOM : " in arranging, (
+        "a stored arrangement with no view name is somebody's own, not an invitation to impose one"
+    )
+    # The view is applied in exactly two places, and neither of them is a later load.
+    assert results.count("function useView(") == 1
+    assert "view: state.view," in results, "the name is written down beside the set, not instead"
+
+    # Deviating leaves the view rather than being reasserted by it, both ways of doing it.
+    hiding = results[results.index("function hide("):results.index("function sortable(")]
+    assert hiding.count("state.view = CUSTOM;") == 2, "hide and show both drop to Custom"
+
+
+def test_a_view_naming_a_column_that_is_gone_narrows_rather_than_breaks() -> None:
+    """feat-010/AC-74: a view is a list of names, so a retired column shortens it."""
+    results = script("results")
+    body = results[results.index("function shownBy("):results.index("function useView(")]
+    assert "wanted.has(column.name)" in body, "matched by name against what is declared"
+    assert "found.length ? new Set" in body and "null" in body, (
+        "a view that matched nothing falls back to every column rather than a blank table"
+    )
+
+
+def test_the_chooser_groups_columns_by_where_their_values_come_from() -> None:
+    """feat-010/AC-75: five groups, in the words the headings already use for the same five."""
+    results = script("results")
+    assert "const ORIGIN_GROUPS" in results
+    groups = results[results.index("const ORIGIN_GROUPS"):results.index("/* The named views")]
+    for origin in ("listing", "derived", "extracted", "enriched", "annotation"):
+        assert f'["{origin}"' in groups, f"{origin} has a group"
+    assert "column.origin === origin" in results, "sorted by the origin the answer declares"
+    # Shown or put away as a group, which is the two most common of the thirty decisions.
+    assert "put them all away" in results and "show them all" in results
+
+
+def test_the_new_column_controls_answer_to_the_keyboard() -> None:
+    """feat-010/AC-74, feat-010/AC-75, feat-010/AC-17: this whole surface is keyboard operable.
+
+    A `select` and a `button`, which are keyboard operable without anything being written here, and
+    that is why they were chosen over a row of divs with click handlers.
+    """
+    results = script("results")
+    control = results[results.index("function viewControl("):results.index("function redrawViewControl(")]
+    assert 'el("select"' in control, "the view control is a real select"
+    assert '"aria-label": "Which columns to open on"' in control
+    chooser = results[results.index("function chooseColumns("):results.index("function filterBox(")]
+    assert 'el("button"' in chooser, "each group's show-or-hide is a real button"
