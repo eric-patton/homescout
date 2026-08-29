@@ -500,6 +500,16 @@ in five years. The problem brief is in `research.md`.
       pressing it opens the list. A cell carrying no tags says so with a mark rather than being
       blank, because blank is this table's word for "nobody has written anything" and what an
       empty tag cell also has to say is that there is something here to press.
+- [ ] AC-66: An answer worth compressing is compressed before it leaves. This interface is written
+      as though it were read over loopback, and it is not always: the second person in the household
+      reads it across a tailnet, and when that has not managed a direct connection every byte goes
+      out to a shared relay and back. The server's own work is identical either way, which is why
+      the page is slow only sometimes and why nothing on this machine ever shows it.
+
+      Compression is an optimisation and never a requirement, so a client that does not ask for it
+      is answered in full rather than refused, and something already compressed is not compressed
+      again. The answer a reader ends up with is byte for byte the answer they would have had
+      without it.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first

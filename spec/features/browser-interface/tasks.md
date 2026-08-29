@@ -782,14 +782,14 @@ alongside its peers.
 ## Change: this one on the fire (`changes/this-one-on-the-fire/`)
 
 - [x] T129: `web/static/listing.js`, `listing.html`, `app.css`: one property on the hazard layer,
-      on its own page (`feat-010/AC-65`).
+      on its own page (`feat-010/AC-66`).
 
       Built after the page is on screen and not during the build of it: a map handed an element
       that is not in the document yet measures it as zero by zero and comes out grey, which is a
       fault that only ever shows on a real page.
 
 - [x] T130: `web/static/common.js`: the hazard tile layer moved out of the fire map
-      (`feat-010/AC-55`, `feat-010/AC-65`). Two pages draw it now, and the conversion from
+      (`feat-010/AC-55`, `feat-010/AC-66`). Two pages draw it now, and the conversion from
       Leaflet's tile coordinates to the service's rectangle in metres is exactly the thing that
       gets written twice and then diverges by half a tile, with no way to say which page is right.
       The contract test that pins "this tool's own route, never the far server" now reads the
@@ -990,3 +990,42 @@ alongside its peers.
       nothing wrapped, and the only way to get it back was to turn it off and on again. Found while
       measuring the change above, on a real workspace, which is the only place it shows: every test
       that turns wrapping on clicks the box.
+
+## Defect: the results page was sometimes very slow to load
+
+- [x] T143: `web/app.py`: compress an answer worth compressing (`feat-010/AC-66`).
+
+      Reported as "the search results page sometimes takes a really long time to load".
+
+      Sometimes is the whole clue. Measured on this machine the page is the same every time: about
+      one and a tenth seconds to assemble a statewide result and a few milliseconds to send it. The
+      part that varies is not here.
+
+      The statewide answer is **2663 KB of JSON, sent uncompressed**. On loopback that costs
+      nothing. The second person in the household reads it through `tailscale serve`, and
+      `tailscale status` says `CurAddr` is empty and `Relay` is `dfw`: there is no direct
+      connection, so all two and a half megabytes travel to a relay in Dallas and back. A relay is a
+      shared fallback rather than a fast path, and how fast it is on any given evening is the
+      difference between a page that opens and a page somebody gives up on.
+
+      Compressed it is 553 KB, which is seventy-nine per cent less, for thirty-six milliseconds.
+
+      Level five rather than the library's nine, chosen by measuring rather than by taste: 553 KB in
+      36 ms against 540 KB in 54 ms. Thirteen kilobytes is not worth eighteen milliseconds on every
+      request when what is being bought is the time to the first painted row. Added last so it wraps
+      the lock, which means the compressing happens after a request has let go of the database
+      rather than while another one waits its turn. Pictures are excluded: a stored preview is
+      already a JPEG and would only get bigger.
+
+- [x] T144: `tests/test_web_endpoints.py`: what goes over the wire (`feat-010/AC-66`). That it is
+      compressed when asked for, that it carries `Vary`, and that the answer is identical once
+      unpacked, because compression that changed an answer would be far worse than a slow page.
+      Beside it the two things that must stay true: a client that cannot unpack one still gets an
+      answer, and a photograph is not compressed twice.
+
+- [x] T145: not done, and written down so it is not rediscovered. The remaining second is on this
+      machine and half of it has one cause: `values_for` re-runs the description patterns for every
+      property on every request, seven thousand regex matches per page load, because extraction is
+      recomputed rather than kept. It is real but it is the smaller half, and it is invisible next to
+      a relayed transfer. Worth doing when the workspace is larger or when the transfer is fixed,
+      not before: the profile would only be measuring the wrong thing twice.

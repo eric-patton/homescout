@@ -604,3 +604,72 @@ def test_what_never_opens_the_store_does_not_queue_behind_what_does(
                  "/api/wind/stations/portales", "/api/tags", "/api/listings/x"):
         assert _needs_the_database(path), path
     assert len(WITHOUT_THE_DATABASE) == 4, WITHOUT_THE_DATABASE
+
+# -- what goes over the wire -------------------------------------------------
+
+
+def test_a_long_answer_is_compressed_before_it_leaves(opened) -> None:
+    """feat-010/AC-66: this interface is not always read over loopback.
+
+    On this machine the size of an answer costs nothing. The second person in the household reads
+    it over a tailnet, and when that has not managed a direct connection it goes out to a shared
+    relay and back, so the same page that opens instantly here takes as long as the link is slow.
+    That is the whole of "it is sometimes really slow": the server did identical work either way.
+
+    Measured on a real statewide result: 2663 KB down to 553 KB, which is the difference between a
+    page that arrives and a page somebody gives up on.
+    """
+    browser, _held = opened
+
+    plain = browser.get(
+        "/api/results/portales", headers={**reading(), "Accept-Encoding": "identity"}
+    )
+    packed = browser.get(
+        "/api/results/portales", headers={**reading(), "Accept-Encoding": "gzip"}
+    )
+
+    assert plain.status_code == packed.status_code == 200
+    assert packed.headers.get("content-encoding") == "gzip"
+    assert packed.headers.get("vary") == "Accept-Encoding", (
+        "a cache between here and the reader has to know the answer varies by encoding"
+    )
+    # The client decodes for us, so the two answers must be identical once unpacked. Compression
+    # that changed the answer would be a far worse bug than a slow page.
+    assert without_time(packed.json()) == without_time(plain.json())
+
+
+def test_a_reader_that_cannot_unpack_one_still_gets_an_answer(opened) -> None:
+    """feat-010/AC-66: compression is an optimisation, never a requirement.
+
+    The terminal reads these same endpoints, and so does anything somebody writes later. A client
+    that does not ask for gzip gets the bytes uncompressed rather than an error or a stream it
+    cannot read.
+    """
+    browser, _held = opened
+
+    answer = browser.get(
+        "/api/results/portales", headers={**reading(), "Accept-Encoding": "identity"}
+    )
+
+    assert answer.status_code == 200
+    assert "content-encoding" not in {k.lower() for k in answer.headers}
+    assert answer.json()["rows"]
+
+
+def test_a_photograph_is_not_compressed_twice(opened, store: Store) -> None:
+    """feat-010/AC-66: a JPEG is already compressed and will not go again.
+
+    Spending time on it would be pure loss, and this interface serves one per row. The exclusion is
+    the library's own, asserted here because it is a default somebody could change without noticing
+    what it was for.
+    """
+    browser, _held = opened
+    listing_id = store.listings()[0].id
+    store.store_preview_image(listing_id, b"jpeg-ish bytes" * 400, extension="jpg")
+
+    answer = browser.get(
+        f"/api/listings/{listing_id}/image", headers={**reading(), "Accept-Encoding": "gzip"}
+    )
+
+    assert answer.status_code == 200
+    assert "content-encoding" not in {k.lower() for k in answer.headers}
