@@ -23,18 +23,30 @@
  * stylesheet, which also fixes its line height to it, so there is one of it and it is exact.
  */
 
-/* Row heights, in pixels, including the border every row carries. A row is one of these three and
- * never anything in between, because the whole virtual window rests on every row being the same
- * height as every other one. That is also why wrapping is clamped to a fixed number of lines rather
- * than left to grow: a table whose rows are each as tall as their longest cell cannot be placed by
- * arithmetic at all, and would have to measure every one of a thousand rows to know where any of
- * them go. */
+/* Row heights, in pixels, including the border every row carries.
+ *
+ * With text kept to a line, every row is one of these two and never anything in between, and the
+ * whole virtual window is arithmetic: the row at the top of the screen is the scroll position
+ * divided by the height of a row, and a thousand rows are placed without measuring any of them.
+ *
+ * Wrapping used to keep that promise by clamping the text to three lines, and it was still cutting
+ * text off, which is the one thing a box labelled "wrap long text" says it will not do: "it should
+ * just make the row as tall as it needs to be to show the wrapped text." So a wrapped row is now
+ * as tall as its own text, which no arithmetic can say in advance and nothing but the browser can
+ * answer. `WRAP_ROW_HEIGHT` is what a row nobody has drawn yet is assumed to be; see `ladder` and
+ * `settle` for what replaces the assumption, and note that the assumption is only ever about where
+ * the scrollbar sits, never about what is on the screen. */
 const ROW_HEIGHT = 26;
 const PHOTO_ROW_HEIGHT = 66;
-const WRAP_LINES = 3;
 const WRAP_LINE = 17;
-const WRAP_ROW_HEIGHT = WRAP_LINES * WRAP_LINE + 5;
+const WRAP_GUESS = 3;
+const WRAP_ROW_HEIGHT = WRAP_GUESS * WRAP_LINE + 5;
 const OVERSCAN = 12;
+/* The same idea in the other unit. Twelve rows either side of the screen is a sensible cushion
+ * while a row is twenty-six pixels; when a row is as tall as its own text, twelve of them can be
+ * four thousand pixels of table nobody is looking at. So a wrapped table overscans by a distance
+ * rather than by a count. */
+const OVERSCAN_TALL = 400;
 
 /* Column widths, in pixels: what a column starts at before anybody drags it. Most are the same, and
  * the ones named here are the ones where the default is plainly wrong. An address cut off at the
@@ -137,6 +149,12 @@ const state = {
   onlyKept: false,
   showPhotos: false,
   wrap: false,
+  /* What a wrapped row measured, by property, for every row that has been on the screen once.
+   * Keyed by the property rather than by its place in the list, because sorting and filtering
+   * change the place and change nothing at all about how tall the row is. Emptied whenever
+   * something that decides a height changes: the columns, their widths, the photographs, the
+   * wrapping itself. */
+  heights: new Map(),
   widths: {},
   focus: {row: 0, column: 0},
   /* Every tag this workspace knows, newest answer from the server. Held so the chooser can offer
@@ -168,6 +186,7 @@ async function load() {
   state.declared = arrange(found.columns);
   state.columns = visible();
   state.all = found.rows;
+  forget();
   draw();
   apply();
   /* After the table is up, not before it. The vocabulary is only needed by a cell somebody opens,
@@ -280,6 +299,9 @@ function visible() {
 
 function relayout() {
   state.columns = visible();
+  /* A column taken away or put back changes how much room the rest have, which changes how many
+   * lines their text needs. */
+  forget();
   state.focus.column = Math.max(0, Math.min(state.focus.column, state.columns.length - 1));
   remember();
   redrawHeader();
@@ -307,11 +329,20 @@ function widthOf(name) {
   return state.widths[name] || WIDTHS[name] || DEFAULT_WIDTH;
 }
 
+/* How tall a row is when nothing in it has had to wrap, which is the height every row has when
+ * wrapping is off and the floor under every row when it is on. A row of one line stays a row of
+ * one line: only the rows with more text than fits are the ones that grow. */
 function rowHeight() {
-  return Math.max(
-    state.wrap ? WRAP_ROW_HEIGHT : ROW_HEIGHT,
-    state.showPhotos ? PHOTO_ROW_HEIGHT : 0,
-  );
+  return Math.max(ROW_HEIGHT, state.showPhotos ? PHOTO_ROW_HEIGHT : 0);
+}
+
+/* What a row nobody has drawn yet is assumed to be, which is the only thing the guess decides:
+ * where the scrollbar sits and how far down the unseen rows are reckoned to be. Three lines,
+ * because a table wrapped for the sake of a description is mostly rows of two or three and a guess
+ * that is roughly right settles with the least movement under the scrollbar. */
+function guessHeight() {
+  if (!state.wrap) return rowHeight();
+  return Math.max(WRAP_ROW_HEIGHT, state.showPhotos ? PHOTO_ROW_HEIGHT : 0);
 }
 
 /* The one place the row height is published, so the stylesheet and the arithmetic above cannot come
@@ -322,9 +353,45 @@ function measure() {
   const root = document.documentElement.style;
   root.setProperty("--row-height", `${rowHeight()}px`);
   root.setProperty("--cell-line", `${state.wrap ? WRAP_LINE : rowHeight() - 1}px`);
-  root.setProperty("--wrap-lines", String(WRAP_LINES));
   const table = document.querySelector("table.grid");
   if (table) table.classList.toggle("wrapped", state.wrap);
+  forget();
+}
+
+/* Every measurement thrown away, because something that decides them has changed. Cheap: what is
+ * on the screen is measured again on the next draw, and what is not is measured when it arrives. */
+function forget() {
+  state.heights.clear();
+}
+
+/* Where every row starts, in pixels down the table, and where the last one ends: one number more
+ * than there are rows.
+ *
+ * Only built when rows can differ in height, which is only when text wraps. A thousand additions
+ * per draw is nothing; a thousand questions to the browser about how tall something is would be
+ * everything, which is why a row that has never been drawn is a guess here rather than a question.
+ */
+function ladder() {
+  const rungs = new Array(state.shown.length + 1);
+  const guess = guessHeight();
+  rungs[0] = 0;
+  for (let at = 0; at < state.shown.length; at++) {
+    const known = state.heights.get(state.shown[at].listing_id);
+    rungs[at + 1] = rungs[at] + (known === undefined ? guess : known);
+  }
+  return rungs;
+}
+
+/* The last row that starts at or before this far down. */
+function rowAt(rungs, top) {
+  let low = 0;
+  let high = rungs.length - 2;
+  while (low < high) {
+    const middle = (low + high + 1) >> 1;
+    if (rungs[middle] <= top) low = middle;
+    else high = middle - 1;
+  }
+  return Math.max(0, low);
 }
 
 function reset() {
@@ -346,8 +413,6 @@ function reset() {
 /* ------------------------------------------------------------------ */
 
 function draw() {
-  measure();
-
   const search = el("input", {
     type: "search",
     id: "filter",
@@ -414,8 +479,7 @@ function draw() {
       el("label", {for: "showpassed"}, shown, " show properties you passed on"),
       el("label", {for: "onlykept"}, only, " only what you kept"),
       el("label", {for: "showphotos"}, photos, " show photos"),
-      el("label", {for: "wraptext"}, wrapping,
-         ` wrap long text (${WRAP_LINES} lines)`),
+      el("label", {for: "wraptext"}, wrapping, " wrap long text"),
       el("button", {type: "button", class: "quiet", onclick: chooseColumns,
                     title: "Show or hide columns"}, "choose columns"),
       el("button", {type: "button", class: "quiet", onclick: reset,
@@ -458,8 +522,18 @@ function draw() {
   );
 
   sizeColumns();
+  /* After the table exists, not before it. This ran first for years and one half of it silently
+   * did nothing: the row height is a property on the document and lands wherever it is set from,
+   * but "is this table wrapping" is a class on the table, and there was no table yet. So a person
+   * who left wrapping on came back to a page with the box ticked and nothing wrapped, and the only
+   * way to get it back was to turn it off and on again. */
+  measure();
   const scroller = document.getElementById("scroller");
-  scroller.addEventListener("scroll", window_, {passive: true});
+  /* Wrapped in a function of no arguments rather than handed over directly, because a listener is
+   * called with the event and `window_`'s one argument means "this is the second pass, do not
+   * settle again". A scroll event is an object, an object is true, and every scroll would have
+   * been a second pass that never happened. */
+  scroller.addEventListener("scroll", () => window_(), {passive: true});
   scroller.addEventListener("keydown", key);
   fit();
   window.addEventListener("resize", () => { fit(); window_(); });
@@ -1001,6 +1075,11 @@ function startResize(event, name, th) {
     window.removeEventListener("pointermove", moveTo);
     window.removeEventListener("pointerup", stop);
     th.draggable = true;
+    /* A narrower column is more lines of the same text. Measured again from here rather than as
+     * the edge is dragged, because what is being dragged is one column and what would have to be
+     * measured is every row. */
+    forget();
+    window_();
     remember();
     setTimeout(() => { arranging = null; }, 0);
   };
@@ -1092,7 +1171,7 @@ function counts(took) {
 /* Drawing the window                                                  */
 /* ------------------------------------------------------------------ */
 
-function window_() {
+function window_(again) {
   const scroller = document.getElementById("scroller");
   const body = document.getElementById("body");
   const sizer = document.getElementById("sizer");
@@ -1105,10 +1184,20 @@ function window_() {
    * by saving or by Escape, this runs and catches up. */
   if (editing || body.querySelector("input")) return;
 
+  /* Which rows to draw, and where they sit. Two ways of answering, and the difference between
+   * them is the whole of what wrapping costs. Rows of one height are placed by dividing. Rows of
+   * their own heights are placed from a running total of them and a search into it, and that total
+   * is only as true as the rows that have been drawn: `settle` is what makes it true. */
+  const count = state.shown.length;
   const height = rowHeight();
-  const first = Math.max(0, Math.floor(scroller.scrollTop / height) - OVERSCAN);
-  const many = Math.ceil(scroller.clientHeight / height) + OVERSCAN * 2;
-  const slice = state.shown.slice(first, first + many);
+  const rungs = state.wrap ? ladder() : null;
+  const first = rungs
+    ? rowAt(rungs, scroller.scrollTop - OVERSCAN_TALL)
+    : Math.max(0, Math.floor(scroller.scrollTop / height) - OVERSCAN);
+  const last = rungs
+    ? Math.min(count, rowAt(rungs, scroller.scrollTop + scroller.clientHeight + OVERSCAN_TALL) + 1)
+    : Math.min(count, first + Math.ceil(scroller.clientHeight / height) + OVERSCAN * 2);
+  const slice = state.shown.slice(first, last);
 
   const frag = document.createDocumentFragment();
   slice.forEach((row, offset) => frag.append(rowFor(row, first + offset)));
@@ -1126,10 +1215,51 @@ function window_() {
    *
    * Blank rows are layout. The table is now as tall as the list it stands for, so the headings are
    * stuck to something that reaches the bottom. */
-  above.firstElementChild.style.height = `${first * height}px`;
+  const whole = rungs ? rungs[count] : count * height;
+  above.firstElementChild.style.height = `${rungs ? rungs[first] : first * height}px`;
   below.firstElementChild.style.height =
-    `${Math.max(0, state.shown.length - first - slice.length) * height}px`;
-  sizer.style.height = Math.max(state.shown.length * height + 30, 30) + "px";
+    `${Math.max(0, whole - (rungs ? rungs[last] : last * height))}px`;
+  sizer.style.height = Math.max(whole + 30, 30) + "px";
+
+  if (rungs) settle(scroller, rungs, again);
+}
+
+/* What the rows just drawn actually came out as, against what they were assumed to be.
+ *
+ * A wrapped row cannot be placed without being measured and cannot be measured without being
+ * drawn, so the first pass over any row is a guess, and this is where the guess is paid back. Two
+ * things follow from that, and neither of them is avoidable by any arrangement of this code.
+ *
+ * The table's full height changes as somebody scrolls into rows nobody has looked at yet, which is
+ * what a scrollbar over unmeasured content does everywhere such a thing exists.
+ *
+ * And the row under the top of the window must not move while that happens. Correcting the heights
+ * of the rows above the window moves everything below them, which would shove the line somebody is
+ * reading off the screen, so the scroll position is corrected by exactly as much. Once, never in a
+ * loop: the second pass measures the same rows and finds nothing left to change.
+ */
+function settle(scroller, rungs, again) {
+  const body = document.getElementById("body");
+  let changed = false;
+  for (const tr of body.children) {
+    const row = state.shown[Number(tr.dataset.index)];
+    if (!row) continue;
+    const tall = tr.getBoundingClientRect().height;
+    if (!tall) continue;
+    const known = state.heights.get(row.listing_id);
+    if (known === undefined || Math.abs(known - tall) > 0.5) {
+      state.heights.set(row.listing_id, tall);
+      changed = true;
+    }
+  }
+  if (!changed || again) return;
+
+  const anchor = rowAt(rungs, scroller.scrollTop);
+  const into = scroller.scrollTop - rungs[anchor];
+  const now = ladder();
+  const wanted = Math.max(0, now[anchor] + into);
+  if (Math.abs(wanted - scroller.scrollTop) >= 1) scroller.scrollTop = wanted;
+  window_(true);
 }
 
 function rowFor(row, index) {
@@ -1180,12 +1310,12 @@ function cellFor(row, column, index, column_) {
     ondblclick: editable ? () => edit(cell, row, column.name) : null,
   });
 
-  /* When text may wrap, everything a cell holds goes inside one box of its own, and that box is
-   * what gets clamped: a cell cannot clip its own height in a table, so without something inside it
-   * to clamp, a wrapped description would take its row with it and the rows would stop being the
-   * same height as each other. When text is kept to a line there is nothing to clamp, so the box is
-   * not built at all: it is one more element per cell, and this table's whole performance argument
-   * is about how many elements exist. */
+  /* When text may wrap, everything a cell holds goes inside one box of its own. It was the thing
+   * that got clamped when wrapping was three lines and a clamp, and it stays now that a row grows
+   * instead, because a cell's contents have to be one element for the tags column to lay them out
+   * and because `holder` has to put a redrawn cell back in the same shape as the ones around it.
+   * When text is kept to a line the box is not built at all: it is one more element per cell, and
+   * this table's whole performance argument is about how many elements exist. */
   const inner = state.wrap ? el("span", {class: "cell"}) : cell;
   if (!sortable(column)) {
     cell.classList.add("control");
@@ -1223,7 +1353,8 @@ function cellFor(row, column, index, column_) {
 }
 
 /* Where a cell's content goes, matching what `cellFor` decided. An edit redraws one cell, and it
- * has to land in the same shape as the ones around it or that row alone loses its clamp. */
+ * has to land in the same shape as the ones around it or that row alone is laid out differently
+ * from every other row. */
 function holder(cell) {
   if (!state.wrap) return cell;
   const inner = el("span", {class: "cell"});
@@ -1322,9 +1453,12 @@ function focusCell(row, column) {
     row: Math.max(0, Math.min(row, state.shown.length - 1)),
     column: Math.max(0, Math.min(column, state.columns.length - 1)),
   };
-  const height = rowHeight();
-  const wanted = state.focus.row * height;
   const scroller = document.getElementById("scroller");
+  const rungs = state.wrap ? ladder() : null;
+  const wanted = rungs ? rungs[state.focus.row] : state.focus.row * rowHeight();
+  const height = rungs
+    ? rungs[state.focus.row + 1] - rungs[state.focus.row]
+    : rowHeight();
   if (wanted < scroller.scrollTop) scroller.scrollTop = wanted;
   else if (wanted + height > scroller.scrollTop + scroller.clientHeight) {
     scroller.scrollTop = wanted - scroller.clientHeight + height * 2;

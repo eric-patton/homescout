@@ -876,3 +876,117 @@ alongside its peers.
 
       Checked against the broken version, where it reports ninety-seven of a hundred requests
       unanswered.
+
+## Change: as tall as the text (`changes/as-tall-as-the-text/`)
+
+- [x] T135: `web/static/results.js`, `app.css`: a wrapped row is as tall as its own text
+      (`feat-010/AC-47`). "In the table when you wrap text, it is still cutting off text if it is
+      too long. It should just make the row as tall as it needs to be to show the wrapped text."
+
+      The clamp of three lines was there for a reason and the reason is real: every row being the
+      same height is what lets a thousand of them be placed by arithmetic. So the arithmetic now
+      runs on measurements instead of on one number. A running total of row heights, a binary
+      search into it for the row at the top of the screen, and a guess for any row that has never
+      been drawn, replaced by its measurement the moment it has been.
+
+      The row under the top of the window is held still when a measurement changes what is above
+      it. Without that, reading down a wrapped table would keep shoving the line being read off
+      the screen as rows nobody has looked at yet turn out to be taller than assumed.
+
+      The floor and the guess are now two different numbers, which they were not. One number meant
+      a row with nothing to wrap was as tall as three lines of nothing.
+
+- [x] T136: `web/static/results.js`: overscan by distance rather than by count
+      (`feat-010/AC-47`). Twelve rows either side of the screen is a sensible cushion while a row
+      is twenty-six pixels and four thousand pixels of table nobody is looking at when a row is
+      three hundred.
+
+- [x] T137: `tests/test_web_browser.py`: the row grows and the scrollbar still tells the truth
+      (`feat-010/AC-47`). Replaces the test that asserted the opposite. Three things at once,
+      because two of them are what the clamp was protecting: nothing in the drawn window needs more
+      room than it has, no row is taller than what is in it needs, and the blank standing in for
+      the rows that are not drawn agrees with where they are said to be, at the top, partway down
+      and at the end. The end matters most: a table whose blank space is off by a pixel a row is a
+      table whose last rows cannot be reached.
+
+## Change: the picture in the pin (`changes/the-picture-in-the-pin/`)
+
+- [x] T138: `web/static/fire.js`, `app.css`: the stored photograph in a pin's bubble
+      (`feat-010/AC-56`, `feat-010/AC-51`). "She wants the pins on the map when you click them to
+      show the thumbnail for the house in that little info popup."
+
+      The stored copy, from this machine, so opening a pin still tells no listing site anything.
+      Pressing it opens the whole gallery, which is the one thing here that does ask them, the same
+      as the thumbnail on the results table.
+
+      A frame of a fixed height with the picture inside it at its own size or smaller. Two thirds
+      of the stored photographs in this workspace are a hundred and twenty pixels across, because
+      that is what the site handed over, and one blown up to fill a wider frame reads as a fault in
+      this tool rather than as a small photograph.
+
+- [x] T139: `tests/test_web_browser.py`: the picture is this machine's, and loads
+      (`feat-010/AC-56`). A real one-pixel image stored for one property, so the assertion is that
+      the picture in the bubble actually rendered from this origin rather than that an `img` tag
+      exists. And the property beside it, with nothing stored, gets no frame.
+
+## Defect: the overlays made the houses unclickable
+
+- [x] T140: `app.css`, `web/static/fire.js`: nothing over the properties takes the pointer off them
+      (`feat-010/AC-59`, `feat-010/AC-60`).
+
+      Reported as "sometimes when i'm interacting with the map, like i zoom, check/uncheck things,
+      i become unable to click properties, like when i mouse over, the clicker remains a hand. is
+      it just lagging maybe?"
+
+      It was not lagging. Three separate things, all of them the same mistake, and each one on its
+      own was enough to make every house on the screen unopenable. Measured on the state at zoom
+      seven, of the pins actually on the screen:
+
+      **The county lines. 176 of 176.** The outlines are drawn as non-interactive, which would be
+      the end of it if they were shapes in the page. They are not: this map draws on a canvas, and
+      a canvas is one element covering its whole pane whatever is painted on it. So a pane of
+      county outlines answered for every pixel of the map, found nothing of its own under the
+      pointer, and handed the click to the map. This is the one that will have been biting: it is
+      a box somebody ticks once and leaves ticked.
+
+      **The wind arrows' boxes. 183 of 185.** An arrow is an icon rather than a shape on the
+      ground, so its box is a fixed hundred and twelve pixels at every zoom and nearly all of it is
+      empty. Forty-four of those cover a county. A click there opened the station's bubble, which
+      is anchored at the station and so opens somewhere else, which is why it read as nothing
+      happening rather than as the wrong thing happening.
+
+      **The mark for a station still being read. 167 of 176.** The same canvas trap as the county
+      lines, in the wind's own pane, and it stays there after the record has arrived.
+
+      The panes say it now, rather than the layers, because the element that was swallowing the
+      clicks belongs to the pane. The arrows put the pointer back on their own ink in the
+      stylesheet, with the class doubled up to beat leaflet's `.leaflet-marker-icon.leaflet-
+      interactive`, which is what puts `auto` back. The waiting mark loses the tooltip that named
+      its station: the dot's job is to say more is coming and the line above the map says how many,
+      and neither is worth a screenful of houses that cannot be opened.
+
+      Not fixable by moving the panes below the properties. The properties are drawn by a canvas
+      renderer that covers the whole map and answers for every pin on it, so anything under that
+      canvas cannot be clicked at all: an arrow moved below the properties is an arrow that can
+      never be opened.
+
+- [x] T141: `tests/test_web_browser.py`: what the browser says is under the pointer where a house
+      is (`feat-010/AC-59`, `feat-010/AC-60`). The same question asked three times, with nothing
+      on, with the county lines on, and with the wind on, and the answer each time has to be the
+      thing the properties are drawn on. One station placed a little north of the address the
+      fixture's properties share, so its box lands over them and its ink does not, which is the
+      case that was wrong. The ink is asserted too: an arrow that cannot be opened is the same
+      fault the other way round.
+
+      Checked against each of the three broken versions separately, because one test that passes
+      for two of them is a test that will let the third back in.
+
+## Defect: wrapping was remembered and did nothing
+
+- [x] T142: `web/static/results.js`: the table is told it is wrapping after it exists
+      (`feat-010/AC-47`). The row height is a property on the document and lands wherever it is set
+      from; "is this table wrapping" is a class on the table, and it was being set before the table
+      was built. So somebody who left wrapping on came back to a page with the box ticked and
+      nothing wrapped, and the only way to get it back was to turn it off and on again. Found while
+      measuring the change above, on a real workspace, which is the only place it shows: every test
+      that turns wrapping on clicks the box.

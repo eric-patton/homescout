@@ -321,10 +321,23 @@ in five years. The problem brief is in `research.md`.
       says which, so that an empty cell is never read as the tool having failed at something it was
       not doing. There is no third kind: a column that is neither filled nor writable is a heading
       with an apology under it.
-- [ ] AC-47: Long text can be made to wrap, from the same row of controls as the other view toggles.
-      Wrapping is clamped to a fixed number of lines and every row stays the height of every other
-      row, because the table places rows by arithmetic rather than measuring them; text past the
-      clamp stays reachable in the cell's tooltip and on the property's own page.
+- [ ] AC-47: Long text can be made to wrap, from the same row of controls as the other view
+      toggles, and a wrapped row is as tall as its own text needs. Nothing is cut off and nothing is
+      left to a tooltip to make up for: a control that says "wrap long text" and then shows three
+      lines of it is a control that does not do what it says.
+
+      So while wrapping is on the table places rows from measured heights rather than from one
+      height times a count. A row that has been drawn carries its measurement; a row that has not is
+      a guess, and the guess only ever decides where the scrollbar sits, never what is on the
+      screen. Two things follow from that and both are required rather than tolerated. The height of
+      the whole table changes as somebody scrolls into rows nobody has looked at, which is what a
+      scrollbar over unmeasured content is everywhere such a thing exists. And the row under the top
+      of the window does not move while that happens, because a correction that shoves the line
+      somebody is reading off the screen is worse than the estimate it corrects.
+
+      A row with nothing long in it stays the height it was, and no row is taller than what is in it
+      needs. With wrapping off, every row is one height and is placed by arithmetic, which is what a
+      thousand rows without measuring any of them requires.
 - [ ] AC-52: A column can be hidden from this screen, by right-clicking its heading and by the
       keyboard, and brought back from a chooser that lists every column. Hiding is remembered
       alongside the order and the widths, and a column comes back where it was rather than on the
@@ -368,14 +381,24 @@ in five years. The problem brief is in `research.md`.
       would be a criterion with no rule behind it and no way to argue with it. The page may measure
       a distance somebody asked it to measure (AC-58); what it may not do is decide something about
       a house from one.
+
+      The bubble carries the photograph this tool stored, which is the one thing about a house that
+      neither a pin nor a row of numbers can say. It is the stored copy served from this machine, so
+      opening a pin on a screenful of houses still asks no listing site anything; pressing it opens
+      every photograph the listing carried, which is the one thing on this page that does ask, and
+      it says so while it does. It is never drawn larger than it was stored, because most of what
+      the sites hand over is a small picture and a small picture blown up to fill a frame reads as a
+      fault in this tool. A property with no stored photograph gets no frame at all, which is the
+      opposite of the results table's rule and right for the same reason: there an empty box keeps a
+      column of addresses in a straight line, and here there is one bubble on its own.
 - [ ] AC-50: The spreadsheet can be downloaded from the results table itself, in either format the
       export writes, without going to another screen and without being told a path to go and find.
       It is the same core operation the terminal calls and still writes its copy into the workspace,
       so a sheet taken from the browser and a sheet taken from the terminal are one file made one
       way. A format the export does not write is refused in words rather than written.
 - [ ] AC-51: Every photograph a listing carried can be looked through, one at a time and at the size
-      the window allows, from the stored thumbnail on the results table and from the property's own
-      page. These pictures are the listing site's rather than this tool's, so nothing is asked of
+      the window allows, from the stored thumbnail on the results table, from the picture in a pin's
+      bubble on the fire map, and from the property's own page. These pictures are the listing site's rather than this tool's, so nothing is asked of
       any listing site until somebody opens the gallery, and the gallery says where they come from:
       it is the one place in this product where looking at a property is not free of the site it was
       found on. A listing that carried none says so rather than opening an empty gallery. What a
@@ -420,15 +443,28 @@ in five years. The problem brief is in `research.md`.
       station or a state that cannot be read is reported and does not stop the others being drawn.
       Nothing is scored, ranked, hidden or coloured by wind: the page reports what was recorded and
       the person decides.
+
+      An arrow is drawn at a fixed size at every zoom, so the box it is drawn in is large and mostly
+      empty, and it and the mark for a station still being read are both drawn over the properties.
+      Only the arrow's own ink answers to the pointer, under the rule in AC-60: nothing drawn over
+      the properties takes the pointer off them except at the pixels where it is actually drawn.
 - [ ] AC-60: The fire map can draw county lines and town names over the hazard layer, off by
       default, from the same public boundary service the rest of this tool uses, fetched once per
       state and kept. They are drawn over the layer and not under it, because underneath is where
       the map's own names already are and a raster opaque enough to read is a raster that hides
       them: the moment this map becomes useful it also becomes anonymous. More town names appear as
       the map is zoomed in, biggest first, and a name that would sit on top of another is not drawn
-      at all, because two names in the same place is neither name. A name takes no pointer: it is
-      read, never clicked, and one that could be clicked would make the properties under it
-      impossible to open. A state that cannot be read is reported and does not stop the others.
+      at all, because two names in the same place is neither name. A state that cannot be read is
+      reported and does not stop the others.
+
+      **Nothing drawn over the properties takes the pointer off them except where it is actually
+      drawn.** This is a rule about every layer over the map rather than about names, and it has to
+      be stated as one because each layer breaks it in a different way and the symptom is always
+      the same: houses that will not open, and a pointer that never says one is there. A name is
+      read and never clicked, so it takes no pointer at all. An arrow is opened, so its ink does
+      and the empty box around it does not. And a layer of outlines nobody clicks still has to say
+      so at the layer, not at the shapes, because these shapes are drawn on a canvas and a canvas
+      is one element covering everything beneath it whether anything is painted there or not.
 - [ ] AC-61: The fire map can draw how much rain and snow a county gets in a year, off by default,
       as an average over the last thirty complete years the national record holds, written under
       that county's name with its unit. Rain *and snow*, and the page says so: the national record
@@ -457,13 +493,6 @@ in five years. The problem brief is in `research.md`.
       ever say that had happened. What is sent is the whole list, because that is what a set of
       ticked boxes is. The property's own page shows them and does not set them, like every other
       annotation.
-
-      The cell opens on a single press, unlike every other writable column, and the difference
-      follows what the cell is: the others are boxes somebody types into, so one press has to mean
-      "select this cell" and leave the keyboard free to move on, while this one holds a list and
-      pressing it opens the list. A cell carrying no tags says so with a mark rather than being
-      blank, because blank is this table's word for "nobody has written anything" and what an
-      empty tag cell also has to say is that there is something here to press.
 
       The cell opens on a single press, unlike every other writable column, and the difference
       follows what the cell is: the others are boxes somebody types into, so one press has to mean
@@ -510,6 +539,18 @@ in five years. The problem brief is in `research.md`.
   the ordinary case rather than the extreme one. Whatever stands in for the rows that are not drawn
   has to be real height and not a shift applied to the ones that are, because the headings are held
   in place by the table being as tall as the list it stands for.
+- A row holds four sentences of description and the row beside it holds none. They are different
+  heights, and each of them is exactly as tall as what is in it. The one thing that must not happen
+  is the blank space standing in for the rows that are not drawn disagreeing with where those rows
+  are said to be, because that is the whole of the scrollbar: off by a pixel a row and the end of a
+  long table cannot be reached at all.
+- Wrapping was left on and the page is opened again. It is on, and the table is wrapping. A setting
+  that is remembered, shown as remembered, and does nothing until it is switched off and on again is
+  worse than one that is not remembered at all.
+- Every overlay is switched on at once and somebody clicks a house. It opens. That is not one
+  check but three: the county lines, the wind arrows, and the mark for a station still being read
+  are each drawn in a pane above the properties, and each of them was, at one time or another,
+  answering for the whole map.
 - A weather station's record is on its way.
 - A county's rainfall record will not answer while the rest will. That county keeps its lines and
   its name and has no number, and the failure is named. A county silently missing its number would

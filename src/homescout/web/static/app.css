@@ -52,7 +52,6 @@
    * that has not set it yet. */
   --row-height: 26px;
   --cell-line: 25px;
-  --wrap-lines: 3;
 
   --radius: 8px;
   --radius-sm: 5px;
@@ -445,29 +444,40 @@ table.grid th, table.grid td {
    * window places rows at walks the table out from under its own scrollbar, and `height` on a
    * table cell is only ever a floor: whatever the tallest line box in the row is, wins. So the
    * line box is told what it is. One line, exactly the row, vertically centred by having nowhere
-   * else to go. */
+   * else to go.
+   *
+   * All of that is about the table with wrapping off, which is the one that is placed by
+   * arithmetic. With wrapping on the row is measured after it is drawn, so this height is what it
+   * has always literally been, a floor, and a row with more text than fits on a line is taller
+   * than it and correctly so. */
   line-height: var(--cell-line);
   height: var(--row-height);
   vertical-align: top;
 }
 table.grid thead th { line-height: 25px; height: 26px; }
 
-/* Letting long text wrap, without letting a row grow.
+/* Letting long text wrap, and letting the row grow to hold all of it.
  *
- * A table cell cannot clip its own height: `overflow: hidden` on a `td` does not stop its content
- * from making the row taller, and a row that is as tall as its longest cell is a row the virtual
- * window cannot place by arithmetic. So the clamp is on the box inside the cell, at exactly the
- * number of lines the row height was calculated from, and the full text stays one hover away in the
- * cell's tooltip and one click away on the property's own page. */
-table.grid.wrapped td { white-space: normal; }
-table.grid.wrapped td.property { white-space: nowrap; }
-table.grid.wrapped td:not(.property) > .cell {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: var(--wrap-lines);
-  line-clamp: var(--wrap-lines);
-  overflow: hidden;
-  max-height: calc(var(--cell-line) * var(--wrap-lines));
+ * This was a clamp: three lines, every row the same height as every other, and the rest of the
+ * text one hover away in the tooltip. That kept the virtual window arithmetic, and it still cut
+ * text off, which is the one thing a box labelled "wrap long text" says it will not do: "it should
+ * just make the row as tall as it needs to be to show the wrapped text."
+ *
+ * Nothing here clips anything now, and the arithmetic moved to `results.js`, which measures the
+ * rows it draws. Two rules stay exactly as they were. The height a row is given is a floor rather
+ * than a fixed size, so a row whose text fits is the same height as every other short row and a
+ * column of prices still reads straight down. And the cells stay vertically aligned to the top, so
+ * a tall row's neighbours line up with its first line rather than floating in the middle of it. */
+table.grid.wrapped td {
+  white-space: normal;
+  /* An address or a link with no spaces in it is one word as far as wrapping is concerned, and one
+   * word wider than its column would hang across the column beside it. Broken mid-word instead,
+   * which is what the eye expects of a narrow column of text. */
+  overflow-wrap: anywhere;
+  /* Room above and below, because the line height here is a line of text rather than the whole
+   * row: without this a single line would sit hard against the border above it. */
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 /* The two blank blocks standing in for the rows the window is not drawing.
  *
@@ -893,17 +903,33 @@ table.onscreen td.hazard .swatch { margin-right: 0.35rem; }
  * is styled is the box it sits in: no background, because it lies over a raster whose colours are
  * the whole point of the page, and a drop shadow instead so a thin arrow reads over both the green
  * and the red. */
-.windarrow {
-  pointer-events: auto;
+/* The arrow's box is a hundred and twelve pixels square and the arrow is a thin line through
+ * the middle of it. The box has to be that big, because an arrow is drawn at a fixed size at every
+ * zoom, and it has to sit over the properties, because the pane it is in is over the one the
+ * properties are drawn in.
+ *
+ * So with the wind on, forty-four invisible squares covered nearly every pin on the screen. The
+ * pointer said "clickable" everywhere, and a click opened the station's bubble, which is anchored
+ * at the station and is therefore somewhere else entirely, so from the person's side a house
+ * simply would not open: "i become unable to click properties, like when i mouse over, the clicker
+ * remains a hand." Measured on the state at zoom seven: a hundred and eighty-three of the hundred
+ * and eighty-five pins on screen could not be reached.
+ *
+ * Only the ink takes the pointer now. The class is doubled up to beat leaflet's own
+ * `.leaflet-marker-icon.leaflet-interactive`, which is what puts `auto` back and is two classes
+ * wide; the cursor stays here, because a cursor is inherited by the shapes inside. */
+.leaflet-marker-icon.windarrow {
+  pointer-events: none;
   cursor: pointer;
   filter: drop-shadow(0 1px 2px rgba(20, 24, 33, 0.55));
 }
+.windarrow svg > * { pointer-events: auto; }
 .windarrow:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
   border-radius: 50%;
 }
-.windarrow svg { display: block; }
+.windarrow svg { display: block; pointer-events: none; }
 
 /* The two squares in the legend, the same two colours the arrows use. */
 .legend .swatch.wind { border-radius: 2px; }
@@ -1268,6 +1294,34 @@ table.grid tr.kept td.property .what { font-weight: 600; }
 .swatch.round.passed { background: #e8b6b6; border-color: #8c2b2b; }
 
 /* One property, in a bubble on the map. */
+/* The picture in a pin.
+ *
+ * The frame is the picture rather than a mount the picture sits in the middle of, and that is the
+ * whole of the decision here. Two thirds of the stored photographs are a hundred and twenty pixels
+ * across, because that is what the site handed over; blown up to fill a wider frame they read as a
+ * fault in this tool rather than as small photographs, and centred in one they leave more grey
+ * than picture. So nothing is scaled up, the height is capped at what a bubble can spare, and the
+ * frame is exactly as wide as what arrives. */
+.pin .pinshot {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 var(--s2);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--shade);
+  cursor: zoom-in;
+  overflow: hidden;
+  line-height: 0;
+}
+.pin .pinshot img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 120px;
+}
 .pin .what { margin: 0 0 var(--s1); font-weight: 600; }
 .pin .facts { margin: 0 0 var(--s1); color: var(--ink-soft); font-size: 0.9rem; }
 .pin .elsewhere { margin: var(--s2) 0 0; }

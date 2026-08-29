@@ -306,6 +306,20 @@ function build() {
    * and over the fire, which is the order these things should be read in. */
   map.createPane("wind");
   map.getPane("wind").style.zIndex = "450";
+  /* The pane takes no pointer, and the arrows put it back on their own ink, in the stylesheet.
+   *
+   * Same trap as the county lines below, arrived at from the other side. This pane holds one thing
+   * that is meant to be opened, the arrows, and one thing that is not: the dot marking a station
+   * whose record is still being read. That dot is a shape on a canvas, and a canvas is one element
+   * over the whole pane whatever is painted on it, so leaving this pane able to take the pointer
+   * meant a canvas over the properties answering for every pixel of the map. Measured with the
+   * wind on: a hundred and sixty-seven of the hundred and seventy-six pins on screen could not be
+   * reached.
+   *
+   * The dot loses the tooltip that named its station. That is the price and it is the right way
+   * round: the dot's job is to say that more is coming, the line above the map says how many are
+   * still being read, and neither of those is worth a screenful of houses that cannot be opened. */
+  map.getPane("wind").style.pointerEvents = "none";
 
   /* County lines under the wind and over the fire, so an outline never hides an arrow.
    *
@@ -315,6 +329,21 @@ function build() {
    * unopenable, which is the sort of fault nobody reports because it looks like a mis-click. */
   map.createPane("lines");
   map.getPane("lines").style.zIndex = "440";
+  /* And takes no pointer either, for a reason that is not obvious and cost the properties on this
+   * map every click they had.
+   *
+   * A county outline is not a thing anybody clicks, so every one of them is drawn as
+   * non-interactive, and that would be the end of it if these were shapes in the page. They are
+   * not: this map draws its shapes on a canvas, and a canvas is one element covering the whole
+   * pane whatever is or is not painted on it. A canvas over the properties answers for every
+   * pixel of the map, finds nothing of its own under the pointer, and hands the click to the map
+   * itself. So with county lines on, which is a checkbox somebody ticks once and leaves ticked,
+   * not one house on the screen could be opened and the pointer never even said one was there.
+   * Measured on the state at zoom seven: a hundred and seventy-six of a hundred and seventy-six.
+   *
+   * The pane is what has to say this rather than the layers in it, because the element that was
+   * swallowing the clicks belongs to the pane and not to any layer. */
+  map.getPane("lines").style.pointerEvents = "none";
   map.createPane("labels");
   map.getPane("labels").style.zIndex = "640";
   map.getPane("labels").style.pointerEvents = "none";
@@ -549,7 +578,12 @@ function popup(row, pin) {
     values["Year Built"] ? `built ${values["Year Built"]}` : null,
   ].filter(Boolean).join(" · ");
 
+  /* Built before the bubble, because the picture writes into it when a listing turns out to
+   * carry nothing beyond the one photograph stored here. */
+  const say_ = el("p", {class: "rowstate", role: "status"}, "");
+
   const held_ = el("div", {class: "pin"},
+    picture(row, say_),
     el("p", {class: "what"},
       link(`/listing/${encodeURIComponent(row.listing_id)}`, values["Property"] || "this property")),
     facts ? el("p", {class: "facts"}, facts) : null,
@@ -563,7 +597,6 @@ function popup(row, pin) {
                         || entry.source))),
   );
 
-  const say_ = el("p", {class: "rowstate", role: "status"}, "");
   const keep = el("button", {
     type: "button",
     class: row.judgment === "keep" ? "keep on" : "keep",
@@ -577,6 +610,56 @@ function popup(row, pin) {
 
   held_.append(el("div", {class: "actions"}, keep, pass), say_);
   return held_;
+}
+
+/* The photograph this tool stored, at the top of the bubble.
+ *
+ * A pin is very good at where and the facts under it are good at what, and neither of them says
+ * what the house looks like, which is the first thing anybody wants from a listing and the reason
+ * the results table carries one as well. This is the stored copy served from this machine, so
+ * opening a pin still tells the listing site nothing; pressing it opens every photograph the
+ * listing carried, which is the one thing on this page that does, and it says so when it does it.
+ *
+ * A property with no stored picture gets no frame at all. The table does the opposite and keeps an
+ * empty box, for a reason that does not hold here: there, a column of addresses has to stay in a
+ * straight line to run an eye down, and here there is one bubble on its own.
+ */
+function picture(row, where) {
+  if (!row.has_image) return null;
+  /* Not lazy, unlike the table's. There are sixty of those on a screen and there is one of this,
+   * and it is in a bubble somebody has just opened on purpose. */
+  const shot = el("img", {
+    class: "shot",
+    decoding: "async",
+    alt: "",
+    src: `/api/listings/${encodeURIComponent(row.listing_id)}/image`,
+  });
+  /* A button rather than a picture with a handler on it, so the keyboard reaches it. */
+  return el("button", {
+    type: "button",
+    class: "pinshot",
+    title: "See every photograph of this property",
+    "aria-label": `Photographs of ${row.values["Property"] || "this property"}`,
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      photographs(row, where);
+    },
+  }, shot);
+}
+
+/* The rest of them, asked for at the moment somebody asks for them and never before: they are the
+ * listing site's own addresses rather than pictures this tool holds. */
+async function photographs(row, where) {
+  try {
+    const found = await ask(`/api/listings/${encodeURIComponent(row.listing_id)}`);
+    if (gallery((found.listing || {}).photo_urls, row.values["Property"])) return;
+    where.replaceChildren(
+      document.createTextNode("This listing carried no photographs beyond the one stored."));
+  } catch (error) {
+    where.replaceChildren(document.createTextNode(`could not read them: ${error.message}`));
+    where.className = "rowstate problem";
+  }
 }
 
 /* The same decision the table records, from the map, with the same question asked about it.
@@ -1149,9 +1232,12 @@ function windCount(drawn) {
 function waitingAt(station) {
   return L.circleMarker([station.latitude, station.longitude], {
     pane: "wind",
+    /* Nothing in this pane takes the pointer; see the note where the pane is made. A dot that
+     * cannot be hovered is a dot that is read rather than asked, which is all this one is for. */
+    interactive: false,
     radius: 5, color: WIND_STRONG, weight: 1.5, opacity: 0.7,
     fillColor: WIND_ANY, fillOpacity: 0.5,
-  }).bindTooltip(`${station.name}: reading its record\u2026`);
+  });
 }
 
 /* One station's arrow, as a fixed number of pixels rather than a shape on the ground.

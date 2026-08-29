@@ -882,50 +882,144 @@ def test_the_columns_stay_put_when_the_table_is_scrolled(served) -> None:
     assert len(set(found["atTop"])) > 1, "the columns are not all the same width, so this measures"
 
 
-def test_wrapped_text_does_not_make_a_row_taller(served) -> None:
-    """feat-010/AC-47: wrapping is clamped, because the rows have to stay the same height.
+def test_a_wrapped_row_grows_to_hold_all_of_its_text(served) -> None:
+    """feat-010/AC-47: "wrap long text" has to mean all of it, at whatever height that takes.
 
-    Every row being the same height is what lets a thousand of them be placed by arithmetic instead
-    of measured. So "wrap long text" is a fixed number of lines rather than as many as the longest
-    cell wants, and the clamp is on a box inside the cell: a table cell cannot clip its own height,
-    and `overflow: hidden` on a `td` does not stop its content taking the row with it.
+    This was a clamp of three lines with the rest left in the cell's tooltip, which kept every row
+    the same height and kept cutting text off, which is the one thing the box does not say it will
+    do: "in the table when you wrap text, it is still cutting off text if it is too long. It should
+    just make the row as tall as it needs to be to show the wrapped text."
+
+    So the rows are measured now, and everything the one fixed height was protecting has to survive
+    that. A row whose text fits on a line is still a row of one line. Only what is on the screen is
+    in the page. And the blank space standing in for the rows that are not drawn still agrees with
+    where those rows are said to be, because that agreement is the whole of the scrollbar: when it
+    was off by a pixel a row the end of the table could not be reached at all.
     """
     found = opened(served, """
         /* Real prose, put on the rows rather than into the fixture, because the point of the test
-           is what the table does with text far longer than a column is wide. */
+           is what the table does with text far longer than a column is wide. Every other row, so
+           the same run of rows holds both a tall one and a short one. */
         const long = ("A quiet adobe on a rise at the end of a graded county road, with a metal " +
                       "roof, a new septic system, a producing well, and views in every direction " +
                       "over open country to the mountains beyond it. ").repeat(4);
-        state.all.slice(0, 8).forEach(r => {
-          r.values["Description"] = long;
-          r.values["Town Analysis Notes"] = long;
+        state.all.forEach((row, at) => {
+          if (at % 2 === 0) row.values["Description"] = long;
         });
         apply();
         await wait(300);
-        const before = [...document.querySelectorAll("#body tr")]
-          .slice(0, 8).map(r => r.getBoundingClientRect().height);
+        const shortRow = () => document.querySelector('#body tr[data-index="1"]');
+        const tallRow = () => document.querySelector('#body tr[data-index="0"]');
+        const unwrapped = tallRow().getBoundingClientRect().height;
 
         document.getElementById("wraptext").click();
         await wait(500);
-        const rows = [...document.querySelectorAll("#body tr")];
-        const cell = rows[0].querySelector('td[data-column="Description"] .cell');
-        return {assumed: rowHeight(),
-                unwrapped: before,
-                drawn: rows.slice(0, 8).map(r => r.getBoundingClientRect().height),
-                cellHeight: cell ? cell.getBoundingClientRect().height : null,
-                wrapped: cell ? getComputedStyle(cell.parentElement).whiteSpace : null,
-                lines: WRAP_LINES};
+
+        const scroller = document.getElementById("scroller");
+        const head = document.querySelector("table.grid thead").getBoundingClientRect().height;
+        const rows = () => [...document.querySelectorAll("#body tr")];
+
+        /* Nothing anywhere in the drawn window needs more room than it has. `scrollHeight` on the
+           cell is what the text actually asked for; `clientHeight` is what it was given. */
+        const clipped = () => {
+          const over = [];
+          for (const tr of rows()) {
+            for (const td of tr.children) {
+              if (td.scrollHeight > td.clientHeight + 1) {
+                over.push({column: td.dataset.column,
+                           needs: td.scrollHeight, has: td.clientHeight});
+              }
+            }
+          }
+          return over;
+        };
+
+        /* Where the first drawn row lands, against where the blank above it says it should. */
+        const drift = () => {
+          const drawn = rows();
+          const box = scroller.getBoundingClientRect();
+          const rungs = ladder();
+          const at = Number(drawn[0].dataset.index);
+          return Math.round((rungs[at] - scroller.scrollTop)
+                            - (drawn[0].getBoundingClientRect().top - box.top - head));
+        };
+
+        /* The other half of "as tall as it needs to be": no row taller than what is in it. Every
+           row against the tallest thing it holds, which is nought when the two agree. */
+        const spare = () => rows().map((tr) => Math.round(
+          tr.getBoundingClientRect().height - 1
+          - Math.max(...[...tr.children].map((td) => td.scrollHeight))));
+
+        const wrapped = {tall: tallRow().getBoundingClientRect().height,
+                         short: shortRow().getBoundingClientRect().height,
+                         clipped: clipped(), drift: drift(), spare: spare(),
+                         whiteSpace: getComputedStyle(tallRow().children[3]).whiteSpace};
+
+        /* Partway down, which is past the end of the window that was drawn at the top. */
+        scroller.scrollTop = Math.round(scroller.scrollHeight / 2);
+        await until(() => document.querySelector("#body tr").dataset.index !== "0");
+        await wait(200);
+        const partway = {drift: drift(), clipped: clipped(), spare: spare(),
+                         first: Number(rows()[0].dataset.index)};
+
+        /* And to the end. The height of the whole table is an estimate until every row has been
+           drawn once, so the bottom is asked for until it stops moving, which is what somebody
+           flicking a scrollbar does anyway. */
+        for (let i = 0; i < 12; i++) {
+          scroller.scrollTop = scroller.scrollHeight;
+          await wait(120);
+        }
+        const last = rows().pop();
+        const box = scroller.getBoundingClientRect();
+        const end = {lastDrawn: Number(last.dataset.index),
+                     lastIndex: state.shown.length - 1,
+                     below: Math.round(box.bottom - last.getBoundingClientRect().bottom),
+                     drift: drift(), clipped: clipped(), spare: spare()};
+
+        return {unwrapped, wrapped, partway, end,
+                inPage: rows().length, total: state.shown.length,
+                whiteSpace: wrapped.whiteSpace};
     """)
 
-    assert found["wrapped"] == "normal", "the cells are not wrapping, so this measures nothing"
-    assert found["assumed"] > max(found["unwrapped"]), "wrapping did not make the rows taller"
-    assert found["cellHeight"] <= found["assumed"], "a wrapped cell is taller than its row"
+    assert found["whiteSpace"] == "normal", "the cells are not wrapping, so this measures nothing"
 
-    assert found["lines"] > 1, "wrapping to one line is not wrapping"
-    for height in found["drawn"]:
-        assert abs(height - found["assumed"]) < 0.51, (
-            f"a wrapped row is {height}px against a placement of {found['assumed']}px"
+    tall = found["wrapped"]["tall"]
+    short = found["wrapped"]["short"]
+    assert tall > short + 40, (
+        f"a row of four sentences is {tall}px and a row of none is {short}px, so the long one is "
+        f"not growing to hold its text"
+    )
+    assert short < found["unwrapped"] * 2, (
+        f"a row with nothing long in it is {short}px against {found['unwrapped']}px unwrapped, "
+        f"which is not a row that grew only as much as its text asked for"
+    )
+
+    for where in ("wrapped", "partway", "end"):
+        assert not found[where][
+            "clipped"
+        ], f"text is cut off {where}: {found[where]['clipped'][:3]}"
+        #: And no row taller than what is in it, which is the other half of the same sentence.
+        assert max(found[where]["spare"]) <= 2, (
+            f"a row {where} is {max(found[where]['spare'])}px taller than anything in it needs"
         )
+        assert abs(found[where]["drift"]) <= 1, (
+            f"the rows are drawn {found[where]['drift']}px from where the blank above them says "
+            f"they are, {where}"
+        )
+
+    assert found["inPage"] < found["total"], (
+        "every row is in the page, so this says nothing about the window"
+    )
+    assert found["end"]["lastDrawn"] == found["end"]["lastIndex"], (
+        f"the end of the table cannot be reached: it stops at row "
+        f"{found['end']['lastDrawn']} of {found['end']['lastIndex']}"
+    )
+    #: The table carries thirty pixels of tail below the last row so the bottom one is not jammed
+    #: against the edge, and that is all the room there should be at the end of a scroll.
+    assert found["end"]["below"] <= 32, (
+        f"there is {found['end']['below']}px of nothing under the last row at the bottom of the "
+        f"table, which is a table taller than the rows in it"
+    )
 
 
 def test_passing_on_a_house_asks_first_and_escape_means_no(served) -> None:
@@ -1744,6 +1838,191 @@ def test_a_property_is_passed_on_from_its_pin(served) -> None:
     assert found["judgment"] == "pass"
     assert found["verdict"] == "half a mile from the red"
     assert found["after"] == found["before"] - 1, "the pin stayed on the map after being passed on"
+
+
+def test_a_pin_opens_with_the_photograph_this_tool_stored(served) -> None:
+    """feat-010/AC-56: a pin is very good at where and says nothing about what it looks like.
+
+    The picture is the stored copy served from this machine, which is the whole reason it can be
+    put here: opening a pin on a screenful of houses would otherwise tell three listing sites which
+    houses somebody is looking at. Pressing it is the one thing on this page that does ask them,
+    and it says so when it does.
+    """
+    import base64
+    import urllib.request
+
+    base, _held, store = served
+    with urllib.request.urlopen(f"{base}/api/results/portales", timeout=30) as answer:
+        rows = json.loads(answer.read())["rows"]
+    wanted = rows[0]["listing_id"]
+    #: One pixel, and a real one: the point is that the picture in the bubble is a picture this
+    #: machine served, so it has to actually load.
+    store.store_preview_image(
+        wanted,
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+            "AAAABJRU5ErkJggg=="
+        ),
+        extension="png",
+    )
+
+    found = on_the_map(
+        served,
+        """
+        const wanted = """
+        + json.dumps(wanted)
+        + """;
+        held.pins[wanted].pin.openPopup();
+        const bubble = await until(() => document.querySelector(".pin"));
+        const shot = bubble.querySelector(".pinshot img");
+        await until(() => shot && shot.complete && shot.naturalWidth > 0);
+
+        /* And a property with no stored picture gets no frame, rather than an empty box: there is
+           no column of addresses here to keep in a straight line. */
+        const other = held.rows.find((row) => row.listing_id !== wanted && !row.has_image);
+        held.map.closePopup();
+        await until(() => !document.querySelector(".pin"));
+        held.pins[other.listing_id].pin.openPopup();
+        const second = await until(() => document.querySelector(".pin"));
+
+        return {src: shot ? shot.getAttribute("src") : null,
+                loaded: !!(shot && shot.naturalWidth > 0),
+                fromThisMachine: !!(shot && new URL(shot.src, location.href).origin
+                                    === location.origin),
+                withoutOne: !!second && !second.querySelector(".pinshot")};
+    """,
+    )
+
+    assert found["src"] and wanted in found["src"], (
+        f"the bubble does not carry this property's stored photograph: {found['src']}"
+    )
+    assert found["loaded"], "the photograph in the bubble did not load"
+    assert found["fromThisMachine"], "the picture in a pin is fetched from the listing site"
+    assert found["withoutOne"], "a property with no stored photograph is given an empty frame"
+
+
+def test_nothing_drawn_over_the_map_takes_the_pointer_off_the_properties(
+    served, monkeypatch
+) -> None:
+    """feat-010/AC-59, feat-010/AC-60: an overlay is drawn over the houses, not instead of them.
+
+    Reported as "sometimes when i'm interacting with the map, like i zoom, check/uncheck things, i
+    become unable to click properties, like when i mouse over, the clicker remains a hand. is it
+    just lagging maybe?"
+
+    It was not lagging. Two overlays, in two panes above the one the properties are drawn in, were
+    each taking the pointer across the whole of the map.
+
+    The county lines are shapes on a canvas, and a canvas is one element covering its whole pane
+    whatever is painted on it, so a pane of outlines answered for every pixel of the map. The wind
+    arrows are icons at a fixed size, so each one is a box a hundred and twelve pixels square that
+    is nearly all empty, and the dot for a station still being read put a canvas in that pane too.
+
+    What the person saw was houses that would not open and a pointer that never said one was
+    there, which is why it reads as the map having stopped working rather than as a mis-click.
+
+    So the test is the same question asked three times: what does the browser say is under the
+    pointer where a property is. It has to be the thing the properties are drawn on, whatever is
+    switched on over them.
+    """
+    from homescout.enrich import ground
+    from test_web_wind import TABLE
+
+    #: One county, covering the properties, so its outline is drawn across the whole screen.
+    counties = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "properties": {"BASENAME": "Roosevelt", "COUNTY": "041",
+                           "CENTLAT": "+34.1862", "CENTLON": "-103.3452"},
+            "geometry": {"type": "Polygon",
+                         "coordinates": [[[-103.9, 33.8], [-102.9, 33.8], [-102.9, 34.6],
+                                          [-103.9, 34.6], [-103.9, 33.8]]]},
+        }],
+    })
+    towns = json.dumps({"features": [
+        {"attributes": {"BASENAME": "Clovis, NM", "AREALAND": "30000000",
+                        "CENTLAT": "+34.4048", "CENTLON": "-103.2052"}},
+    ]})
+
+    def ground_fetched(url: str, what: str) -> bytes:
+        return (towns if "/88/query" in url else counties).encode()
+
+    monkeypatch.setattr(ground, "_fetch", ground_fetched)
+
+    #: One station, a little north of the address every property in this fixture shares, so that
+    #: its box lands over them and the arrow itself does not. The box is the half that was wrong.
+    just_north = """\
+{"type": "FeatureCollection", "features": [
+  {"id": "PRT", "properties": {"sname": "PORTALES"},
+   "geometry": {"type": "Point", "coordinates": [-103.3452, 34.2012]}}
+]}
+"""
+    facing(monkeypatch, TABLE, just_north)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => true);
+
+        const map = held.map;
+        const pin = Object.values(held.pins)[0].pin;
+        const drawnOn = pin._renderer._container;
+        const box = map.getContainer().getBoundingClientRect();
+        const at = map.latLngToContainerPoint(pin.getLatLng());
+        const answers = () => {
+          const on = document.elementFromPoint(box.left + at.x, box.top + at.y);
+          return {itself: on === drawnOn,
+                  what: on ? on.tagName + "." + (on.getAttribute("class") || "")
+                           + " in " + ((on.parentElement || {}).className || "") : "nothing"};
+        };
+
+        const plain = answers();
+
+        document.getElementById("names").click();
+        await until(() => land.shapes.getLayers().length, 300);
+        await wait(150);
+        const withNames = answers();
+
+        document.getElementById("wind").click();
+        await until(() => document.querySelector(".windarrow svg"), 300);
+        await wait(150);
+        const withWind = answers();
+
+        const arrow = document.querySelector(".windarrow");
+        const over = arrow.getBoundingClientRect();
+        const ink = arrow.querySelector("svg path");
+        const spot = ink.getBoundingClientRect();
+        const onInk = document.elementFromPoint(spot.left + spot.width / 2,
+                                                spot.top + spot.height / 2);
+
+        return {
+          plain, withNames, withWind,
+          arrowBox: [Math.round(over.width), Math.round(over.height)],
+          pinInsideTheBox: box.left + at.x > over.left && box.left + at.x < over.right
+                        && box.top + at.y > over.top && box.top + at.y < over.bottom,
+          outlines: land.shapes.getLayers().length,
+          inkTakesThePointer: !!(onInk && onInk.closest(".windarrow")),
+        };
+    """)
+
+    assert found["plain"]["itself"], (
+        f"with nothing switched on, a property already answers to something else: "
+        f"{found['plain']['what']}"
+    )
+    assert found["outlines"], "no county outline was drawn, so that half asks nothing"
+    assert found["withNames"]["itself"], (
+        f"with county lines on, the property answers to {found['withNames']['what']}"
+    )
+
+    assert found["arrowBox"][0] > 100, (
+        f"the arrow's box is {found['arrowBox']}, which is too small for this to prove anything"
+    )
+    assert found["pinInsideTheBox"], (
+        "the property is not under the arrow's box, so that half asks nothing"
+    )
+    assert found["withWind"]["itself"], (
+        f"with the wind on, the property answers to {found['withWind']['what']}"
+    )
+    assert found["inkTakesThePointer"], "the arrow itself can no longer be opened"
 
 
 def test_the_map_draws_the_properties_and_says_what_it_cannot(served) -> None:
