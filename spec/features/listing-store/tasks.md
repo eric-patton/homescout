@@ -198,3 +198,40 @@ earlier.
       found after them (`feat-001/AC-25`). Both answers are asserted, the one for a single property
       and the one for the whole table, because they are separate queries and either could drift
       from the other. Checked against the one-link version, which fails it.
+
+## What a pass is doing (`changes/what-a-pass-is-doing/`)
+
+- [ ] T-pass-1: `store/schema.py`: the table an operation records itself in, and its lines
+      (`feat-001/AC-31`). A lifecycle row rather than an observation, the way `runs` already is, so
+      it takes the same forward-only trigger: only the outcome may move, and only from running to
+      completed or failed. It carries the operation's kind, when it started, when it was last
+      touched, when it finished, its terminal state, and its outcome or its failure. A search run's
+      row carries that run's id, so the two are one operation rather than two accounts of it. Lines
+      are their own table, keyed by the pass and ordered, and bounded the way the in-memory version
+      already bounds them.
+
+- [ ] T-pass-2: `store/schema.py`: the migration (`feat-001/AC-31`). This store is opened by a build
+      that brings an older file forward, and the installation it has to bring forward is 200MB with
+      seven runs in it.
+
+- [ ] T-pass-3: `store/core.py`, `store/models.py`: writing and reading one (`feat-001/AC-31`).
+      Beginning one, saying a line, touching it without saying anything, ending it as completed or
+      as failed, and reading what is running now and what a named kind last did.
+
+- [ ] T-pass-4: `store/core.py`: a pass not touched recently enough reads as stopped without
+      finishing (`feat-001/AC-31`). Computed when the row is read rather than written by anything,
+      because the only process that could write it is the one that died. Never reported as
+      completed and never as failed, because nothing knows which it was.
+
+- [ ] T-pass-4a: `store/core.py`: every line and every failure is scrubbed of credentials on the
+      way in (`feat-001/AC-31`). In the one function that writes, not at each call site, because a
+      caller that forgets is the failure this exists to remove. Reuse the extraction layer's own
+      stripper rather than writing a second one. A stored line is bounded in length as well as in
+      count, because it can carry a snippet of a remote refusal and that snippet is now durable.
+
+- [ ] T-pass-5: `tests/test_store_schema.py`, `tests/test_store_history.py`: the lifecycle, the
+      forward-only rule, the stopped-without-finishing reading, and that a pass row is not an
+      observation and does not touch one (`feat-001/AC-31`, `feat-001/AC-2`, `feat-001/AC-17`).
+      Including that a failure carrying an address with a key in its query string is stored without
+      it, asserted against the unscrubbed version, because that is the one thing here that turns a
+      momentary string into bytes on a disk that gets backed up.

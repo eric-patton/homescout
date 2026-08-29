@@ -482,3 +482,28 @@ decisions that cut across them are here rather than repeated three times.
   by requiring that a definition opened and re-saved here is unchanged apart from the edits made.
   The fault was never the four buttons; it was that nothing said which panel was dirty, and the
   lede apologised for it instead.
+
+## Come back to it (`changes/come-back-to-it/`)
+
+**Ask on load, in the same shape as pressing the button.** The watcher already does the right thing
+once it is attached; what is missing is a second place that attaches it. So the fix is a call on
+load, not a new mechanism, and the panel a returning visitor sees is the same object as the one the
+presser sees rather than a second rendering of the same idea.
+
+**One ask for the marker, in the shared frame.** Six surfaces each polling for what is running is
+six requests where one would do and six answers that can disagree. It goes in `common.js` beside
+`nav()`, which is already the one place every page draws the same furniture, and it asks a single
+endpoint that names everything under way rather than one endpoint per kind of pass.
+
+**Drawn only when something is running.** An indicator that is always present and usually says
+"nothing" is a thing to learn to ignore. This installation is idle almost all of the time, which is
+the case to optimise for.
+
+**The tracker stops being the source of truth.** `web/runs.py` currently holds progress in a
+dictionary, and the store change gives that a home. Both are not kept: two answers to one question
+is how they come to disagree, and the in-memory one is the one that cannot answer after a restart or
+about a pass this process did not start. What stays in `runs.py` is the thread, the one-at-a-time
+rule and the connection it opens beside the interface's own.
+
+**Ordering.** The store change lands first. The first two parts of this could be built against the
+process's memory and then moved, which is building them twice.

@@ -183,3 +183,33 @@ uv run pytest -m slow tests/test_store_performance.py
 None. D-5 previously deviated from non-negotiable 1 and was rejected by the pre-build check. The
 plan now writes a full snapshot per listing per run, and the non-negotiable has separately been
 reworded to bind the recoverability guarantee rather than a table layout.
+
+## What a pass is doing (`changes/what-a-pass-is-doing/`)
+
+**A second table rather than a column on `runs`.** `runs` answers "was there a run and what did it
+find", and it is the anchor for snapshots, events and the whole comparison. What is being added
+answers "is something happening now and what has it said", and it exists for the five operations
+that have no run row at all. Widening `runs` would have meant a row for an extraction pass with a
+`search_name` that is not a search, which makes every query over runs wrong by one row.
+
+**A search run gets a row in both, and the new one carries the run id.** Not duplication: a reader
+asking what is happening gets one answer covering every operation, and a reader asking what a run
+found gets `runs` exactly as before. The link is what stops those becoming two accounts of one
+thing.
+
+**Touched on a schedule, not only when it speaks.** The obvious implementation is to treat the last
+progress line as the heartbeat, and it does not work here: extraction says one line at the start and
+then nothing for the length of the pass, which is minutes, by design. So the recorder touches the
+row on a clock of its own while it is open. The threshold for reading a row as stopped is a multiple
+of that interval rather than a number chosen separately, so the two cannot drift apart.
+
+**Stopped is computed on read, never written.** The only process that could write "this stopped" is
+the one that was killed. So it is a reading of `updated_at` against the clock, and it is reported as
+its own state: never completed, because the work did not complete, and never failed, because nothing
+observed a failure. This is also why the existing gap in `runs` (a killed run says "running" for
+ever) stops being visible in practice, since the pass row for that run is subject to this rule.
+
+**Operational, and the one thing here that may be pruned.** Nothing computes a difference over time
+from these rows and no annotation refers to them, so age may remove them without losing anything
+non-negotiable 1 protects. Said out loud in the spec because every other table in this store is
+append-only history and a reader is entitled to assume this one is too.

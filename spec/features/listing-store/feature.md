@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-001"
 slug: "listing-store"
 title: "Listing store and snapshot history"
-status: done
+status: active
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,11 +15,11 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    ready
+  tasks:    draft
 gate:
-  analyze: not-run
-  product_global_hash: "sha256:869c75445341"
-  constitution_hash: "sha256:7ed19648690b"
+  analyze: pass
+  product_global_hash: "sha256:d720d6d2ec75"
+  constitution_hash: "sha256:d73230560d0f"
 converge:
   last_run: 2026-08-23
   open: 0
