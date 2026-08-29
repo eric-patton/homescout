@@ -79,6 +79,19 @@ source query plus an exact local test. The problem brief is in `research.md`.
       in the brief.
 - [ ] AC-2: Areas support polygon, city, county, ZIP code, and radius forms, and a named polygon
       keeps its name.
+- [ ] AC-14: Every area carries an optional reason: why it is searched, or why it is left out, in
+      the person's own words. It survives a load and a save exactly as a name does, and every
+      surface that can show an area can show it.
+
+      A name says which shape this is. A reason says why anybody drew it, and only the second one
+      settles anything when the decision is questioned later, which is the moment it is always
+      wanted and never to hand. Written as a comment it reaches no screen, so the tool can say a
+      county is excluded and what the exclusion is called and never why, and somebody asking why a
+      whole town has no houses in it has to be sent to a file.
+
+      Offered on areas as well as exclusions, because "why is this town in" is the same question
+      asked the other way round. Absent and empty are one state: a reason nobody wrote reads as
+      unwritten rather than as a blank that looks like an answer.
 - [ ] AC-3: A property qualifies if it falls inside any area and inside no exclude area. A test
       covers a property inside two overlapping areas and one inside both an area and an exclusion.
 - [ ] AC-4: Coarse resolution produces a source query that fully contains every area in the

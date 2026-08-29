@@ -175,7 +175,9 @@ async function saveAreas() {
   /* The named areas: a town or a county, with whatever the table's name and in-or-out fields now
    * say. These have no geometry to draw and must survive a save that is mostly about shapes. */
   for (const area of held.named || []) {
-    (area.excluded ? exclusions : areas).push(namedArea(area));
+    const entry = namedArea(area);
+    if (area.reason) entry.reason = area.reason;
+    (area.excluded ? exclusions : areas).push(entry);
   }
 
   if (held.drawn) {
@@ -183,6 +185,7 @@ async function saveAreas() {
       if (!layer.toGeoJSON) return;
       const entry = {type: "polygon", geometry: layer.toGeoJSON().geometry};
       if (layer.__name) entry.name = layer.__name;
+      if (layer.__reason) entry.reason = layer.__reason;
       (layer.__excluded ? exclusions : areas).push(entry);
     });
   }
@@ -243,6 +246,7 @@ function areaList() {
         el("th", {scope: "col"}, "Kind"),
         el("th", {scope: "col"}, "Which"),
         el("th", {scope: "col"}, "Called"),
+        el("th", {scope: "col"}, "Why"),
         el("th", {scope: "col"}, "In or out"),
         el("th", {scope: "col"}, "Remove"),
       )),
@@ -267,8 +271,10 @@ function areaList() {
       ),
     ),
     el("p", {class: "meta"},
-      "A name is yours, for reading the file and the exported sheet. Nothing is written until you " +
-      "save."),
+      "A name is yours, for reading the file and the exported sheet. The reason beside it is the " +
+      "one that matters later: it is what this page can show somebody who asks why a whole town " +
+      "has no houses in it, and the only part of the decision that survives having been made. " +
+      "Nothing is written until you save."),
     addPlace(),
     el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"),
   );
@@ -316,6 +322,21 @@ function areaRow(kind, which, holder, remove, position, layer) {
       if (isLayer) holder.__name = given; else holder.name = given;
     },
   });
+  /* Why, beside what. Wider than the name box and deliberately so: a name is two words and a
+   * reason is a sentence somebody will be glad of in a year. It is the same field whether the area
+   * was drawn or typed, because the question it answers does not depend on how the shape got
+   * here. */
+  const why = el("textarea", {
+    rows: "2",
+    value: (isLayer ? holder.__reason : holder.reason) || "",
+    placeholder: "why this is in, or why it is out…",
+    "aria-label": `Why area ${position} is searched or left out`,
+    onchange: (e) => {
+      const given = e.target.value.trim();
+      if (isLayer) holder.__reason = given; else holder.reason = given;
+    },
+  });
+
   const sense = el("select", {
     "aria-label": `Whether area ${position} is searched or left out`,
     onchange: (e) => {
@@ -338,6 +359,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
     el("td", {}, value(kind)),
     el("td", {}, which),
     el("td", {}, naming),
+    el("td", {class: "why"}, why),
     el("td", {}, sense),
     el("td", {}, el("button", {
       type: "button",
@@ -1080,6 +1102,7 @@ function startMap() {
        * is what lets both be changed without redrawing the shape: the table edits the layer, and
        * saving reads every layer back out. */
       layer.__name = area.name || "";
+      layer.__reason = area.reason || "";
       drawn.addLayer(layer);
     });
   }
@@ -1118,6 +1141,7 @@ function startMap() {
     const kind = (document.getElementById("drawkind") || {}).value;
     event.layer.__excluded = kind === "exclude";
     event.layer.__name = "";
+    event.layer.__reason = "";
     if (event.layer.__excluded && event.layer.setStyle) {
       event.layer.setStyle({color: "#a02020", dashArray: "5,5"});
     }

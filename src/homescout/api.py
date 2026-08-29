@@ -1738,6 +1738,9 @@ def _area_document(area: Any) -> dict[str, Any]:
         "name": getattr(area, "name", None),
         "value": getattr(area, "value", None),
         "excluded": bool(getattr(area, "excluded", False)),
+        # Why, and not only what. A name identifies a shape; the reason is the part that decides
+        # anything when somebody asks later why a whole county has no houses in it.
+        "reason": getattr(area, "reason", None),
         "geometry": geometry,
     }
 

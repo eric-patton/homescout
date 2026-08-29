@@ -93,6 +93,14 @@ class SearchArea:
     kind: Kind
     #: A drawn shape's own name, kept through a load, a save and a run (AC-2).
     name: str | None = None
+    #: Why this area is searched, or why it is left out, in the person's own words.
+    #:
+    #: A name says which shape this is and a reason says why anybody drew it, and only the second
+    #: one is any use when the decision is questioned later. These reasons were written as YAML
+    #: comments at first, which is the obvious place and the wrong one: a comment reaches no screen,
+    #: so the app could say a town was excluded and what the exclusion was called and never why.
+    #: Somebody then asks why a whole county is missing and the answer is in a file.
+    reason: str | None = None
     #: A named place, or the name of a radius's centre, exactly as written in the file.
     value: str | None = None
     shape: Any = None
@@ -342,6 +350,16 @@ def _box_around(centre: tuple[float, float], miles: float) -> tuple[float, float
     )
 
 
+def _reason(entry: Mapping[str, Any]) -> str | None:
+    """Why this area is here, if anybody said. Absent and empty are the same state."""
+    given = entry.get("reason")
+    if given is None:
+        return None
+    if not isinstance(given, str):
+        raise AreaError("an area's reason has to be text")
+    return given.strip() or None
+
+
 def build(entry: Mapping[str, Any], *, excluded: bool = False) -> SearchArea:
     """One area from one entry in a definition file, or a refusal naming what is wrong."""
     if not isinstance(entry, Mapping):
@@ -374,7 +392,9 @@ def build(entry: Mapping[str, Any], *, excluded: bool = False) -> SearchArea:
         digits = value.strip()
         if not (digits.isdigit() and len(digits) == 5):
             raise AreaError(f"{value!r} is not a five-digit ZIP code.")
-    return SearchArea(kind=kind, value=value.strip(), excluded=excluded)
+    return SearchArea(
+        kind=kind, value=value.strip(), excluded=excluded, reason=_reason(entry)
+    )
 
 
 def _polygon_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
@@ -402,6 +422,7 @@ def _polygon_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
         shape=shape,
         prepared=geo.prepare(shape),
         excluded=excluded,
+        reason=_reason(entry),
     )
 
 

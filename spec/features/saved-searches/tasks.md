@@ -85,3 +85,38 @@ alongside its peers.
 - [x] T25: A live run of a real definition file end to end, against Realtor, proving the file, the
       geometry and the loop work together outside the fakes.
 - [x] T26: `/spec-flow:converge`, then the manifest stamp.
+
+## Change: why an area is in or out (`feat-004/AC-14`)
+
+- [x] T-reason-1: `search/areas.py`, `api.py`, `web/static/search.js`, `app.css`: a reason on every
+      area, shown and edited beside its name (`feat-004/AC-14`).
+
+      "Let's add a reasoning for things that are left out that we can see and edit."
+
+      Asked for after a real question nobody could answer from a screen. Somebody looking at
+      realtor.com saw houses in Carlsbad and asked why none were on the map. They are excluded on
+      purpose, by a polygon named `permian-oil-and-gas`, for flaring, truck traffic, potash and the
+      waste repository. The editor could already show that: it draws every exclusion on its map with
+      its name. What no surface could show was the *why*, because the why was a YAML comment and
+      nothing reads a comment.
+
+      That distinction decided the question rather than decorating it. The reason ends "the airshed
+      is regional, so there is no part of this that a smaller shape would rescue", which is exactly
+      the argument against carving Carlsbad out, and it was the one line the app could not show.
+
+      Text, optional, on areas as well as exclusions. Absent and whitespace are one state, so a
+      cleared box reads as unwritten rather than as an answer somebody gave. Not text is refused,
+      like a name that is not text: a definition that says what is wrong with it beats one that
+      runs with a reason nobody can read.
+
+- [x] T-reason-2: `tests/test_searches_document.py`: kept through a load, on every kind of area and
+      both lists; blank and whitespace both read as unwritten; a reason that is not text is a
+      problem in the file (`feat-004/AC-14`).
+
+- [x] T-reason-3: the seven exclusions in the real workspace moved out of comments and into fields,
+      by hand rather than through the interface. The interface's own "save the areas" replaces both
+      lists wholesale, and the document layer round-trips a file but cannot keep comments attached
+      to a list node it is handed a new copy of: saving that search drops twelve comment lines and
+      re-wraps every coordinate. Pre-existing, worth knowing, and the strongest argument for this
+      change: a reason kept as a comment is a reason one click away from being lost, where a reason
+      kept as a field survives the same click.

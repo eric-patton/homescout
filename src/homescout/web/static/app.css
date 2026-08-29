@@ -1377,6 +1377,19 @@ table.plain thead th {
   letter-spacing: 0.04em;
 }
 table.plain tbody tr:last-child > * { border-bottom: 0; }
+
+/* Why an area is in or out. Given the widest cell in the row and a box two lines deep, because a
+   name is two words and this is a sentence somebody will be glad of in a year. Everything else in
+   that table is a word or a control, so without a width of its own this column collapses to the
+   narrowest thing that fits and the reason becomes unreadable at exactly the moment it matters. */
+td.why { width: 40%; }
+td.why textarea {
+  width: 100%;
+  min-height: 3.2em;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.35;
+}
 table.plain tbody tr:hover td { background: var(--shade); }
 table.plain td input, table.plain td select {
   font: inherit;

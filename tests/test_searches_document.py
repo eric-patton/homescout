@@ -88,6 +88,82 @@ sources: [fake]
     assert definition.areas[0].label() == "north-portales"
 
 
+def test_an_area_keeps_the_reason_it_was_given(tmp_path: Path) -> None:
+    """feat-004/AC-14: a name says which shape this is; a reason says why anybody drew it.
+
+    Only the second one settles anything when the decision is questioned later, and it was the one
+    thing no surface could show. These reasons lived as YAML comments, which is the obvious place
+    and the wrong one: nothing reads a comment, so the interface could say a county was excluded
+    and what the exclusion was called and never why. Somebody then asks why a whole town has no
+    houses in it and the answer is in a file.
+
+    On every kind of area and on both lists, because an area that is searched has a reason too and
+    "why is this town in" is the same question asked the other way round.
+    """
+    text = f"""\
+name: reasoned
+areas:
+  - {{type: zip, value: "88130", reason: where her mother lives}}
+  - {{type: polygon, name: north, geometry: {str(SQUARE).replace("'", '"')},
+     reason: the good side of the ridge}}
+exclude_areas:
+  - {{type: city, value: "Hobbs, NM", reason: flaring and truck traffic}}
+sources: [fake]
+"""
+    write(tmp_path / "searches", "reasoned", text=text)
+
+    definition = catalog(tmp_path / "searches").load("reasoned")
+
+    assert definition.problems() == ()
+    assert [area.reason for area in definition.areas] == [
+        "where her mother lives",
+        "the good side of the ridge",
+    ]
+    assert definition.exclusions[0].reason == "flaring and truck traffic"
+
+
+def test_an_area_with_no_reason_says_nothing_rather_than_nothing_useful(tmp_path: Path) -> None:
+    """feat-004/AC-14: absent and empty are one state, and neither is a reason.
+
+    A reason nobody wrote must read as unwritten rather than as a blank somebody typed, or the
+    interface shows an empty box that looks like an answer. Whitespace is the same thing said less
+    obviously, and it is what a text box hands back when somebody clears it.
+    """
+    text = f"""\
+name: quiet
+areas:
+  - {{type: zip, value: "88130"}}
+  - {{type: polygon, name: north, geometry: {str(SQUARE).replace("'", '"')}, reason: "   "}}
+sources: [fake]
+"""
+    write(tmp_path / "searches", "quiet", text=text)
+
+    definition = catalog(tmp_path / "searches").load("quiet")
+
+    assert definition.problems() == ()
+    assert [area.reason for area in definition.areas] == [None, None]
+
+
+def test_a_reason_that_is_not_text_is_refused(tmp_path: Path) -> None:
+    """feat-004/AC-14: a definition says what is wrong with it rather than half-working.
+
+    The same rule the name already has. A reason written as a list or a number is somebody's
+    mistake, and the file saying so beats a search that runs with a reason nobody can read.
+    """
+    text = f"""\
+name: wrong
+areas:
+  - {{type: polygon, name: north, geometry: {str(SQUARE).replace("'", '"')}, reason: [a, b]}}
+sources: [fake]
+"""
+    write(tmp_path / "searches", "wrong", text=text)
+
+    definition = catalog(tmp_path / "searches").load("wrong")
+
+    problems = [str(problem) for problem in definition.problems()]
+    assert any("reason" in problem for problem in problems), problems
+
+
 def test_an_acre_is_forty_three_thousand_five_hundred_and_sixty_square_feet(tmp_path: Path) -> None:
     """feat-004/AC-1: the file speaks acres and the source speaks square feet.
 
