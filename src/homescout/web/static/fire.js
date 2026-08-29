@@ -18,7 +18,9 @@
  */
 
 const held = {name: "", rows: [], settings: null, map: null, markers: null, pins: {},
-              showPassed: false, opacity: 0.55,
+              showPassed: false, showGone: false, satellite: false, opacity: 0.55,
+              /* The two tile layers, whichever of them is configured. */
+              backgrounds: {},
               /* How the list under the map is arranged. Cheapest first, because that is the
                * question everybody asks of a screenful of houses before any other one. */
               list: {by: "Price", down: false}};
@@ -104,6 +106,15 @@ function draw() {
     onchange: (event) => { held.showPassed = event.target.checked; plot(); },
   });
 
+  /* The same box the results table has, with the same words and the same default, because it is
+   * the same question. Without it this map drew fifty-five houses that were no longer for sale,
+   * pinned exactly like the ones that were. */
+  const gone = el("input", {
+    type: "checkbox",
+    id: "showgone",
+    onchange: (event) => { held.showGone = event.target.checked; plot(); },
+  });
+
   const fade = el("input", {
     type: "range", id: "fade", min: "0", max: "100", value: String(held.opacity * 100),
     "aria-label": "How strongly the fire layer is drawn",
@@ -130,6 +141,15 @@ function draw() {
     id: "names",
     onchange: (event) => showLand(event.target.checked),
   });
+
+  /* Only offered when there is something to switch to. A control that is always there and does
+   * nothing until a file is edited is a control that reads as broken. */
+  const photo = (held.settings.map || {}).satellite ? el("input", {
+    type: "checkbox",
+    id: "satellite",
+    checked: held.satellite || null,
+    onchange: (event) => { held.satellite = event.target.checked; background(); },
+  }) : null;
 
   /* Turning the rain on turns the names on, because the number is written under a county's name
    * and a number floating on an unnamed patch of map is a number about nothing. The box ticks
@@ -166,6 +186,8 @@ function draw() {
       "next to. Click a pin to keep the house or pass on it, and say why."),
     el("div", {class: "controls"},
       el("label", {for: "showpassed"}, passed, " show properties you passed on"),
+      el("label", {for: "showgone"}, gone, " show properties that disappeared"),
+      photo ? el("label", {for: "satellite"}, photo, " satellite view") : null,
       el("label", {for: "fade"}, "fire layer ", fade),
       el("label", {for: "ruler"}, ruler, " measure a distance"),
       el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
@@ -280,10 +302,34 @@ function build() {
   const map = L.map(where, {center: [34.5, -106.0], zoom: 7, preferCanvas: true});
   held.map = map;
 
-  const tiles = held.settings.map && held.settings.map.tiles;
-  if (tiles) {
-    L.tileLayer(tiles, {attribution: held.settings.map.attribution || "", maxZoom: 19}).addTo(map);
+  /* Two backgrounds where two are configured, and the switch between them is the whole feature.
+   *
+   * A drawn map says where the roads go and what a parcel is called. A photograph says what is on
+   * the ground: whether the trees come up to the house, what the neighbour is doing, whether the
+   * track in is a track. For rural land those are different questions and somebody looking at a
+   * property wants to ask both without leaving the page.
+   *
+   * Held as two layers rather than one whose address is rewritten, so that leaflet's own
+   * attribution follows the switch. The two are not the same people's work and the credit is not
+   * interchangeable. */
+  const map_ = held.settings.map || {};
+  held.backgrounds = {};
+  if (map_.tiles) {
+    held.backgrounds.street = L.tileLayer(map_.tiles, {
+      attribution: map_.attribution || "", maxZoom: 19,
+    });
   }
+  if (map_.satellite) {
+    held.backgrounds.satellite = L.tileLayer(map_.satellite, {
+      attribution: map_.satellite_attribution || "",
+      /* The national imagery stops here and a tile server asked past its own depth answers with
+       * nothing, which reads on screen as the map having broken. `maxNativeZoom` keeps asking for
+       * the deepest picture there is and lets leaflet stretch it, so zooming further gets blurry
+       * rather than blank, which is the honest way for a photograph to run out. */
+      maxZoom: 19, maxNativeZoom: 16,
+    });
+  }
+  background();
 
   if ((held.settings.hazards || {}).wildfire) {
     held.hazard = arcgisLayer("wildfire", {opacity: held.opacity}).addTo(map);
@@ -366,13 +412,48 @@ function build() {
   if (bounds.length) map.fitBounds(bounds, {padding: [24, 24]});
 }
 
+/* What this page is currently willing to show, asked once.
+ *
+ * The pins and the list under them both need this and it used to be written out in both, which is
+ * how they came to be answering different questions: the list's copy was the pass rule and the
+ * map's copy was the pass rule, and neither of them knew about a house that had come off the
+ * market. One function so that a rule added here cannot reach one of them and miss the other.
+ *
+ * The rules are the results table's, deliberately. Two surfaces over one library disagreeing about
+ * what is on the market is how somebody ends up counting the same search twice and getting two
+ * answers, which is exactly what was reported: a hundred and sixty-two on the table against two
+ * hundred and thirteen here. */
+function worthDrawing(row) {
+  if (row.judgment === "pass" && !held.showPassed) return false;
+  if (row.presence === "disappeared" && !held.showGone) return false;
+  return true;
+}
+
+/* Put the chosen background on and take the other one off.
+ *
+ * Safe to call when neither is configured, which is the default state of this tool: the map then
+ * draws its own grid and says what is missing, and nothing here has an opinion about that. */
+function background() {
+  if (!held.map) return;
+  const wanted = held.satellite ? "satellite" : "street";
+  for (const [which, layer] of Object.entries(held.backgrounds)) {
+    if (!layer) continue;
+    if (which === wanted) {
+      if (!held.map.hasLayer(layer)) layer.addTo(held.map);
+      layer.bringToBack();
+    } else if (held.map.hasLayer(layer)) {
+      held.map.removeLayer(layer);
+    }
+  }
+}
+
 function plot() {
   if (!held.markers) return;
   held.markers.clearLayers();
   held.pins = {};
   let drawn = 0;
   for (const row of held.rows) {
-    if (row.judgment === "pass" && !held.showPassed) continue;
+    if (!worthDrawing(row)) continue;
     const look = PINS[row.judgment || "none"];
     const pin = L.circleMarker([row.latitude, row.longitude], {
       radius: look.size,
@@ -393,9 +474,12 @@ function plot() {
 function counts(drawn) {
   const kept = held.rows.filter((row) => row.judgment === "keep").length;
   const passed = held.rows.filter((row) => row.judgment === "pass").length;
+  const gone = held.rows.filter((row) => row.presence === "disappeared").length;
   const parts = [`${drawn} on the map`];
   if (kept) parts.push(`${kept} kept`);
   if (!held.showPassed && passed) parts.push(`${passed} passed and hidden`);
+  /* The table's own wording, so that two pages saying the same thing say it the same way. */
+  if (!held.showGone && gone) parts.push(`${gone} disappeared and hidden`);
   if (held.without) {
     parts.push(count(held.without, "property", "properties") + " with no location, not shown");
   }
@@ -440,8 +524,7 @@ function listWhatIsOnScreen() {
 
   const bounds = held.map.getBounds();
   const on = held.rows.filter((row) =>
-    (row.judgment !== "pass" || held.showPassed)
-    && bounds.contains([row.latitude, row.longitude]));
+    worthDrawing(row) && bounds.contains([row.latitude, row.longitude]));
 
   const column = LIST.find((one) => one.name === held.list.by) || LIST[1];
   on.sort((a, b) => rank(column, a, b) * (held.list.down ? -1 : 1));

@@ -2076,22 +2076,39 @@ def test_the_map_scores_nothing_and_hides_nothing_on_its_own(served) -> None:
     being the same claim the moment the page grew a ruler somebody drags and a wind overlay that
     asks about the stations nearest the middle of the screen. Both of those measure distances; the
     difference is who is doing the measuring and what it decides. So the ban moved to where the
-    claim actually lives: the one function that turns a property into a pin.
+    claim actually lives: the functions that turn a property into a pin.
+
+    Two of them now rather than one. `plot` decides what a pin looks like and `worthDrawing`
+    decides whether there is one at all, and the split is the point: every reason a property is
+    left off this map is in a single short function that can be read in one go, and both of the
+    reasons in it are facts somebody else established. The person passed on the house, or the
+    store says it is no longer for sale. Neither is this page forming an opinion.
     """
     fire = (STATIC / "fire.js").read_text(encoding="utf-8")
     drawing = body_of(fire, "plot")
+    deciding = body_of(fire, "worthDrawing")
 
     assert "PINS[row.judgment" in drawing, "a pin's appearance is not read from the judgment"
     for arithmetic in ("distance", "nearest", "score", "Math.hypot", "hazard"):
-        assert arithmetic not in drawing, (
-            f"{arithmetic!r} in the function that draws a property means this page works something "
-            "out about that property, which is a criterion in disguise"
-        )
+        for where, what in ((drawing, "draws"), (deciding, "decides whether to draw")):
+            assert arithmetic not in where, (
+                f"{arithmetic!r} in the function that {what} a property means this page works "
+                "something out about that property, which is a criterion in disguise"
+            )
     assert drawing.count("continue") == 1, (
-        "a property is left off this map for more than one reason, and the one reason allowed is "
-        "the judgment the person made themselves"
+        "a property is left off this map in more than one place, and there is one place allowed"
     )
-    assert 'row.judgment === "pass"' in drawing
+    assert "worthDrawing(row)" in drawing, (
+        "the decision about whether to draw a property has moved out of the one function that is "
+        "read to find out what this page will and will not show"
+    )
+
+    # The whole of what may keep a property off this map, and both are somebody else's answer.
+    assert 'row.judgment === "pass"' in deciding
+    assert 'row.presence === "disappeared"' in deciding
+    assert deciding.count("return false") == 2, (
+        "a property is being left off this map for a reason nobody has written down here"
+    )
 
     for anywhere in ("Math.hypot", "score(", "nearestHazard", "hazardNear"):
         assert anywhere not in fire, (
@@ -2318,6 +2335,164 @@ def test_the_map_says_how_far_things_are(served) -> None:
     assert "feet" in found["short"], (
         f"a distance shorter than a house's frontage was given in miles: {found['short']!r}"
     )
+
+
+def test_the_map_switches_between_the_drawn_map_and_the_photograph(served, monkeypatch) -> None:
+    """feat-010/AC-68: two backgrounds answer two questions about one property.
+
+    A drawn map says where the roads go and what the parcel is called. A photograph says what is
+    actually on the ground: whether the trees come up to the house, what the neighbour is doing,
+    whether the track in is a track. For rural land those are both worth asking and neither
+    replaces the other, so this is a switch rather than a setting.
+
+    Two layers rather than one whose address is rewritten, because the credit is not
+    interchangeable: the two backgrounds are not the same people's work, and leaflet's attribution
+    follows a layer rather than a URL.
+
+    Addresses that resolve to this server, so a browser test looking at tiles never asks anybody
+    for one. They answer 404, which is what a tile server does for a tile it does not have, and is
+    exactly the case that must not take the map down with it.
+    """
+    base, _held, _store = served
+    monkeypatch.setenv("HOMESCOUT_MAP_TILES", f"{base}/static/drawn/{{z}}/{{x}}/{{y}}.png")
+    monkeypatch.setenv("HOMESCOUT_MAP_ATTRIBUTION", "Drawn by somebody")
+    monkeypatch.setenv("HOMESCOUT_MAP_SATELLITE", f"{base}/static/photo/{{z}}/{{y}}/{{x}}")
+    monkeypatch.setenv("HOMESCOUT_MAP_SATELLITE_ATTRIBUTION", "Photographed by somebody else")
+
+    found = on_the_map(served, """
+        const box = document.getElementById("satellite");
+        const credit = () => document.querySelector(".leaflet-control-attribution").textContent;
+        const layers = () => Object.values(held.map._layers)
+          .filter((one) => one._url).map((one) => one._url);
+
+        const drawnFirst = {layers: layers(), credit: credit()};
+
+        box.click();
+        await until(() => layers().some((u) => u.includes("/photo/")), 60);
+        const photo = {layers: layers(), credit: credit()};
+
+        box.click();
+        await until(() => layers().some((u) => u.includes("/drawn/")), 60);
+        const backAgain = {layers: layers(), credit: credit()};
+
+        return {
+          offered: !!box,
+          label: box ? box.parentElement.textContent.trim() : null,
+          startsOnTheDrawnMap: drawnFirst.layers.some((u) => u.includes("/drawn/")),
+          drawnFirst, photo, backAgain,
+          pinsSurvive: Object.keys(held.pins).length,
+          mapAlive: !!held.map.getCenter(),
+        };
+    """)
+
+    assert found["offered"], "no way to switch to the photograph"
+    assert found["label"] == "satellite view", found["label"]
+    assert found["startsOnTheDrawnMap"], "the map opened on the photograph rather than the map"
+
+    # One background at a time. Both at once is the drawn map wasted underneath, or worse, on top.
+    assert not any("/photo/" in u for u in found["drawnFirst"]["layers"])
+    assert any("/photo/" in u for u in found["photo"]["layers"]), found["photo"]["layers"]
+    assert not any("/drawn/" in u for u in found["photo"]["layers"]), (
+        "both backgrounds were drawn at once"
+    )
+    assert any("/drawn/" in u for u in found["backAgain"]["layers"]), "the switch does not go back"
+
+    # The credit follows the layer, which is the reason there are two of them.
+    assert "Drawn by somebody" in found["drawnFirst"]["credit"]
+    assert "Photographed by somebody else" in found["photo"]["credit"]
+    assert "Drawn by somebody" not in found["photo"]["credit"], (
+        "the photograph was credited to whoever drew the map"
+    )
+
+    assert found["pinsSurvive"], "switching the background took the properties off the map"
+    assert found["mapAlive"], "tiles that answered 404 took the map down with them"
+
+
+def test_no_satellite_configured_offers_no_switch(served, monkeypatch) -> None:
+    """feat-010/AC-68: a control that does nothing until a file is edited reads as broken.
+
+    The drawn background is off by default and this one is too, for the same reason stated in the
+    same place: a tile server is a computer being told which part of the world is being looked at.
+    Two of them is two.
+    """
+    monkeypatch.delenv("HOMESCOUT_MAP_SATELLITE", raising=False)
+
+    found = on_the_map(served, """
+        return {offered: !!document.getElementById("satellite"),
+                mapAlive: !!held.map.getCenter(),
+                pins: Object.keys(held.pins).length};
+    """)
+
+    assert not found["offered"], "a switch was offered with nothing to switch to"
+    assert found["mapAlive"] and found["pins"], "the map did not survive having no background"
+
+
+def test_the_map_hides_a_house_that_is_no_longer_for_sale(served) -> None:
+    """feat-010/AC-67: the two surfaces count the same search the same way.
+
+    Reported as "why is the results page showing 162 properties but the fire map is showing 213?"
+    Both were right. Two hundred and seventeen were still in play; the table also hid the
+    fifty-five that had come off the market, and the map hid nothing but could not draw four that
+    had no coordinates. A hundred and sixty-two against two hundred and thirteen.
+
+    The half that matters is not the arithmetic. The map was drawing fifty-five delisted houses
+    pinned exactly like the ones still for sale, with no way to tell and no way to hide them, so
+    somebody planning a drive was planning it around houses they could not buy.
+
+    So the map takes the table's rule and the table's checkbox, and this asserts the whole loop:
+    hidden by default, said out loud in the count, and back when the box is ticked.
+    """
+    _base, _held, store = served
+    everything = list(store.listings())
+    load(store, [listing(f"p{index:05d}") for index in range(59)])  # one fewer than the fixture
+    gone = [one.id for one in store.listings() if one.presence == "disappeared"]
+    assert gone, "the second run did not retire anything, so this test asks nothing"
+    assert len(gone) < len(everything), "everything disappeared, which is not the case under test"
+
+    found = on_the_map(served, """
+        const pins = () => Object.keys(held.pins).length;
+        const listed = () => document.querySelectorAll("table.onscreen tbody tr").length;
+        const said = () => document.getElementById("counts").textContent;
+        const box = document.getElementById("showgone");
+
+        await until(() => pins());
+        const hidden = {pins: pins(), listed: listed(), says: said()};
+
+        box.click();
+        await until(() => pins() !== hidden.pins, 60);
+        const shown = {pins: pins(), listed: listed(), says: said()};
+
+        box.click();
+        await until(() => pins() === hidden.pins, 60);
+
+        return {
+          hidden, shown,
+          checkbox: box ? box.parentElement.textContent.trim() : null,
+          startsUnticked: hidden.pins < shown.pins,
+          delisted: held.rows.filter((row) => row.presence === "disappeared").length,
+          backAgain: pins(),
+        };
+    """)
+
+    assert found["checkbox"] == "show properties that disappeared", (
+        f"the map's control has to read like the table's: {found['checkbox']!r}"
+    )
+    assert found["delisted"] > 0, "no delisted property reached the page, so nothing was asked"
+    assert found["startsUnticked"], (
+        "the map drew the delisted houses with the box unticked, which is the reported fault"
+    )
+    assert found["shown"]["pins"] == found["hidden"]["pins"] + found["delisted"], (
+        "ticking the box did not put back exactly the houses that had come off the market"
+    )
+    assert "disappeared and hidden" in found["hidden"]["says"], (
+        f"the count has to say what it is holding back: {found['hidden']['says']!r}"
+    )
+    assert "disappeared and hidden" not in found["shown"]["says"], (
+        "the count still claimed to be hiding them while they were on screen"
+    )
+    # The list under the map follows the pins, which is the rule it already had for passing.
+    assert found["hidden"]["listed"] <= found["shown"]["listed"]
+    assert found["backAgain"] == found["hidden"]["pins"], "unticking it did not put things back"
 
 
 def test_the_list_under_the_map_holds_exactly_what_the_map_is_showing(served) -> None:

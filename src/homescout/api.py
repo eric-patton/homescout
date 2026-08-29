@@ -1688,6 +1688,17 @@ WHERE: dict[str, list[dict[str, str]]] = {
             "against a whole county at once.",
         },
     ],
+    "satellite": [
+        {
+            "what": "The USGS national imagery basemap",
+            "url": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer",
+            "note": "Free, needs no key, and is public domain because it is the government's own "
+            "photography. The address to paste is that one with "
+            "'/tile/{z}/{y}/{x}' on the end. It covers the United States only, which is what this "
+            "tool searches, and it is the same kind of federal service the fire layer and the "
+            "broadband map already come from.",
+        },
+    ],
 }
 
 
@@ -1804,6 +1815,13 @@ def configuration(workspace: Workspace) -> dict[str, Any]:
             "attribution": web.tiles(root)[1],
             "variable": web.TILES_VARIABLE,
             "where": WHERE["tiles"],
+            # The photographic background is reported beside the drawn one rather than under its
+            # own heading, because to somebody configuring this they are one decision: which
+            # backgrounds may this map ask somebody else for.
+            "satellite": web.satellite(root)[0],
+            "satellite_attribution": web.satellite(root)[1],
+            "satellite_variable": web.SATELLITE_VARIABLE,
+            "satellite_where": WHERE["satellite"],
         },
         "interface": {
             "port": web.port(root),
@@ -1905,6 +1923,8 @@ def _env_file_with(path: Path, values: Mapping[str, str]) -> str:
 _WRITABLE_SETTINGS: tuple[str, ...] = (
     "HOMESCOUT_MAP_TILES",
     "HOMESCOUT_MAP_ATTRIBUTION",
+    "HOMESCOUT_MAP_SATELLITE",
+    "HOMESCOUT_MAP_SATELLITE_ATTRIBUTION",
     "HOMESCOUT_EXTRACT_BASE_URL",
     "HOMESCOUT_EXTRACT_MODEL",
     "HOMESCOUT_EXTRACT_REASONING_EFFORT",

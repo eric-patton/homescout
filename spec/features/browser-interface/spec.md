@@ -500,6 +500,32 @@ in five years. The problem brief is in `research.md`.
       pressing it opens the list. A cell carrying no tags says so with a mark rather than being
       blank, because blank is this table's word for "nobody has written anything" and what an
       empty tag cell also has to say is that there is something here to press.
+- [ ] AC-67: The map and the results table hide the same properties, by the same rules, with the
+      same controls and the same words on them. A property passed on is hidden from both; a property
+      that has come off the market is hidden from both; either can be brought back from either page.
+
+      Two surfaces over one library are allowed to show different things about a property. What they
+      are not allowed to do is disagree about which properties there are, because somebody who
+      counts the same search twice and gets two answers cannot tell which one is wrong, and the more
+      alarming reading is always the true one. The map may still show fewer than the table, but only
+      for a reason it says out loud: a property with no coordinates cannot be drawn, and the count
+      says how many that is.
+- [ ] AC-68: The map's background can be the drawn map or the photograph from above, switched from
+      the map itself rather than from a settings page. Both are optional, both are off until
+      configured, and no switch is offered while there is nothing to switch to.
+
+      Two rather than one because they answer different questions about a rural property, and
+      neither replaces the other: a drawn map says where the roads go and what a parcel is called, a
+      photograph says whether the trees come up to the house and what the neighbour is doing. Only
+      one is drawn at a time, and the credit shown is the credit for the one on screen, because the
+      two are not the same people's work.
+
+      A photographic source that runs out of detail before the map runs out of zoom keeps showing
+      its deepest picture rather than nothing, so zooming in past the imagery gets blurry instead of
+      blank. A background that fails to load leaves a usable map.
+
+      Both are a computer being told which part of the world is being looked at, so the second is
+      offered with the same warning as the first, in the same place, and is no more on by default.
 - [ ] AC-66: An answer worth compressing is compressed before it leaves. This interface is written
       as though it were read over loopback, and it is not always: the second person in the household
       reads it across a tailnet, and when that has not managed a direct connection every byte goes

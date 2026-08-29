@@ -1029,3 +1029,68 @@ alongside its peers.
       recomputed rather than kept. It is real but it is the smaller half, and it is invisible next to
       a relayed transfer. Worth doing when the workspace is larger or when the transfer is fixed,
       not before: the profile would only be measuring the wrong thing twice.
+
+## Defect: the two pages counted the same search differently
+
+- [x] T146: `web/static/fire.js`: the map hides what the table hides (`feat-010/AC-67`).
+
+      Reported as "why on the results page is it showing 162 properties but when I click on the
+      fire map, it is showing 213?"
+
+      Both were right, which is the worst kind of disagreement. Two hundred and seventeen properties
+      were still in play and both pages agreed on that. The table then hid the fifty-five that had
+      come off the market, which is a checkbox it has and a default somebody chose. The map had no
+      such filter, drew all of them, and lost four of its own to having no coordinates. A hundred
+      and sixty-two against two hundred and thirteen.
+
+      The arithmetic is the smaller half. The map was pinning fifty-five delisted houses exactly
+      like the ones still for sale, with no way to tell them apart and no way to hide them, so
+      somebody planning a drive was planning it around houses they could not buy.
+
+      The map now takes the table's rule, the table's checkbox and the table's wording, and says in
+      its count what it is holding back. One predicate for the pins and the list under them, rather
+      than the pass rule written out in both, which is how they came to be answering different
+      questions in the first place.
+
+- [x] T147: `tests/test_web_browser.py`: hidden by default, said out loud, back when asked
+      (`feat-010/AC-67`). A real second run that retires a property rather than a flag set in the
+      browser, so the state under test is the one the store actually produces. Checked against the
+      unfixed page.
+
+## Change: the photograph from above (`feat-010/AC-68`)
+
+- [x] T148: `web/settings.py`, `api.py`, `web/wire.py`: a second background, configured like the
+      first (`feat-010/AC-68`). "Can we look into adding the ability to switch between street map
+      tiles and satellite tiles for the map too? It is helpful to be able to see the satellite
+      view."
+
+      It is, and for this search particularly: the household is looking at rural land, where the
+      question is usually what is actually around a property rather than what the roads are called.
+      A drawn map cannot answer that and a photograph cannot answer the other one, so this is a
+      switch rather than a replacement.
+
+      Configured exactly like the drawn background and for the same reason rather than out of
+      symmetry: a tile server is a computer being told which part of the world is being looked at,
+      and a second one is a second computer. Same warning, same place, same default of off. Added
+      to the written-settings list so the page can turn it on, which is where that decision belongs.
+
+- [x] T149: `web/static/fire.js`: the switch (`feat-010/AC-68`). Two layers rather than one whose
+      address is rewritten, because leaflet's attribution follows a layer and the two backgrounds
+      are not the same people's work. `maxNativeZoom` on the photograph, so zooming past the depth
+      of the imagery stretches the deepest picture there is instead of asking for a tile that does
+      not exist and painting nothing: a photograph running out should look like a photograph running
+      out, not like the map breaking.
+
+- [x] T150: `web/static/settings.js`: the USGS imagery offered by name (`feat-010/AC-68`,
+      `feat-010/AC-25`). The government's own photography of its own country: public domain, no
+      account, and the same kind of federal service the fire layer and the broadband map already
+      come from, so turning it on adds a background rather than a new kind of relationship. It
+      covers the United States only, which is what this tool searches. A different server can still
+      be typed in.
+
+- [x] T151: `tests/test_web_browser.py`: the switch, both ways, with the credit following it
+      (`feat-010/AC-68`). One background at a time, the properties still on the map afterwards, and
+      the map still alive when the tiles answer 404, which they do throughout because the addresses
+      resolve to the test's own server: a browser test about tiles that asks somebody for a tile is
+      a test that fails on a train. Beside it, the case that decides the shape of the control: with
+      nothing configured, nothing is offered.

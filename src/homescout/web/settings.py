@@ -44,11 +44,25 @@ ALLOWED_HOSTS_VARIABLE = "HOMESCOUT_ALLOWED_HOSTS"
 TILES_VARIABLE = "HOMESCOUT_MAP_TILES"
 TILES_ATTRIBUTION_VARIABLE = "HOMESCOUT_MAP_ATTRIBUTION"
 
+#: A second background for the same map: the photograph from above. Separate from the drawn one
+#: rather than a replacement for it, because the two answer different questions about a rural
+#: property and somebody looking at land wants both. A drawn map says where the roads go and what
+#: the parcel is called. A photograph says what is actually on the ground: whether the trees come up
+#: to the house, whether the neighbour is a feedlot, whether the track in is a track.
+#:
+#: Empty by default and configured exactly like the drawn one, which is the point. This is a second
+#: tile server, so it is a second thing being told which part of the world is being looked at, and
+#: it gets the same treatment rather than being waved through because the pictures are nice.
+SATELLITE_VARIABLE = "HOMESCOUT_MAP_SATELLITE"
+SATELLITE_ATTRIBUTION_VARIABLE = "HOMESCOUT_MAP_SATELLITE_ATTRIBUTION"
+
 VARIABLES: tuple[str, ...] = (
     PORT_VARIABLE,
     ALLOWED_HOSTS_VARIABLE,
     TILES_VARIABLE,
     TILES_ATTRIBUTION_VARIABLE,
+    SATELLITE_VARIABLE,
+    SATELLITE_ATTRIBUTION_VARIABLE,
 )
 
 
@@ -89,4 +103,13 @@ def tiles(root: Path, environ: Any = None) -> tuple[str | None, str | None]:
     return (
         (found.get(TILES_VARIABLE) or "").strip() or None,
         (found.get(TILES_ATTRIBUTION_VARIABLE) or "").strip() or None,
+    )
+
+
+def satellite(root: Path, environ: Any = None) -> tuple[str | None, str | None]:
+    """The photographic background, if one is configured. Read exactly like the drawn one."""
+    found = values(root, environ)
+    return (
+        (found.get(SATELLITE_VARIABLE) or "").strip() or None,
+        (found.get(SATELLITE_ATTRIBUTION_VARIABLE) or "").strip() or None,
     )

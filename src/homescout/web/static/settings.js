@@ -292,11 +292,25 @@ function mailPanel() {
 const OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_CREDIT = "© OpenStreetMap contributors";
 
+/* The government's own photography of its own country, which is the right default for a tool that
+ * only searches this one. Public domain, no key, and the same kind of federal service the fire
+ * layer and the broadband map already come from, so turning it on adds a background rather than a
+ * new kind of relationship. */
+const USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly"
+           + "/MapServer/tile/{z}/{y}/{x}";
+const USGS_CREDIT = "Imagery: USGS National Map";
+
 function mapPanel() {
   const source = el("input", {
     type: "text", id: "tiles", value: held.map.tiles || "",
     placeholder: "https://tile.example.org/{z}/{x}/{y}.png",
     "aria-label": "Tile URL template for the map background",
+  });
+
+  const photo = el("input", {
+    type: "text", id: "satellite", value: held.map.satellite || "",
+    placeholder: "https://imagery.example.org/{z}/{y}/{x}",
+    "aria-label": "Tile URL template for the satellite background",
   });
 
   return el("section", {},
@@ -328,6 +342,37 @@ function mapPanel() {
     ),
     whereToGet(held.map.where),
 
+    /* A second background rather than a different one. Somebody looking at rural land wants both:
+     * the drawn map says where the roads go and what the parcel is called, and the photograph says
+     * what is actually on the ground. The map switches between them with a checkbox; this decides
+     * whether there is anything to switch to. */
+    el("h3", {}, "Satellite view ", present(held.map.satellite, "on", "off")),
+    el("p", {class: "meta"},
+      "A second tile server, and so a second computer being told which part of the world you are "
+      + "looking at. The one offered here is the United States Geological Survey's own imagery: "
+      + "public domain, no account, and the same kind of federal service the fire layer already "
+      + "comes from. It covers this country only, and it stops at about the depth of a house."),
+    el("div", {class: "actions"},
+      el("button", {
+        type: "button",
+        onclick: () => write({
+          HOMESCOUT_MAP_SATELLITE: USGS,
+          HOMESCOUT_MAP_SATELLITE_ATTRIBUTION: USGS_CREDIT,
+        }),
+      }, "Use the USGS imagery"),
+      held.map.satellite
+        ? el("button", {
+            type: "button",
+            class: "danger",
+            onclick: () => write({
+              HOMESCOUT_MAP_SATELLITE: "",
+              HOMESCOUT_MAP_SATELLITE_ATTRIBUTION: "",
+            }),
+          }, "Turn it off")
+        : null,
+    ),
+    whereToGet(held.map.satellite_where),
+
     el("details", {},
       el("summary", {}, "A different tile server"),
       el("div", {class: "field"}, el("label", {for: "tiles"}, "Tile URL"), source),
@@ -337,6 +382,16 @@ function mapPanel() {
           onclick: () => write({
             HOMESCOUT_MAP_TILES: source.value.trim(),
             HOMESCOUT_MAP_ATTRIBUTION: source.value.trim() ? held.map.attribution || "" : "",
+          }),
+        }, "Save what is typed")),
+      el("div", {class: "field"}, el("label", {for: "satellite"}, "Satellite URL"), photo),
+      el("div", {class: "actions"},
+        el("button", {
+          type: "button",
+          onclick: () => write({
+            HOMESCOUT_MAP_SATELLITE: photo.value.trim(),
+            HOMESCOUT_MAP_SATELLITE_ATTRIBUTION:
+              photo.value.trim() ? held.map.satellite_attribution || "" : "",
           }),
         }, "Save what is typed"))),
   );

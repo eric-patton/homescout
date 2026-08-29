@@ -114,11 +114,18 @@ def installation(workspace: api.Workspace) -> dict[str, Any]:
     The map's tile source is the only interesting one, and its default is nothing at all.
     """
     source, attribution = settings.tiles(workspace.root)
+    photograph, photograph_credit = settings.satellite(workspace.root)
     return {
         "map": {
             "tiles": source,
             "attribution": attribution,
             "variable": TILES_VARIABLE,
+            # Two backgrounds, because they answer different questions about a rural property: the
+            # drawn map says where the roads go and what a parcel is called, the photograph says
+            # what is on the ground. The fire map switches between them and needs both addresses.
+            "satellite": photograph,
+            "satellite_attribution": photograph_credit,
+            "satellite_variable": settings.SATELLITE_VARIABLE,
         },
         "hazards": api.hazard_layers(),
         **api.vocabulary(),
