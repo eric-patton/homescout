@@ -17,6 +17,7 @@ an exception escaping from somewhere with no name attached.
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -293,6 +294,17 @@ class FileCatalog:
         path = self._path(name)
         if not path.is_file():
             raise UnknownSearch(name, self.names())
+        return self._read(path)
+
+    def _read(self, path: Path) -> FileSearch:
+        """One definition from one file, cached against that file's own stamp.
+
+        Split out of `load` because a deleted definition is a real definition in a file this
+        catalogue is not otherwise looking at, and reading one should not mean a second copy of the
+        parse-cache-or-report-the-breakage dance. Keyed by path, so a definition in the deleted
+        folder and a live one of the same name are two entries and cannot be confused for each
+        other.
+        """
         stamp = _stamp(path)
         held = self._loaded.get(path)
         if held is not None and held[0] == stamp:
@@ -366,11 +378,40 @@ class FileCatalog:
             target = where / f"{source.stem}.{stamp}{source.suffix}"
 
         source.replace(target)
+        # When it was set aside, recorded where a surface can read it. A rename carries the file's
+        # own timestamp with it, which is when somebody last edited the definition and not when
+        # they stopped wanting it, and "set aside in March" against a file edited in January is the
+        # sort of wrong that nobody checks and everybody believes. One touch, no second place for
+        # the date to live and disagree with the file.
+        os.utime(target, None)
         self._loaded.pop(source, None)
         return target
 
     def restore(self, name: str) -> FileSearch:
-        """Bring back the most recently deleted definition of that name."""
+        """Bring back the most recently deleted definition of that name.
+
+        The name is checked before the folder is read, and that order is the whole of what was
+        wrong here. Every other operation on a saved search resolves through `safe_path`, which
+        holds the name to `NAME` and then checks the resolved parent really is this directory. This
+        one built a glob pattern out of the raw name instead and only checked where the file was
+        going afterwards. A pattern is not a name: `..` in one is an ordinary path component, so
+        `deleted/../../elsewhere/secret*` matched a file two directories outside the folder being
+        searched, which is exactly what it looks like.
+
+        What it could do was nothing, and the reason is the point. `safe_path` was called below, on
+        the same raw name, to work out where the file was going; it refuses every name that could
+        have escaped, so the move never happened. This function was saved by the order its two
+        checks happened to fall in, which protects this function and says nothing about the pattern.
+        The next thing written beside it removes what it finds and has no check downstream to be
+        saved by.
+
+        Resolving the target first is the fix and the whole of it. `NAME` admits letters, digits,
+        dots, dashes and underscores and must start with a letter or digit, so a name that reaches
+        the pattern below carries no separator and no glob character, and `..` cannot match it at
+        all. The stem is still a pattern, because deleting the same name twice stamps the second
+        one, and that is now a pattern over a name rather than over whatever arrived.
+        """
+        target = safe_path(self.directory, name)
         where = self.directory / DELETED
         kept = sorted(
             (path for path in where.glob(f"{name}*") if path.suffix in SUFFIXES and path.is_file()),
@@ -378,7 +419,6 @@ class FileCatalog:
         )
         if not kept:
             raise UnknownSearch(name, ())
-        target = safe_path(self.directory, name)
         if target.exists() or self._path(name).exists():
             raise InvalidInput(
                 f"A saved search named {name!r} exists again, so restoring would overwrite it."
@@ -400,6 +440,86 @@ class FileCatalog:
                 }
             )
         )
+
+    def discard(self, name: str) -> tuple[Path, ...]:
+        """Remove a deleted definition for good. The only thing in this tool that unlinks a file.
+
+        Two things guard it and they guard different mistakes.
+
+        **The name is resolved before the folder is read**, through `safe_path`, like every other
+        operation here. The resolved path itself is not what gets removed and is not used; calling
+        it is how the name is held to `NAME` and to this directory before anything is looked at. A
+        name is not a pattern, and this is the one function where being wrong about which file a
+        name means cannot be undone. Nothing below globs: the folder is listed and each file's own
+        base name is compared, so what is removed is only ever a file this catalogue put there.
+
+        **It refuses anything that is not already deleted.** Two steps are the point rather than an
+        inconvenience: to lose a definition somebody has to delete it first, which is reversible and
+        says so, and only then discard it. A single irreversible step next to a reversible one is
+        how an afternoon's drawing goes on a mis-aimed click.
+
+        Every kept copy of that name goes, because deleting the same name twice keeps both and
+        "discard it" means the name is not in the folder afterwards. Nothing in the store is
+        touched, which is not a courtesy: non-negotiable 2 and product invariant 1 make snapshot
+        history append-only, and a definition file is configuration rather than history.
+        """
+        safe_path(self.directory, name)
+        where = self.directory / DELETED
+        kept = (
+            [
+                path
+                for path in sorted(where.iterdir())
+                if path.suffix in SUFFIXES
+                and path.is_file()
+                and path.stem.split(".")[0] == name
+            ]
+            if where.is_dir()
+            else []
+        )
+        if not kept:
+            raise InvalidInput(
+                f"There is no deleted saved search named {name!r} to discard. Only a search that "
+                "has been deleted can be discarded, and deleting one is the step that can be "
+                "undone."
+            )
+        for path in kept:
+            path.unlink()
+            self._loaded.pop(path, None)
+        return tuple(kept)
+
+    def deleted_entries(self) -> tuple[tuple[str, FileSearch, datetime], ...]:
+        """Every deleted definition, read, with when it was set aside.
+
+        The names alone were all a strip of "bring back X" buttons at the foot of the search list
+        ever needed, and they are not enough for a surface that has to help somebody decide whether
+        they want one back. A name six months old says nothing. The description, the areas, the
+        sources and the date are all still in the kept file, so they are read from it rather than
+        recorded a second time somewhere that could disagree with it.
+
+        The date is the kept file's own timestamp, which `delete` sets to the moment it moves the
+        file for exactly this reason. A definition somebody edits inside the deleted folder will
+        report when they edited it, which is the honest answer for a folder of files.
+
+        Most recently set aside first: the one somebody is most likely to want back is the one they
+        just got rid of.
+        """
+        where = self.directory / DELETED
+        if not where.is_dir():
+            return ()
+        newest: dict[str, Path] = {}
+        for path in sorted(where.iterdir()):
+            if path.suffix not in SUFFIXES or not path.is_file():
+                continue
+            name = path.stem.split(".")[0]
+            held = newest.get(name)
+            if held is None or path.stat().st_mtime > held.stat().st_mtime:
+                newest[name] = path
+        found = [
+            (name, self._read(path), datetime.fromtimestamp(path.stat().st_mtime, UTC))
+            for name, path in newest.items()
+        ]
+        found.sort(key=lambda entry: (entry[2], entry[0]), reverse=True)
+        return tuple(found)
 
     def edit(self, name: str, changes: Mapping[str, object]) -> FileSearch:
         """Change named keys and write the file back, touching nothing else.

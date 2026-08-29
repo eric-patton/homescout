@@ -487,8 +487,12 @@ function draw() {
          "reset columns"),
       el("span", {class: "counts", id: "counts", role: "status"}, ""),
       link(`/changes/${encodeURIComponent(state.search)}`, "what changed"),
-      link(`/fire/${encodeURIComponent(state.search)}`, "on the fire map",
-           {title: "Every property on the wildfire hazard model, to see what each one is next to"}),
+      /* "Map", not "on the fire map". That name was right when the hazard layer was all that
+       * surface drew; it now draws either background, the wind, county lines, town names, rainfall
+       * and a ruler, and a house can be kept or passed on from a pin. */
+      link(`/map/${encodeURIComponent(state.search)}`, "Map",
+           {title: "Every property on the map: wildfire hazard, the wind, rainfall, and what each "
+                   + "one is next to"}),
       /* A plain link rather than a button that fetches: the browser's own download is what a
        * person expects from something that hands them a file, and it survives the page being
        * closed while a thousand rows are being written. */

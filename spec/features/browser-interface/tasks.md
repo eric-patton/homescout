@@ -1120,3 +1120,216 @@ alongside its peers.
       real level is written down beside the address and the map stretches that one, so zooming
       further goes soft, which is the honest way for a photograph to run out. Unset means nobody has
       measured that source and the server is asked for whatever the map asks for.
+
+## Change: the list is what you watch (`changes/the-list-is-what-you-watch/`)
+
+- [x] T153: `api.py`: a set-aside search answered as what it was, not as a name
+      (`feat-010/AC-69`). `deleted_searches` returns a tuple of strings, which is everything the
+      current strip of "Bring back X" buttons can show and nothing a person needs to decide whether
+      they want it back. It answers a record instead: description, how many areas, which sources,
+      when it last ran, when it was set aside. Read from the kept definition file, which still has
+      all of it, rather than stored separately, because a second copy of a search's description is a
+      second thing to keep in step.
+
+- [x] T154: `api.py`, `search/definition.py`: `discard_search`, the only operation here that removes
+      a file (`feat-010/AC-70`).
+
+      **Resolves the name through `safe_path` and nothing else.** Not `glob`, not a pattern, not the
+      way `restore` two functions down does it. That is the pre-build check's one hard finding and
+      it is the first line of this task rather than a note at the end of it, because the obvious way
+      to write this function is to copy its neighbour and its neighbour is the one that is wrong.
+      T169 fixes the neighbour first, so by the time this is written the pattern to copy is the
+      right one.
+
+      Refuses a search that is not already deleted, in words, having read that from the catalogue in
+      this same request rather than from anything the caller asserts: the reversible step is what
+      makes the irreversible one safe to offer, and skipping it would make discarding a one-click
+      way to lose an afternoon's drawing. Answers with what survives, counted in the same request,
+      for the same reason `delete_search` reports how many runs were kept. It touches one file and
+      nothing in the store, and the docstring says so where `delete_search`'s already does, because
+      this is the function somebody will one day read while wondering whether it is what deleted
+      their history.
+
+- [x] T155: `cli/main.py`, `cli/render.py`: `search discard` on the command line (`feat-010/AC-70`,
+      `feat-010/AC-22`). Both surfaces or neither. The terminal's confirmation is the name as an
+      argument, which is the same demand the browser makes for the same reason.
+
+      It takes `--json` and returns a stable exit code, like every other command, because product
+      invariant 6 says an automated agent can drive this tool without parsing prose and makes no
+      exception for the destructive one. Said here rather than assumed: this is the command where a
+      caller most needs to tell "removed it" from "refused, it was not deleted" without reading a
+      sentence, and the one where guessing wrong is worst.
+
+      **This shipped broken once, inside this task, and the reason is worth keeping.** The parser
+      and the core operation were both written and correct; the renderer they hand the answer to
+      never landed, so the command raised on the line that prints its result. The whole suite was
+      green, because the suite covered the route, the catalogue and the core function and never the
+      words the terminal prints. The parity test that enumerates commands passed too: it asks
+      whether a command has a route, not whether the command runs. Found by running it. Both
+      halves, the refusal and the success, are now exercised end to end by tests in
+      `test_cli_operations.py`, one of them on `--json`.
+
+- [x] T156: `web/app.py`, `web/wire.py`: the surface's page route and its two API routes
+      (`feat-010/AC-69`, `feat-010/AC-70`, `feat-010/AC-1`). The discard gets a path of its own
+      rather than a second meaning for `DELETE /api/searches/{name}`, which already means the
+      reversible one: two operations that differ only in whether they can be undone should not
+      differ only in a verb. Behind the same host, origin and header guard as every other mutation,
+      which already covers it. The page route joins `PAGES` so it is reloadable and bookmarkable
+      like the other eight, and a test asserts every surface AC-1 names is reachable, which is what
+      was done the last time that count moved.
+
+- [x] T157: `web/static/archive.html`, `web/static/archive.js`: what has been set aside
+      (`feat-010/AC-69`, `feat-010/AC-70`). Two lists on one surface, archived and deleted, each
+      card saying what the search was rather than only what it was called. The discard asks for the
+      name to be typed into the dialog before its button will act, and the dialog says what stays in
+      the store above the buttons rather than under them: the sentence has to be read before the
+      decision, not after it.
+
+- [x] T158: `web/static/searches.js`: the list holds what is being watched (`feat-010/AC-69`,
+      `feat-010/AC-23`, `feat-010/AC-27`). `deletedPanel` goes, the archived toggle goes, the
+      archived cards go, and one line arrives in their place saying how many searches are set aside
+      and where they are. Not shown at all when there are none, which is the thing the toggle could
+      never do: it had to stay on screen after the last archived search came back, because the state
+      it held would otherwise have had no way to be turned off.
+
+- [x] T159: `tests/test_web_parity.py`, `tests/test_web_browser.py`: the surface, and a test retired
+      (`feat-010/AC-69`). A search deleted from its card is not on the list and is on the set-aside
+      surface with its description intact; restored from there, it is back on the list.
+      `test_the_archived_toggle_survives_the_last_one_being_brought_back` is about a control this
+      change removes, so it goes, and what replaces it is the surface that made the control
+      unnecessary.
+
+- [x] T160: `tests/test_web_parity.py`, `tests/test_web_safety.py`: discarding, and everything it
+      refuses (`feat-010/AC-70`). Refused without the name, refused for a search that was never
+      deleted, and refused for a name that is not a name: `../` in it, a name that resolves outside
+      the searches directory, and a name that would match a real file by pattern if anything here
+      still used one.
+
+      Then the case that is the whole point, in the shape `test_web_safety.py` already uses for
+      hostile input and `test_web_guard.py` for refused writes: fingerprint the store, discard a
+      search with runs behind it, fingerprint it again, and assert it did not move. The same
+      assertion after a refused discard, because an operation that removes nothing on the way to
+      saying no is a different claim from one that removes nothing on the way to saying yes.
+      Counting rather than trusting the answer's own summary: the summary is the thing under test.
+
+## Change: like with like (`changes/like-with-like/`)
+
+- [ ] T161: `web/static/common.js`: one builder for a search's own navigation (`feat-010/AC-73`).
+      Which search this is, and one press to each of the other surfaces about it. Here rather than
+      on five pages, because five copies of a navigation is how one of them ends up missing the
+      surface added last, which is exactly how the search builder came to reach none of the others.
+
+- [ ] T162: `web/static/{results,changes,fire,search}.js`, `web/static/listing.js`: every per-search
+      surface uses it (`feat-010/AC-73`). The listing page is the one that needs thinking about: it
+      is about a property rather than a search, and the way back has to be to the table it was read
+      from rather than to a search picked arbitrarily from the ones the property appears in.
+
+- [ ] T163: `web/static/results.js`, `app.css`: the toolbar grouped by the question it answers
+      (`feat-010/AC-72`). Which rows, which columns, where else to go. Named groups, all open, no
+      menus. The line under them keeps the totals and loses everything else: how many are drawn, out
+      of how many the run found, how many are kept. The render time in milliseconds goes, which
+      AC-72 now says out loud rather than leaving as a tidy-up somebody later mistakes for an
+      accident.
+
+- [ ] T164: `web/static/results.js`: one control for the judgment (`feat-010/AC-35`,
+      `feat-010/AC-49`). Four answers, one in force: still to decide, kept, passed on, all of them.
+      The default answer draws exactly what the two unticked boxes drew, so the table nobody asked
+      to change does not change. The careful ordering in `apply` that stopped the two boxes
+      contradicting each other goes with them, because a single answer cannot contradict itself.
+
+- [ ] T165: `web/static/results.js`: every reason rows are missing, in the one bar
+      (`feat-010/AC-36`, `feat-010/AC-57`, `feat-010/AC-20`, `feat-010/AC-49`). The judgment and the
+      properties that came off the market join the column filters and the search box as statements
+      with their own control to lift them, each carrying the number it is holding back, and "clear
+      all filters" clears them too. This is the criterion the bar was built for and the two
+      narrowings it was built without: in the workspace this was read against, 737 of 951 rows were
+      held back by one of them and the bar was empty.
+
+- [ ] T166: `web/static/fire.js`, `app.css`: the map's controls in two groups, and its own name
+      (`feat-010/AC-71`, `feat-010/AC-72`). Which properties are drawn, and what is drawn underneath
+      them. The three live count regions become one, which AC-72 now requires rather than leaving to
+      this task's own judgment: three regions announcing themselves separately are three
+      interruptions for one change of state, and to somebody who cannot see that they landed
+      together they read as three unrelated events.
+
+- [x] T167: `web/static/{searches,changes,results}.js`, `web/wire.py`: the map called the map
+      wherever it is named (`feat-010/AC-71`, `feat-010/AC-51`, `feat-010/AC-58`, `feat-010/AC-59`,
+      `feat-010/AC-60`, `feat-010/AC-61`, `feat-010/AC-62`). Every link, the heading, and the page
+      title. The six criteria cited alongside AC-71 are the ones the naming sweep rewords and
+      nothing else about them moves; they are cited so that nothing counting coverage reads them as
+      orphaned. The address moves with the name, which is `od-1` resolved, and T171 is what moves
+      it; this task points every link at the new one.
+
+- [x] T171: `web/wire.py`, `web/app.py`: the map's address moves and the old one keeps working
+      (`feat-010/AC-71`, `od-1`). `PAGES` gains `/map/{name}` and loses `/fire/{name}` as a page;
+      `/fire/{name}` becomes a permanent redirect to it. The target is built from the route template
+      and the name that was matched, never reflected from the raw request, because a redirect that
+      echoes what it was sent is a redirect that can be aimed somewhere else.
+
+      A test that the old address still lands on the map, and one that the new one is what every
+      link in the interface now points at, so the redirect is a courtesy to old bookmarks rather
+      than a path this tool still uses.
+
+- [ ] T168: `tests/test_web_browser.py`, `tests/test_web_accessible.py`: the groups, the one
+      judgment control and the bar (`feat-010/AC-72`, `feat-010/AC-35`, `feat-010/AC-57`). Each
+      group reachable and named to something reading the page out, the judgment control's four
+      answers each drawing what they say, and the bar naming a judgment narrowing and lifting it.
+      Checked against the unfixed page.
+
+## Defect: restoring a search looked for the file by pattern
+
+Found by the pre-build check on `changes/the-list-is-what-you-watch/`, while asking what the new
+permanent removal would be written next to. Ordered before T154 rather than after it, because T154
+is written in this file beside this function and the wrong pattern is the one currently on offer.
+
+- [x] T169: `search/definition.py`: `restore` resolves the name the way everything else does
+      (`feat-010/AC-27`). Every other operation on a saved search goes through `safe_path`, which
+      enforces the name rule and then checks the resolved parent really is the searches directory.
+      `restore` alone builds a glob pattern from the raw name, `where.glob(f"{name}*")`, and only
+      validates the destination afterwards. A pattern is not a name: measured on this workspace's
+      own interpreter, Python 3.14.6,
+
+          Path('.../searches/deleted').glob('../../elsewhere/secret*')  ->  ['secret.yaml']
+
+      which is a file two directories outside the folder being searched. The wildcard is what makes
+      it match and `restore`'s pattern supplies one.
+
+      **What it can actually do today is nothing, and the reason is worth writing down exactly,
+      because it is the reason this is a trap rather than a hole.** Measured by running the
+      unfixed logic: the glob finds the file outside, and then `safe_path` is called on the same
+      raw name and refuses it, so the move never happens. Every name that can escape the folder is
+      a name the check downstream rejects, so no file can be moved or removed through `restore`.
+
+      That check is not there for this. It is there to decide where the file is going, and it
+      happens to sit downstream of the search. `restore` is saved by an accident of ordering, and
+      an accident of ordering is not a rule: it protects this function and nothing about the
+      pattern, which is what somebody copies. The next function written beside it removes what it
+      finds, and there is no downstream check that would save that one.
+
+      So this is not a defect that is doing damage. It is the one operation on a saved search where
+      the rule the codebase follows everywhere else is not followed, sitting where the most
+      dangerous function in the product is about to be written.
+
+      The name is checked before the folder is read, so a name that is not a name is refused by the
+      same sentence every other operation refuses it with.
+
+- [x] T170: `tests/test_searches_document.py`: the regression (`feat-004/NFR-security`,
+      `feat-010/AC-27`). Beside the test that already covers `load` and `create` for the same rule,
+      because `restore` was the operation missing from it.
+
+      Landed in `test_searches_document.py` rather than `test_web_parity.py` as first written: the
+      rule belongs to the catalogue, the test above it tests the catalogue directly, and going
+      through the API would have tested the route instead of the thing that was wrong.
+
+      **The first version of this test passed against the unfixed function**, which is the whole
+      reason the red run is not optional. `UnknownSearch` subclasses `InvalidInput`, so
+      `pytest.raises(InvalidInput)` catches both, and the unfixed function raised one or the other
+      depending only on whether the escaping pattern happened to match a file. The test reads the
+      refusal now: it has to be the name rule ("not a usable name"), not "there is no saved search
+      by that name", and explicitly not an `UnknownSearch`. Red on the unfixed function, green on
+      the fixed one.
+
+      Beside it, the case that says why the rule exists rather than only that it holds: an ordinary
+      restore of an ordinary deleted search still works, with its areas and its comments intact,
+      which is AC-27's actual promise and the thing a stricter path resolution could plausibly
+      break. Full suite green, 1,280 tests.

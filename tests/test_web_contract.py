@@ -115,10 +115,12 @@ def test_the_served_assets_are_the_files_as_committed(store: Store, db_path: Pat
 
 
 def test_every_surface_is_a_file_that_exists() -> None:
-    """feat-010/AC-1: seven surfaces, and each of them one page."""
+    """feat-010/AC-1: nine surfaces, and each of them one page."""
     from homescout.web.wire import PAGES
 
-    assert len(PAGES) == 8, "seven surfaces from the spec, plus settings"
+    assert len(PAGES) == 9, (
+        "seven surfaces from the spec, plus settings, plus the one holding what is set aside"
+    )
     for page in PAGES.values():
         assert (STATIC / page).is_file(), page
         assert (STATIC / page.replace(".html", ".js")).is_file(), page
@@ -266,3 +268,17 @@ def test_the_browser_never_calls_a_determined_interface_value_unknown() -> None:
     assert 'name === "wildland_urban_interface"' in code, (
         "the field has to be routed away from the shared renderer, or null reads as 'not known'"
     )
+
+
+def test_the_maps_old_address_still_answers() -> None:
+    """feat-010/AC-71, od-1: a renamed surface does not abandon the bookmark somebody made.
+
+    The map was `/fire/{name}` when the wildfire hazard layer was all it drew. Every surface here is
+    bookmarkable by design and this one is reached from a phone, so the old address answering with
+    a redirect is the difference between a rename and a broken link nobody can diagnose.
+    """
+    from homescout.web.wire import MOVED, PAGES
+
+    assert "/map/{name}" in PAGES, "the surface is at the address it is named for"
+    assert "/fire/{name}" not in PAGES, "and is not served twice"
+    assert MOVED == {"/fire/{name}": "/map/{name}"}

@@ -265,3 +265,111 @@ product.
   means hidden unless asked" is written once. The existing "show gone" toggle is the counter-example
   that made this easy to get wrong: it filters in the browser, and has never had a second surface to
   disagree with it.
+
+## Design decisions: the list is what you watch (`changes/the-list-is-what-you-watch/`)
+
+- **Paused stays on the list; archived and deleted leave it.** The three states were treated as one
+  kind of "set aside" and they are not. A pause is a search somebody is still watching and means to
+  come back to within the month, so a pause that made the search vanish is a pause nobody would
+  use. Archived is "not watching this at all", deleted is "no longer a saved search". The line is
+  drawn at whether the person still expects to see it in the morning.
+
+- **The set-aside surface is not offered when there is nothing set aside.** The archived toggle it
+  replaces had the opposite property and had to: it stayed on screen after the last archived search
+  came back, because otherwise the state it held would have had no control left to turn it off. A
+  link to a page is not a state, so it can simply be absent.
+
+- **Discarding is core, not browser.** It could have been a route that unlinked a file, and then the
+  command line would have had no way to do a thing the browser can, which product invariant 5 and
+  AC-22 both rule out. The operation lives in `api.py` with the other five and both surfaces call
+  it.
+
+- **Two steps, and the first one is the safety.** Discarding refuses a search that is not already
+  deleted. That is what keeps the irreversible operation away from the list of live searches
+  entirely: to lose a definition somebody has to delete it, go to another surface, and type its
+  name. Rejected the alternative of a single "delete permanently" on the card, which puts an
+  unrecoverable action one mis-aimed click from a reversible one.
+
+- **The confirmation is the name typed, not a second button.** This interface already has a
+  two-press confirmation on the card (press Delete, then press "Yes, delete X") and a dialog for
+  passing a house, and both are right for what they guard. Neither is enough here. Typing the name
+  is the only confirmation shape that cannot be got through by reflex, and this is the only
+  operation in the product that needs one.
+
+- **What survives is said before the decision.** Above the buttons, not under them. The whole risk
+  of this operation is somebody believing it removes their run history, and a sentence that
+  reassures them after they have decided is a sentence that arrived too late to be reassurance.
+
+- **The name resolves through `safe_path`, and this is the finding that held the gate.** The strict
+  name rule and the containment check, exactly as `create`, `delete` and `duplicate` already use
+  them, and never a glob pattern built from the name. `restore` next door does the latter, and a
+  pattern with `..` in it matched a file two directories up on this workspace's own interpreter.
+
+  `restore` comes to no harm from it, and that is why this is a design decision rather than a
+  footnote. The name check that would reject an escaping name runs after the search rather than
+  before it, to work out where the file is going, and it refuses before anything moves: measured,
+  no file can be moved or removed through `restore` by any name at all. The function is saved by
+  the order its two checks happen to fall in. That protects the function and says nothing about the
+  pattern, and the pattern is what the next author copies. A permanent removal copying it has
+  nothing downstream to be saved by.
+
+- **The typed name and the request guard are two different jobs.** The dialog protects the person at
+  the keyboard from removing the wrong search by reflex. The host, origin and header check on the
+  request is what protects the route from a page on another origin, and it already covers `DELETE`
+  along with every other write. Recorded because the proposal's own sentence about typing the name
+  reads, to a hurried implementer, as though it were the security boundary. It is not, it cannot be,
+  and a server with no authentication is exactly where that misreading is expensive.
+
+- **The precondition is the server's fact, not the page's memory.** Whether the search is really in
+  the deleted state is read from the catalogue inside the request that removes it, and no flag the
+  browser sends about it is accepted. The workspace lock already serialises every request that
+  touches the database, so nothing races today. This is written so that a later change to that lock
+  cannot silently make the only irreversible operation in the product the one that races.
+
+## Design decisions: like with like (`changes/like-with-like/`)
+
+- **The map is renamed and the layer is not.** "Fire" was never wrong about the hazard layer, it was
+  wrong as the name of the surface. The legend still says wildfire hazard potential, the criterion
+  namespace still has `wildfire_hazard`, and the enrichment field keeps its name. Only what a person
+  is invited to click changes.
+
+- **Grouping, not hiding.** Every group is open and named. The temptation with eleven controls is a
+  menu, and a menu is how the column chooser's predecessor became a feature that had to be asked for
+  twice because nobody could find it. Naming three groups costs one line of vertical space and
+  removes the need to read eleven labels to find one.
+
+- **One field, one control.** "Show passed" and "only kept" both narrow by judgment, and holding
+  them as two booleans forced `apply` to order them so they could not contradict each other. That
+  ordering is a comment explaining why a state the controls can express is not a state the table
+  can be in, which is the shape of a control set that is wrong. Four answers, one in force.
+
+- **"Show gone" stays separate.** Judgment and presence are two different facts about a property and
+  folding them into one control would produce answers like "kept, including ones that are off the
+  market" that read as nonsense. It moves into the filter bar with the others; it does not merge.
+
+- **Totals in one place, reasons in the other, and the old line was both at once.** "159 of 951
+  properties, 67 disappeared and hidden, 737 passed and hidden, 8 kept, 67ms" is two different kinds
+  of fact in one sentence. How many there are is a total and nobody can act on it. Why some are
+  missing is a reason and every one of them is something a person might want to undo. So the totals
+  stay in a line under the controls, shorter: how many are drawn, out of how many the run found, and
+  how many are kept. Every reason moves into the bar carrying its own number and its own control to
+  lift it. Nothing is said twice, which was the risk in the alternative of keeping the line intact
+  and adding the bar above it.
+
+  The rejected alternative was letting the bar absorb the totals as well. It reads cleanest and it
+  breaks on the one number that is not a filter: "159 of 951" cannot be lifted, so as a chip it is
+  either a control that does nothing when pressed or a number with nowhere to live.
+
+- **The render time goes.** It sat in the middle of the totals line and it is a number for whoever
+  is writing this table rather than whoever is reading it. Worth saying out loud because removing
+  something visible is the kind of change that gets quietly reverted by somebody who assumes it fell
+  out by accident.
+
+- **The per-search navigation is built once in `common.js`.** Five copies is how the search builder
+  ended up reaching none of the other four surfaces: each page grew the links its author needed
+  that day. One builder, called by every surface that is about a search, and a surface added later
+  appears on all of them at once.
+
+- **The listing page's way back is to where it came from, not to a search.** A property can appear
+  in several saved searches, so "back to the search" has no single answer. What it has is the table
+  the reader arrived from, which is a fact about this visit rather than about the property.

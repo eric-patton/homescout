@@ -152,6 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
     which.add_parser(
         "restore", parents=[common], help="bring back a deleted definition"
     ).add_argument("name")
+    which.add_parser(
+        "discard", parents=[common], help="remove a deleted definition for good"
+    ).add_argument("name")
     edit = which.add_parser("edit", parents=[common], help="change one definition")
     edit.add_argument("name")
     edit.add_argument(
@@ -436,6 +439,12 @@ def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     if args.action == "restore":
         back = api.restore_search(workspace, args.name)
         return Answer(digest.envelope("search", search=_summary_of(back)), render.definition(back))
+    if args.action == "discard":
+        # The name as an argument is the confirmation, which is the same demand the browser makes
+        # by asking for it to be typed, for the same reason: this is the one thing here that cannot
+        # be undone, and it should not be reachable by pressing up-arrow and return.
+        gone = api.discard_search(workspace, args.name)
+        return Answer(digest.envelope("discarded", **gone), render.discarded(gone))
     edited = api.edit_search(workspace, args.name, _assignments(args.assignments))
     return Answer(digest.envelope("search", search=_summary_of(edited)), render.definition(edited))
 

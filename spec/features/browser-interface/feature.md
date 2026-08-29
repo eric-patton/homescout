@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: done
+status: active
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,9 +15,9 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    ready
+  tasks:    draft
 gate:
-  analyze: not-run
+  analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
@@ -25,7 +25,11 @@ converge:
   open: 4
   contradicts: 0
 human_signoff: []
-open_decisions: []
+open_decisions:
+  - id: "od-1"
+    description: "Does the map's address change with its name, /fire/{name} to /map/{name}? Resolved 2026-08-29: yes, and the old address keeps working. The page moves to /map/{name} and /fire/{name} answers with a permanent redirect to it, so the address matches the name and no bookmark made from a phone breaks silently. Recorded in changes/like-with-like/ AC-71 and built by T171."
+    owner: "eric-patton"
+    resolved: true
 overrides: []
 extends: []
 ---

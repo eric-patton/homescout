@@ -496,6 +496,107 @@ def deleted_searches(workspace: Workspace) -> tuple[str, ...]:
     return tuple(catalog.deleted()) if hasattr(catalog, "deleted") else ()
 
 
+def discard_search(workspace: Workspace, name: str) -> dict[str, Any]:
+    """Remove a deleted definition for good, and report what that did not touch.
+
+    The one irreversible act in this product, and the only one that removes a file. Everything about
+    how it is guarded is in the catalogue's own `discard`: the name is resolved before the folder is
+    read, and a search that has not been deleted is refused.
+
+    What it does not do is the part worth reporting. The properties this search's runs found, their
+    price history and every judgment written on them stay exactly where they are, because snapshot
+    history is append-only under non-negotiable 2 and product invariant 1 and a definition file is
+    configuration rather than history. The counts come back with the answer for the same reason
+    `delete_search` reports how many runs it kept: somebody who has just done something
+    irreversible should be told what it did not reach, and told it in numbers they can go and check.
+    """
+    catalog = workspace.catalog
+    if not hasattr(catalog, "discard"):
+        raise InvalidInput(
+            "These saved searches are not files, so there is nothing to discard. This happens only "
+            "when a catalog was supplied in place of the searches directory."
+        )
+    with _translating():
+        # Counted before the file goes, from the store, which is the only thing that knows, and
+        # read in this same call rather than taken from whatever a page displayed a moment ago.
+        runs = workspace.store.runs(name)
+        properties = _properties_seen_by(workspace, runs)
+        removed = catalog.discard(name)
+
+    return {
+        "name": name,
+        "discarded": [str(path) for path in removed],
+        "runs_kept": len(runs),
+        "properties_kept": properties,
+    }
+
+
+def _properties_seen_by(workspace: Workspace, runs: Sequence[Any]) -> int:
+    """How many distinct properties this search's runs ever recorded.
+
+    The store holds properties, not properties-belonging-to-a-search: a house found by two searches
+    is one row seen by both, which is the point of a shared store. So this counts what these runs
+    observed rather than asking for a search's properties, and a house both searches found is
+    counted here and stays in the store afterwards either way.
+    """
+    seen: set[str] = set()
+    for run in runs:
+        for snapshot in workspace.store.snapshots_for_run(run.id):
+            seen.add(snapshot.listing_id)
+    return len(seen)
+
+
+def set_aside_searches(workspace: Workspace) -> dict[str, Any]:
+    """Everything not being watched, as much of it as a person needs to decide about it.
+
+    Two lists, because they are two different states and folding them into one would be a lie about
+    what happened to each. An archived search is still a saved search that nobody is watching; a
+    deleted one has stopped being a saved search. Both are still files with everything in them.
+
+    What each entry carries is what a name alone cannot say. "portales" six months later is a name;
+    "every listing within twenty miles of Portales, three areas, two sources, last run in March,
+    set aside in June" is enough to decide whether you want it back. All of it is read from the
+    definition itself, so there is no second copy of a description to fall out of step with the file
+    somebody is about to restore.
+    """
+    catalog = workspace.catalog
+    archived: list[dict[str, Any]] = []
+    for name in list_searches(workspace):
+        try:
+            definition = show_search(workspace, name)
+        except Exception:  # noqa: BLE001 - one unreadable file must not empty the list
+            continue
+        if getattr(definition, "archived", False):
+            archived.append({**_set_aside(definition, name), **run_status(workspace, name)})
+
+    deleted: list[dict[str, Any]] = []
+    if hasattr(catalog, "deleted_entries"):
+        for name, definition, when in catalog.deleted_entries():
+            deleted.append(
+                {
+                    **_set_aside(definition, name),
+                    **run_status(workspace, name),
+                    "deleted_at": when.isoformat(),
+                }
+            )
+    elif hasattr(catalog, "deleted"):
+        # A catalogue that is not files. It can say what was deleted and nothing more about it.
+        deleted = [{"name": name} for name in catalog.deleted()]
+
+    return {"archived": archived, "deleted": deleted}
+
+
+def _set_aside(definition: Any, name: str) -> dict[str, Any]:
+    """What a set-aside search was, off its own definition."""
+    return {
+        "name": name,
+        "description": getattr(definition, "description", None),
+        "areas": len(getattr(definition, "areas", ())),
+        "exclusions": len(getattr(definition, "exclusions", ())),
+        "sources": list(getattr(definition, "sources", ())),
+    }
+
+
 def duplicate_search(workspace: Workspace, name: str, new_name: str) -> SearchDefinition:
     """Copy a saved search under a new name, so a variation starts from something that works.
 

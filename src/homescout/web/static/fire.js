@@ -178,7 +178,7 @@ function draw() {
   );
 
   shell(
-    `${held.name} on the fire map`,
+    `${held.name} map`,
     el("h1", {}, "Where the fire is"),
     el("p", {class: "lede"},
       "Every property this run kept, on the wildfire hazard model the criteria read. A rule asks " +
@@ -199,7 +199,7 @@ function draw() {
       link(`/results/${encodeURIComponent(held.name)}`, "back to the table"),
     ),
     el("div", {class: "firemap"},
-      el("div", {id: "map", role: "application", "aria-label": "Properties on the fire map"}),
+      el("div", {id: "map", role: "application", "aria-label": "Properties on the map"}),
       legend(),
     ),
     /* The same properties, as a list, under the map they are pinned on.

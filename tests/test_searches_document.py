@@ -323,3 +323,71 @@ def test_a_name_that_is_a_path_is_refused_before_the_file_system_is_touched(
 
     assert not (tmp_path / "searches").exists(), "nothing was created on the way to refusing"
     assert secret.read_text(encoding="utf-8") == "name: secret\n"
+
+
+def test_restoring_by_a_name_that_is_a_path_is_refused_before_the_folder_is_read(
+    tmp_path: Path,
+) -> None:
+    """feat-004/NFR-security, feat-010/AC-27: restore resolves a name, never a pattern.
+
+    The test above covers `load` and `create`. `restore` was the one operation that did not go
+    through `safe_path` first: it built `glob(f"{name}*")` out of the raw name, and `..` in a glob
+    pattern is an ordinary path component, so the search walked out of the deleted folder.
+
+    Nothing was ever moved by that, and the reason is the reason this test exists. The name check
+    ran afterwards, to decide where the file was going, and it refuses every name that could have
+    escaped. The function was saved by the order its two checks fell in, which protects the
+    function and not the pattern. This pins the rule instead: the name is refused before the folder
+    is read at all.
+    """
+    searches = tmp_path / "searches"
+    write(searches, "portales")
+    catalogue = FileCatalog(searches)
+    # So there is a deleted folder to try to escape from; without one the glob finds nothing and
+    # the test would pass against any implementation.
+    catalogue.delete("portales")
+
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    secret = outside / "secret.yaml"
+    secret.write_text("name: secret\n", encoding="utf-8")
+
+    for name in ("../../elsewhere/secret", r"..\..\elsewhere\secret", "a/b", "", ".", "../nothing"):
+        with pytest.raises(InvalidInput) as refused:
+            catalogue.restore(name)
+        # The refusal has to be the name rule, not "no search by that name". `UnknownSearch` is an
+        # `InvalidInput`, so catching the base class alone cannot tell the two implementations
+        # apart: the old one searched first and refused afterwards, so it raised one or the other
+        # depending only on whether the escaping pattern happened to match a file. Reading the
+        # message is what makes this a regression test rather than a test that always passed.
+        assert "not a usable name" in str(refused.value), (
+            f"{name!r} was refused, but for the wrong reason: {refused.value}"
+        )
+        assert not isinstance(refused.value, UnknownSearch), (
+            f"{name!r} reached the folder before it was refused"
+        )
+
+    assert secret.read_text(encoding="utf-8") == "name: secret\n", "still where it was"
+    assert secret.exists(), "and still there at all"
+    assert catalogue.names() == (), "nothing arrived in the searches directory"
+
+
+def test_an_ordinary_restore_still_works(tmp_path: Path) -> None:
+    """feat-010/AC-27: the definition comes back with what was written in it.
+
+    Beside the test above rather than folded into it, because a stricter path resolution is exactly
+    the kind of fix that quietly breaks the case it was protecting.
+    """
+    searches = tmp_path / "searches"
+    write(searches, "portales")
+    catalogue = FileCatalog(searches)
+    catalogue.delete("portales")
+    assert catalogue.names() == ()
+    assert "portales" in catalogue.deleted()
+
+    catalogue.restore("portales")
+
+    assert catalogue.names() == ("portales",)
+    back = (searches / "portales.yaml").read_text(encoding="utf-8")
+    assert "comment nobody may throw away" in back, "comments survive the round trip"
+    assert 'value: "Portales, NM"' in back, "and so do the areas"

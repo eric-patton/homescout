@@ -580,6 +580,8 @@ def test_the_facade_is_the_whole_surface() -> None:
         "delete_search",
         "restore_search",
         "deleted_searches",
+        "set_aside_searches",
+        "discard_search",
         "run_search",
         "run_all",
         "changes",
@@ -919,3 +921,67 @@ def test_both_surfaces_review_the_same_queue(store: Store, db_path) -> None:
     assert [
         [p["address_line"] for p in m["properties"]] for m in from_terminal
     ] == [[p["address_line"] for p in m["properties"]] for m in through_core]
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-70: discarding a deleted definition, from the terminal
+# ---------------------------------------------------------------------------
+
+DISCARDABLE = """\
+name: portales
+description: Acreage east of town.
+areas:
+  - {type: city, value: "Portales, NM"}
+filters:
+  price: {max: 400000}
+sources: [realtor]
+rules: []
+"""
+
+
+def test_discarding_needs_the_search_to_have_been_deleted_first(db_path: Path, tmp_path) -> None:
+    """feat-010/AC-70: the reversible step is what makes the irreversible one safe to offer.
+
+    This test exists because the command shipped broken once. The parser and the core operation
+    were both fine and the renderer it calls was never written, so `searches discard` raised on the
+    line that prints the answer. Nothing caught it, because nothing ran it: the suite covered the
+    route and the catalogue and never the words the terminal prints. It runs it now.
+    """
+    searches = db_path.parent / "searches"
+    searches.mkdir(parents=True, exist_ok=True)
+    (searches / "portales.yaml").write_text(DISCARDABLE, encoding="utf-8")
+
+    refused, out, err = invoke(["searches", "discard", "portales"], db=db_path)
+    assert refused == ExitCode.INVALID_INPUT
+    assert "has been deleted" in (out + err)
+    assert (searches / "portales.yaml").is_file(), "and it is still there"
+
+    code, out, err = invoke(["searches", "delete", "portales"], db=db_path)
+    assert code == ExitCode.SUCCESS, err
+
+    code, out, err = invoke(["searches", "discard", "portales"], db=db_path)
+    assert code == ExitCode.SUCCESS, err
+    assert "portales is gone" in out
+    assert "never deleted" in out, "and it says what it did not touch"
+    assert not list((searches / "deleted").glob("portales*.yaml"))
+
+
+def test_discarding_answers_as_a_document_too(db_path: Path) -> None:
+    """feat-010/AC-70, product invariant 6: every command takes --json, the destructive one too.
+
+    The one command where a caller most needs to tell "removed it" from "refused, it was not
+    deleted" without reading a sentence.
+    """
+    searches = db_path.parent / "searches"
+    searches.mkdir(parents=True, exist_ok=True)
+    (searches / "portales.yaml").write_text(DISCARDABLE, encoding="utf-8")
+    invoke(["searches", "delete", "portales"], db=db_path)
+
+    code, out, _ = invoke(["searches", "discard", "portales", "--json"], db=db_path)
+    assert code == ExitCode.SUCCESS
+    document = json.loads(out)
+    assert document["kind"] == "discarded"
+    assert document["name"] == "portales"
+    assert len(document["discarded"]) == 1
+    assert document["runs_kept"] == 0
+    assert document["properties_kept"] == 0

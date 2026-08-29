@@ -79,7 +79,7 @@ function whereItIs(held, settings) {
     return el("section", {},
       el("h2", {}, "Where it is"),
       el("p", {class: "notice"},
-        "No source gave this property a location, so it cannot be drawn on the fire map. It is "
+        "No source gave this property a location, so it cannot be drawn on the map. It is "
         + "counted as unplaced there rather than quietly left out."),
     );
   }

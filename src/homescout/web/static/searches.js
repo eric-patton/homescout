@@ -9,16 +9,18 @@
  * page. It is started, and then the page asks how it is going, showing the same words the terminal
  * prints because it is the same progress callback.
  *
- * Paused and archived are properties of the file, and neither deletes anything. A paused search is
- * one nobody is watching this month; an archived one is one nobody is watching at all; both are
- * still a file with everything in it, and both still run when you ask for them by name.
+ * THIS PAGE HOLDS WHAT IS BEING WATCHED. Paused searches stay, because a pause is a search
+ * somebody means to come back to and one that vanished when paused would be a pause nobody would
+ * use. Archived and deleted ones are read on the set-aside surface: this page used to carry them
+ * too, as greyed cards behind a checkbox and a strip of restore buttons at the foot that never
+ * shrank and never said what any of them were.
  */
 
 let polling = null;
-let showArchived = false;
 let held = [];
 let summary = {};
-let gone = [];
+/* How many searches are set aside, so the list can say where they are without carrying them. */
+let gone = 0;
 /* Which card is asking "really?". A second click on the same button rather than a browser dialog:
  * a dialog is a modal somebody dismisses by reflex, and this puts the consequence in the button. */
 let confirming = null;
@@ -32,13 +34,17 @@ async function load() {
   const found = await ask("/api/searches");
   held = found.searches;
   summary = found.overview || {};
-  gone = (await ask("/api/deleted")).searches || [];
+  const aside = await ask("/api/set-aside");
+  gone = (aside.deleted || []).length + (aside.archived || []).length;
   draw();
 }
 
 function draw() {
-  const visible = held.filter((entry) => showArchived || !entry.archived);
-  const archived = held.filter((entry) => entry.archived).length;
+  /* What is being watched, and nothing else. Archived and deleted searches are read on their own
+   * surface: this page answers "what happened overnight", and it used to carry every search
+   * nobody is watching as well, as greyed cards behind a checkbox and a strip of restore buttons
+   * at the foot that only ever grew. */
+  const visible = held.filter((entry) => !entry.archived);
 
   shell("Searches",
     el("h1", {}, "HomeScout"),
@@ -54,28 +60,17 @@ function draw() {
       el("button", {type: "button", disabled: !visible.length ? true : null, onclick: runAll},
         "Run all of them"),
       link("/settings", "Settings and tools"),
-      /* Shown while it is ticked even once the count reaches nothing, because bringing the last
-       * archived search back would otherwise take the control away with the state still on, and
-       * there would be no way to turn it off. */
-      (archived || showArchived)
-        ? el("label", {},
-            el("input", {
-              type: "checkbox",
-              id: "showarchived",
-              onchange: (event) => { showArchived = event.target.checked; draw(); },
-            }),
-            archived ? ` show ${count(archived, "archived search", "archived searches")}`
-                     : " show archived searches (there are none)")
-        : null,
+      /* A link rather than a state, which is the whole reason the checkbox it replaces could go.
+       * That checkbox had to stay on screen after the last archived search came back, because the
+       * state it held would otherwise have had no control left to turn it off. A page is not a
+       * state, so it can simply be absent when there is nothing on it. */
+      gone ? link("/archive", `${count(gone, "search", "searches")} set aside`) : null,
     ),
     el("div", {id: "allprogress"}),
     visible.length
       ? el("div", {class: "cards"}, visible.map(card))
       : el("p", {class: "unknown"}, "nothing to show"),
-    deletedPanel(),
   );
-  const toggle = document.getElementById("showarchived");
-  if (toggle) toggle.checked = showArchived;
 }
 
 /* The few numbers worth seeing before the list.
@@ -121,7 +116,9 @@ function figure({number, label, title, href, tone}) {
 
 function card(entry) {
   const problems = (entry.problems || []).filter((p) => p.severity === "problem");
-  const standing = entry.archived ? "archived" : (entry.paused ? "paused" : null);
+  /* Only paused reaches this list now. An archived search is read on the set-aside surface,
+   * which is where it is brought back from. */
+  const standing = entry.paused ? "paused" : null;
 
   return el("div", {class: standing ? "card set-aside" : "card", dataset: {search: entry.name}},
     el("h3", {}, entry.name, standing ? " " : null,
@@ -161,9 +158,8 @@ function card(entry) {
       }, entry.paused ? "Resume" : "Pause"),
       el("button", {
         type: "button",
-        class: entry.archived ? null : "danger",
-        onclick: () => standingOf(entry.name, {archived: !entry.archived}),
-      }, entry.archived ? "Bring back" : "Archive"),
+        onclick: () => standingOf(entry.name, {archived: true}),
+      }, "Archive"),
       el("button", {type: "button", onclick: () => duplicate(entry.name)}, "Duplicate"),
       confirming === entry.name
         ? el("button", {
@@ -187,11 +183,9 @@ function card(entry) {
           "history is never deleted.")
       : null,
     el("p", {class: "meta"},
-      entry.archived
-        ? "Archived: out of the list and skipped by a run of everything. Nothing is deleted."
-        : (entry.paused
-            ? "Paused: skipped by a run of everything, and still run when you ask for it by name."
-            : null)),
+      entry.paused
+        ? "Paused: skipped by a run of everything, and still run when you ask for it by name."
+        : null),
     el("div", {id: `progress-${entry.name}`}),
   );
 }
@@ -209,39 +203,13 @@ async function remove(name) {
       (answered.runs_kept
         ? `Its ${answered.runs_kept} runs and everything they found are still here. `
         : "") +
-      "Bring it back from the bottom of this page.",
+      "It is on the set-aside page, with everything else nobody is watching, and it can be brought back from there.",
       "good");
   } catch (error) {
     fail(error);
     return;
   }
   await load();
-}
-
-async function restore(name) {
-  try {
-    await send(`/api/searches/${encodeURIComponent(name)}/restore`, {});
-  } catch (error) {
-    fail(error);
-    return;
-  }
-  say(`${name} is a saved search again, exactly as it was.`, "good");
-  await load();
-}
-
-/* What was deleted, and the way back. Below the list rather than in it, because these are not
- * saved searches any more and showing them as though they were would be a lie about the state. */
-function deletedPanel() {
-  if (!gone.length) return null;
-  return el("section", {},
-    el("h2", {}, "Deleted"),
-    el("p", {class: "meta"},
-      "Not saved searches any more, and not thrown away either. The file is kept with its areas " +
-      "and its comments, and everything the runs found is still in the store."),
-    el("div", {class: "actions"},
-      gone.map((name) =>
-        el("button", {type: "button", onclick: () => restore(name)}, `Bring back ${name}`))),
-  );
 }
 
 async function askForName() {

@@ -49,6 +49,7 @@ REACHES: dict[str, tuple[str, str]] = {
     "searches create": ("PUT", "/api/searches/{name}"),
     "searches delete": ("DELETE", "/api/searches/{name}"),
     "searches restore": ("POST", "/api/searches/{name}/restore"),
+    "searches discard": ("POST", "/api/searches/{name}/discard"),
     "searches edit": ("POST", "/api/searches/{name}"),
     "annotate": ("POST", "/api/listings/{listing_id}/annotation"),
     "tags list": ("GET", "/api/tags"),
@@ -563,18 +564,20 @@ def test_nothing_is_cached_without_asking_first(store: Store, db_path: Path) -> 
         assert data.headers["cache-control"] == "no-store"
 
 
-def test_the_archived_toggle_survives_the_last_one_being_brought_back() -> None:
-    """feat-010/AC-23: the state and the control that holds it cannot get out of step.
+def test_the_list_of_searches_holds_only_what_is_being_watched() -> None:
+    """feat-010/AC-69: set aside is a page, not a state on this one.
 
-    Found by clicking: with "show archived" ticked, bringing the last archived search back removed
-    the checkbox while the state stayed on, and the redraw threw on the element that was no longer
-    there. Asserted against the script, because the failure is in how it decides to draw one.
+    This replaces a test about the "show archived" checkbox, which had to stay on screen after the
+    last archived search came back because the state it held would otherwise have had no control
+    left to turn it off. That is a real bug in a real design, and it was fixed by keeping the
+    checkbox honest. It is gone now because the design is: a link to a page is not a state, so it
+    can simply be absent when there is nothing on it.
     """
     body = (STATIC / "searches.js").read_text(encoding="utf-8")
-    assert "(archived || showArchived)" in body, (
-        "the toggle has to survive the count reaching nothing, or the state cannot be turned off"
-    )
-    assert "if (toggle) toggle.checked" in body, "the element is looked up before it is set"
+    assert "showArchived" not in body, "the toggle and the state it held are both gone"
+    assert "deletedPanel" not in body, "so is the strip of restore buttons at the foot"
+    assert '"/archive"' in body, "and what replaces both is a link to where they are read"
+    assert "!entry.archived" in body, "an archived search is not drawn on this list"
 
 
 def test_the_area_table_edits_the_name_and_the_sense(filed) -> None:
@@ -704,3 +707,121 @@ def test_a_criterion_the_builder_cannot_show_comes_back_as_text(filed) -> None:
     rule = written.json()["search"]["rules"][0]
     assert rule["parts"] is None
     assert rule["when"] == "(price < 100000 or beds > 3) and sqft > 1000"
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-69, AC-70: what is set aside, and discarding one for good
+# ---------------------------------------------------------------------------
+
+
+def test_a_deleted_search_is_read_as_what_it_was(filed) -> None:
+    """feat-010/AC-69: a name is not enough to decide whether you want one back.
+
+    The strip this replaces offered "bring back portales" and nothing else. Six months later that
+    is a name. What the surface has to carry is what the search was, and all of it is already in
+    the file that was kept.
+    """
+    browser, held, where = filed
+
+    assert browser.delete("/api/searches/portales", headers=ours()).status_code == 200
+    listed = browser.get("/api/searches", headers=reading()).json()["searches"]
+    assert [one["name"] for one in listed] == [], "it has stopped being a saved search"
+
+    aside = browser.get("/api/set-aside", headers=reading()).json()
+    entry = next(one for one in aside["deleted"] if one["name"] == "portales")
+    assert entry["description"] == "everything around town", "read off the kept file"
+    assert entry["areas"] == 1
+    assert entry["sources"] == ["realtor"]
+    assert entry["deleted_at"], "and when it was set aside, which a name cannot say"
+
+    back = browser.post("/api/searches/portales/restore", headers=ours())
+    assert back.status_code == 200, back.text
+    assert (where / "portales.yaml").is_file()
+    assert browser.get("/api/set-aside", headers=reading()).json()["deleted"] == []
+
+
+def test_an_archived_search_is_read_where_the_set_aside_ones_are(filed) -> None:
+    """feat-010/AC-69: both kinds of set aside on one surface, and still two lists.
+
+    An archived search is still a saved search, so it is still in the catalogue and still runs when
+    asked for by name. What changed is where a person reads it and brings it back from. That the
+    list of searches does not draw it is the script's own job and is checked against the script, in
+    `test_the_list_of_searches_holds_only_what_is_being_watched`.
+    """
+    browser, held, where = filed
+
+    put = browser.post("/api/searches/portales/standing", json={"archived": True}, headers=ours())
+    assert put.status_code == 200, put.text
+
+    aside = browser.get("/api/set-aside", headers=reading()).json()
+    assert [one["name"] for one in aside["archived"]] == ["portales"]
+    assert aside["deleted"] == [], "archived is not deleted, and the two lists say so"
+    assert aside["archived"][0]["description"] == "everything around town"
+
+    # Still a saved search, which is the whole difference between the two lists.
+    listed = browser.get("/api/searches", headers=reading()).json()["searches"]
+    assert [one["name"] for one in listed] == ["portales"]
+    assert listed[0]["archived"] is True
+
+
+def test_discarding_is_refused_unless_it_was_deleted_first(filed) -> None:
+    """feat-010/AC-70: the reversible step is what makes the irreversible one safe to offer."""
+    browser, held, where = filed
+
+    refused = browser.post("/api/searches/portales/discard", headers=ours())
+    assert refused.status_code == 400, refused.text
+    assert "has been deleted" in refused.json()["error"]
+    assert (where / "portales.yaml").is_file(), "and it is still there"
+
+
+def test_discarding_refuses_a_name_that_is_a_path(filed, tmp_path: Path) -> None:
+    """feat-010/AC-70: the name is resolved before the folder is read.
+
+    The one operation here that removes a file, so the one where being wrong about which file a
+    name means cannot be undone.
+    """
+    browser, held, where = filed
+    outside = tmp_path / "secret.yaml"
+    outside.write_text("name: secret\n", encoding="utf-8")
+    assert browser.delete("/api/searches/portales", headers=ours()).status_code == 200
+
+    for name in ("..%2F..%2Fsecret", "..", "%2E%2E%2Fsecret"):
+        answered = browser.post(f"/api/searches/{name}/discard", headers=ours())
+        assert answered.status_code in (400, 404), f"{name} was not refused: {answered.text}"
+
+    assert outside.is_file(), "nothing outside the searches directory was touched"
+    assert (where / "deleted").is_dir()
+    assert list((where / "deleted").glob("*.yaml")), "and the real deleted file is still there"
+
+
+def test_discarding_removes_the_file_and_nothing_in_the_store(filed) -> None:
+    """feat-010/AC-70: the whole point, asserted by counting rather than by reading the answer.
+
+    The answer's own summary is the thing under test, so it cannot be the evidence. Every row of
+    every table before and after, which is what `test_web_safety.py` already does for hostile input
+    and refused writes: snapshot history is append-only and a definition file is configuration.
+    """
+    browser, held, where = filed
+    assert browser.delete("/api/searches/portales", headers=ours()).status_code == 200
+
+    before = fingerprint(held.store)
+    answered = browser.post("/api/searches/portales/discard", headers=ours())
+    assert answered.status_code == 200, answered.text
+    assert fingerprint(held.store) == before, "a discard touches no row in the store"
+
+    assert not list((where / "deleted").glob("portales*.yaml")), "the file is gone"
+    assert browser.get("/api/set-aside", headers=reading()).json()["deleted"] == []
+    body = answered.json()
+    assert body["runs_kept"] == 0
+    assert body["discarded"], "it says which file it removed"
+
+
+def test_a_refused_discard_changes_nothing_either(filed) -> None:
+    """feat-010/AC-70: removing nothing on the way to saying no is its own claim."""
+    browser, held, where = filed
+    before = fingerprint(held.store)
+
+    assert browser.post("/api/searches/portales/discard", headers=ours()).status_code == 400
+
+    assert fingerprint(held.store) == before
+    assert (where / "portales.yaml").is_file()

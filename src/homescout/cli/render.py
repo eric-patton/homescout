@@ -457,6 +457,29 @@ def deleted(gone: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def discarded(gone: dict[str, Any]) -> str:
+    """What a discard removed, and the much longer list of what it did not.
+
+    The one irreversible thing this tool does, so the answer leads with what is gone and spends the
+    rest of its words on what is not: somebody who has just done something that cannot be undone
+    should be told what it did not reach, in numbers they can go and check.
+    """
+    many = len(gone.get("discarded") or ())
+    lines = [
+        f"{gone['name']} is gone. "
+        f"{many} definition file{'' if many == 1 else 's'} removed, and nothing else."
+    ]
+    if gone.get("properties_kept"):
+        lines.append(
+            f"The {gone['properties_kept']} properties its {gone['runs_kept']} runs found are "
+            "still in the store, with their price history and anything you wrote on them, "
+            "because recorded history is never deleted."
+        )
+    else:
+        lines.append("Nothing its runs recorded was touched: recorded history is never deleted.")
+    return "\n".join(lines)
+
+
 def tags(found: Sequence[Any]) -> str:
     """The household's own vocabulary, with what still carries each word.
 

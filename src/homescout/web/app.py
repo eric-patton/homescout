@@ -23,10 +23,11 @@ import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import anyio
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -297,6 +298,26 @@ def build(workspace: api.Workspace) -> FastAPI:
     @app.get("/api/deleted")
     def deleted_searches() -> dict[str, Any]:
         return answer("deleted", searches=list(api.deleted_searches(held())))
+
+    @app.get("/api/set-aside")
+    def set_aside() -> dict[str, Any]:
+        """Everything not being watched, with enough of each to decide about it."""
+        return answer("set_aside", **api.set_aside_searches(held()))
+
+    @app.post("/api/searches/{name}/discard")
+    def discard_search(name: str) -> dict[str, Any]:
+        """Remove a deleted definition for good.
+
+        A path of its own rather than a second meaning for `DELETE /api/searches/{name}`, which
+        already means the reversible one. Two operations that differ in whether they can be undone
+        should not differ only in a verb.
+
+        Behind the same host, origin and header guard as every other write, which is what actually
+        stands between this and a page on another origin. The name typed into the dialog upstairs
+        guards the hand at the keyboard and is not sent here as permission: whether this search is
+        really deleted is read from the catalogue inside this request, by `api.discard_search`.
+        """
+        return answer("discarded", **api.discard_search(held(), name))
 
     @app.post("/api/searches/{name}/duplicate")
     async def duplicate(name: str, request: Request) -> dict[str, Any]:
@@ -671,6 +692,8 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     for path, page in wire.PAGES.items():
         _serve_page(app, path, page)
+    for old, new in wire.MOVED.items():
+        _redirect_page(app, old, new)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     if VENDOR.is_dir():
@@ -689,6 +712,21 @@ def _serve_page(app: FastAPI, path: str, page: str) -> None:
         return FileResponse(STATIC / page, media_type="text/html; charset=utf-8")
 
     app.add_api_route(path, handler, methods=["GET"], include_in_schema=False)
+
+
+def _redirect_page(app: FastAPI, old: str, new: str) -> None:
+    """A surface that was renamed, still answering at the address it used to have.
+
+    The target is built from the route template with the matched name put into it, never from
+    anything in the request beyond that name: a redirect that echoes what it was handed is a
+    redirect somebody else can aim. The name has already been matched as one path segment by the
+    time this runs, so it cannot carry a slash into the template.
+    """
+
+    async def handler(name: str) -> RedirectResponse:
+        return RedirectResponse(new.format(name=quote(name, safe="")), status_code=301)
+
+    app.add_api_route(old, handler, methods=["GET"], include_in_schema=False)
 
 
 async def _body(request: Request) -> dict[str, Any]:

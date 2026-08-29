@@ -1588,3 +1588,20 @@ code.expression {
   .condition { flex-direction: column; align-items: stretch; }
   .condition .join { margin-bottom: calc(-1 * var(--s1)); }
 }
+
+/* -- where you are, above the heading ----------------------------------- */
+
+/* A trail rather than a back button. The nav bar names three destinations and never changes, so on
+   a page about one search it says "Searches", which is where the reader is not. This says where
+   they are and gives them the way up in the same line. */
+.crumbs {
+  margin: 0 0 var(--s2);
+  color: var(--dim);
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  align-items: baseline;
+}
+.crumbs a { color: var(--link); }
+.crumbs > span:last-child { color: var(--ink-soft); font-weight: 500; }
