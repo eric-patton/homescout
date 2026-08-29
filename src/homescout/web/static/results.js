@@ -1669,15 +1669,30 @@ function holder(cell) {
  * A property with none gets an empty box of the same size, so the two hold the same space and the
  * addresses stay in a straight line. That matters more in this table than anywhere else on the
  * site, because these rows are read by running an eye straight down a column. */
+/* Every picture this table has already drawn, by property.
+ *
+ * The virtual window replaces every visible row on each redraw, and a redraw happens on every
+ * scroll. A fresh `img` each time is a fresh load each time, so the pictures blinked between blank
+ * and loaded as somebody scrolled and again as they stopped. The image element is kept and reused:
+ * an element already holding a decoded picture draws it immediately, and an element can only be in
+ * one place at a time, which is exactly true of a row that is drawn once per window.
+ *
+ * Bounded by the rows that have actually been on screen rather than by the whole answer. */
+const PICTURES = new Map();
+
 function thumbnail(row) {
   if (!row.has_image) return el("span", {class: "thumb", "aria-hidden": "true"});
-  const picture = el("img", {
-    class: "shot",
-    loading: "lazy",
-    decoding: "async",
-    alt: "",
-    src: `/api/listings/${encodeURIComponent(row.listing_id)}/image`,
-  });
+  let picture = PICTURES.get(row.listing_id);
+  if (!picture) {
+    picture = el("img", {
+      class: "shot",
+      loading: "lazy",
+      decoding: "async",
+      alt: "",
+      src: `/api/listings/${encodeURIComponent(row.listing_id)}/image`,
+    });
+    PICTURES.set(row.listing_id, picture);
+  }
   /* A button rather than an image with a handler on it, so the keyboard reaches it. */
   return el("button", {
     type: "button",

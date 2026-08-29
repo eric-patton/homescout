@@ -248,7 +248,23 @@ function timeline(held) {
 function detailOf(detail) {
   if (!detail || typeof detail !== "object") return value(detail);
   return Object.entries(detail)
-    .map(([name, held]) => el("span", {}, `${name}: `, value(held), " "));
+    .map(([name, held]) => el("span", {class: "eventdetail"}, `${name}: `, ids(held), " "));
+}
+
+/* A value that is a comma-joined list of record identifiers, said as what it is.
+ *
+ * A merge event records which records were folded in, and printed straight it is a run of
+ * thirty-two-character strings that overflows the column and is clipped mid-identifier, which is
+ * neither readable nor complete. The count is the part somebody wants; the identifiers are there
+ * underneath for whoever is chasing one, wrapping rather than running off the edge. */
+function ids(held) {
+  if (typeof held !== "string" || !/^[0-9a-f]{32}(,[0-9a-f]{32})*$/.test(held.trim())) {
+    return value(held);
+  }
+  const many = held.trim().split(",");
+  return el("span", {},
+    count(many.length, "record"), " ",
+    el("span", {class: "rowstate ids"}, many.join(" ")));
 }
 
 function provenance(held) {

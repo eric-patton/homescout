@@ -18,7 +18,7 @@
  */
 
 const held = {name: "", rows: [], settings: null, map: null, markers: null, pins: {},
-              judgment: "play", showGone: false, satellite: false, opacity: 0.55,
+              all: [], judgment: "play", showGone: false, satellite: false, opacity: 0.55,
               /* The two tile layers, whichever of them is configured. */
               backgrounds: {},
               /* How the list under the map is arranged. Cheapest first, because that is the
@@ -89,6 +89,12 @@ async function load() {
     ask(`/api/results/${encodeURIComponent(held.name)}?include_passed=true`),
     ask("/api/settings"),
   ]);
+  /* Every row the run found, and separately the ones that can be drawn. The counts are read off
+   * the first: AC-67 says both surfaces say this in the same words, and saying "22 passed on,
+   * hidden" over a different population from the table's "737 passed on, hidden" is the same
+   * words carrying a different number, which is worse than different words would be. What only
+   * this page can say is how many have no location, and that has always been said separately. */
+  held.all = found.rows;
   held.rows = found.rows.filter((row) => row.latitude !== null && row.longitude !== null);
   held.without = found.rows.length - held.rows.length;
   held.settings = settings;
@@ -508,9 +514,10 @@ function plot() {
 }
 
 function counts(drawn) {
-  const kept = held.rows.filter((row) => row.judgment === "keep").length;
-  const passed = held.rows.filter((row) => row.judgment === "pass").length;
-  const gone = held.rows.filter((row) => row.presence === "disappeared").length;
+  const every = held.all || held.rows;
+  const kept = every.filter((row) => row.judgment === "keep").length;
+  const passed = every.filter((row) => row.judgment === "pass").length;
+  const gone = every.filter((row) => row.presence === "disappeared").length;
   const parts = [`${drawn} on the map`];
   if (kept) parts.push(`${kept} kept`);
   if (held.judgment === "play" && passed) parts.push(heldBack(passed, "pass"));

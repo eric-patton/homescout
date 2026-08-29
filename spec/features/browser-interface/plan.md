@@ -435,3 +435,50 @@ product.
   read.** Two sets of words for five origins is how a chooser comes to call something "public data"
   while the tooltip over the same column calls it something else, and nothing on the page would ever
   say that had happened.
+
+## Design decisions: the last three changes together
+
+These were written as one pass over what was left of a reading of the whole interface, so the
+decisions that cut across them are here rather than repeated three times.
+
+- **Four totals stay four.** Collapsing them to one number would mean picking one screen's question
+  and answering it on screens that are not asking it. What was wrong was never the arithmetic; it
+  was one noun on four different populations, which is how four correct numbers read as a fault.
+
+- **A property with no address is named once, in the shared file.** Four surfaces name a property,
+  and four copies of "what to call this one" is how one of them keeps printing a hexadecimal string
+  after the other three stopped. The identifier is kept everywhere it already is: it is exact, it is
+  how the property is asked for again, and it is the thing to quote when something is wrong. It is
+  not the thing to lead with.
+
+- **A disclosure rather than deletion, and open on the first visit.** The instructions are worth
+  having and worth having once. Remembered per browser, like every other view preference on this
+  surface and for the same reason: it is about this person's screen and not about the workspace.
+  What goes behind one is what is identical on every visit; a sentence that changes with the state
+  of the thing it is about stays where it is.
+
+- **Settings and tools split along "set once" against "come back to".** The navigation has named
+  both since the settings surface existed. The line is not what a section is about but how often
+  somebody is on it: the model's address is set once and then reports itself, and asking the model
+  about descriptions is a thing to run this week and again next week.
+
+- **A zero is drawn.** A tile appearing is harder to notice than a number changing, and the strip's
+  whole job is answering "is there anything for me today". A figure that does not apply to this
+  installation at all stays absent, because "none today" and "this does not happen here" are
+  different answers and a zero would say the wrong one.
+
+- **A batch judgment is one core operation, not forty browser writes.** Product invariant 5 puts it
+  in the core so both surfaces reach it, and the failure mode decides the shape: forty separate
+  writes is forty chances to stop half way with nothing recording which half. One call, one answer,
+  one count of what changed.
+
+- **The reason is written to every property in the batch.** A reason typed at the moment forty
+  houses were ruled out is as true of each of them as a reason typed on one, and the alternative,
+  storing it once against the batch, would invent a second kind of annotation with its own answers
+  for merging, unmerging and re-export. The annotation already has those answers.
+
+- **The builder keeps four save buttons.** They write four genuinely different parts of a
+  definition, and one button over all of them would write parts nobody touched, which AC-3 forbids
+  by requiring that a definition opened and re-saved here is unchanged apart from the edits made.
+  The fault was never the four buttons; it was that nothing said which panel was dirty, and the
+  lede apologised for it instead.

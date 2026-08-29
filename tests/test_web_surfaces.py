@@ -707,3 +707,63 @@ def test_the_new_column_controls_answer_to_the_keyboard() -> None:
     assert '"aria-label": "Which columns to open on"' in control
     chooser = results[results.index("function chooseColumns("):results.index("function filterBox(")]
     assert 'el("button"' in chooser, "each group's show-or-hide is a real button"
+
+
+# ---------------------------------------------------------------------------
+# Defects found by reading the interface back
+# ---------------------------------------------------------------------------
+
+
+def test_the_map_counts_what_is_held_back_over_the_same_properties_as_the_table() -> None:
+    """feat-010/AC-67: the same words carrying a different number is worse than different words.
+
+    The map counted the passed and the disappeared over the rows it could draw, so a search with
+    properties that have no coordinates said "22 passed on, hidden" where the table said "737
+    passed on, hidden" in the same words. AC-67 allows the map to draw fewer, for a reason it says
+    out loud, and that reason is the properties with no location, which it counts separately.
+    """
+    fire = script("fire")
+    start = fire.index("function counts(drawn)")
+    counting = fire[start:fire.index("function ", start + 20)]
+    assert "const every = held.all || held.rows;" in counting, (
+        "the held-back counts are read off every row the run found"
+    )
+    for reason in ("kept", "passed", "gone"):
+        assert f"const {reason} = every.filter(" in counting, f"{reason} is counted over all of them"
+    assert "held.without" in counting, "and the ones with no location are still said separately"
+    assert "held.all = found.rows;" in fire, "which means the answer's own rows are kept"
+
+
+def test_a_thumbnail_that_has_loaded_is_not_asked_for_again() -> None:
+    """feat-010/AC-43: a picture beside the address, rather than a box that blinks.
+
+    The virtual window replaces every visible row on each redraw and a redraw happens on every
+    scroll, so a fresh element each time was a fresh load each time and the pictures flickered
+    between blank and loaded while somebody scrolled.
+    """
+    results = script("results")
+    assert "const PICTURES = new Map();" in results
+    body = results[results.index("function thumbnail("):results.index("async function showPhotos(")]
+    assert "PICTURES.get(row.listing_id)" in body, "an element already holding a picture is reused"
+    assert "PICTURES.set(row.listing_id, picture)" in body
+
+
+def test_a_merge_events_records_are_readable_rather_than_clipped() -> None:
+    """feat-010/AC-9: the timeline shows what happened, which a cut-off identifier does not."""
+    listing_body = script("listing")
+    assert "function ids(" in listing_body
+    assert '/^[0-9a-f]{32}(,[0-9a-f]{32})*$/' in listing_body, "recognised as identifiers, not text"
+    assert 'count(many.length, "record")' in listing_body, "the count is the part somebody wants"
+    assert "overflow-wrap: anywhere" in (STATIC / "app.css").read_text(encoding="utf-8")
+
+
+def test_the_builder_opens_on_the_areas_it_is_for() -> None:
+    """feat-010/AC-2: areas are drawn and edited on this map, which means being able to see them.
+
+    The default view was a fixed point at zoom eleven. For a search covering a state that opens
+    inside one of its own polygons: a flat wash of colour with no edge on screen and nothing to say
+    it is a shape.
+    """
+    search_body = script("search")
+    assert "const bounds = drawn.getBounds();" in search_body
+    assert "if (bounds.isValid()) map.fitBounds(" in search_body, "only when there is one to fit"

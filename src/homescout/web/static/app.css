@@ -1730,3 +1730,9 @@ code.expression {
 .colgroup > h3 button { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
 .colgroup .choices { columns: 2; column-gap: var(--s4); }
 @media (max-width: 34rem) { .colgroup .choices { columns: 1; } }
+
+/* A run of record identifiers in an event's detail. They are there for whoever is chasing one, so
+   they wrap rather than running off the edge of the column and being clipped mid-identifier. */
+.eventdetail { display: block; }
+.rowstate.ids { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.75rem;
+                overflow-wrap: anywhere; display: block; margin-top: 2px; }

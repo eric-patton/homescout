@@ -993,6 +993,19 @@ function startMap() {
     draw: {polyline: false, circle: false, marker: false, circlemarker: false, rectangle: true},
   }));
 
+  /* Where the search actually is, rather than wherever the map was centred when this was written.
+   *
+   * The default was a fixed point at zoom eleven, which for a search covering a state opens inside
+   * one of its own polygons: a flat wash of colour with the shape's edges nowhere on screen and
+   * nothing to tell somebody it is a shape at all. A map you cannot see the areas on is not a map
+   * you can edit the areas on, which is what AC-2 asks of this one.
+   *
+   * Only when there is something to fit to. A search whose areas are all named places has no
+   * geometry here, and a new one has no areas at all; both keep the default view, which is the
+   * right answer for "there is nothing drawn yet". */
+  const bounds = drawn.getBounds();
+  if (bounds.isValid()) map.fitBounds(bounds, {padding: [24, 24], maxZoom: 14});
+
   /* The table is built before this runs, so the shapes it should list did not exist yet. Now they
    * do, and each one gets its row with its name and its in-or-out control. */
   redrawAreaList();

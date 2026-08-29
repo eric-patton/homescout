@@ -1410,3 +1410,92 @@ is written in this file beside this function and the wrong pattern is the one cu
       Custom and there is nothing left to recompute from. The implementation that actually loses
       somebody's arrangement is the one where deviating keeps the view's name, and that is what the
       red run had to use.
+
+## Defects: four things found by reading the interface back
+
+- [x] T176: `web/static/fire.js`: the map counts what the table counts (`feat-010/AC-67`). The
+      passed and the disappeared were counted over the rows the map can draw, so a search with
+      properties that have no coordinates said "22 passed on, hidden" where the table said "737
+      passed on, hidden" in the same words. The same words carrying a different number is worse
+      than different words would be. Counted over every row the run found now; how many have no
+      location is the one thing only this page can say and is still said separately.
+
+- [x] T177: `web/static/results.js`: a picture that has loaded is not asked for again
+      (`feat-010/AC-43`). The virtual window replaces every visible row on each redraw and a redraw
+      happens on every scroll, so a fresh element each time was a fresh load each time and the
+      thumbnails blinked between blank and loaded while somebody scrolled. Kept by property and
+      reused; an element can only be in one place at a time, which is exactly true of a row drawn
+      once per window.
+
+- [x] T178: `web/static/listing.js`, `app.css`: a merge event's records are readable
+      (`feat-010/AC-9`). The detail printed a comma-joined run of thirty-two-character identifiers
+      straight into a table cell, where it overflowed and was clipped mid-identifier: neither
+      readable nor complete. The count is what somebody wants; the identifiers wrap underneath for
+      whoever is chasing one.
+
+- [x] T179: `web/static/search.js`: the builder opens on the areas it is for (`feat-010/AC-2`). The
+      view was a fixed point at zoom eleven, which for a search covering a state opens inside one of
+      its own polygons: a flat wash of colour with no edge on screen and nothing to say it is a
+      shape. Fitted to the drawn shapes when there are any, and left alone when there are not,
+      because a search with no geometry has nothing to fit to and a new one has nothing at all.
+
+## Change: say what you count (`changes/say-what-you-count/`)
+
+- [ ] T180: `web/static/{searches,results,changes,fire}.js`: every total says what it counts
+      (`feat-010/AC-76`). Four screens, four populations, one noun on all of them, which is what
+      made four correct numbers read as a fault. No number is recomputed; the words beside it
+      change.
+
+- [ ] T181: `web/static/common.js`, `{listing,changes,results,fire}.js`: a property with no address
+      is named for what is known about it (`feat-010/AC-77`, `feat-010/AC-9`, `feat-010/AC-11`).
+      One builder in the shared file, because four surfaces name a property and four copies is how
+      one of them keeps printing the identifier. The identifier stays on the page and stays the way
+      to ask for the property again; it stops being the thing a person is asked to read.
+
+- [ ] T182: `tests/test_web_surfaces.py`: both (`feat-010/AC-76`, `feat-010/AC-77`).
+
+## Change: the page is not the manual (`changes/the-page-is-not-the-manual/`)
+
+- [ ] T183: `web/static/common.js`, `app.css`: a disclosure that names what it holds
+      (`feat-010/AC-78`). Open the first time somebody is on a surface and closed after, remembered
+      per browser like every other view preference. Built once because four surfaces want one.
+
+- [ ] T184: `web/static/results.js`, `search.js`: the instructions and the criterion explanation
+      (`feat-010/AC-78`, `feat-010/AC-24`). The table's five lines go behind the disclosure. The
+      criterion explanation is said once above the list rather than inside each of fifteen.
+
+- [ ] T185: `web/static/settings.js`, `tools.{html,js}`, `web/wire.py`, `web/app.py`: what is
+      configured and what is run become two surfaces (`feat-010/AC-79`, `feat-010/AC-1`). Nothing
+      about what any section does changes; a thing to run that needs something configured says so
+      and links to it.
+
+- [ ] T186: `web/static/searches.js`: a figure that can be zero is drawn at zero (`feat-010/AC-80`).
+      A count appearing is harder to notice than a count changing, which is backwards for a strip
+      whose job is saying whether anything needs you today. A figure that does not apply to this
+      installation at all is still absent.
+
+- [ ] T187: `tests/test_web_surfaces.py`, `test_web_contract.py`: the disclosure, the split and the
+      strip (`feat-010/AC-78`, `feat-010/AC-79`, `feat-010/AC-80`, `feat-010/AC-1`).
+
+## Change: work the table (`changes/work-the-table/`)
+
+- [ ] T188: `api.py`: one operation setting a judgment on several properties (`feat-010/AC-81`).
+      In the core rather than a loop in the browser: forty separate writes is forty chances to end
+      up half done with no record of which half, and product invariant 5 says both surfaces reach
+      every capability. Answers with how many were changed.
+
+- [ ] T189: `cli/main.py`, `cli/render.py`, `web/app.py`: the same from both surfaces
+      (`feat-010/AC-81`, `feat-010/AC-22`). `--json` and a stable exit code, like everything else.
+
+- [ ] T190: `web/static/results.js`, `app.css`: selecting a range and acting on it
+      (`feat-010/AC-81`, `feat-010/AC-34`, `feat-010/AC-48`). Shift with a press for a range from
+      the pointer, shift with the arrows from the keyboard. The dialog asks once and says how many.
+      The reason is written to each of them. The same control undoes the batch.
+
+- [ ] T191: `web/static/search.js`, `app.css`: a panel says when it is unsaved (`feat-010/AC-82`).
+      Four panels stay four, because they write four different parts of a definition and one button
+      over all of them would write parts nobody touched, which AC-3 forbids. Leaving the page with
+      any of them dirty is refused until it is confirmed.
+
+- [ ] T192: `tests/test_web_parity.py`, `test_cli_operations.py`, `test_web_surfaces.py`: the batch
+      from both surfaces, its refusal, and the unsaved warning (`feat-010/AC-81`, `feat-010/AC-82`).
