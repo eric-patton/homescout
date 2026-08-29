@@ -200,6 +200,12 @@ function say(message, kind) {
   where.replaceChildren(
     message ? el("p", {class: "notice notice-" + (kind || "plain"), role: "status"}, message) : ""
   );
+  /* The banner sits above every surface, so saying something moves everything under it down by the
+   * height of a notice. On a surface that measures its own height from where its box falls, that
+   * is the table's bottom edge, and the horizontal scrollbar on it, going below the window: the
+   * exact fault AC-53 exists to prevent, reintroduced by a sentence. A surface that does not
+   * measure anything is unaffected and does not define this. */
+  if (typeof fit === "function") fit();
 }
 
 function fail(error) {
@@ -212,7 +218,8 @@ function nav(active) {
   const links = [
     ["/", "Searches"],
     ["/matches", "Matches to review"],
-    ["/settings", "Settings and tools"],
+    ["/settings", "Settings"],
+    ["/tools", "Tools"],
   ];
   where.replaceChildren(
     skipLink(),
@@ -278,6 +285,71 @@ function propertyLink(listingId, text, search, attributes) {
   const where = `/listing/${encodeURIComponent(listingId)}` +
     (search ? `?from=${encodeURIComponent(search)}` : "");
   return link(where, text, attributes);
+}
+
+/* ------------------------------------------------------------------ */
+/* Explanation that is the same on every visit                         */
+/* ------------------------------------------------------------------ */
+
+/* A disclosure that says what it holds.
+ *
+ * Every surface here opened with a paragraph above its controls, and on the results table it was
+ * five lines. The writing is worth having and worth having once: read on the first visit, and a
+ * screen-inch of furniture on every visit after.
+ *
+ * Open the first time somebody is on a surface and closed afterwards, remembered on the same terms
+ * as every other view preference on these pages (AC-45): this browser's, never the workspace's, and
+ * a browser that cannot store it simply gets the open state every time, which is the safe way round.
+ *
+ * What goes behind one is what is identical on every visit. A sentence that changes with the state
+ * of the thing it is about stays where it is: a disclosure that hid something a person needs on a
+ * later visit would be worse than the paragraph it replaced.
+ */
+function howItWorks(surface, said, ...content) {
+  const key = `homescout:read:${surface}`;
+  let read = false;
+  try { read = window.localStorage.getItem(key) === "1"; } catch (_) { read = false; }
+
+  const holder = el("details", {class: "howto", open: read ? null : true},
+    el("summary", {}, said),
+    ...content.flat().filter(Boolean));
+  holder.addEventListener("toggle", () => {
+    try { window.localStorage.setItem(key, holder.open ? "0" : "1"); } catch (_) { /* fine */ }
+    /* This is the largest thing on these pages that changes height, and on the results table the
+     * height of everything above the table is what the table's own height is measured from. A
+     * surface that does not measure things is unaffected; one that does says so by defining this. */
+    if (typeof fit === "function") fit();
+  });
+  return holder;
+}
+
+/* ------------------------------------------------------------------ */
+/* What to call a property                                             */
+/* ------------------------------------------------------------------ */
+
+/* A property with no address, said as what is known about it.
+ *
+ * Some sources answer with a record that has coordinates, a price and no address at all, and six of
+ * the fourteen new properties in the workspace this was written against were like that. Named by
+ * their identifier they read as `6e03116ebc1f49cb8de9c32f28e66083`, which is exact, is how the
+ * property is asked for again, and is not a thing a person can read, recognise or say aloud.
+ *
+ * So the identifier is kept everywhere it already is and stops being what somebody is asked to
+ * read. Here rather than on four surfaces, because four surfaces name a property and four copies is
+ * how one of them goes on printing the string after the others stopped.
+ */
+function propertyName(fields, listingId) {
+  const held = fields || {};
+  const address = [held.address_line, held.unit, held.city, held.state, held.postal_code]
+    .filter(Boolean).join(", ");
+  if (address) return address;
+  const where = [held.city, held.state].filter(Boolean).join(", ");
+  if (where) return `Unnamed property in ${where}`;
+  if (held.county) return `Unnamed property in ${held.county}`;
+  /* Nothing at all is known about where it is, so the identifier is all there is. Shortened,
+   * because eight characters tell two records apart on a screen and thirty-two do not tell you
+   * any more than that. */
+  return `Unnamed property ${String(listingId || "").slice(0, 8)}`;
 }
 
 /* ------------------------------------------------------------------ */

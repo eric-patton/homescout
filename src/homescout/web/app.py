@@ -299,6 +299,29 @@ def build(workspace: api.Workspace) -> FastAPI:
     def deleted_searches() -> dict[str, Any]:
         return answer("deleted", searches=list(api.deleted_searches(held())))
 
+    @app.post("/api/judgments")
+    async def judge(request: Request) -> dict[str, Any]:
+        """One judgment over several properties.
+
+        Passing is the daily work of the results table and it was one row at a time, each through a
+        dialog. The core does the writing and reports what it wrote, so a batch that does not
+        entirely succeed can be shown as what it was rather than as a number that might mean
+        either.
+        """
+        body = await _body(request)
+        held_ids = body.get("listing_ids")
+        if not isinstance(held_ids, list):
+            raise InvalidInput("listing_ids has to be a list of property identifiers.")
+        return answer(
+            "judged",
+            **api.judge(
+                held(),
+                [str(one) for one in held_ids],
+                judgment=body.get("judgment"),
+                verdict=body.get("verdict"),
+            ),
+        )
+
     @app.get("/api/set-aside")
     def set_aside() -> dict[str, Any]:
         """Everything not being watched, with enough of each to decide about it."""

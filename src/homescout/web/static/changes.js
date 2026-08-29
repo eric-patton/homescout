@@ -43,10 +43,12 @@ function draw(name, entry, since) {
   shell(`${name} changes`,
     aboutSearch(name, "changes"),
     el("h1", {}, name),
+    /* What this number counts, which is not what the table's number counts and not what the list's
+     * number counts. Three correct totals with one noun on them read as a fault. */
     el("p", {class: "lede"},
-      `${counts.matched || 0} properties · ${counts.new || 0} new · ` +
-      `${counts.changed || 0} changed · ${counts.gone || 0} gone · ` +
-      `${counts.returned || 0} back`),
+      `${counts.matched || 0} properties matched against the earlier run · ` +
+      `${counts.new || 0} new · ${counts.changed || 0} changed · ` +
+      `${counts.gone || 0} gone · ${counts.returned || 0} back`),
     el("div", {class: "controls"},
       el("label", {for: "since"}, "Compare against "),
       picker,
@@ -72,9 +74,8 @@ function section(title, rows, render) {
 }
 
 function address(summary) {
-  const parts = [summary.address_line, summary.unit, summary.city, summary.state]
-    .filter(Boolean).join(", ");
-  return propertyLink(summary.listing_id, parts || summary.listing_id, currently);
+  return propertyLink(
+    summary.listing_id, propertyName(summary, summary.listing_id), currently);
 }
 
 function plain(summary) {

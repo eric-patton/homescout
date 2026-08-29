@@ -1736,3 +1736,62 @@ code.expression {
 .eventdetail { display: block; }
 .rowstate.ids { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.75rem;
                 overflow-wrap: anywhere; display: block; margin-top: 2px; }
+
+/* The identifier, kept and not led with. */
+.recordid { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.78rem;
+            margin-top: calc(-1 * var(--s2)); }
+
+/* -- explanation that is the same on every visit -------------------------- */
+
+.howto {
+  margin: 0 0 var(--s4);
+  max-width: var(--reading);
+  border-left: 3px solid var(--line);
+  padding-left: var(--s3);
+}
+.howto > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-size: 0.94rem;
+  list-style-position: outside;
+}
+.howto > summary:hover { text-decoration: underline; }
+.howto > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.howto > p { color: var(--dim); margin: var(--s2) 0 0; }
+.howto[open] > summary { margin-bottom: var(--s1); font-weight: 500; }
+
+/* What each kind of criterion does, said once above the list rather than under every one of them. */
+.severities {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) 1fr;
+  gap: var(--s1) var(--s4);
+  margin: 0 0 var(--s4);
+  padding: var(--s3);
+  background: var(--shade);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+.severities dt { font-weight: 600; color: var(--ink-soft); }
+.severities dd { margin: 0; color: var(--dim); }
+
+/* Rows a keep or a pass would apply to. A tint rather than a border, because a border on a row in a
+   virtual table shifts every row under it by a pixel. */
+table.grid tbody tr.picked td { background: var(--accent-wash, #e9f0f9); }
+table.grid tbody tr.picked:hover td { background: #dfe9f6; }
+.picked-bar { border-color: #cddcf0; }
+
+/* A panel with changes that have not been written to the file. The mark is on the panel as well as
+   in the line above, because "which one" is the question the line cannot answer at a glance. */
+#main section.unsaved { border-left: 3px solid var(--warn); }
+#main section.unsaved > h2::after {
+  content: "unsaved";
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: var(--warn-wash);
+  border: 1px solid #e6cf9a;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}

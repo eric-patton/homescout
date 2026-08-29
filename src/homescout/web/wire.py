@@ -18,20 +18,18 @@ from . import settings
 #: Which file is which surface. One page per surface, reloadable and bookmarkable, rather than one
 #: application with routes: a failure on one cannot then take the others with it.
 #:
-#: Nine now. The spec named six screens; the seventh is where a person finds out what this
+#: Ten now. The spec named six screens; the seventh is where a person finds out what this
 #: installation has set up and what it has not, which the six had no home for and which a person
 #: otherwise discovers by reading a file. The eighth is the map. The ninth is where everything set
-#: aside is read, so that the list of searches holds what is being watched and nothing else.
-
-#: The map's old address. It was `/fire/{name}` when the wildfire hazard layer was all that surface
-#: drew, and it now draws either background, the wind, county lines, town names, rainfall and a
-#: ruler. Renamed to match, and the old one still answers, because this interface is reached from a
-#: phone and an address that stops answering is a bookmark that breaks with nothing on screen to say
-#: where the page went.
-MOVED: dict[str, str] = {"/fire/{name}": "/map/{name}"}
+#: aside is read, so that the list of searches holds what is being watched and nothing else. The
+#: tenth is the tools, which were seventh on the settings page: what you configure once and what you
+#: come back to run are two different visits. Both are served by the same file, because they are one
+#: script that draws one of two pages, and the settings surface keeps its own address so no bookmark
+#: stops answering.
 PAGES: dict[str, str] = {
     "/": "searches.html",
     "/settings": "settings.html",
+    "/tools": "settings.html",
     "/search/{name}": "search.html",
     "/results/{name}": "results.html",
     "/listing/{listing_id}": "listing.html",
@@ -40,6 +38,13 @@ PAGES: dict[str, str] = {
     "/map/{name}": "fire.html",
     "/archive": "archive.html",
 }
+
+#: The map's old address. It was `/fire/{name}` when the wildfire hazard layer was all that surface
+#: drew, and it now draws either background, the wind, county lines, town names, rainfall and a
+#: ruler. Renamed to match, and the old one still answers, because this interface is reached from a
+#: phone and an address that stops answering is a bookmark that breaks with nothing on screen to say
+#: where the page went.
+MOVED: dict[str, str] = {"/fire/{name}": "/map/{name}"}
 
 #: Kept as names here because the pages read them, and defined once in `settings`.
 TILES_VARIABLE = settings.TILES_VARIABLE

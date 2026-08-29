@@ -457,6 +457,20 @@ def deleted(gone: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def judged(outcome: dict[str, Any]) -> str:
+    """What a batch judgment did, and what it did not.
+
+    The count that was asked for and the count that was written are said separately whenever they
+    differ, because the one thing this must never do is leave somebody believing forty houses were
+    ruled out when thirty were.
+    """
+    said = outcome["judgment"] or "undecided"
+    lines = [f"{outcome['changed']} of {outcome['asked']} set to {said}."]
+    for one in outcome["refused"]:
+        lines.append(f"  not written: {one['listing_id']}: {one['why']}")
+    return "\n".join(lines)
+
+
 def discarded(gone: dict[str, Any]) -> str:
     """What a discard removed, and the much longer list of what it did not.
 

@@ -86,20 +86,26 @@ function overview() {
   const trouble = summary.searches_with_problems || 0;
 
   return el("div", {class: "overview"},
-    figure({number: summary.properties || 0, label: "properties being watched"}),
+    figure({number: summary.properties || 0,
+            label: "properties across every search"}),
     figure({
       number: summary.last_run_at ? when(summary.last_run_at) : "never",
       label: "last run",
       title: summary.last_run_at,
     }),
-    waiting
-      ? figure({number: waiting, label: "waiting for your decision",
-                href: "/matches", tone: "flag"})
-      : null,
-    trouble
-      ? figure({number: trouble, label: "to fix before they run", tone: "problem"})
-      : null,
-    running ? figure({number: running, label: "running right now", tone: "flag"}) : null,
+    /* Drawn at zero rather than removed. A tile appearing is harder to notice than a number
+     * changing, which is exactly backwards for a strip whose whole job is answering "is there
+     * anything for me today": three of these five used to be absent on a quiet morning, so the
+     * strip was two wide most days and four on the days something needed attention.
+     *
+     * A figure about something this installation has not set up at all stays absent, because
+     * "none today" and "this does not happen here" are different answers and a zero gives the
+     * wrong one. That is product invariant 9's rule rather than a list kept here. */
+    figure({number: waiting, label: "waiting for your decision",
+            href: waiting ? "/matches" : null, tone: waiting ? "flag" : null}),
+    figure({number: trouble, label: "to fix before they run",
+            tone: trouble ? "problem" : null}),
+    figure({number: running, label: "running right now", tone: running ? "flag" : null}),
   );
 }
 

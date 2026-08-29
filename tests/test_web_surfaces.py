@@ -466,14 +466,17 @@ def test_passing_asks_first_and_keeping_asks_afterwards() -> None:
     results = script("results")
     keeping = results.split("function keepToggle")[1].split("/* What they liked")[0]
 
-    assert "await confirmPass(what, row.values[\"Verdict\"])" in results
+    assert "const asked = await confirmPass(" in results, "passing asks before it acts"
     assert "showModal()" in results, "a browser confirm() stops every pending save on the page"
     assert "confirmPass" not in keeping, "keeping a house stops to ask permission it does not need"
-    assert 'await setJudgment(row, undoing ? null : "keep", button)' in keeping, (
+    assert 'await setJudgment(rows, undoing ? null : "keep", button)' in keeping, (
         "keeping does not record the keep before asking anything"
     )
-    assert 'askWhy(button, row, "Why keep it?")' in keeping, "keeping never asks why"
+    assert "askWhy(button, rows," in keeping, "keeping never asks why"
     assert "if (!undoing)" in keeping, "taking a house off the shortlist asks for a reason too"
+    # And the same order holds for a batch: one dialog before passing forty, none before keeping
+    # them. `rows` rather than `row` throughout is what makes both act on the selection.
+    assert "const rows = actingOn(row);" in results
 
 
 def test_a_town_note_can_be_written_from_a_row_and_belongs_to_the_town(
@@ -568,7 +571,10 @@ def test_every_reason_a_row_is_missing_is_in_the_one_bar() -> None:
 
     # The totals line keeps the totals and loses the rest, the render time included.
     counting = results[results.index("function counts()"):results.index("function window_")]
-    assert "properties`" in counting and "kept`" in counting
+    assert "in the latest run of this search" in counting, (
+        "the total says which properties it counts, since four screens count four populations"
+    )
+    assert "kept`" in counting
     assert "toFixed" not in counting and "performance" not in counting, (
         "the render time is a number for whoever is writing this table, not for whoever reads it"
     )
@@ -767,3 +773,91 @@ def test_the_builder_opens_on_the_areas_it_is_for() -> None:
     search_body = script("search")
     assert "const bounds = drawn.getBounds();" in search_body
     assert "if (bounds.isValid()) map.fitBounds(" in search_body, "only when there is one to fit"
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-76 to AC-82: counting, naming, explaining, and working the table
+# ---------------------------------------------------------------------------
+
+
+def test_every_total_says_which_properties_it_counts() -> None:
+    """feat-010/AC-76: four screens, four populations, and one noun on all of them read as a fault."""
+    assert "properties across every search" in script("searches")
+    assert "in the latest run of this search" in script("results")
+    assert "matched against the earlier run" in script("changes")
+    assert "on the map" in script("fire"), "the map already said what it was counting"
+
+
+def test_a_property_with_no_address_is_named_for_what_is_known() -> None:
+    """feat-010/AC-77: the identifier is exact, and is not a thing a person can read or say."""
+    common = script("common")
+    assert "function propertyName(" in common, "one rule, because four surfaces name a property"
+    assert "Unnamed property in ${where}" in common
+    assert 'slice(0, 8)' in common, "and where nothing at all is known, a short identifier"
+    for page in ("listing", "changes", "results", "fire"):
+        assert "propertyName(" in script(page), f"{page} uses it"
+    # Kept, and not led with.
+    assert '"record "' in script("listing"), "the identifier is still on the page"
+
+
+def test_the_instructions_are_behind_something_that_says_what_it_holds() -> None:
+    """feat-010/AC-78: read once, and furniture on every visit after."""
+    common = script("common")
+    assert "function howItWorks(" in common
+    assert 'el("details"' in common, "a disclosure, which the keyboard reaches without help"
+    assert "homescout:read:" in common, "remembered per browser, on AC-45's terms"
+    assert 'howItWorks("results", "How this table works"' in script("results")
+    # The criterion explanation is said once above the list rather than under each of fifteen.
+    search_body = script("search")
+    assert "function whatEachDoes(" in search_body
+    assert 'el("p", {class: "meta"}, said)' not in search_body, "no longer under every criterion"
+
+
+def test_what_you_configure_and_what_you_run_are_two_surfaces() -> None:
+    """feat-010/AC-79: eight sections in one scroll, with the ones you come back for seventh."""
+    settings_body = script("settings")
+    assert "function drawTools(" in settings_body
+    assert 'pathParts()[0] === "tools"' in settings_body, "one script, one of two pages"
+    assert "toolsPanel()" in settings_body and "exportPanel()" in settings_body
+    # Settings keeps its address, so nothing anybody bookmarked stops answering.
+    from homescout.web.wire import PAGES
+    assert PAGES["/settings"] == PAGES["/tools"]
+    assert '["/tools", "Tools"]' in script("common"), "the navigation reaches both"
+
+
+def test_a_figure_that_can_be_zero_is_drawn_at_zero() -> None:
+    """feat-010/AC-80: a tile appearing is harder to notice than a number changing."""
+    searches_body = script("searches")
+    strip = searches_body[searches_body.index("function overview()"):searches_body.index("function figure(")]
+    for label in ("waiting for your decision", "to fix before they run", "running right now"):
+        assert f'label: "{label}"' in strip
+    assert "waiting\n      ? figure(" not in strip, "no longer drawn only when non-zero"
+    assert strip.count("? figure(") == 0, "every figure in the strip is drawn"
+
+
+def test_a_judgment_can_be_set_on_a_range_of_rows() -> None:
+    """feat-010/AC-81: passing is the daily work and it was one row at a time, each through a dialog."""
+    results = script("results")
+    assert "function actingOn(" in results, "the selection, or the row the control was pressed on"
+    assert "function pickRange(" in results
+    assert "event.shiftKey" in results, "a range from the pointer"
+    assert "if (event.shiftKey && wantedRow !== row)" in results, "and from the keyboard"
+    # One write, by the core, rather than a loop here.
+    writing = results[results.index("async function setJudgment("):]
+    assert 'send("/api/judgments"' in writing
+    assert "listing_ids: held.map(" in writing
+    assert "answered.refused" in writing, "a batch that did not entirely succeed says so"
+    assert "were set." in writing, "and never reports only what worked"
+
+
+def test_a_builder_panel_says_when_it_is_unsaved() -> None:
+    """feat-010/AC-82: the page used to apologise for this in its own opening line."""
+    search_body = script("search")
+    assert "const unsaved = new Set();" in search_body
+    assert "function watchForEdits(" in search_body, "one listener per panel, not one per control"
+    assert 'window.addEventListener("beforeunload"' in search_body, "leaving says so first"
+    assert "Nothing is saved until you press a save button" not in search_body, (
+        "the apology in the lede goes, because the design no longer needs one"
+    )
+    assert 'dataset: {panel: "areas"}' in search_body
+    assert "section.unsaved" in (STATIC / "app.css").read_text(encoding="utf-8")

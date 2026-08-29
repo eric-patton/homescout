@@ -581,6 +581,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "restore_search",
         "deleted_searches",
         "set_aside_searches",
+        "judge",
         "discard_search",
         "run_search",
         "run_all",
@@ -985,3 +986,41 @@ def test_discarding_answers_as_a_document_too(db_path: Path) -> None:
     assert len(document["discarded"]) == 1
     assert document["runs_kept"] == 0
     assert document["properties_kept"] == 0
+
+
+def test_a_judgment_is_set_on_several_properties_from_the_terminal(store: Store, db_path) -> None:
+    """feat-010/AC-81, feat-010/AC-22: the same core operation, so neither surface is privileged."""
+    with wired([search()], {"fake": FakeSource(rows=[row("a"), row("b"), row("c")])}):
+        invoke(["run", "portales"], db=db_path)
+
+    ids = sorted(held.id for held in store.listings())
+    assert len(ids) == 3
+
+    code, out, err = invoke(
+        ["judge", *ids[:2], "--judgment", "pass", "--verdict", "too far out", "--json"],
+        db=db_path,
+    )
+    assert code == ExitCode.SUCCESS, err
+    document = json.loads(out)
+    assert document["kind"] == "judged"
+    assert document["asked"] == 2 and document["changed"] == 2
+
+    for listing_id in ids[:2]:
+        annotation = store.get_annotation(listing_id)
+        assert annotation.judgment == "pass"
+        assert annotation.verdict == "too far out"
+    assert store.get_annotation(ids[2]) is None, "nothing else was touched"
+
+
+def test_a_terminal_batch_that_names_a_stranger_says_so(store: Store, db_path) -> None:
+    """feat-010/AC-81: a partial batch is reported as partial, with a non-zero exit code."""
+    with wired([search()], {"fake": FakeSource(rows=[row("a")])}):
+        invoke(["run", "portales"], db=db_path)
+    real = store.listings()[0].id
+
+    code, out, err = invoke(["judge", real, "nobody", "--judgment", "keep"], db=db_path)
+
+    assert code == ExitCode.INVALID_INPUT, "a batch that did not entirely succeed is not a success"
+    assert "1 of 2" in (out + err)
+    assert "not written: nobody" in (out + err)
+    assert store.get_annotation(real).judgment == "keep", "and the one that could be written was"

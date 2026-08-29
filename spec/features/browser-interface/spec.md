@@ -9,9 +9,9 @@ in five years. The problem brief is in `research.md`.
 
 ## Vocabulary used in this feature
 
-- A **surface** is one screen. There are nine: the search builder, the saved search list, the
+- A **surface** is one screen. There are ten: the search builder, the saved search list, the
   results table, the listing detail, the run comparison, the merge review queue, the map, the
-  settings surface, and the surface holding what has been set aside.
+  settings surface, the tools, and the surface holding what has been set aside.
 
   The first is the search builder rather than "the map and search builder", and the seventh is the
   map. The surface that draws the wildfire hazard model also draws either background, which way the
@@ -40,6 +40,16 @@ in five years. The problem brief is in `research.md`.
   that the address and the price are not four screens apart on a table I have not arranged yet.
 - As the person putting columns away, I want the chooser sorted by where a value comes from, so
   that finding the flood zone is looking in one place rather than reading forty-three names.
+- As the person reading four screens about the same search, I want each number to say what it is
+  counting, so that four different totals read as four questions rather than as a fault.
+- As the person who has used this tool before, I want the instructions out of the way once I have
+  read them, so that the screen is the work rather than the manual for it.
+- As the person setting the optional parts up, I want what I configure separated from what I run,
+  so that the button I come back for every week is not seventh on a page of settings.
+- As the person clearing a table of a thousand rows, I want to pass on forty of them in one action,
+  so that ruling out a town is a decision rather than forty decisions.
+- As the person editing a search, I want to be told what I have not saved, so that leaving the page
+  is not how I find out.
 - As the person choosing where to live, I want to measure how far a house is from something on the
   map, so that "too close to the red" is a number rather than an impression.
 - As the person choosing where to live, I want to see which way the wind normally blows here, so
@@ -182,9 +192,12 @@ in five years. The problem brief is in `research.md`.
 
 - [ ] AC-1: Nine surfaces exist and are reachable: the search builder, the saved search list,
       the results table, the listing detail, the run comparison, the merge review queue, the map,
-      the settings surface, and the surface holding what has been set aside. The settings surface
-      has existed since the optional parts became configurable from the screen that reports them
-      off, and was not written down here until the count moved for another reason.
+      the settings surface, the tools, and the surface holding what has been set aside.
+
+      The settings surface has existed since the optional parts became configurable from the screen
+      that reports them off, and was not written down here until the count moved for another
+      reason. The tools were seventh on it: what is configured once and what is come back to and
+      run are two different visits, and they are two surfaces now (AC-79).
 - [ ] AC-2: Areas can be drawn, named, and edited on the search builder's map, including exclusion areas, and are
       saved as geometry in the saved search definition.
 - [ ] AC-3: A saved search opened and re-saved here is unchanged apart from the edits made,
@@ -207,12 +220,13 @@ in five years. The problem brief is in `research.md`.
       the same pattern.
 - [ ] AC-8: Criteria that fired are shown as badges naming the criterion, and the default ordering
       reflects boost and demote criteria until an explicit sort is chosen.
-- [ ] AC-9: The listing detail shows photographs, the full description, enriched values, a link per
+- [ ] AC-9: A property with no address is titled by what is known about it (AC-77) rather than by
+      its identifier. The listing detail shows photographs, the full description, enriched values, a link per
       source, the price and status timeline, and the source rows underneath the record with the
       signal that justified each join.
 - [ ] AC-10: A value that is missing is displayed as missing and is visually distinguishable from a
       value that is known to be negative.
-- [ ] AC-11: The run comparison surface produces the same result as the equivalent terminal
+- [ ] AC-11: A property with no address is listed by what is known about it (AC-77). The run comparison surface produces the same result as the equivalent terminal
       comparison for the same two points in time.
 - [ ] AC-12: Ambiguous match pairs are listed with the agreeing and conflicting signals, and with
       the two properties themselves, so a decision can be made from the card rather than from two
@@ -269,7 +283,8 @@ in five years. The problem brief is in `research.md`.
       AC-3's guarantee holds for every edit made through them. A criterion is sent as the conditions
       a person chose, and the expression is composed by the rule engine rather than by the
       interface, so the grammar has one home and the file gets the same line somebody would have
-      typed.
+      typed. What each kind of criterion does is said once above the list rather than inside each
+      of them (AC-78).
 - [ ] AC-25: The optional configuration (which model reads descriptions, where map tiles come
       from, where the digest is written) is editable here and written to the uncommitted file beside
       the database, taking effect without a restart and leaving the rest of that file, comments
@@ -307,8 +322,9 @@ in five years. The problem brief is in `research.md`.
       re-export, which is the listing store's AC-15, AC-16 and AC-17 applying to it unchanged.
 - [ ] AC-34: The results table sets a property's judgment from a column of controls that is first
       on every row (AC-49), in one action, without
-      opening the property and without typing. Setting it again to the same value clears it back to
-      unset, so the control that passes a house is the control that un-passes it.
+      opening the property and without typing, and the same action applies to a selected range of
+      them (AC-81). Setting it again to the same value clears it back to unset, for a batch as for
+      one, so the control that passes forty houses is the control that un-passes them.
 - [ ] AC-35: A passed property is absent from the results table by default. Which properties are
       shown by judgment is one control with one answer in force at a time: the ones still in play,
       the ones kept, the ones passed on, or all of them. In play means everything not passed on,
@@ -405,9 +421,10 @@ in five years. The problem brief is in `research.md`.
       works long enough to be trusted and the first anybody knows is a screen of prices, acreages and
       years with nothing above them.
 - [ ] AC-48: Passing on a property asks for confirmation first, in a dialog on the page rather than
-      the browser's own, which says what passing does and that it is reversible. Dismissing it by
-      any means, including the keyboard, leaves the property exactly as it was. Keeping a property
-      asks nothing: it hides nothing, and the same control undoes it.
+      the browser's own, which says what passing does, that it is reversible, and how many
+      properties it is about when it is about more than one. Dismissing it by any means, including
+      the keyboard, leaves every property it named exactly as it was. Keeping a property asks
+      nothing, for a batch as for one: it hides nothing, and the same control undoes it.
 - [ ] AC-49: Keeping and passing are the first thing on a row, in a column of their own that cannot
       be moved or displaced, so the controls are in one place on every row of every arrangement. A
       kept property is on the shortlist and is hidden from nothing; narrowing to the shortlist alone
@@ -709,6 +726,80 @@ in five years. The problem brief is in `research.md`.
       columns are shown, and can be shown or put away as a group, from the pointer and from the
       keyboard, because "all the public data" and "everything I write in myself" are the two most
       common of those thirty decisions.
+- [ ] AC-76: Every count of properties on every surface says which properties it counts, in the
+      words beside it rather than in a tooltip. They are four different questions and the same noun
+      on all four is what makes them read as a contradiction: how many this workspace watches
+      across every search, how many the latest run of one search found, how many were matched
+      against an earlier run, and how many of them can be drawn on a map. No number changes; what
+      changes is that each one is named. Where a surface holds properties back, why and how many is
+      already said separately (AC-36, AC-57) and stays there.
+- [ ] AC-77: A property with no address is named for what is known about it rather than by its
+      identifier. The identifier is exact and is kept, on the page and as the way to ask for the
+      property again; it is not what a person is asked to read, recognise or say aloud. This
+      applies wherever a property is named: its own page, the run comparison, the results table and
+      the map, and the rule is written once rather than on each of them, because four copies is how
+      one goes on printing the string after the others stopped.
+- [ ] AC-78: Explanation that is the same on every visit is behind a disclosure that names what it
+      holds, rather than printed above the controls. It is open the first time somebody is on that
+      surface and closed afterwards, remembered on the terms AC-45 already sets for every view
+      preference here. Nothing is removed: every sentence is one press away, and a disclosure that
+      hid something a person needs on a later visit would be worse than the paragraph it replaced.
+
+      Explanation that repeats is said once. A criterion's explanation of what it does belongs
+      above the list of criteria rather than inside each of them, where fifteen criteria are
+      fifteen copies of it and the rules themselves are what a person came to read.
+- [ ] AC-79: What is configured and what is run are two surfaces. Configuring is the model, the
+      mail account, the map's backgrounds and the broadband account, each of which is set up once
+      and then reports itself. Running is attaching public data, asking a model about descriptions,
+      writing the digest and writing a spreadsheet, each of which takes minutes and is come back
+      to. The navigation has always named both; it now reaches both.
+
+      The settings surface keeps its address and its subject; the tools are what move. Splitting
+      into two new addresses would break a bookmark for no gain, which AC-71 settled for the map,
+      and it keeps AC-25 and the scenario about turning on something that is off true exactly as
+      written.
+
+      Every section that exists still exists and nothing about what any of them does changes. Where
+      a thing to run needs something configured, it says so and says where, rather than repeating
+      its setup or pointing at a part of a page it is no longer on.
+- [ ] AC-80: A figure in the overview strip that can be zero is drawn at zero, so the strip is the
+      same shape every morning. A count appearing is harder to notice than a count changing, which
+      is exactly backwards for a strip whose job is telling somebody whether anything needs them
+      today.
+
+      A figure that does not apply to this installation at all is still absent, and the rule for
+      which those are is product invariant 9 rather than a list kept here: a figure about an
+      optional component, absent by default and not configured here, is not drawn. Every other
+      figure is drawn whatever its count. "None today" and "this does not happen here" are
+      different answers and a zero would give the wrong one.
+- [ ] AC-81: A judgment can be set on several properties at once. A range of rows is selected from
+      the pointer and from the keyboard, and one action keeps or passes on all of them. Everything
+      AC-48 requires of passing one property is required here: it asks first, in a dialog on the
+      page that says what it does and how many it does it to, and dismissing it by any means leaves
+      every row exactly as it was. The reason it collects is written to each property in the batch,
+      because a reason recorded for forty houses at the moment forty were ruled out is as true of
+      each of them as a reason typed on one.
+
+      It is one operation in the core rather than a loop in the browser, which is what makes it
+      reachable from the command line as AC-22 requires and what stops forty writes ending half
+      done with no record of which half. The answer says how many were changed.
+
+      A batch that does not entirely succeed says so on the rows, which is AC-6 applying to forty
+      rows rather than one. The rows that were written show what was written; the rows that were
+      not are marked as unsaved, keep what was being set, and are never presented as saved. A count
+      of what changed that is smaller than the count asked for is reported as what it is, because
+      the one thing this must never do is leave somebody believing forty houses were ruled out when
+      thirty were.
+
+      One action undoes the batch, and it is the same control that made it, which is AC-34's rule
+      about setting a judgment applying to a batch unchanged.
+- [ ] AC-82: A panel of the search builder that has unsaved changes says so, and leaving the page
+      while any panel does is refused until it is confirmed. The four panels stay four, because
+      they write four genuinely different parts of a definition and one button over all of them
+      would write parts nobody touched, which AC-3 forbids by requiring that a definition opened
+      and re-saved here is unchanged apart from the edits made. What is added is that the interface
+      stops being silent about which parts are dirty, and stops apologising for it in its own
+      opening line.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first

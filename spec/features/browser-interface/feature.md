@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,7 +15,7 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: not-run
   product_global_hash: "sha256:d720d6d2ec75"
@@ -129,3 +129,29 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   one, and what is stored is the resulting set with the name as a label on it. That opened a second
   case: everybody who used this table before today has an arrangement stored and no view name, and
   reading that as "apply the default" would rearrange exactly the people the rule protects.
+
+- **2026-08-29, the last pass over a reading of the whole interface.** Four defects and three
+  changes, written together because they were what was left.
+
+  The defects: the map counted what it hides over the rows it can draw rather than over the run, so
+  it said a different number from the table in the same words; thumbnails blinked, because the
+  virtual window replaces every row on every scroll and a fresh element is a fresh load; a merge
+  event printed a run of thirty-two-character identifiers into a table cell and had them clipped
+  mid-identifier; and the search builder's map opened at a fixed point that, for a statewide search,
+  is inside one of its own polygons.
+
+  **Say what you count** (`changes/say-what-you-count/`). Four screens showed a total called
+  "properties" and no two agreed, which is four correct answers to four different questions with one
+  noun on them. Each says what it counts now. A property with no address is named for what is known
+  about it rather than by a hexadecimal string, in one place because four surfaces name a property.
+
+  **The page is not the manual** (`changes/the-page-is-not-the-manual/`). Instructions behind a
+  disclosure, open the first visit. The criterion explanation said once above the list rather than
+  under each of fifteen. The tools moved off the settings page, which keeps its own address so no
+  bookmark breaks. And a figure in the overview strip is drawn at zero, because a tile appearing is
+  harder to notice than a number changing.
+
+  **Work the table** (`changes/work-the-table/`). 737 of 951 properties in this workspace had been
+  passed one at a time, each through a dialog. A range can be selected and one action applies to all
+  of it, written by one core operation that reports what it wrote and what it refused. And the
+  builder says which panel is unsaved instead of apologising for it in its opening line.

@@ -923,6 +923,60 @@ def annotate(workspace: Workspace, listing_id: str, **values: object) -> Annotat
         raise InvalidInput(str(exc)) from exc
 
 
+def judge(
+    workspace: Workspace,
+    listing_ids: Sequence[str],
+    *,
+    judgment: str | None,
+    verdict: str | None = None,
+) -> dict[str, Any]:
+    """Set the same judgment on several properties, and say what happened to each.
+
+    One operation rather than a loop in a surface, for two reasons that both matter.
+
+    **Product invariant 5.** Every capability is reachable from both surfaces. A batch built by
+    looping in the browser would be a thing the browser can do and the terminal cannot.
+
+    **A loop of forty writes is forty chances to stop half way** with nothing recording which half.
+    This reports every identifier it wrote and every one it could not, so the caller can show the
+    difference rather than a number that might mean either. That is AC-6's rule about a failed edit
+    never being presented as saved, over a batch rather than over one row.
+
+    The reason, when there is one, is written to each of them. A reason typed at the moment forty
+    houses were ruled out is as true of each of them as a reason typed on one, and storing it once
+    against the batch would invent a second kind of annotation with its own answers for merging,
+    unmerging and re-exporting. The annotation already has those answers.
+    """
+    if judgment not in (None, "keep", "pass"):
+        raise InvalidInput(
+            f"{judgment!r} is not a judgment. It is 'keep', 'pass', or nothing at all to clear one."
+        )
+    wanted = list(dict.fromkeys(listing_ids))
+    if not wanted:
+        raise InvalidInput("No properties were named, so there is nothing to judge.")
+
+    written: list[str] = []
+    refused: list[dict[str, str]] = []
+    values: dict[str, object] = {"judgment": judgment}
+    if verdict is not None:
+        values["verdict"] = verdict or None
+    for listing_id in wanted:
+        try:
+            with _translating():
+                workspace.store.set_annotation(listing_id, **values)
+            written.append(listing_id)
+        except Exception as exc:  # noqa: BLE001 - one refusal must not lose the other thirty-nine
+            refused.append({"listing_id": listing_id, "why": str(exc)})
+
+    return {
+        "judgment": judgment,
+        "asked": len(wanted),
+        "changed": len(written),
+        "written": written,
+        "refused": refused,
+    }
+
+
 # -- the household's own vocabulary ----------------------------------------
 
 

@@ -683,6 +683,16 @@ def opened(served, script):
                    return null;
                  };
                  await until(() => document.querySelector("#body tr"));
+                 /* Every column, because these tests are about what a column does rather than
+                    about which ones the table opens on. That is AC-74's own question and it has
+                    its own tests; a test that wanted the Notes column and now cannot find it is
+                    testing the opening view by accident. One press away, and this is the press. */
+                 useView("everything");
+                 /* Switching the view says so in the banner, and the banner sits above every
+                    surface. That notice is this helper's, not the test's, and a test measuring the
+                    room left for the table would be measuring it. */
+                 say("");
+                 await until(() => document.querySelector("#body tr"));
                  """ + script + """
                })()""",
         )
@@ -1094,7 +1104,11 @@ def test_keeping_a_house_takes_one_press_and_no_question(served) -> None:
         await until(() => state.all[0].judgment === "keep");
         const answered = await fetch(`/api/listings/${listing}`).then(r => r.json());
         const asked = !!document.querySelector("dialog.ask");
-        document.getElementById("onlykept").click();
+        // "Only what you kept" is one of the four answers of the judgment control now, rather than
+        // a checkbox of its own: two controls over one field could express a state the table could
+        // not be in. Same question, asked once.
+        [...document.querySelectorAll("#judgment button")]
+          .find(b => b.textContent === "Kept").click();
         await until(() => state.shown.length !== before);
         return {asked, before, whileKeptOnly: state.shown.length,
                 judgment: (answered.listing.annotation || {}).judgment ?? null};
@@ -2103,10 +2117,14 @@ def test_the_map_scores_nothing_and_hides_nothing_on_its_own(served) -> None:
         "read to find out what this page will and will not show"
     )
 
-    # The whole of what may keep a property off this map, and both are somebody else's answer.
+    # The whole of what may keep a property off this map, and every one is somebody else's answer.
+    # Three now: the judgment control has four answers rather than a "show passed" checkbox, so
+    # "everything not passed on" and "only the ones I said this about" are two different narrowings
+    # of the same field.
     assert 'row.judgment === "pass"' in deciding
+    assert 'row.judgment !== held.judgment' in deciding
     assert 'row.presence === "disappeared"' in deciding
-    assert deciding.count("return false") == 2, (
+    assert deciding.count("return false") == 3, (
         "a property is being left off this map for a reason nobody has written down here"
     )
 

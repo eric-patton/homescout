@@ -52,6 +52,7 @@ REACHES: dict[str, tuple[str, str]] = {
     "searches discard": ("POST", "/api/searches/{name}/discard"),
     "searches edit": ("POST", "/api/searches/{name}"),
     "annotate": ("POST", "/api/listings/{listing_id}/annotation"),
+    "judge": ("POST", "/api/judgments"),
     "tags list": ("GET", "/api/tags"),
     "tags new": ("POST", "/api/tags"),
     "tags rename": ("POST", "/api/tags/{name}/rename"),
@@ -825,3 +826,87 @@ def test_a_refused_discard_changes_nothing_either(filed) -> None:
 
     assert fingerprint(held.store) == before
     assert (where / "portales.yaml").is_file()
+
+
+# ---------------------------------------------------------------------------
+# feat-010/AC-81: one judgment over several properties
+# ---------------------------------------------------------------------------
+
+
+def test_a_judgment_is_set_on_several_properties_at_once(store: Store, db_path: Path) -> None:
+    """feat-010/AC-81: one core operation, reported honestly, from a route both surfaces reach."""
+    from web_fakes import listing, load
+
+    loaded = load(store, [listing(f"p{n}") for n in range(5)])
+    held = held_workspace(shared_store(db_path))
+    wanted = [loaded[f"p{n}"] for n in range(3)]
+
+    with client(held) as browser:
+        answered = browser.post(
+            "/api/judgments",
+            json={"listing_ids": wanted, "judgment": "pass", "verdict": "too close to the highway"},
+            headers=ours(),
+        )
+        assert answered.status_code == 200, answered.text
+        body = answered.json()
+        assert body["asked"] == 3 and body["changed"] == 3
+        assert body["refused"] == []
+
+        rows = browser.get("/api/results/portales?include_passed=true",
+                           headers=reading()).json()["rows"]
+
+    by_id = {row["listing_id"]: row for row in rows}
+    for listing_id in wanted:
+        assert by_id[listing_id]["judgment"] == "pass"
+        # The reason is written to each of them, not once against the batch.
+        assert by_id[listing_id]["values"]["Verdict"] == "too close to the highway"
+    untouched = [row for row in rows if row["listing_id"] not in wanted]
+    assert all(row["judgment"] is None for row in untouched), "and nothing else was touched"
+
+
+def test_a_batch_that_cannot_be_written_entirely_says_which_part(store: Store, db_path: Path) -> None:
+    """feat-010/AC-81, feat-010/AC-6: never a count that might mean either.
+
+    The one thing this must never do is leave somebody believing forty houses were ruled out when
+    thirty were.
+    """
+    from web_fakes import listing, load
+
+    loaded = load(store, [listing("a"), listing("b")])
+    held = held_workspace(shared_store(db_path))
+    real = [loaded["a"], loaded["b"]]
+
+    with client(held) as browser:
+        answered = browser.post(
+            "/api/judgments",
+            json={"listing_ids": real + ["there-is-no-such-property"], "judgment": "keep"},
+            headers=ours(),
+        )
+        assert answered.status_code == 200, answered.text
+        body = answered.json()
+
+    assert body["asked"] == 3
+    assert body["changed"] == 2, "what was written is reported as what was written"
+    assert [one["listing_id"] for one in body["refused"]] == ["there-is-no-such-property"]
+    assert body["refused"][0]["why"], "and why, rather than a bare count"
+
+
+def test_a_judgment_that_is_not_one_is_refused(store: Store, db_path: Path) -> None:
+    """feat-010/AC-81: 'keep', 'pass', or nothing at all, and nothing else."""
+    from web_fakes import listing, load
+
+    loaded = load(store, [listing("a")])
+    held = held_workspace(shared_store(db_path))
+    with client(held) as browser:
+        answered = browser.post(
+            "/api/judgments",
+            json={"listing_ids": [loaded["a"]], "judgment": "maybe"},
+            headers=ours(),
+        )
+        assert answered.status_code == 400, answered.text
+        assert "not a judgment" in answered.json()["error"]
+
+        empty = browser.post("/api/judgments", json={"listing_ids": [], "judgment": "keep"},
+                             headers=ours())
+        assert empty.status_code == 400
+        assert "nothing to judge" in empty.json()["error"]

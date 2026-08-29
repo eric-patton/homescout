@@ -22,7 +22,7 @@ let told = null;
 whenReady(() => {
   /* A page of forms, so it is bounded to a measure rather than stretched across the window. */
   document.body.classList.add("narrow");
-  nav("/settings");
+  nav(pathParts()[0] === "tools" ? "/tools" : "/settings");
   load().catch(fail);
 });
 
@@ -32,20 +32,45 @@ async function load() {
   draw();
 }
 
+/* Two surfaces, and the line between them is how often somebody is on it.
+ *
+ * What is configured is set up once and then reports itself: the model's address, the mail account,
+ * the map's backgrounds, the broadband account. What is run takes minutes and is come back to next
+ * week: attaching public data, asking the model about descriptions, writing the digest, writing a
+ * spreadsheet. These were eight sections in one scroll with the second kind seventh.
+ *
+ * The settings surface keeps this address and everything it configures. The tools are what move,
+ * so nothing anybody has bookmarked stops answering: AC-71 settled that for the map, and splitting
+ * into two new addresses would have cost a bookmark for nothing.
+ */
 function draw() {
+  const tools = pathParts()[0] === "tools";
+  if (tools) return drawTools();
+
   shell("Settings",
-    el("h1", {}, "Settings and tools"),
+    el("h1", {}, "Settings"),
     el("p", {class: "lede"},
       `Everything lives in ${held.workspace}. The optional parts are absent until you set them up, ` +
       "and the tool works without any of them."),
+    el("p", {}, link("/tools", "The things you run occasionally are on their own page now.")),
     modelPanel(),
     notesPanel(),
     mailPanel(),
     mapPanel(),
     broadbandPanel(),
+    interfacePanel(),
+  );
+}
+
+function drawTools() {
+  shell("Tools",
+    el("p", {class: "crumbs"}, link("/settings", "Settings"), " / ", el("span", {}, "Tools")),
+    el("h1", {}, "Tools"),
+    el("p", {class: "lede"},
+      "Things to run occasionally. None of these is part of a run, and each takes minutes because " +
+      "every request is paced."),
     toolsPanel(),
     exportPanel(),
-    interfacePanel(),
   );
 }
 
@@ -535,8 +560,6 @@ function toolsPanel() {
 
   return el("section", {},
     el("h2", {}, "Things to run occasionally"),
-    el("p", {class: "lede"},
-      "None of these is part of a run, and each takes minutes because every request is paced."),
     el("div", {class: "field"},
       el("label", {for: "toolsearch"}, "Only this saved search (optional)"), searches),
 
@@ -553,7 +576,7 @@ function toolsPanel() {
           ]),
         tool("Ask the model about descriptions",
           "Only the descriptions the patterns could not settle, and only ones it has not already " +
-          "been asked about. Needs a model configured above.",
+          "been asked about. Needs a model, which is set up on the settings page.",
           [
             ["Run it", () => start("extract", {search: searches.value.trim() || null}, where,
               "Extraction")],

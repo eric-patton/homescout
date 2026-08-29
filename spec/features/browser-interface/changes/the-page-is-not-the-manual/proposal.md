@@ -25,14 +25,17 @@ than a tile appearing.
 
 ## Blast radius
 
-- **Requirements affected here:** AC-1 (the settings surface becomes two), AC-24 and AC-28 (the
-  criterion builder's explanation), and the overview strip, which no criterion currently describes
-  and which this delta writes down for the first time.
+- **Requirements affected here:** AC-1 (a tenth surface), AC-24 (the criterion builder's
+  explanation), and the overview strip, which no criterion currently describes and which this
+  delta writes down for the first time. AC-25 and the scenario about turning on something that
+  is off need no change, because the surface they say "here" about keeps its address and
+  everything they name.
 - **Already-built code affected:** `web/static/results.js`, `search.js`, `settings.js`,
-  `searches.js`, `web/wire.py` for the second page route, `app.css`.
+  `searches.js`, `web/wire.py` for the new page, `app.css`.
 - **No core change.** Every one of these is what a surface draws.
 - **Nothing is removed.** Every sentence that exists still exists and is still one press away; the
-  settings surface's sections all still exist and are on one of two pages.
+  settings surface keeps every section it configures, and the ones it runs are on a page of their
+own that the navigation already promised.
 
 ## What this is not
 
@@ -42,6 +45,6 @@ they have read. What goes behind one is what is true every visit and useful on t
 Not a menu. Disclosures are open where the thing they explain is being set up for the first time.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

@@ -26,6 +26,12 @@ leaving the page is not how I find out.
   reachable from the command line as AC-22 requires and what stops forty writes ending half done
   with no record of which half. The answer says how many were changed.
 
+  **A batch that does not entirely succeed says so on the rows, which is AC-6 applying to forty
+  rows rather than one.** The rows that were written show what was written; the rows that were not
+  are marked as unsaved, keep what was being set, and are never presented as saved. A count of what
+  changed that is smaller than the count asked for is reported as what it is, because the one thing
+  this must never do is leave somebody believing forty houses were ruled out when thirty were.
+
   One action undoes the batch, and it is the same control that made it, which is AC-34's rule about
   setting a judgment applying to a batch unchanged.
 

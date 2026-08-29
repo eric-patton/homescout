@@ -31,6 +31,6 @@ Not one number everywhere. Four different populations is the truth, and collapsi
 picking one screen's question and answering it on screens that are not asking it.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

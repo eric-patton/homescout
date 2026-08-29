@@ -161,6 +161,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--set", action="append", default=[], metavar="KEY=VALUE", dest="assignments"
     )
 
+    judge = commands.add_parser(
+        "judge", parents=[common], help="keep or pass on several properties at once"
+    )
+    judge.add_argument("listing_ids", nargs="+")
+    judge.add_argument(
+        "--judgment", choices=["keep", "pass", "none"], required=True,
+        help="'none' clears it back to undecided",
+    )
+    judge.add_argument("--verdict", default=None, help="why, written to each of them")
+
     annotate = commands.add_parser(
         "annotate", parents=[common], help="record your own judgment about a property"
     )
@@ -449,6 +459,22 @@ def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
     return Answer(digest.envelope("search", search=_summary_of(edited)), render.definition(edited))
 
 
+def _judge(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    """One judgment over several properties, from the terminal.
+
+    The same core operation the browser calls, which is what product invariant 5 asks for and what
+    keeps the two surfaces from growing separate ideas of what passing means.
+    """
+    outcome = api.judge(
+        workspace,
+        args.listing_ids,
+        judgment=None if args.judgment == "none" else args.judgment,
+        verdict=args.verdict,
+    )
+    code = ExitCode.SUCCESS if not outcome["refused"] else ExitCode.INVALID_INPUT
+    return Answer(digest.envelope("judged", **outcome), render.judged(outcome), code)
+
+
 def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
     outcome = api.enrich(
         workspace, stale_only=args.stale, search=args.search, progress=note
@@ -713,6 +739,8 @@ def _dispatch(
         return _searches(workspace, args)
     if args.command == "annotate":
         return _annotate(workspace, args)
+    if args.command == "judge":
+        return _judge(workspace, args)
     if args.command == "tags":
         return _tags(workspace, args)
     if args.command == "matches":

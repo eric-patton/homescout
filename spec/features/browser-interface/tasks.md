@@ -1441,61 +1441,72 @@ is written in this file beside this function and the wrong pattern is the one cu
 
 ## Change: say what you count (`changes/say-what-you-count/`)
 
-- [ ] T180: `web/static/{searches,results,changes,fire}.js`: every total says what it counts
+- [x] T180: `web/static/{searches,results,changes,fire}.js`: every total says what it counts
       (`feat-010/AC-76`). Four screens, four populations, one noun on all of them, which is what
       made four correct numbers read as a fault. No number is recomputed; the words beside it
       change.
 
-- [ ] T181: `web/static/common.js`, `{listing,changes,results,fire}.js`: a property with no address
+- [x] T181: `web/static/common.js`, `{listing,changes,results,fire}.js`: a property with no address
       is named for what is known about it (`feat-010/AC-77`, `feat-010/AC-9`, `feat-010/AC-11`).
       One builder in the shared file, because four surfaces name a property and four copies is how
       one of them keeps printing the identifier. The identifier stays on the page and stays the way
       to ask for the property again; it stops being the thing a person is asked to read.
 
-- [ ] T182: `tests/test_web_surfaces.py`: both (`feat-010/AC-76`, `feat-010/AC-77`).
+- [x] T182: `tests/test_web_surfaces.py`: both (`feat-010/AC-76`, `feat-010/AC-77`).
 
 ## Change: the page is not the manual (`changes/the-page-is-not-the-manual/`)
 
-- [ ] T183: `web/static/common.js`, `app.css`: a disclosure that names what it holds
+- [x] T183: `web/static/common.js`, `app.css`: a disclosure that names what it holds
       (`feat-010/AC-78`). Open the first time somebody is on a surface and closed after, remembered
       per browser like every other view preference. Built once because four surfaces want one.
 
-- [ ] T184: `web/static/results.js`, `search.js`: the instructions and the criterion explanation
+- [x] T184: `web/static/results.js`, `search.js`: the instructions and the criterion explanation
       (`feat-010/AC-78`, `feat-010/AC-24`). The table's five lines go behind the disclosure. The
       criterion explanation is said once above the list rather than inside each of fifteen.
 
-- [ ] T185: `web/static/settings.js`, `tools.{html,js}`, `web/wire.py`, `web/app.py`: what is
-      configured and what is run become two surfaces (`feat-010/AC-79`, `feat-010/AC-1`). Nothing
-      about what any section does changes; a thing to run that needs something configured says so
-      and links to it.
+- [x] T185: `web/static/settings.js`, `web/wire.py`: what is configured and
+      what is run become two surfaces (`feat-010/AC-79`, `feat-010/AC-1`). The settings surface
+      keeps its address and its subject and the tools move to `/tools`, so no bookmark breaks and
+      no redirect is needed: splitting into two new addresses would have cost somebody their
+      bookmark for nothing. Nothing about what any section does changes; a thing to run that needs
+      something configured says so and links to it, and settings links to the tools. One script
+      drawing one of two pages rather than a second file: they share every panel builder, and two
+      copies of those would be two places for a setting to be edited in.
 
-- [ ] T186: `web/static/searches.js`: a figure that can be zero is drawn at zero (`feat-010/AC-80`).
+      Two things this turned up in its own new page. The tools section repeated the page's lede
+      almost word for word, which is the fault this change is about, appearing in the change that
+      fixes it. And "needs a model configured above" was true while this was seventh on the settings
+      page and is not any more, so it says where instead of pointing at nothing.
+
+- [x] T186: `web/static/searches.js`: a figure that can be zero is drawn at zero (`feat-010/AC-80`).
       A count appearing is harder to notice than a count changing, which is backwards for a strip
       whose job is saying whether anything needs you today. A figure that does not apply to this
       installation at all is still absent.
 
-- [ ] T187: `tests/test_web_surfaces.py`, `test_web_contract.py`: the disclosure, the split and the
+- [x] T187: `tests/test_web_surfaces.py`, `test_web_contract.py`: the disclosure, the split and the
       strip (`feat-010/AC-78`, `feat-010/AC-79`, `feat-010/AC-80`, `feat-010/AC-1`).
 
 ## Change: work the table (`changes/work-the-table/`)
 
-- [ ] T188: `api.py`: one operation setting a judgment on several properties (`feat-010/AC-81`).
+- [x] T188: `api.py`: one operation setting a judgment on several properties (`feat-010/AC-81`).
       In the core rather than a loop in the browser: forty separate writes is forty chances to end
       up half done with no record of which half, and product invariant 5 says both surfaces reach
       every capability. Answers with how many were changed.
 
-- [ ] T189: `cli/main.py`, `cli/render.py`, `web/app.py`: the same from both surfaces
+- [x] T189: `cli/main.py`, `cli/render.py`, `web/app.py`: the same from both surfaces
       (`feat-010/AC-81`, `feat-010/AC-22`). `--json` and a stable exit code, like everything else.
 
-- [ ] T190: `web/static/results.js`, `app.css`: selecting a range and acting on it
-      (`feat-010/AC-81`, `feat-010/AC-34`, `feat-010/AC-48`). Shift with a press for a range from
-      the pointer, shift with the arrows from the keyboard. The dialog asks once and says how many.
-      The reason is written to each of them. The same control undoes the batch.
+- [x] T190: `web/static/results.js`, `app.css`: selecting a range and acting on it
+      (`feat-010/AC-81`, `feat-010/AC-34`, `feat-010/AC-48`, `feat-010/AC-6`). Shift with a press
+      for a range from the pointer, shift with the arrows from the keyboard. The dialog asks once
+      and says how many. The reason is written to each of them. The same control undoes the batch.
+      A batch that does not entirely succeed marks the rows that were not written, keeps what was
+      being set on them, and never shows them as saved, which is AC-6 over forty rows.
 
-- [ ] T191: `web/static/search.js`, `app.css`: a panel says when it is unsaved (`feat-010/AC-82`).
+- [x] T191: `web/static/search.js`, `app.css`: a panel says when it is unsaved (`feat-010/AC-82`).
       Four panels stay four, because they write four different parts of a definition and one button
       over all of them would write parts nobody touched, which AC-3 forbids. Leaving the page with
       any of them dirty is refused until it is confirmed.
 
-- [ ] T192: `tests/test_web_parity.py`, `test_cli_operations.py`, `test_web_surfaces.py`: the batch
+- [x] T192: `tests/test_web_parity.py`, `test_cli_operations.py`, `test_web_surfaces.py`: the batch
       from both surfaces, its refusal, and the unsaved warning (`feat-010/AC-81`, `feat-010/AC-82`).

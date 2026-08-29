@@ -16,6 +16,62 @@
 
 const held = {name: "", search: null, settings: null, map: null, drawn: null};
 
+/* Which panels have been changed and not saved.
+ *
+ * The four save buttons stay four: they write four genuinely different parts of a definition, and
+ * one button over all of them would write parts nobody touched, which AC-3 forbids by requiring
+ * that a definition opened and re-saved here is unchanged apart from the edits made.
+ *
+ * What was wrong was never the four buttons. It was that nothing said which of them was dirty, and
+ * the page apologised for it in its own opening line instead: "Nothing is saved until you press a
+ * save button, and each panel saves only itself." That sentence is an apology for a design. This is
+ * the design not needing one. */
+const unsaved = new Set();
+
+function touched(panel) {
+  if (unsaved.has(panel)) return;
+  unsaved.add(panel);
+  markUnsaved();
+}
+
+function saved(panel) {
+  if (!unsaved.delete(panel)) return;
+  markUnsaved();
+}
+
+function markUnsaved() {
+  for (const [panel, node] of Object.entries(panels())) {
+    if (node) node.classList.toggle("unsaved", unsaved.has(panel));
+  }
+  const where = document.getElementById("unsaved");
+  if (!where) return;
+  where.replaceChildren(
+    unsaved.size
+      ? el("span", {},
+          count(unsaved.size, "panel"), " changed and not saved: ",
+          [...unsaved].join(", "), ". Each panel saves only itself.")
+      : "");
+  where.hidden = !unsaved.size;
+}
+
+function panels() {
+  return {
+    areas: document.querySelector("[data-panel='areas']"),
+    "what it looks for": document.querySelector("[data-panel='settings']"),
+    criteria: document.querySelector("[data-panel='criteria']"),
+    "place notes": document.querySelector("[data-panel='places']"),
+  };
+}
+
+/* Leaving with something unsaved says so before it happens. The browser's own dialog, because it is
+ * the only thing that can interrupt a navigation and because a page that invented its own would be
+ * one the browser walked straight past. */
+window.addEventListener("beforeunload", (event) => {
+  if (!unsaved.size) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
 whenReady(() => {
   nav("/");
   held.name = pathParts()[1] || "";
@@ -46,8 +102,8 @@ function draw() {
     aboutSearch(held.name, "search"),
     el("h1", {}, held.name),
     el("p", {class: "lede"},
-      "Where to look, what to look for, and what matters to you about what turns up. Nothing is " +
-      "saved until you press a save button, and each panel saves only itself."),
+      "Where to look, what to look for, and what matters to you about what turns up."),
+    el("div", {id: "unsaved", class: "notice notice-flag", role: "status", hidden: true}),
     problems(search),
     el("div", {class: "detail"},
       el("div", {}, mapPanel(), areaList()),
@@ -59,6 +115,26 @@ function draw() {
     placeNotesPanel(),
   );
   startMap();
+  watchForEdits();
+  markUnsaved();
+}
+
+/* A panel is dirty when anything inside it changes. One listener per panel rather than one per
+ * control: the alternative is finding every input, select and button that mutates a draft, and
+ * missing one is a panel that silently claims to be saved. */
+function watchForEdits() {
+  for (const [panel, node] of Object.entries(panels())) {
+    if (!node) continue;
+    const mark = () => touched(panel);
+    node.addEventListener("input", mark);
+    node.addEventListener("change", mark);
+  }
+  /* Drawing, editing or deleting a shape is a change to the areas that no form event sees. */
+  if (held.map) {
+    for (const event of ["draw:created", "draw:deleted", "draw:edited"]) {
+      held.map.on(event, () => touched("areas"));
+    }
+  }
 }
 
 function problems(search) {
@@ -71,7 +147,7 @@ function problems(search) {
 }
 
 function mapPanel() {
-  return el("section", {},
+  return el("section", {dataset: {panel: "areas"}},
     el("h2", {}, "Areas"),
     el("div", {id: "map", role: "application",
                "aria-label": "Map for drawing the areas this search covers"}),
@@ -119,6 +195,7 @@ async function saveAreas() {
   try {
     await send(`/api/searches/${encodeURIComponent(held.name)}`,
       {set: {areas: areas, exclude_areas: exclusions}});
+    saved("areas");
     say(
       `Saved ${count(areas.length, "area")}` +
       (exclusions.length ? ` and ${count(exclusions.length, "exclusion")}.` : "."),
@@ -286,14 +363,15 @@ function settingsPanel() {
   const search = held.search;
   const filters = search.filters || {};
 
-  return el("section", {},
+  return el("section", {dataset: {panel: "settings"}},
     el("h2", {}, "What it looks for"),
 
     text("description", "Description", search.description,
-      (v) => save({description: v})),
+      (v) => save({description: v}, "what it looks for")),
 
     text("sources", "Sources, comma separated", (search.sources || []).join(", "),
-      (v) => save({sources: v.split(",").map((s) => s.trim()).filter(Boolean)}),
+      (v) => save({sources: v.split(",").map((s) => s.trim()).filter(Boolean)},
+                   "what it looks for"),
       `known: ${(held.settings.sources || []).join(", ") || "none registered"}`),
 
     el("h3", {}, "Filters"),
@@ -308,11 +386,11 @@ function settingsPanel() {
     range_("year_built", "Year built", filters.year_built),
     text("listing_type", "Listing status, comma separated",
       (filters.listing_type || []).join(", "),
-      (v) => save({"filters.listing_type": listOrNothing(v)}),
+      (v) => save({"filters.listing_type": listOrNothing(v)}, "what it looks for"),
       "for_sale, pending, contingent, sold, off_market"),
     text("property_type", "Property type, comma separated",
       (filters.property_type || []).join(", "),
-      (v) => save({"filters.property_type": listOrNothing(v)})),
+      (v) => save({"filters.property_type": listOrNothing(v)}, "what it looks for")),
 
     el("h3", {}, "Reading descriptions with a model"),
     el("p", {class: "meta"},
@@ -324,7 +402,8 @@ function settingsPanel() {
           type: "checkbox",
           id: "usemodel",
           checked: search.model_extraction ? true : null,
-          onchange: (event) => save({"extract.model": event.target.checked}),
+          onchange: (event) => save({"extract.model": event.target.checked},
+                                "what it looks for"),
         }),
         " ask a model about this search's descriptions")),
     modelReadiness(),
@@ -356,7 +435,7 @@ function searchNotes() {
       el("button", {
         type: "button",
         class: "quiet",
-        onclick: () => save({"extract.notes": box.value.trim()}),
+        onclick: () => save({"extract.notes": box.value.trim()}, "what it looks for"),
       }, "Save the note")));
 }
 
@@ -401,12 +480,17 @@ function criteriaPanel() {
   /* Working copy. The saved search is not touched until Save. */
   held.rules = (held.search.rules || []).map(asDraft);
 
-  return el("section", {},
+  return el("section", {dataset: {panel: "criteria"}},
     el("h2", {}, "Criteria"),
     el("p", {class: "lede"},
       "Rules about what matters to you. Each one watches for something and then points it out, " +
       "moves it up or down the list, or hides it. Nothing here changes what is searched for: " +
       "criteria decide how what was found is shown to you."),
+    /* What each of the four does, once, above the list. It used to be printed under every
+     * criterion, which on the search this was read against was fifteen copies of the same two
+     * lines and made the rules themselves the smaller half of the page. The words are still the
+     * core's, read from the same declaration the chooser on each card reads. */
+    whatEachDoes(),
     el("div", {id: "criteria"}, criteriaCards()),
     el("div", {class: "actions"},
       el("button", {type: "button", onclick: addRule}, "Add a criterion"),
@@ -455,8 +539,6 @@ function criterionCard(rule, index) {
     rule.severity = does.value;
     redrawCriteria();
   });
-  const said = (labels.find((s) => s.severity === (rule.severity || "flag")) || {}).does || "";
-
   return el("div", {class: "criterion"},
     /* Reads as a sentence: "Call it on-a-well and point it out, when water source is well." A form
      * whose labels are above its boxes would need the same words and would not read as anything. */
@@ -487,8 +569,18 @@ function criterionCard(rule, index) {
             "as it was written."),
           el("code", {class: "expression"}, rule.when)),
 
-    el("p", {class: "meta"}, said),
   );
+}
+
+/* The four things a criterion can do, said once. */
+function whatEachDoes() {
+  const labels = held.settings.severity_labels || [];
+  if (!labels.length) return null;
+  return el("dl", {class: "severities"},
+    labels.flatMap((one) => [
+      el("dt", {}, one.label),
+      el("dd", {}, one.does || ""),
+    ]));
 }
 
 /* One condition: how it joins the one above, the field, the comparison, and the value.
@@ -726,7 +818,7 @@ async function saveRules() {
     rule.parts
       ? {id: rule.id, severity: rule.severity, parts: rule.parts}
       : {id: rule.id, severity: rule.severity, when: rule.when});
-  await save({rules: payload});
+  await save({rules: payload}, "criteria");
 }
 
 function listOrNothing(raw) {
@@ -778,7 +870,8 @@ function range_(name, label, current) {
     if (low.value.trim() !== "") wanted.min = Number(low.value);
     if (high.value.trim() !== "") wanted.max = Number(high.value);
     if (JSON.stringify(wanted) === asLoaded) return;
-    save({[`filters.${name}`]: Object.keys(wanted).length ? wanted : null});
+    save({[`filters.${name}`]: Object.keys(wanted).length ? wanted : null},
+         "what it looks for");
   };
   for (const box of [low, high]) {
     box.addEventListener("keydown", (event) => { if (event.key === "Enter") commit(); });
@@ -789,10 +882,12 @@ function range_(name, label, current) {
     el("span", {class: "pair"}, low, el("span", {class: "to"}, "to"), high));
 }
 
-async function save(changes) {
+async function save(changes, panel) {
   try {
     const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`, {set: changes});
     held.search = answered.search;
+    /* Cleared before the redraw, because the redraw rebuilds the panels and re-reads this. */
+    if (panel) saved(panel);
     say("Saved. The file keeps its comments and everything you did not change.", "good");
     draw();
   } catch (error) {
@@ -858,7 +953,7 @@ function placeNotesPanel() {
     box.value = (found && found.notes) || "";
   }
 
-  return el("section", {},
+  return el("section", {dataset: {panel: "places"}},
     el("h2", {}, "What you know about a place"),
     el("p", {class: "lede"},
       "Research a town once, not once per property. What you write here about a town lands in the " +
@@ -915,6 +1010,7 @@ async function saveNote(kind, place, notes) {
     const answered = await send("/api/areas",
       {area_type: kind, area_value: place, notes: notes});
     held.areaNotes = answered.areas || [];
+    saved("place notes");
     say(`Saved a note about ${place}.`, "good");
     document.getElementById("notes").replaceChildren(notesTable(held.areaNotes));
   } catch (error) {

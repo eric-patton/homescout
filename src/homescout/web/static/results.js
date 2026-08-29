@@ -246,6 +246,12 @@ const state = {
   heights: new Map(),
   widths: {},
   focus: {row: 0, column: 0},
+  /* Which rows a keep or a pass would apply to, as places in `shown` rather than identifiers,
+   * because a range is a thing about the list as it is arranged now. Empty means "just the row the
+   * control was pressed on", which is what this table did before batches existed and is still what
+   * happens when nobody has selected anything. */
+  picked: new Set(),
+  anchor: null,
   /* Every tag this workspace knows, newest answer from the server. Held so the chooser can offer
    * them without a request per cell, and refreshed whenever a save changes what exists. */
   tags: [],
@@ -431,6 +437,11 @@ function relayout() {
   remember();
   redrawViewControl();
   redrawHeader();
+  /* The controls above the table just changed height, possibly by a whole wrapped line: the view's
+   * name and its count are in that row. The table's height is measured from where its own box
+   * falls, so anything that moves that box has to measure again, or the bottom edge, and the
+   * horizontal scrollbar on it, ends up below the window. */
+  fit();
   window_();
 }
 
@@ -639,13 +650,19 @@ function draw() {
     `${state.search} results`,
     aboutSearch(state.search, "results"),
     el("h1", {}, `${state.search}`),
-    el("p", {class: "lede"},
-      "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
-      "containing some text, drag it to move the column, drag its right edge to resize, " +
-      "right-click it to hide it. Cells with a white background are yours to write in: click one " +
-      "and press Enter. What you write survives every later run. Tags open on a single click, " +
-      "because they are chosen rather than typed. Town notes are the exception: they belong to " +
-      "the town and appear on every property in it."),
+    howItWorks("results", "How this table works",
+      el("p", {},
+        "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
+        "containing some text, drag it to move the column, drag its right edge to resize, " +
+        "right-click it to hide it."),
+      el("p", {},
+        "Cells with a white background are yours to write in: click one and press Enter. What you " +
+        "write survives every later run. Tags open on a single click, because they are chosen " +
+        "rather than typed. Town notes are the exception: they belong to the town and appear on " +
+        "every property in it."),
+      el("p", {},
+        "Shift with a press selects a range of rows, and shift with the arrow keys does the same " +
+        "from the keyboard. Keeping or passing then applies to all of them at once.")),
     el("div", {class: "grouped"},
       group("Which rows",
         search,
@@ -684,6 +701,9 @@ function draw() {
      * something is. `role="status"` so a filter set from the keyboard is announced rather than
      * only drawn. */
     el("div", {id: "sifted", class: "sifted", role: "status", hidden: true}),
+    /* What a keep or a pass would apply to, said before it is pressed rather than counted in the
+     * dialog afterwards. */
+    el("div", {id: "picked", class: "sifted picked-bar", role: "status", hidden: true}),
     el("div", {id: "scroller", tabindex: "0", role: "region",
                "aria-label": "Results, scrollable"},
       el("div", {id: "sizer"},
@@ -734,13 +754,22 @@ function fit() {
   const scroller = document.getElementById("scroller");
   if (!scroller) return;
   const top = scroller.getBoundingClientRect().top + window.scrollY;
-  const room = Math.max(240, window.innerHeight - top - 2);
+  let room = Math.max(240, window.innerHeight - top - 2);
   scroller.style.height = `${room}px`;
   /* Whatever sits below it, page padding included, would otherwise leave the whole page scrolling
    * by that much: a wheel over the table scrolls the table, and a wheel anywhere else moves the
-   * table's bottom edge, which is exactly the sort of thing that makes a scrollbar hard to hit. */
-  const over = document.documentElement.scrollHeight - window.innerHeight;
-  if (over > 0) scroller.style.height = `${Math.max(240, room - over)}px`;
+   * table's bottom edge, which is exactly the sort of thing that makes a scrollbar hard to hit.
+   *
+   * Settled rather than corrected once. Shrinking the table changes the page's own height, so one
+   * subtraction can leave a few pixels of overflow behind, and a few pixels is enough for the page
+   * to scroll under a scrollbar somebody is reaching for. It converges in two passes; three is the
+   * stop so that a layout which cannot settle gives up rather than spinning. */
+  for (let pass = 0; pass < 3; pass++) {
+    const over = document.documentElement.scrollHeight - window.innerHeight;
+    if (over <= 0) break;
+    room = Math.max(240, room - over);
+    scroller.style.height = `${room}px`;
+  }
 }
 
 /* Widths live on a `colgroup` rather than on every cell, which is what makes a resize one style
@@ -1462,7 +1491,7 @@ function compare(a, b) {
  */
 function counts() {
   const kept = state.all.filter((row) => row.judgment === "keep").length;
-  const parts = [`${state.shown.length} of ${state.all.length} properties`];
+  const parts = [`${state.shown.length} of ${state.all.length} in the latest run of this search`];
   if (kept) parts.push(`${kept} kept`);
   const where = document.getElementById("counts");
   if (where) where.replaceChildren(document.createTextNode(parts.join(" · ")));
@@ -1604,7 +1633,19 @@ function cellFor(row, column, index, column_) {
      * a control that is not a text box means the control is only found by people who already know
      * it is there. It was not found: "I'm clicking the field on a row but it's not letting me
      * type." */
-    onclick: () => {
+    /* A shift-press is how a browser extends a text selection, so without this the range comes with
+     * a sweep of highlighted text across six rows, which looks like the page has gone wrong.
+     * Refused only while shift is held: selecting and copying what a cell says is still ordinary. */
+    onmousedown: (event) => { if (event.shiftKey) event.preventDefault(); },
+    onclick: (event) => {
+      if (event.shiftKey) {
+        event.preventDefault();
+        pickRange(index);
+        focusCell(index, column_);
+        return;
+      }
+      state.anchor = index;
+      pickNothing();
       focusCell(index, column_);
       if (column.name === TAGS) edit(cell, row, column.name);
     },
@@ -1625,7 +1666,10 @@ function cellFor(row, column, index, column_) {
     cell.classList.add("property");
     if (state.showPhotos) inner.append(thumbnail(row));
     const said = el("span", {class: "what"},
-      propertyLink(row.listing_id, held || "not known", state.search));
+      propertyLink(row.listing_id,
+                   held || propertyName({city: row.values["Town/Area"],
+                                         county: row.values["County/Region"]}, row.listing_id),
+                   state.search));
     for (const flag of row.flags) said.append(badge(flag, "flag"));
     inner.append(said);
   } else if (column.name === TAGS) {
@@ -1764,6 +1808,53 @@ function mark() {
   return cell;
 }
 
+/* Which rows an action applies to: the ones picked, or the one it was pressed on.
+ *
+ * Passing is the daily work of this table, and in the workspace this was written against 737 of 951
+ * rows had been passed one at a time, each through a dialog. */
+function actingOn(row) {
+  if (!state.picked.size) return [row];
+  const rows = [...state.picked].sort((a, b) => a - b).map((at) => state.shown[at]).filter(Boolean);
+  /* A row somebody pressed the control on that is not in the selection is what they meant, not the
+   * selection they forgot they had. */
+  return rows.includes(row) ? rows : [row];
+}
+
+function pickRange(to) {
+  const from = state.anchor === null ? to : state.anchor;
+  state.picked = new Set();
+  for (let at = Math.min(from, to); at <= Math.max(from, to); at++) state.picked.add(at);
+  markPicked();
+}
+
+function pickNothing() {
+  if (!state.picked.size) return;
+  state.picked = new Set();
+  state.anchor = null;
+  markPicked();
+}
+
+/* The selection is two attributes on the rows that are drawn, like the roving focus beside it: a
+ * redraw of every row to show a highlight is what made double-clicking a cell impossible for
+ * months. */
+function markPicked() {
+  const body = document.getElementById("body");
+  if (!body) return;
+  for (const tr of body.children) {
+    tr.classList.toggle("picked", state.picked.has(Number(tr.dataset.index)));
+  }
+  const bar = document.getElementById("picked");
+  if (!bar) return;
+  bar.replaceChildren(
+    state.picked.size
+      ? el("span", {},
+          count(state.picked.size, "row"), " selected. Keeping or passing applies to all of them. ",
+          el("button", {type: "button", class: "quiet", onclick: pickNothing}, "clear the selection"))
+      : "");
+  bar.hidden = !state.picked.size;
+  fit();
+}
+
 function focusCell(row, column) {
   state.focus = {
     row: Math.max(0, Math.min(row, state.shown.length - 1)),
@@ -1802,7 +1893,18 @@ function key(event) {
   };
   if (moves[event.key]) {
     event.preventDefault();
-    focusCell(moves[event.key][0], moves[event.key][1]);
+    const [wantedRow, wantedColumn] = moves[event.key];
+    if (event.shiftKey && wantedRow !== row) {
+      /* Shift with the arrows extends the selection, which is what shift with the arrows does
+       * everywhere else. Without it the batch would be a thing only a pointer could ask for. */
+      if (state.anchor === null) state.anchor = row;
+      focusCell(wantedRow, wantedColumn);
+      pickRange(state.focus.row);
+      return;
+    }
+    state.anchor = wantedRow;
+    pickNothing();
+    focusCell(wantedRow, wantedColumn);
     return;
   }
   if (event.key === "Delete" || event.key === "Backspace") {
@@ -2220,11 +2322,15 @@ function keepToggle(row) {
       event.preventDefault();
       event.stopPropagation();
       const undoing = already;
-      await setJudgment(row, undoing ? null : "keep", button);
+      const rows = actingOn(row);
+      await setJudgment(rows, undoing ? null : "keep", button);
       /* The keep is already recorded. The reason is offered, never demanded: the box opens with
        * the cursor in it and Escape leaves the house kept and unexplained. Not offered at all when
        * taking one off the list, because that is an undo and nobody owes a reason for one. */
-      if (!undoing) askWhy(button, row, "Why keep it?");
+      if (!undoing) {
+        askWhy(button, rows,
+               rows.length > 1 ? `Why keep these ${rows.length}?` : "Why keep it?");
+      }
     },
   }, already ? "★" : "☆");
   return button;
@@ -2238,30 +2344,46 @@ function keepToggle(row) {
  * meant "what I concluded about this house", so it exports, it prints from the terminal beside the
  * kept and passed lists, and anything reading the sheet later reads it without being told to.
  */
-function askWhy(button, row, title) {
+function askWhy(button, rows, title) {
+  const held = Array.isArray(rows) ? rows : [rows];
   const cell = button.closest("td");
   if (!cell) return;
   writingBox(cell, {
     title,
-    about: row.values["Property"] || row.listing_id,
-    hint: "Kept as this property's verdict. It travels into the spreadsheet with everything else.",
-    value: row.values["Verdict"],
-    save: (typed) => saveReason(row, typed),
+    about: held.length > 1
+      ? count(held.length, "property", "properties")
+      : (held[0].values["Property"] || held[0].listing_id),
+    hint: held.length > 1
+      ? "Kept as the verdict on each of them. A reason written at the moment these were decided is "
+        + "as true of each one as a reason typed on a single row."
+      : "Kept as this property's verdict. It travels into the spreadsheet with everything else.",
+    /* A batch starts empty rather than from whichever row happened to be first: prefilling one
+     * property's verdict and then writing it to forty is the kind of helpfulness nobody asked for. */
+    value: held.length > 1 ? "" : held[0].values["Verdict"],
+    save: (typed) => saveReason(held, typed),
   });
 }
 
-async function saveReason(row, typed) {
+async function saveReason(rows, typed) {
+  const held = Array.isArray(rows) ? rows : [rows];
   const wanted = typed.trim() === "" ? null : typed;
-  if (wanted === (row.values["Verdict"] ?? null)) {
+  if (held.length === 1 && wanted === (held[0].values["Verdict"] ?? null)) {
     window_();
     return;
   }
   try {
-    const answered = await send(
-      `/api/listings/${encodeURIComponent(row.listing_id)}/annotation`,
-      {verdict: wanted});
-    row.values["Verdict"] = answered.verdict ?? null;
+    const answered = await send("/api/judgments", {
+      listing_ids: held.map((row) => row.listing_id),
+      /* The judgment is already recorded; this is only the reason, so it is sent unchanged. */
+      judgment: held[0].judgment ?? null,
+      verdict: wanted,
+    });
+    const written = new Set(answered.written || []);
+    for (const row of held) if (written.has(row.listing_id)) row.values["Verdict"] = wanted;
     apply();
+    if ((answered.refused || []).length) {
+      fail(`That reason was written to ${answered.changed} of ${answered.asked}.`);
+    }
   } catch (error) {
     apply();
     fail(`That reason was not saved: ${error.message}`);
@@ -2286,14 +2408,17 @@ function passToggle(row) {
        * and doing it by a mis-aimed click on a 26-pixel row is exactly the accident worth one
        * question. Bringing one back is not: it puts a row in front of you, which is its own undo,
        * and asking about it would be a dialog with nothing to protect. */
+      const rows = actingOn(row);
       if (already) {
-        setJudgment(row, null, button);
+        setJudgment(rows, null, button);
         return;
       }
-      const asked = await confirmPass(what, row.values["Verdict"]);
+      const asked = await confirmPass(
+        rows.length > 1 ? count(rows.length, "property", "properties") : what,
+        rows.length > 1 ? "" : row.values["Verdict"],
+        rows.length);
       if (!asked.yes) return;
-      await setJudgment(row, "pass", button);
-      if (asked.reason !== (row.values["Verdict"] ?? null)) saveReason(row, asked.reason ?? "");
+      await setJudgment(rows, "pass", button, asked.reason ?? "");
     },
   }, already ? "undo" : "✕");
   return button;
@@ -2306,7 +2431,7 @@ function passToggle(row) {
  * every timer and every pending request behind it, including the save of the annotation somebody
  * was in the middle of typing.
  */
-function confirmPass(what, standing) {
+function confirmPass(what, standing, many) {
   return new Promise((resolve) => {
     let answered = false;
     const done = (yes) => {
@@ -2344,13 +2469,16 @@ function confirmPass(what, standing) {
       oncancel: () => done(false),
       onclick: (event) => { if (event.target === dialog) done(false); },
     },
-      el("h2", {id: "askwhat"}, "Pass on this property?"),
+      el("h2", {id: "askwhat"},
+        many > 1 ? `Pass on these ${many} properties?` : "Pass on this property?"),
       el("p", {}, what),
       why,
       el("p", {class: "hint"},
-        "It leaves this table and stays out of every later one. Nothing is deleted: every run " +
-        "still watches it, and \"show properties you passed on\" brings it back. What you write " +
-        "is kept as its verdict."),
+        (many > 1 ? "They leave" : "It leaves") + " this table and " +
+        (many > 1 ? "stay" : "stays") + " out of every later one. Nothing is deleted: every run " +
+        "still watches " + (many > 1 ? "them" : "it") + ", and the \"Passed on\" answer brings " +
+        (many > 1 ? "them" : "it") + " back. What you write is kept as " +
+        (many > 1 ? "each one's verdict" : "its verdict") + "."),
       el("div", {class: "actions"}, no, yes),
     );
 
@@ -2360,21 +2488,52 @@ function confirmPass(what, standing) {
   });
 }
 
-async function setJudgment(row, wanted, button) {
-  const was = row.judgment;
+/* One judgment over one row or forty, written by the core in one call.
+ *
+ * A loop here would be a thing this surface can do and the terminal cannot, which product invariant
+ * 5 rules out, and forty separate writes is forty chances to stop half way with nothing recording
+ * which half. The answer names what it wrote and what it refused, so a batch that did not entirely
+ * succeed is shown as what it was: AC-6's rule about never presenting an unsaved edit as saved,
+ * over a batch.
+ */
+async function setJudgment(rows, wanted, button, reason) {
+  const held = Array.isArray(rows) ? rows : [rows];
+  const was = new Map(held.map((row) => [row.listing_id, row.judgment]));
   button.disabled = true;
+  let answered;
   try {
-    const answered = await send(
-      `/api/listings/${encodeURIComponent(row.listing_id)}/annotation`,
-      {judgment: wanted});
-    /* What the store now holds, not what was asked for. */
-    row.judgment = answered.judgment ?? null;
-    row.hidden_by_default = row.judgment === "pass";
-    apply();
+    answered = await send("/api/judgments", {
+      listing_ids: held.map((row) => row.listing_id),
+      judgment: wanted,
+      verdict: reason === undefined ? undefined : (reason.trim() === "" ? null : reason),
+    });
   } catch (error) {
-    row.judgment = was;
     button.disabled = false;
     button.className = "pass unsaved";
     button.title = `Not saved: ${error.message}. Press to try again.`;
+    return;
+  }
+
+  const written = new Set(answered.written || []);
+  for (const row of held) {
+    if (written.has(row.listing_id)) {
+      row.judgment = wanted;
+      row.hidden_by_default = wanted === "pass";
+      if (reason !== undefined) row.values["Verdict"] = reason.trim() === "" ? null : reason;
+    } else {
+      row.judgment = was.get(row.listing_id);
+    }
+  }
+  pickNothing();
+  apply();
+
+  const refused = (answered.refused || []).length;
+  if (refused) {
+    /* Never a bare count of what worked. Somebody who has just ruled out forty houses must not be
+     * left believing forty when it was thirty. */
+    fail(`${answered.changed} of ${answered.asked} were set. ${refused} could not be written and ` +
+         "are unchanged: " + (answered.refused || []).map((one) => one.why).join("; "));
+  } else if (held.length > 1) {
+    say(`${answered.changed} properties set to ${wanted || "undecided"}.`, "good");
   }
 }

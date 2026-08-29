@@ -44,6 +44,6 @@ Not one save button on the builder. Four panels that save four parts of a file i
 that give no sign which of them is dirty is what is wrong.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

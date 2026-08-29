@@ -33,11 +33,10 @@ async function load(id) {
 
 function draw(held, settings) {
   const fields = held.fields || {};
-  const address = [fields.address_line, fields.unit, fields.city, fields.state, fields.postal_code]
-    .filter(Boolean).join(", ");
+  const address = propertyName(fields, held.listing_id);
 
   const from = fromSearch();
-  shell(address || held.listing_id,
+  shell(address,
     /* The way back to the table this was read from, which is a fact about this visit rather than
      * about the property: a house can be in several saved searches, so "back to the search" has no
      * single answer. Opened without one, this page simply offers no trail rather than guessing. */
@@ -47,7 +46,10 @@ function draw(held, settings) {
           link(`/results/${encodeURIComponent(from)}`, from), " / ",
           el("span", {}, "This property"))
       : el("p", {class: "crumbs"}, link("/", "Searches"), " / ", el("span", {}, "This property")),
-    el("h1", {}, address || "This property has no address"),
+    el("h1", {}, address),
+    /* Kept, and not the thing anybody is asked to read: it is exact, it is how this property is
+     * asked for again, and it is what to quote when something about it is wrong. */
+    el("p", {class: "meta recordid"}, "record ", held.listing_id),
     el("p", {class: "lede"},
       held.presence === "disappeared"
         ? "This property stopped appearing in results without being seen sold."
@@ -175,9 +177,7 @@ function seeThemAll(held, photos) {
 }
 
 function address(held) {
-  const fields = held.fields || {};
-  return [fields.address_line, fields.city, fields.state].filter(Boolean).join(", ")
-    || held.listing_id;
+  return propertyName(held.fields || {}, held.listing_id);
 }
 
 function facts(held, fields) {

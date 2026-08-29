@@ -115,12 +115,16 @@ def test_the_served_assets_are_the_files_as_committed(store: Store, db_path: Pat
 
 
 def test_every_surface_is_a_file_that_exists() -> None:
-    """feat-010/AC-1: nine surfaces, and each of them one page."""
+    """feat-010/AC-1: ten surfaces, and each of them one page."""
     from homescout.web.wire import PAGES
 
-    assert len(PAGES) == 9, (
-        "seven surfaces from the spec, plus settings, plus the one holding what is set aside"
+    assert len(PAGES) == 10, (
+        "seven surfaces from the spec, plus settings, the one holding what is set aside, and the "
+        "tools, which are what you come back to run rather than what you configure once"
     )
+    # Settings and tools are one script drawing one of two pages, and settings keeps its address so
+    # nothing anybody bookmarked stops answering.
+    assert PAGES["/settings"] == PAGES["/tools"] == "settings.html"
     for page in PAGES.values():
         assert (STATIC / page).is_file(), page
         assert (STATIC / page.replace(".html", ".js")).is_file(), page
