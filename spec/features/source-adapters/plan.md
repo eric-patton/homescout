@@ -232,6 +232,14 @@ one is a room count, so two full and one half is a three there and a two-and-a-h
 Redfin, and in the listing's own words. Adding the four kinds up is what keeps one property's bath
 count the same number whichever source found it.
 
+One asymmetry follows from that and is worth knowing before somebody meets it: `baths_min` and
+`baths_max` are pushed to the source, and the source applies them to its own room count. A minimum
+is safe, because the room count is never below the decimal, so the source can only be more generous
+than the local filter that runs afterwards. A maximum is not: a house with one full bath and two
+half ones is a three to the source and a two to everyone else, so the source drops it before the
+local filter ever sees it. No saved search uses `baths_max` today. The day one does, the fix is to
+stop pushing that bound rather than to change the count.
+
 A field the response omits stays empty, per invariant 10. A field the response carries in a shape the
 mapping does not expect fails the whole query with a parse error naming the field (AC-12 and the
 spec's third edge case), because half-read rows written as fact are worse than no rows.
