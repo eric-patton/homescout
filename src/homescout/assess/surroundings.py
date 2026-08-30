@@ -21,10 +21,13 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-#: How much ground the hazard picture covers, in degrees either side of the property. Roughly two
-#: and a half miles across at this latitude, which is the scale the question is asked at: not the
-#: parcel, which the photograph shows, and not the county, which the rating already summarises.
-AROUND_DEGREES = 0.018
+#: How much ground the hazard picture covers, in metres either side of the property. Two and a half
+#: miles across, which is the scale the question is asked at: not the parcel, which the photograph
+#: shows, and not the county, which the rating already summarises.
+AROUND_METRES = 2_000.0
+
+#: The radius the Web Mercator projection is defined on.
+MERCATOR_R = 6_378_137.0
 
 #: Big enough to see the shape of a hazard boundary, small enough that it costs a fraction of what
 #: the photograph does.
@@ -34,6 +37,21 @@ TILE = "512,512"
 #: what the map already opens on, so a person comparing the two sees the same thing.
 SEASON = "april"
 
+#: What the hazard picture is, told to whoever is reading it.
+#:
+#: The legend is not optional and getting it wrong is worse than omitting it. The first version of
+#: this said "darker means higher hazard", which is how a single-hue ramp works and not how this
+#: layer works: it is a green-to-red scale, so "darker" points at the low end as often as the high
+#: one. A model handed a correct picture and a wrong key reads it confidently backwards.
+HAZARD_CAPTION = (
+    "A map of the wildfire hazard potential for about two and a half miles around this property, "
+    "with the property at the centre of the square. The colours are a scale rather than a "
+    "brightness: green is low hazard, yellow is moderate, orange is high, red is very high, and "
+    "grey is ground that does not burn, such as water, rock or pavement. What matters is not only "
+    "the colour at the centre, which is already recorded as a field, but what surrounds it and "
+    "whether the centre sits at the edge of a worse area."
+)
+
 #: Beyond this the station describes somewhere else. The rose is still worth sending, because a
 #: regional prevailing wind is still a fact about the region, but the caveat gets louder.
 FAR_MILES = 50.0
@@ -41,16 +59,29 @@ FAR_MILES = 50.0
 EARTH_MILES = 3958.8
 
 
-def bbox_around(latitude: float, longitude: float, degrees: float = AROUND_DEGREES) -> str:
-    """The rectangle to draw the hazard in, as `hazard_tile` wants it."""
+def to_mercator(latitude: float, longitude: float) -> tuple[float, float]:
+    """Degrees to Web Mercator metres.
+
+    Here because the service draws in `3857` and is asked for `3857`, which is what the browser's
+    map already sends: Leaflet projects before it builds the address, so the conversion was hidden
+    inside a library on that path and had to be written out on this one.
+
+    Getting this wrong is silent rather than loud, which is the reason for the note. Degrees passed
+    off as metres land within a couple of kilometres of the origin, in the Atlantic off West Africa,
+    and the service answers cheerfully with a picture of nothing. The first version of this feature
+    sent four such pictures and paid for them, and the model reported, correctly, that it had been
+    shown a uniformly black square.
+    """
+    x = MERCATOR_R * math.radians(longitude)
+    y = MERCATOR_R * math.log(math.tan(math.pi / 4 + math.radians(latitude) / 2))
+    return x, y
+
+
+def bbox_around(latitude: float, longitude: float, metres: float = AROUND_METRES) -> str:
+    """The rectangle to draw the hazard in, as `hazard_tile` wants it: left, bottom, right, top."""
+    x, y = to_mercator(latitude, longitude)
     return ",".join(
-        str(round(v, 6))
-        for v in (
-            longitude - degrees,
-            latitude - degrees,
-            longitude + degrees,
-            latitude + degrees,
-        )
+        str(round(v, 2)) for v in (x - metres, y - metres, x + metres, y + metres)
     )
 
 
