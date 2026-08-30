@@ -29,8 +29,8 @@
       "package": "leaflet",
       "version": "1.9.4",
       "source": "https://raw.githubusercontent.com/Leaflet/Leaflet/v1.9.4/LICENSE",
-      "bytes": 1395,
-      "sha256": "53e8dc25862014e4324741ca18fbe3611e11d42ef69f59f86ea8c5389647d4cb"
+      "bytes": 1369,
+      "sha256": "bbc959aaef7488b38942e7f05cfd1244351f8bce54261951ea17dd7cf60f894b"
     },
     {
       "file": "images/layers-2x.png",
@@ -101,8 +101,8 @@
       "package": "leaflet",
       "version": "1.9.4",
       "source": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
-      "bytes": 14806,
-      "sha256": "a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6"
+      "bytes": 14145,
+      "sha256": "337bfca5cabd03b39815b2700febe2b3b7edf55921c59cd49f88ecb328212303"
     },
     {
       "file": "leaflet.draw.css",

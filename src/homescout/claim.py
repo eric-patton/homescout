@@ -14,6 +14,13 @@ paced run over a county is legitimately slow.
 
 The first byte of the file is the lock. The holder's identity is written after it, in the part
 nobody locks, so a process that could not take the lock can still say who has it.
+
+The operating-system lock is what protects one homescout process from another, and it is not
+enough on its own. A POSIX record lock belongs to the *process*, not to the descriptor that took
+it, so a second claim raised inside one process takes the lock again and both runs proceed;
+Windows refuses that same second claim. The web interface and a run share a process, so this is
+reachable rather than theoretical. `_held` below closes it, and makes every platform decline the
+same way.
 """
 
 from __future__ import annotations
@@ -22,6 +29,7 @@ import json
 import os
 import re
 import sys
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -55,6 +63,12 @@ else:  # pragma: no cover - not the primary platform
 
     def _release(fd: int) -> None:
         fcntl.lockf(fd, fcntl.LOCK_UN, _LOCK_BYTE, 0, os.SEEK_SET)
+
+
+#: Claim paths held by this process. See the note in the module docstring: the operating-system
+#: lock alone does not stop one process claiming the same search twice on POSIX.
+_held: set[Path] = set()
+_held_guard = threading.Lock()
 
 
 class RunInProgress(PreconditionNotMet):
@@ -123,17 +137,28 @@ def claim_run(directory: Path, search_name: str, **facts: object) -> Iterator[Cl
     """
     path = claim_path(directory, search_name)
     path.parent.mkdir(parents=True, exist_ok=True)
+    resolved = path.resolve()
     fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
     try:
-        try:
-            _take(fd)
-        except OSError:
+        with _held_guard:
+            already_ours = resolved in _held
+            if not already_ours:
+                _held.add(resolved)
+        if already_ours:
             raise RunInProgress(search_name, _read_note(fd)) from None
-        claim = Claim(path=path, search_name=search_name, _fd=fd)
-        claim.announce(**facts)
         try:
-            yield claim
+            try:
+                _take(fd)
+            except OSError:
+                raise RunInProgress(search_name, _read_note(fd)) from None
+            claim = Claim(path=path, search_name=search_name, _fd=fd)
+            claim.announce(**facts)
+            try:
+                yield claim
+            finally:
+                _release(fd)
         finally:
-            _release(fd)
+            with _held_guard:
+                _held.discard(resolved)
     finally:
         os.close(fd)

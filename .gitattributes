@@ -1,0 +1,5 @@
+# Vendored third-party assets are fingerprinted by exact byte count and SHA-256 in
+# src/homescout/web/vendor/manifest.json, and that manifest records the files *as committed*.
+# Line-ending translation would make those bytes differ per platform, so the check would only
+# pass on the machine that recorded it. Never translate anything under vendor/.
+src/homescout/web/vendor/** -text
