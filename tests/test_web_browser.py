@@ -3257,3 +3257,55 @@ def test_deviating_from_a_view_survives_a_reload_with_the_rest_of_it(served) -> 
         )
     finally:
         process.terminate()
+
+
+def test_the_marker_appears_and_leaves_in_a_real_browser(served) -> None:
+    """feat-010/AC-84: the one claim about this that only a real browser can check.
+
+    A page renders the marker or it does not, and everything else about this feature can be true
+    while that is false. So the pass is written straight into the store rather than started here,
+    which also makes this the case that used to be impossible: a pass this browser did not start,
+    in another process, exactly like the scheduled nightly job.
+
+    The results table is the page on purpose. It is the one that measures its own height, so a
+    marker appearing above it is the shape of the fault AC-53 exists to prevent.
+    """
+    base, _held, store = served
+
+    running = store.begin_pass("extract")
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+
+        showing = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 150; i++) {
+                   const marker = document.querySelector("#running .marker");
+                   if (marker) return marker.textContent;
+                   await new Promise((r) => setTimeout(r, 100));
+                 }
+                 return null;
+               })()""",
+        )
+        assert showing, "no marker appeared for a pass that was running"
+        # Named in the product's words rather than in the store's.
+        assert "Asking the model" in showing, showing
+
+        # And it goes away on its own, without the page being reloaded.
+        store.finish_pass(running.id, outcome={"summary": "5 asked"})
+        left = evaluate(
+            connection,
+            """(async () => {
+                 for (let i = 0; i < 150; i++) {
+                   if (!document.querySelector("#running .marker")) return true;
+                   await new Promise((r) => setTimeout(r, 100));
+                 }
+                 return false;
+               })()""",
+            message_id=2,
+        )
+        assert left is True, "the marker stayed after the pass ended"
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
