@@ -27,6 +27,7 @@ from .schema import (
     SCHEMA_V10,
     SCHEMA_V11,
     SCHEMA_V12,
+    SCHEMA_V13,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -60,6 +61,11 @@ MIGRATIONS: tuple[str, ...] = (
     # Append-only and it takes the triggers: a new assessment is a new row, and the ones before it
     # stay readable, which is how somebody sees that the model changed its mind.
     SCHEMA_V12 + "\n" + append_only_triggers(ASSESSMENT_TABLES),
+    # One nullable column on `assessments`, for what counts in a property's favour. Adding a column
+    # is not an update, so the append-only triggers above neither block this nor need rebuilding,
+    # and every assessment written before it keeps a null: nobody asked, which is not the same
+    # answer as asked and found none.
+    SCHEMA_V13,
 )
 
 

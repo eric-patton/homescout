@@ -284,6 +284,20 @@ def _concerns(row: Row) -> Any:
     return None if found is None else found.get("concerns")
 
 
+def _in_favour(row: Row) -> Any:
+    """How many things count for this property.
+
+    Three states, exactly as `_concerns` has: nothing assessed it, it was read and nothing was said
+    for it, or this many. There is a fourth state underneath that this deliberately flattens: an
+    assessment written before the question existed at all. It reads as empty here, the same as a
+    property nobody has assessed, because from a person's side those are the same fact — nobody has
+    told them what is good about this house. The store keeps them apart so a pass knows which ones
+    it still owes an answer for.
+    """
+    found = getattr(row, "assessment", None)
+    return None if found is None else found.get("in_favour")
+
+
 COLUMNS: tuple[Column, ...] = (
     Column("Rank", "number", "annotation", _annotated("rank")),
     Column("Status", "text", "derived", _status),
@@ -305,6 +319,7 @@ COLUMNS: tuple[Column, ...] = (
     # sort, filter, hide and choose it with no special case, and staying out of the default sheet is
     # what leaves the spreadsheet's header exactly as feat-011/AC-1 requires. Anybody who wants
     # it in a sheet puts it in a template, which is what a template is for.
+    Column("In favour", "number", "assessed", _in_favour),
     Column("Concerns", "number", "assessed", _concerns),
     Column("Town/Area", "text", "listing", _listing("city")),
     Column("County/Region", "text", "derived", _county),

@@ -124,6 +124,9 @@ const ORIGINS = {
  * of them is the whole of it, because `showModal` allows exactly one. */
 const ASSESSMENTS = new Map();
 
+//: Named once, because a cell decides which of the two assessment controls it draws by it.
+const IN_FAVOUR = "In favour";
+
 const ORIGIN_GROUPS = [
   ["listing", "Reported by the listing"],
   ["derived", "Worked out by this tool"],
@@ -151,16 +154,20 @@ const ORIGIN_GROUPS = [
  * `null` means every column, which is what this table did before there were views.
  */
 const VIEWS = [
-  /* `Concerns` is in the opening view, second, and that placement is the point of it. A column
-   * saying what a model made of a property is only worth having where somebody is deciding, and a
-   * count they have to go and un-hide is a count they will not see. It sits beside the address
-   * because the two are read together: which house, and is there anything to know about it. */
+  /* Both halves of what the model made of a property are in the opening view, next to the address,
+   * and that placement is the point of them. They are only worth having where somebody is deciding,
+   * a count they have to go and un-hide is a count they will not see, and the two are read as one
+   * sentence with the address: which house, what is good about it, what to look into.
+   *
+   * `In favour` sits before `Concerns` for the same reason a person asks the questions in that
+   * order. A column of worries read first sets the tone for the row behind it. */
   ["deciding", "Deciding", [
-    "Property", "Concerns", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres", "Year Built",
-    "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
+    "Property", "In favour", "Concerns", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres",
+    "Year Built", "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
   ]],
   ["hazards", "Hazards", [
-    "Property", "Concerns", "Town/Area", "Price", "Wildfire Hazard", "Wildland-Urban Interface",
+    "Property", "In favour", "Concerns", "Town/Area", "Price", "Wildfire Hazard",
+    "Wildland-Urban Interface",
     "FEMA Flood Zone", "Principal Aquifer", "Elevation (ft)", "Water Source", "Sewer/Septic",
     "Fire/Egress/Terrain", "Sewage & Reclaimed-Water Exposure", "Crime/Safety",
   ]],
@@ -1632,48 +1639,99 @@ function settle(scroller, rungs, again) {
 function concernsControl(row) {
   const held = row.assessment;
   if (!held || typeof held.concerns !== "number") return [];
-
-  const badge = held.concerns > 0
-    ? el("span", {class: "tally", "aria-hidden": "true"},
-         held.concerns > 99 ? "99+" : String(held.concerns))
-    : null;
-
-  /* Said in words as well as drawn, because this feature's accessibility requirement is that
-   * nothing is conveyed by colour alone and the badge is hidden from a screen reader anyway. Every
-   * mark the drawing makes has a clause here. */
   const said = held.concerns > 0
     ? `${held.concerns} ${held.concerns === 1 ? "concern" : "concerns"}`
       + (held.worst === "serious" ? ", one of them serious" : "")
     : "nothing raised";
+  return [assessmentButton(row, {
+    icon: glassIcon,
+    count: held.concerns,
+    serious: held.worst === "serious",
+    said: `Read the assessment: ${said}`,
+    title: `Read what the model made of this property, assessed ${when(held.made_at)}`,
+  })];
+}
+
+/* What counts for the property, on the same terms and beside the same reading.
+ *
+ * The other half of the same question and so the same control, differing only in its icon, because
+ * the two counts are read together: "two things for it, three against" is the sentence a person is
+ * assembling as their eye crosses the row. It opens the same dialog, because there is one
+ * assessment and these are two sections of it rather than two documents.
+ *
+ * A property read before this question existed has nothing here, and that reads as an empty cell,
+ * the same as one nothing has assessed. From the reader's side those are the same fact: nobody has
+ * told them what is good about this house. The store keeps them apart because a pass needs to know
+ * which ones it still owes an answer for; a column does not.
+ */
+function inFavourControl(row) {
+  const held = row.assessment;
+  if (!held || typeof held.in_favour !== "number") return [];
+  const said = held.in_favour > 0
+    ? `${held.in_favour} ${held.in_favour === 1 ? "point" : "points"} in its favour`
+    : "nothing said for it";
+  return [assessmentButton(row, {
+    icon: tickIcon,
+    count: held.in_favour,
+    serious: false,
+    said: `Read the assessment: ${said}`,
+    title: `Read what the model made of this property, assessed ${when(held.made_at)}`,
+    kind: "for",
+  })];
+}
+
+/* One control, built twice.
+ *
+ * Three states and they are three different facts. Nothing at all: nobody has been asked, and an
+ * absence is not a count. The icon alone: asked, and there was nothing to say, which is a real
+ * answer and not a blank. The icon with a badge: this many.
+ *
+ * Every mark is a shape or a texture as well as a colour, because this feature's accessibility
+ * requirement is that nothing is conveyed by colour alone, and every one is said in words too,
+ * because the badge is hidden from a screen reader.
+ */
+function assessmentButton(row, {icon, count, serious, said, title, kind}) {
+  const badge = count > 0
+    ? el("span", {class: "tally", "aria-hidden": "true"}, count > 99 ? "99+" : String(count))
+    : null;
+  const held = row.assessment;
   const marks = ["glass"];
-  if (held.worst === "serious") marks.push("bad");
+  if (kind) marks.push(kind);
+  if (serious) marks.push("bad");
   if (held.stale) marks.push("stale");
 
-  return [el("button", {
+  return el("button", {
     type: "button",
     class: marks.join(" "),
-    /* The name a screen reader says, because the glass is a picture and the badge is hidden from
-     * it. The visible number and the spoken sentence say the same thing. */
-    "aria-label": held.stale
-      ? `Read the assessment: ${said}, and no longer current`
-      : `Read the assessment: ${said}`,
+    "aria-label": held.stale ? `${said}, and no longer current` : said,
     title: held.stale
       ? "What this was assessed from has changed since. Press to read it anyway."
-      : `Read what the model made of this property, assessed ${when(held.made_at)}`,
+      : title,
     onclick: (event) => {
       event.stopPropagation();
       openAssessment(row, event.currentTarget);
     },
-  },
-    glassIcon(),
-    badge,
-  )];
+  }, icon(), badge);
 }
-
 /* Drawn rather than pulled in. This interface ships no icon font and no sprite sheet, and one
  * fourteen-pixel glass is not the reason to start: it would be a second thing to load before a
  * table can be read, on the page whose load is already the most expensive here.
  */
+/* A tick, drawn the same way and for the same reason. Distinct from the glass at fourteen pixels,
+ * and not a star: a star already means "keep" in the first column of this table and would be read
+ * as the person's own judgment rather than a model's opinion.
+ */
+function tickIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const stroke = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  stroke.setAttribute("points", "2.6,8.6 6.3,12.2 13.4,4.2");
+  svg.append(stroke);
+  return svg;
+}
+
 function glassIcon() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
@@ -1787,6 +1845,29 @@ function assessmentBody(held) {
     parts.push(el("p", {class: "meta"}, "It raised nothing about this property."));
   }
 
+  /* Under the concerns and headed, because the two are different claims about the same house and a
+   * reader running down the panel has to know which one they are in. Null and empty are different:
+   * a reading made before this question existed says so rather than showing a silence that reads
+   * as "nothing good about it". */
+  if (held.in_favour === null || held.in_favour === undefined) {
+    parts.push(el("p", {class: "meta"},
+      "In favour: not asked. This reading was made before that question existed."));
+  } else {
+    parts.push(el("h4", {class: "half"}, "In favour"));
+    for (const one of held.in_favour) {
+      parts.push(el("div", {class: "concern for"},
+        el("p", {class: "about"}, one.about || ""),
+        one.detail ? el("p", {}, one.detail) : null,
+        one.evidence
+          ? el("p", {class: "evidence"},
+              el("span", {class: "kind"}, one.evidence_kind || "evidence"), one.evidence)
+          : null));
+    }
+    if (!held.in_favour.length) {
+      parts.push(el("p", {class: "meta"}, "Nothing stood out in its favour."));
+    }
+  }
+
   for (const shown of held.seen || []) {
     parts.push(el("p", {class: "saw"}, el("span", {class: "kind"}, shown.name), shown.said));
   }
@@ -1870,7 +1951,7 @@ function cellFor(row, column, index, column_) {
    * this table's whole performance argument is about how many elements exist. */
   const inner = state.wrap ? el("span", {class: "cell"}) : cell;
   if (column.origin === "assessed") {
-    inner.append(...concernsControl(row));
+    inner.append(...(column.name === IN_FAVOUR ? inFavourControl(row) : concernsControl(row)));
     cell.classList.add("assessed");
     return cell;
   }

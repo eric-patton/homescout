@@ -149,3 +149,34 @@ sent, the storage before the pass writes to it, and the surfaces last.
       inside them. Deliberately deferred, and deliberately not specified until this has run over a
       real set, because what is worth showing is a question somebody answers after reading twenty of
       these rather than before reading any.
+
+## changes/both-sides
+
+- [x] T29: `store/schema.py`, `store/migrations.py`, `store/models.py`, `store/core.py`: one nullable
+      column on `assessments`, at schema 13 (`feat-013/AC-18`). Null, an empty list and a list are
+      three answers, not two: nobody asked, asked and nothing said, this many. Adding a column is not
+      an update, so the append-only triggers neither block it nor need rebuilding.
+
+- [x] T30: `assess/model.py`: the request asks for both halves and the reply is read for both
+      (`feat-013/AC-18`). A point carries its evidence exactly as a concern does and is dropped
+      without one. No severity: nothing follows from one good thing being better than another. An
+      answer with no `in_favour` key at all is read as "nobody asked", never as "nothing found".
+
+- [x] T31: `assess/model.py`: a second, narrower request for a reading that predates the question
+      (`feat-013/AC-19`). It asks for that section only, carries the earlier account as context, and
+      is not given the shape of the wide answer, so it cannot produce one. The pictures go with it,
+      because a topped-up property's points must not be quietly weaker than a fresh one's.
+
+- [x] T32: `assess/pass_.py`: three answers decided per property (`feat-013/AC-19`, `feat-013/AC-9`).
+      Complete and current, ask nothing. Current but missing a section, ask the narrow question and
+      add what comes back beside what is there, carrying the date and every other part across
+      untouched. Anything else, ask the whole question. The narrow ones go first under a limit.
+
+- [x] T33: `export/columns.py`, `cli/render.py`, `api.py`: both surfaces read it (invariant 5,
+      `feat-013/AC-18`). A declared column out of the default sheet, the terminal rendering the
+      points with their evidence, and both saying "not asked" rather than showing a silence a reader
+      would take for "nothing good about it".
+
+- [x] T34: `tests/test_assessment.py`: the three answers, the dropped point, the narrow question's
+      shape, and that a top-up replaces nothing and never touches a stale reading (`feat-013/AC-18`,
+      `feat-013/AC-19`).

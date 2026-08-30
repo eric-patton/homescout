@@ -870,22 +870,44 @@ in five years. The problem brief is in `research.md`.
       the browser's own process. The store records and does not refuse; the refusal is computed from
       what the store says. A command somebody typed is not refused: they asked for it explicitly,
       and this guards a button rather than a person at a keyboard.
-- [ ] AC-86: The results table carries a column for what the assessment made of each property,
-      drawn as a control rather than as a measurement: a magnifying glass carrying the number of
-      concerns as a badge, the way a count riding on an icon is read everywhere else as "there are
-      this many things here, press to see them". It is marked when any concern is serious, and
-      marked differently when the assessment no longer describes the property because what it was
-      assessed from has changed.
+- [ ] AC-86: The results table carries two columns for what the assessment made of each property,
+      both drawn as a control rather than as a measurement: an icon carrying a count as a badge, the
+      way a count riding on an icon is read everywhere else as "there are this many things here,
+      press to see them". A magnifying glass for the concerns it raised, marked when any of them is
+      serious; a tick for what counts in the property's favour. Both are marked differently when the
+      assessment no longer describes the property because what it was assessed from has changed.
 
-      Three facts stay apart, and the drawing is what keeps them apart. **Nothing has assessed this
-      property**: the cell is empty, because an absence is not a count. **It was assessed and raised
-      nothing**: the icon, with no badge. That is a real answer and 55 of the first 155 properties
-      were it, so it is drawn rather than left blank, and "read and clear" can never be mistaken for
-      "not read". It carries no zero, because a badge reading `0` is a thing a person has to be
-      taught to read and an unbadged icon is not. **It raised concerns**: the icon with the number
-      on it.
+      **The same control, drawn twice.** The two counts are read together in one movement: "two
+      things for it, three against" is a single sentence a person assembles as their eye crosses the
+      row. Two differently shaped buttons would read as two unrelated facilities rather than as two
+      halves of one reading.
 
-      It is an ordinary column: it hides, comes back from the chooser, sorts and filters exactly as
+      **A tick and not a star.** The first column of this table already uses a star and it means
+      *the person kept this house*. One symbol cannot mean both that and a model's opinion, and the
+      boundary this feature keeps everywhere else is exactly that the two are never confused.
+
+      **What counts for it comes first.** It is the order the questions get asked in, and a column
+      of worries read first colours the row behind it. A table of nothing but concerns is a reading
+      of a risk rather than of a house: across the first 292 readings the model raised 235 concerns
+      and said nothing whatever in any property's favour, because nothing had asked it to, and every
+      one of those concerns was true and carried its evidence, which is why the bias was easy to
+      miss.
+
+      Three facts stay apart in each column, and the drawing is what keeps them apart. **Nothing
+      has assessed this property**: the cell is empty, because an absence is not a count. **It was
+      assessed and there was nothing to say**: the icon, with no badge. That is a real answer and 55
+      of the first 155 properties were it for concerns, so it is drawn rather than left blank, and
+      "read and clear" can never be mistaken for "not read". It carries no zero, because a badge
+      reading `0` is a thing a person has to be taught to read and an unbadged icon is not. **There
+      were this many**: the icon with the number on it.
+
+      A property read before the favourable half of the question existed draws an empty cell there,
+      the same as one nothing has assessed. Those are two different facts in the store, because only
+      one of them is worth spending money on again, and one fact to a reader: nobody has told them
+      what is good about this house. The column does not carry a distinction that exists for the
+      benefit of a pass. The dialog does, because there a reader is owed it.
+
+      Each is an ordinary column: it hides, comes back from the chooser, sorts and filters exactly as
       every other column does, which is AC-45 and AC-52 applying to it without being restated. Its
       value is still the number, so a sort orders by how much was raised and a filter tests the
       count, whatever the cell happens to draw. It joins the chooser under an origin of its own,
@@ -894,7 +916,7 @@ in five years. The problem brief is in `research.md`.
       or something the person wrote.
 
       **Ordinary means it joins the declaration every column is declared in, and not the default
-      spreadsheet.** Those are already two different things: forty-four columns are declared and the
+      spreadsheet.** Those are already two different things: forty-five columns are declared and the
       default sheet uses thirty-two. Joining the declaration is what makes sorting, filtering,
       hiding and the chooser work without a special case; staying out of the default sheet is what
       leaves feat-011/AC-1's header exactly as it was. Anybody who wants the count in a sheet puts
@@ -913,10 +935,17 @@ in five years. The problem brief is in `research.md`.
       and Town is read as one more measurement of the house, like beds or square feet. It is not a
       measurement; it is a door. Drawing it as a door is the whole of the difference, and it costs
       nothing, because the sortable, filterable value underneath is unchanged.
-- [ ] AC-87: Pressing it opens the assessment for that property in a dialog over the page, without
-      leaving the page. What opens is the whole of it: the account of the property, every concern
-      with the evidence it came from, what each picture showed, what to check before visiting, and
-      what could not be determined. It closes with its own control, with Escape, and by pressing
+- [ ] AC-87: Pressing either opens the assessment for that property in a dialog over the page,
+      without leaving the page. What opens is the whole of it: the account of the property, every
+      concern with the evidence it came from, what counts in the property's favour under a heading
+      of its own, what each picture showed, what to check before visiting, and what could not be
+      determined. Both controls open the same dialog, because there is one reading of the house and
+      these are two sections of it rather than two documents; a person opened it to find out about a
+      property, not to choose which list to read.
+
+      **A reading made before the favourable half existed says so, in words.** Null and empty are
+      different answers, and drawing the first as the second would put a false negative in front of
+      somebody deciding whether to drive four hours. It closes with its own control, with Escape, and by pressing
       outside it, which is how every other dialog in this interface closes. It opens from the
       keyboard the same way, because the cell is already reachable that way, and focus moves into it
       when it opens and back to the control it came from when it closes.

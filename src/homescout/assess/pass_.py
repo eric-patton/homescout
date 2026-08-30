@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .dossier import Dossier, dossier_for
-from .model import AssessmentFailed, ask
+from .model import AssessmentFailed, ask, ask_in_favour
 
 #: Seconds between requests, and the timeout, come from the model's own politeness. This pass adds
 #: no second policy; see `model.PACING_KEY`.
@@ -37,6 +37,10 @@ class PassOutcome:
 
     considered: int = 0
     assessed: int = 0
+    #: Read before, and asked one narrow question to fill in a section that did not exist when they
+    #: were read. Counted apart from `assessed` because they are not the same spend and not the same
+    #: claim: nothing about these properties was read again.
+    topped_up: int = 0
     current: int = 0
     #: Named rather than dropped, which is the rule feat-009 already applies to a bounded pass.
     left_over: int = 0
@@ -71,6 +75,31 @@ def fingerprint_of(dossier: Dossier, stated: Mapping[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()[:32]
 
 
+def owed_a_section(store: Any, listing_ids: Sequence[str], model: str) -> dict[str, Any]:
+    """Readings that still hold but were made before the favourable half of the question existed.
+
+    Two conditions, and the second is the one that is easy to miss.
+
+    `in_favour` is null for them. It is an empty list for a property that was asked and had nothing
+    said for it, and that difference is the whole reason the column holds three states rather than
+    two: only one of them is worth spending money on again.
+
+    And the model that wrote the reading has to be the one configured now. A row carries one
+    `model`, so a reading whose concerns came from one model and whose favourable points came from
+    another cannot be labelled honestly: naming either makes the row claim work it did not do. Where
+    they differ the property falls through to a full reading instead, which is the right answer
+    anyway, because a different model would have found different concerns too.
+    """
+    found: dict[str, Any] = {}
+    for listing_id, summary in store.assessment_summaries(list(listing_ids)).items():
+        if summary.get("in_favour") is not None:
+            continue
+        held = store.assessment_of(listing_id)
+        if held is not None and held.model == model:
+            found[listing_id] = held
+    return found
+
+
 def run_pass(
     rows: Sequence[Any],
     *,
@@ -78,13 +107,30 @@ def run_pass(
     criteria: Any,
     session: Any,
     already: Mapping[str, str] | None = None,
+    owed: Mapping[str, Any] | None = None,
     pictures_for: Callable[[Any, Dossier], list[tuple[str, bytes]]] | None = None,
     wind_for: Callable[[Dossier], Mapping[str, Any] | None] | None = None,
     record: Callable[[str, Any, str], None] | None = None,
+    add: Callable[[str, tuple, Any], None] | None = None,
     limit: int | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> PassOutcome:
-    """Assess these properties, skipping the ones whose assessment still describes them.
+    """Ask each of these properties only what it is still missing.
+
+    Three answers, and which one a property gets is decided here rather than by a flag somebody has
+    to remember:
+
+    - Its assessment still describes it and is complete. Nothing is asked and nothing is spent.
+    - Its assessment still describes it but was written before a section of the question existed.
+      That section is asked for on its own and added beside what is already recorded. `owed` names
+      these and carries the earlier reading; nothing about the property is read again, and no
+      judgment already recorded is replaced.
+    - Anything else: the whole question, which is a new property or one whose facts have moved.
+
+    The narrow question exists because the alternative is not narrow. Adding a section to two
+    hundred and sixty-eight finished readings by asking all of them the whole question again would
+    pay for every part that was already answered, and would quietly replace concerns somebody may
+    have read and acted on.
 
     Everything that reaches outside is injected: what pictures to send, where the wind comes from,
     and what to do with an answer. That is what lets the whole of this be tested without a model,
@@ -94,7 +140,9 @@ def run_pass(
     known = dict(already or {})
     stated = criteria.stated()
 
+    owing = dict(owed or {})
     wanted: list[tuple[Any, Dossier, str]] = []
+    topping: list[tuple[Any, Dossier, str]] = []
     current = 0
     for row in rows:
         dossier = dossier_for(row)
@@ -104,24 +152,47 @@ def run_pass(
                 dossier = _with_wind(dossier, wind)
         mark = fingerprint_of(dossier, stated)
         if known.get(row.listing_id) == mark:
-            current += 1
+            if row.listing_id in owing and add is not None:
+                topping.append((row, dossier, mark))
+            else:
+                current += 1
             continue
         wanted.append((row, dossier, mark))
 
+    # The narrow questions go first when a limit cuts the pass short. They are the cheaper half and
+    # they finish something already begun, where a full assessment starts something new.
     left_over = 0
-    if limit is not None and len(wanted) > limit:
-        left_over = len(wanted) - limit
-        wanted = wanted[:limit]
+    if limit is not None and len(topping) + len(wanted) > limit:
+        left_over = len(topping) + len(wanted) - limit
+        topping, wanted = topping[:limit], wanted[: max(0, limit - len(topping))]
 
     # Said before anything is asked, because this is the only operation in this product that costs
     # money per property and the number of requests is what somebody needs in order to say yes.
     say(
-        f"assess: {len(wanted)} properties to ask about, {current} already current"
+        f"assess: {len(wanted)} properties to ask about"
+        + (f", {len(topping)} to add what is in their favour" if topping else "")
+        + f", {current} already current"
         + (f", {left_over} left for a later pass" if left_over else "")
     )
 
     assessed = 0
+    topped_up = 0
     failures: list[str] = []
+
+    #: The fingerprint is not used here on purpose. A top-up is only ever offered to a reading
+    #: whose fingerprint already matches, so the one to record is the one already recorded.
+    for row, dossier, _mark in topping:
+        pictures = pictures_for(row, dossier) if pictures_for is not None else []
+        try:
+            points = ask_in_favour(
+                session, account, dossier, criteria, owing[row.listing_id], pictures
+            )
+        except AssessmentFailed as exc:
+            failures.append(f"{row.listing_id}: {exc}")
+            continue
+        add(row.listing_id, points, owing[row.listing_id])
+        topped_up += 1
+
     for row, dossier, mark in wanted:
         pictures = pictures_for(row, dossier) if pictures_for is not None else []
         try:
@@ -141,6 +212,7 @@ def run_pass(
     return PassOutcome(
         considered=len(rows),
         assessed=assessed,
+        topped_up=topped_up,
         current=current,
         left_over=left_over,
         failures=tuple(failures),
@@ -205,6 +277,16 @@ def assess_search(
     )
 
     already = store.assessed_fingerprints([row.listing_id for row in in_play])
+    #: The ones read before the favourable half of the question existed. `in_favour` is null for
+    #: them and an empty list for a property that was asked and had nothing said for it, which is
+    #: the whole reason the column holds three states rather than two.
+    #:
+    #: Only where the model that wrote the reading is the one configured now. A row carries one
+    #: `model`, so a reading whose concerns came from one model and whose favourable points came
+    #: from another cannot be labelled honestly: naming either one makes the row claim work it did
+    #: not do. Where they differ the property falls through to a full reading instead, which is the
+    #: right answer anyway, because a different model would have found different concerns too.
+    owed = owed_a_section(store, [row.listing_id for row in in_play], account.model)
     stations = _stations_for(root, rows)
     hazard_service = enrich_settings.picture_of("wildfire")
 
@@ -260,8 +342,48 @@ def assess_search(
                 }
                 for c in found.concerns
             ],
+            in_favour=[
+                {
+                    "about": one.about,
+                    "detail": one.detail,
+                    "evidence_kind": one.evidence_kind,
+                    "evidence": one.evidence,
+                }
+                for one in (found.in_favour or ())
+            ],
             before_visiting=found.before_visiting,
             could_not_tell=found.could_not_tell,
+        )
+
+    def add(listing_id: str, points: tuple, earlier: Any) -> None:
+        """Write the earlier reading again with the missing section filled in.
+
+        A new row rather than an edit, because this table is append-only and the row before it is
+        how somebody sees what was added and when. Everything else is copied across untouched: this
+        pass asked one narrow question and has no business changing an account or a concern.
+
+        The date comes across too. The property was read then, from a dossier that has not moved
+        since, and stamping today on it would say it was read again.
+        """
+        store.record_assessment(
+            listing_id,
+            model=earlier.model,
+            fingerprint=earlier.fingerprint,
+            made_at=earlier.made_at,
+            fit=earlier.fit,
+            seen=earlier.seen,
+            concerns=list(earlier.concerns),
+            in_favour=[
+                {
+                    "about": one.about,
+                    "detail": one.detail,
+                    "evidence_kind": one.evidence_kind,
+                    "evidence": one.evidence,
+                }
+                for one in points
+            ],
+            before_visiting=earlier.before_visiting,
+            could_not_tell=earlier.could_not_tell,
         )
 
     return run_pass(
@@ -270,9 +392,11 @@ def assess_search(
         criteria=criteria,
         session=session or _session(),
         already=already,
+        owed=owed,
         pictures_for=pictures_for,
         wind_for=wind_for,
         record=record,
+        add=add,
         limit=limit,
         progress=say,
     )

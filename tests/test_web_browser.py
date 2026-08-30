@@ -3336,6 +3336,12 @@ def test_the_concerns_control_opens_a_dialog_and_gives_focus_back(served) -> Non
             {"about": "Nearby higher-hazard ground", "detail": "Orange is adjacent.",
              "severity": "serious", "evidence_kind": "map", "evidence": "orange to the north"},
         ],
+        in_favour=[
+            {"about": "Metal roof", "detail": "They asked for one.",
+             "evidence_kind": "field", "evidence": "roof = metal"},
+            {"about": "Off the main road", "detail": "Quiet, which they said they wanted.",
+             "evidence_kind": "description", "evidence": "at the end of a private drive"},
+        ],
         before_visiting=["Ask about defensible space."],
     )
 
@@ -3349,7 +3355,9 @@ def test_the_concerns_control_opens_a_dialog_and_gives_focus_back(served) -> Non
                  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
                  let button = null;
                  for (let i = 0; i < 150; i++) {
-                   button = document.querySelector("td.assessed button.glass");
+                   /* The concerns one specifically. Both halves draw the same control now, and
+                    * `In favour` sits first, so an unqualified selector finds the other one. */
+                   button = document.querySelector("td.assessed button.glass:not(.for)");
                    if (button) break;
                    await wait(100);
                  }
@@ -3428,6 +3436,40 @@ def test_the_concerns_control_opens_a_dialog_and_gives_focus_back(served) -> Non
                })()""",
             message_id=2,
         )
+        both = evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                 const tick = document.querySelector("td.assessed button.glass.for");
+                 if (!tick) return {found: false};
+                 tick.click();
+                 for (let i = 0; i < 300; i++) {
+                   if (document.querySelector("dialog.assessed .concern.for")) break;
+                   await wait(100);
+                 }
+                 const dialog = document.querySelector("dialog.assessed");
+                 return {
+                   found: true,
+                   badge: (tick.querySelector(".tally") || {}).textContent || "",
+                   spoken: tick.getAttribute("aria-label") || "",
+                   /* The same dialog, not a second one. One reading, two sections. */
+                   dialogs: document.querySelectorAll("dialog.assessed").length,
+                   text: dialog ? dialog.textContent : "",
+                 };
+               })()""",
+            message_id=3,
+        )
+        assert both["found"], "no control was drawn for what counts in the property's favour"
+        assert both["badge"] == "2"
+        assert "2 points in its favour" in both["spoken"]
+        assert both["dialogs"] == 1, "the second control opened a second dialog"
+        assert "In favour" in both["text"]
+        assert "Metal roof" in both["text"] and "roof = metal" in both["text"], (
+            "a point must carry its evidence, exactly as a concern does"
+        )
+        # Both halves in one reading, so the concerns are still there beside them.
+        assert "Nearby higher-hazard ground" in both["text"]
+
         assert closed["gone"], "the dialog was left on the page after closing"
         assert closed["focused"], (
             "focus did not come back to the control, so a keyboard reader has to walk the table "

@@ -1638,3 +1638,20 @@ is written in this file beside this function and the wrong pattern is the one cu
       `line-height: 25px` so a one-line cell is exactly one row tall, which sets a paragraph's own
       lines a full line apart. Fixed at the root by moving the prose out of the table; pinned by a
       test so the next thing that puts prose in a cell does not meet it again.
+
+## changes/what-counts-for-it
+
+- [x] T212: `web/static/results.js`, `app.css`: a second column, the same control with a tick
+      (`feat-010/AC-86`). One builder drawn twice, because the two counts are read together and two
+      button shapes would read as two unrelated facilities. Not a star: the first column of this
+      table already uses one and it means the person kept this house. It comes before Concerns,
+      which is the order the questions get asked in.
+
+- [x] T213: `web/static/results.js`, `app.css`: the dialog carries both halves under their own
+      headings, and says "not asked" for a reading made before the question existed
+      (`feat-010/AC-87`, `feat-013/AC-18`). Both controls open the same dialog: one reading, two
+      sections.
+
+- [x] T214: `tests/test_web_surfaces.py`, `tests/test_web_browser.py`: both columns' three states,
+      the shared builder, the order, and both controls opening one dialog in a real browser
+      (`feat-010/AC-86`, `feat-010/AC-87`).

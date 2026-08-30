@@ -7,12 +7,14 @@ produces sits beside the person's own judgment and never inside it, and decides 
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from homescout.assess import criteria as C
+from homescout.assess import model
 from homescout.assess import surroundings as S
 from homescout.assess.dossier import dossier_for
 from homescout.assess.model import instruction, interpret
@@ -634,3 +636,244 @@ def test_the_assessment_is_reachable_from_both_surfaces() -> None:
     # A long operation, so it records itself and is watchable from either surface while it runs.
     assert LONG_COMMANDS.get("assess") == "assess"
     assert callable(api.assess) and callable(api.assessment_for)
+
+# ---------------------------------------------------------------------------
+# What counts for a property, added by changes/both-sides
+# ---------------------------------------------------------------------------
+
+
+def answer(document: dict) -> bytes:
+    """One model reply, in the envelope the endpoint returns it in."""
+    return json.dumps({"choices": [{"message": {"content": json.dumps(document)}}]}).encode()
+
+
+def test_nobody_asked_and_nothing_was_said_are_different_answers() -> None:
+    """feat-013/AC-18: the distinction the whole top-up rests on.
+
+    A reply with `"in_favour": []` says "I looked and there is nothing". A reply with no `in_favour`
+    key was asked a different question, or dropped it. Recording the second as the first would put a
+    false negative beside the house forever and, worse, would make it invisible to the pass that
+    exists to go back and ask.
+    """
+    asked_and_none = interpret(
+        answer({"fit": "a house", "concerns": [], "in_favour": []}), "L"
+    )
+    never_asked = interpret(answer({"fit": "a house", "concerns": []}), "L")
+
+    assert asked_and_none.in_favour == ()
+    assert never_asked.in_favour is None
+
+
+def test_a_point_without_evidence_is_dropped_like_a_concern_without_it() -> None:
+    """feat-013/AC-18: the standard is the same one, for a stronger reason.
+
+    A flattering sentence is easier to generate than a critical one and harder to doubt on reading,
+    so an uncheckable point is more dangerous than an uncheckable concern rather than less.
+    """
+    found = interpret(answer({"concerns": [], "in_favour": [
+        {"about": "Metal roof", "detail": "They asked for one.",
+         "evidence_kind": "field", "evidence": "roof = metal"},
+        {"about": "Lovely home", "detail": "It is charming."},
+        {"about": "", "detail": "x", "evidence": "y"},
+    ]}), "L")
+
+    assert [one.about for one in found.in_favour] == ["Metal roof"]
+
+
+def test_a_point_carries_no_severity() -> None:
+    """feat-013/AC-18: a concern is graded because `serious` changes what somebody does.
+
+    Nothing follows from one good thing being better than another, so a grade here would be a number
+    nobody acts on and one more thing for a model to invent.
+    """
+    assert not hasattr(model.Point("a", "b", "field", "c"), "severity")
+    assert "severity" not in model.in_favour_instruction(_criteria(), {"fit": "x"})
+
+
+def test_the_narrow_question_asks_for_one_section_and_says_not_to_redo_the_rest() -> None:
+    """feat-013/AC-19: what stops a top-up quietly becoming a re-read.
+
+    The whole saving, and the whole safety, is that this request cannot produce a new account or a
+    new set of concerns: it is not asked for them and the answer is not read for them.
+    """
+    said = model.in_favour_instruction(_criteria(), {"fit": "A cabin on five acres."})
+
+    assert '"in_favour"' in said
+    assert '"concerns"' not in said, "the narrow question must not invite the wide answer"
+    assert "do not restate the concerns" in said
+    # The earlier reading travels, so the same house is not described from scratch twice.
+    assert "A cabin on five acres." in said
+
+
+def _criteria():
+    return C.Criteria(
+        about="They want a metal roof.",
+        avoided=(), rules=(), notes=(), kept=(), passed=(),
+    )
+
+def a_reading(**kwargs):
+    """One assessment as the store hands it back, for a pass that is topping it up."""
+    from homescout.assess.model import Concern
+
+    class Held:
+        model = "a-model"
+        fingerprint = kwargs.get("fingerprint", "")
+        made_at = kwargs.get("made_at", "2026-08-29T15:00:00.000000Z")
+        fit = kwargs.get("fit", "A cabin on five acres.")
+        seen = kwargs.get("seen", {"photograph": "A metal roof."})
+        concerns = kwargs.get("concerns", (
+            Concern("Wood stove", "Ask about the flue.", "description", "wood stove", "serious"),
+        ))
+        before_visiting = kwargs.get("before_visiting", ("Ask about the well.",))
+        could_not_tell = kwargs.get("could_not_tell", ("Cooling is not stated.",))
+
+    return Held()
+
+
+def test_a_reading_that_predates_the_question_is_asked_only_the_missing_half() -> None:
+    """feat-013/AC-19: the whole saving, and the whole safety.
+
+    Two hundred and sixty-eight finished readings exist. Asking all of them the whole question again
+    to gain one section would pay a second time for every part already answered, and would replace
+    concerns somebody may have read and acted on with freshly generated ones.
+    """
+    crit = some_criteria()
+    rows = [FakeRow("a")]
+    mark = fingerprint_of(dossier_for(rows[0]), crit.stated())
+    earlier = a_reading(fingerprint=mark)
+
+    import json
+
+    session = FakeSession([json.dumps({"choices": [{"message": {"content": json.dumps(
+        {"in_favour": [{"about": "Metal roof", "detail": "They asked for one.",
+                        "evidence_kind": "field", "evidence": "roof = metal"}]}
+    )}}]}).encode()])
+
+    added: list[tuple] = []
+    replaced: list[tuple] = []
+    said: list[str] = []
+    out = run_pass(
+        rows, account=FakeAccount(), criteria=crit, session=session,
+        already={"a": mark}, owed={"a": earlier},
+        record=lambda *args: replaced.append(args),
+        add=lambda listing_id, points, held: added.append((listing_id, points, held)),
+        progress=said.append,
+    )
+
+    assert out.topped_up == 1
+    assert out.assessed == 0, "nothing was read again"
+    assert out.current == 0, "a reading missing a section is not current"
+    assert replaced == [], "a narrow request must never write a whole assessment"
+    assert [one.about for one in added[0][1]] == ["Metal roof"]
+
+    # It was asked the narrow question, not the wide one.
+    sent = json.loads(session.asked[0].body)["messages"][0]["content"]
+    assert "adding one section" in sent
+    assert '"concerns"' not in sent
+    assert "1 to add what is in their favour" in said[0]
+
+
+def test_a_complete_reading_that_still_describes_the_property_is_asked_nothing() -> None:
+    """feat-013/AC-19: the top-up finds the ones it owes and only those."""
+    crit = some_criteria()
+    rows = [FakeRow("a")]
+    mark = fingerprint_of(dossier_for(rows[0]), crit.stated())
+
+    session = FakeSession([])
+    out = run_pass(
+        rows, account=FakeAccount(), criteria=crit, session=session,
+        already={"a": mark}, owed={}, add=lambda *args: None,
+    )
+
+    assert out.current == 1 and out.topped_up == 0 and out.assessed == 0
+    assert session.asked == []
+
+
+def test_a_reading_that_no_longer_describes_the_property_is_read_again_in_full() -> None:
+    """feat-013/AC-19: a top-up adds to a reading that still holds; it never repairs a stale one.
+
+    The narrow question carries the earlier account forward as context. Doing that for a property
+    whose facts have moved would carry a description of the old house into a reading of the new one.
+    """
+    crit = some_criteria()
+    rows = [FakeRow("a")]
+    stale = a_reading(fingerprint="sha256:something-else")
+
+    session = FakeSession([an_answer()])
+    added: list = []
+    out = run_pass(
+        rows, account=FakeAccount(), criteria=crit, session=session,
+        already={"a": "sha256:something-else"}, owed={"a": stale},
+        record=lambda *args: None, add=lambda *args: added.append(args),
+    )
+
+    assert out.assessed == 1 and out.topped_up == 0
+    assert added == []
+
+
+def test_the_narrow_questions_go_first_when_a_pass_is_bounded() -> None:
+    """feat-013/AC-19, feat-013/AC-9: they finish something begun, where the others begin something.
+
+    They are also the cheaper half, so a bounded pass that spends its budget on them gets more of
+    the table into a usable state per pound than one that spends it the other way round.
+    """
+    crit = some_criteria()
+    rows = [FakeRow("a"), FakeRow("b", description="Another house.")]
+    mark = fingerprint_of(dossier_for(rows[0]), crit.stated())
+
+    import json
+
+    session = FakeSession([json.dumps({"choices": [{"message": {"content": json.dumps(
+        {"in_favour": []}
+    )}}]}).encode()])
+    out = run_pass(
+        rows, account=FakeAccount(), criteria=crit, session=session,
+        already={"a": mark}, owed={"a": a_reading(fingerprint=mark)},
+        record=lambda *args: None, add=lambda *args: None, limit=1,
+    )
+
+    assert out.topped_up == 1 and out.assessed == 0 and out.left_over == 1
+
+def test_a_reading_another_model_wrote_is_read_again_rather_than_added_to() -> None:
+    """feat-013/AC-19: a row carries one model's name and must not carry two models' work.
+
+    Naming either one makes the row claim something it did not do. Where the configured model is not
+    the one that wrote the reading, the property falls through to a full reading, which is the right
+    answer anyway: a different model would have found different concerns too.
+    """
+    from homescout.assess.pass_ import owed_a_section
+
+    class FakeStore:
+        def __init__(self, held):
+            self._held = held
+
+        def assessment_summaries(self, ids):
+            return {"a": {"in_favour": None, "concerns": 1}, "b": {"in_favour": 2, "concerns": 0}}
+
+        def assessment_of(self, listing_id):
+            return self._held
+
+    #: `a-model` wrote it, and `a-model` is configured. It is owed a section.
+    store = FakeStore(a_reading())
+    assert list(owed_a_section(store, ["a", "b"], "a-model")) == ["a"]
+
+    #: The same reading under a different model. Not topped up: it is read again in full.
+    assert owed_a_section(store, ["a", "b"], "another-model") == {}
+
+
+def test_a_reading_already_asked_the_question_is_not_asked_again() -> None:
+    """feat-013/AC-18: asked-and-nothing-said is a finished answer, not a gap.
+
+    This is the state the null exists to be distinguished from. Reading an empty list as an unasked
+    question would make every plain house a permanent recurring cost.
+    """
+    from homescout.assess.pass_ import owed_a_section
+
+    class FakeStore:
+        def assessment_summaries(self, ids):
+            return {"b": {"in_favour": 0, "concerns": 0}}
+
+        def assessment_of(self, listing_id):
+            return a_reading()
+
+    assert owed_a_section(FakeStore(), ["b"], "a-model") == {}

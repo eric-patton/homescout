@@ -253,6 +253,18 @@ def assessment_of(found: Any) -> str:
                 lines.append(
                     f"      {concern.get('evidence_kind', 'evidence')}: {concern['evidence']}"
                 )
+    if found.get("in_favour"):
+        lines += ["", "In favour:"]
+        for one in found["in_favour"]:
+            lines.append(f"  {one.get('about')}")
+            if one.get("detail"):
+                lines.append(f"      {one['detail']}")
+            if one.get("evidence"):
+                lines.append(f"      {one.get('evidence_kind', 'evidence')}: {one['evidence']}")
+    elif found.get("in_favour") is None:
+        #: Said rather than left blank. An assessment made before this question existed has nothing
+        #: here, and a reader who is not told that will read the silence as "nothing good about it".
+        lines += ["", "In favour: not asked. This reading was made before that question existed."]
     for where, what in (found.get("seen") or {}).items():
         lines += ["", f"What it saw in the {where.replace('_', ' ')}:", f"  {what}"]
     if found.get("before_visiting"):

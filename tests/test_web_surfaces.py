@@ -949,6 +949,67 @@ def test_the_assessment_is_drawn_as_the_models_and_never_as_the_persons() -> Non
     )
 
 
+def test_both_halves_of_a_reading_have_a_column_and_the_good_one_comes_first() -> None:
+    """feat-010/AC-86: a table of nothing but worries is a reading of a risk, not of a house.
+
+    Across 292 readings the model had raised 235 concerns and said nothing whatever in any
+    property's favour, because nothing had asked it to. Every one of those concerns was true and
+    carried its evidence, which is exactly why the bias was easy to miss.
+    """
+    from homescout.export import columns as cols
+
+    column = next(c for c in cols.COLUMNS if c.name == "In favour")
+    assert column.origin == "assessed" and column.kind == "number"
+    assert "In favour" not in cols.DEFAULT, "the spreadsheet header stays as feat-011/AC-1 has it"
+
+    results = script("results")
+    control = results[results.index("function inFavourControl"):
+                      results.index("function assessmentButton")]
+    # The same three states as Concerns, and the same reason for each.
+    assert 'typeof held.in_favour !== "number"' in control
+    assert "held.in_favour > 0" in control
+    assert "in its favour" in control, "a screen reader is told which half it is reading"
+
+    #: The order the questions get asked in. A column of worries read first colours the row behind
+    #: it, which is the whole reason this column exists.
+    deciding = results[results.index('["deciding"'):results.index('["hazards"')]
+    assert deciding.index('"In favour"') < deciding.index('"Concerns"')
+
+
+def test_the_two_counts_are_one_control_drawn_twice() -> None:
+    """feat-010/AC-86: they are read together, so they cannot look like separate facilities.
+
+    "Two things for it, three against" is one sentence a person assembles as their eye crosses the
+    row. Two differently shaped buttons would read as two unrelated things to press.
+    """
+    results = script("results")
+    for half in ("function concernsControl", "function inFavourControl"):
+        body = results[results.index(half):results.index(half) + 900]
+        assert "assessmentButton(row, {" in body, f"{half} builds its own button"
+
+    #: And the icon is a tick rather than a star. The first column of this table already uses a star
+    #: and it means the person kept this house; one symbol cannot mean both.
+    assert "function tickIcon" in results
+    assert "polyline" in results
+
+
+def test_a_reading_made_before_the_question_existed_says_so_rather_than_showing_a_silence() -> None:
+    """feat-010/AC-87, feat-013/AC-18: the one way this half misleads instead of disappointing.
+
+    Null and empty are different answers. Drawing "nobody asked" the same as "nothing was said for
+    it" would put a false negative in front of somebody deciding whether to drive four hours.
+    """
+    results = script("results")
+    body = results[results.index("function assessmentBody"):results.index("function rowFor")]
+    assert "held.in_favour === null" in body
+    assert "not asked" in body
+
+    cli = (Path(__file__).resolve().parents[1] / "src" / "homescout" / "cli" / "render.py")
+    assert "not asked" in cli.read_text(encoding="utf-8"), (
+        "invariant 5: the terminal has to be able to say it too"
+    )
+
+
 def test_the_column_is_in_the_view_somebody_decides_with() -> None:
     """feat-010/AC-86, feat-010/AC-74: a count behind a chooser is a count nobody sees."""
     results = script("results")

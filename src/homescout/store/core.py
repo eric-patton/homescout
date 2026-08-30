@@ -1686,22 +1686,32 @@ class Store:
         fit: str | None = None,
         seen: Mapping[str, str] | None = None,
         concerns: Sequence[Mapping[str, Any]] = (),
+        in_favour: Sequence[Mapping[str, Any]] | None = None,
         before_visiting: Sequence[str] = (),
         could_not_tell: Sequence[str] = (),
+        made_at: str | None = None,
     ) -> StoredAssessment:
         """Write one assessment. A new one is a new row; the ones before it stay.
 
         Scrubbed on the way in, for the same reason a pass's progress lines are: this text came back
         from a model that was told about an address and a photograph, and anything it echoes becomes
         bytes in a file this workspace keeps backups of.
+
+        `in_favour` defaults to `None` and is stored as null, which is a third state beside a list
+        and an empty list: nobody asked. An assessment written before that question existed has to
+        be findable, and "no points" is the wrong answer to give for one.
+
+        `made_at` is the moment unless a caller supplies one. The caller that does is the one adding
+        a section to a reading that already happened: the property was read then, from a dossier
+        that has not changed since, and dating that row today would say it was read again.
         """
-        made_at = utc_now()
+        made_at = made_at or utc_now()
         assessment_id = _new_id()
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             cursor = conn.execute(
                 "INSERT INTO assessments (id, listing_id, model, made_at, fingerprint, fit, "
-                "seen, concerns, before_visiting, could_not_tell) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "seen, concerns, in_favour, before_visiting, could_not_tell) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     assessment_id,
                     listing_id,
@@ -1711,6 +1721,8 @@ class Store:
                     scrub(fit) if fit else None,
                     json.dumps({k: scrub(v) for k, v in dict(seen or {}).items()}),
                     json.dumps([_scrubbed(dict(c)) for c in concerns]),
+                    None if in_favour is None
+                    else json.dumps([_scrubbed(dict(one)) for one in in_favour]),
                     json.dumps([scrub(s) for s in before_visiting]),
                     json.dumps([scrub(s) for s in could_not_tell]),
                 ),
@@ -1793,12 +1805,13 @@ class Store:
         for chunk in _in_chunks(list(listing_ids)):
             marks = ",".join("?" for _ in chunk)
             rows = self._conn.execute(
-                "SELECT listing_id, concerns, fingerprint, made_at FROM assessments "  # noqa: S608
-                f"WHERE listing_id IN ({marks}) ORDER BY seq",
+                "SELECT listing_id, concerns, in_favour, fingerprint, made_at "  # noqa: S608
+                f"FROM assessments WHERE listing_id IN ({marks}) ORDER BY seq",
                 chunk,
             )
             for row in rows:
                 concerns = json.loads(row["concerns"]) if row["concerns"] else []
+                favour = None if row["in_favour"] is None else (json.loads(row["in_favour"]) or [])
                 ranked = [
                     (worst.get(str(c.get("severity")), 0), str(c.get("severity") or ""))
                     for c in concerns
@@ -1809,6 +1822,9 @@ class Store:
                 found[row["listing_id"]] = {
                     "concerns": len(concerns),
                     "worst": max(ranked)[1] if ranked else None,
+                    #: `None` where nobody has been asked, which a table has to draw differently
+                    #: from a property that was asked and had nothing said for it.
+                    "in_favour": None if favour is None else len(favour),
                     "fingerprint": row["fingerprint"],
                     "made_at": row["made_at"],
                 }
@@ -1827,6 +1843,10 @@ class Store:
             fit=row["fit"],
             seen=json.loads(row["seen"]) if row["seen"] else {},
             concerns=tuple(json.loads(row["concerns"]) if row["concerns"] else ()),
+            in_favour=(
+                None if row["in_favour"] is None
+                else tuple(json.loads(row["in_favour"]) or ())
+            ),
             before_visiting=tuple(
                 json.loads(row["before_visiting"]) if row["before_visiting"] else ()
             ),

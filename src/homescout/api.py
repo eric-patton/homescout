@@ -1402,6 +1402,9 @@ def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
             for where, said in held.seen.items()
         ],
         "concerns": [dict(c) for c in held.concerns],
+        #: `None`, not `[]`, when this reading was made before the question existed. A surface has
+        #: to be able to say "nobody asked" rather than draw the silence as "nothing good about it".
+        "in_favour": None if held.in_favour is None else [dict(one) for one in held.in_favour],
         "before_visiting": list(held.before_visiting),
         "could_not_tell": list(held.could_not_tell),
     }
@@ -1604,6 +1607,7 @@ def _assessment_summary(row: Any, stated: Mapping[str, Any] | None) -> dict[str,
     return {
         "concerns": held.get("concerns"),
         "worst": held.get("worst"),
+        "in_favour": held.get("in_favour"),
         "made_at": held.get("made_at"),
         "stale": stale,
     }

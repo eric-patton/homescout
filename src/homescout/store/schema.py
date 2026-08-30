@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -703,6 +703,21 @@ CREATE TABLE assessments (
 );
 
 CREATE INDEX idx_assessments_listing ON assessments (listing_id, seq);
+"""
+
+#: What counts FOR a property, beside what counts against it.
+#:
+#: A column rather than a table, and added rather than designed in, because the first version of
+#: this asked only what was wrong. That produced a reading a person could not use on its own: a
+#: hundred and fifty houses each with a list of worries and nothing saying why any of them was worth
+#: the drive. The two lists are the same kind of claim about the same property and belong in the
+#: same row.
+#:
+#: Nullable, and an assessment written before this existed keeps a null here rather than an empty
+#: list. Those are different: nobody asked is not the same as asked and found none, and the column
+#: has to hold the difference so a top-up knows which properties it still owes an answer for.
+SCHEMA_V13 = """
+ALTER TABLE assessments ADD COLUMN in_favour TEXT;
 """
 
 #: Protected the moment it exists, by the same generated triggers every other recorded thing takes.

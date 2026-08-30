@@ -1954,12 +1954,17 @@ td.assessed { text-align: center; }
 }
 
 .glass svg { width: 15px; height: 15px; display: block; }
-.glass svg circle, .glass svg line {
+.glass svg circle, .glass svg line, .glass svg polyline {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
+
+/* What counts for the property. The same control with a different icon, because the two counts are
+ * read together and a second shape of button would make them look like two unrelated things. */
+.glass.for .tally { background: #3f6b4a; }
 
 .glass:hover { background: var(--link-wash); color: var(--ink, #333); }
 .glass:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -2038,6 +2043,18 @@ dialog.assessed .head h2 {
 }
 
 dialog.assessed .head button.close { flex: none; }
+
+/* The heading between the two halves of one reading. Not a section of its own and not a second
+ * dialog: a person opened this to find out about a house, not to choose which list to read. */
+.assessment h4.half {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #777);
+}
+
+.assessment .concern.for { border-left-color: #3f6b4a; }
 
 .assessment {
   padding: 0.9rem 1.1rem 1.2rem;

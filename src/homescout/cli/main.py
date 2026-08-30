@@ -532,6 +532,7 @@ def _assess(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> An
         "assessment-pass",
         considered=outcome.considered,
         assessed=outcome.assessed,
+        topped_up=outcome.topped_up,
         current=outcome.current,
         left_over=outcome.left_over,
         failures=list(outcome.failures),

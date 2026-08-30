@@ -441,6 +441,10 @@ class StoredAssessment:
     #: What each picture showed, whether or not anything was wrong with it.
     seen: dict[str, str] = field(default_factory=dict)
     concerns: tuple[dict[str, Any], ...] = ()
+    #: What counts for the property, on the same terms as what counts against it: each one carries
+    #: the evidence it came from. `None` rather than `()` when this assessment predates the question
+    #: being asked at all, which is what lets a top-up find the ones it still owes.
+    in_favour: tuple[dict[str, Any], ...] | None = None
     before_visiting: tuple[str, ...] = ()
     could_not_tell: tuple[str, ...] = ()
     #: Filled on read by comparing `fingerprint` to what the property looks like now. Never stored:
