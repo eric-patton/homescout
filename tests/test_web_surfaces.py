@@ -398,6 +398,16 @@ def test_every_column_is_either_filled_or_writable_and_says_which() -> None:
         assert f'"{name}": "{field}"' in results, f"{name} still cannot be typed into"
 
 
+def _rules_for(style: str, selectors: tuple[str, ...]) -> list[tuple[str, str]]:
+    """Every rule whose selector mentions one of these, as (selector, body)."""
+    found = []
+    for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", style):
+        selector, body = " ".join(match.group(1).split()), match.group(2)
+        if any(want in selector for want in selectors):
+            found.append((selector, body))
+    return found
+
+
 def test_the_row_height_is_published_from_one_place() -> None:
     """feat-010/AC-20's machinery: the virtual window's arithmetic and the stylesheet must agree.
 
@@ -411,7 +421,15 @@ def test_the_row_height_is_published_from_one_place() -> None:
 
     assert '--row-height' in results and 'setProperty("--row-height"' in results
     assert "height: var(--row-height)" in style
-    assert "height: 22px" not in style
+
+    #: Scoped to the rules that draw a row, because that is where the two figures can disagree. It
+    #: was a whole-file search for "height: 22px" until an icon in a cell happened to be 22 pixels
+    #: square and failed it; a fixed size on something drawn inside a row is not the fault this
+    #: guards against, and widening the net until it catches those makes it catch nothing useful.
+    for selector, rule in _rules_for(style, ("table.grid td", "table.grid tbody")):
+        assert not re.search(r"(?<!-)\bheight:\s*\d+px", rule), (
+            f"a data row's height is in pixels here as well as in the script: {selector}"
+        )
 
 
 def test_the_shortlist_and_the_passed_list_are_one_question_asked_twice(
@@ -884,10 +902,35 @@ def test_the_concerns_column_keeps_three_different_blanks_apart() -> None:
     assert "Concerns" not in cols.DEFAULT
 
     results = script("results")
-    strip = results[results.index('column.origin === "assessed"'):]
-    assert '" none"' in strip, "assessed and nothing raised has to look different from a concern"
-    assert '" stale"' in strip, "an assessment that no longer describes the property must say so"
-    assert '" bad"' in strip, "a serious concern must be visible without opening the row"
+    control = results[results.index("function concernsControl"):results.index("function glassIcon")]
+
+    # Never assessed: nothing at all, and the control is not built.
+    assert 'if (!held || typeof held.concerns !== "number") return [];' in control
+
+    # Assessed and nothing raised: the icon, and no badge. A badge reading `0` is a thing somebody
+    # has to be taught to read; an unbadged icon is not, and 55 of the first 155 properties are it.
+    assert "held.concerns > 0" in control, (
+        "the badge is what a count has and a clear reading has not"
+    )
+
+    # A serious concern, and an assessment that no longer describes the property. Two marks, so
+    # that one property can carry both.
+    assert 'marks.push("bad")' in control and 'marks.push("stale")' in control
+
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert ".glass.bad" in style and ".glass.stale" in style
+
+    #: "Conveying nothing by color alone" is this feature's own accessibility requirement, and a red
+    #: badge beside a blue one is exactly that. A serious count is squared and an ordinary one is
+    #: round; an assessment that no longer describes the property is dashed. Both marks are also
+    #: said in words, because the badge is hidden from a screen reader.
+    serious = next(body for selector, body in _rules_for(style, (".glass.bad .tally",)))
+    assert "border-radius" in serious, "severity is drawn in colour and nothing else"
+    stale = next(body for selector, body in _rules_for(style, (".glass.stale",))
+                 if "border-style" in body)
+    assert "dashed" in stale, "staleness is drawn in colour and nothing else"
+    assert "one of them serious" in control, "a screen reader is told only the number"
+    assert "no longer current" in control, "a screen reader is not told the assessment is stale"
 
 
 def test_the_assessment_is_drawn_as_the_models_and_never_as_the_persons() -> None:
@@ -900,7 +943,7 @@ def test_the_assessment_is_drawn_as_the_models_and_never_as_the_persons() -> Non
     assert "Not your notes" in results
     assert "nothing here writes to them" in results
     # Before the content, not after it: reading a stale assessment as current is how this misleads.
-    panel = results[results.index("function assessmentPanel"):results.index("function listOf")]
+    panel = results[results.index("function assessmentBody"):results.index("function rowFor")]
     assert panel.index("held.stale") < panel.index("held.fit"), (
         "a stale assessment must say so before its content, not after"
     )
@@ -913,17 +956,49 @@ def test_the_column_is_in_the_view_somebody_decides_with() -> None:
     assert '"Concerns"' in deciding
 
 
-def test_the_assessment_panel_wraps_and_stays_where_the_reader_is() -> None:
-    """feat-010/AC-87: prose inside a table whose cells deliberately do not wrap.
+def test_the_assessment_is_read_outside_the_table_and_not_inside_it() -> None:
+    """feat-010/AC-87: prose does not survive a grid built for one-line cells.
 
-    Both halves were real. The panel is sized to a reading width and the sentences ignored it,
-    because a data row is read across and the cells are `nowrap`; the box measured correctly in the
-    DOM while every line ran a thousand pixels past its own edge and off the screen. And the table
-    scrolls sideways over forty-four columns, so a panel that did not stay put would slide away the
-    moment somebody went to look at a column.
+    This was tried the other way first and the page is what settled it. A row opening inside the
+    table inherits two things it cannot use: `white-space: nowrap`, because a data row is read
+    across, and a line height of 25px, which is a *row* height rather than a line height and which
+    set the assessment's own sentences a full line apart. The first was patched in place; the second
+    is what the person saw and called double spacing, and both are the same fault, which is prose
+    living in a grid.
+    """
+    results = script("results")
+    assert 'el("dialog"' in results and "showModal()" in results
+    assert "detailrow" not in results, "the row that used to open should be gone, not merely unused"
+
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert "dialog.assessed" in style
+
+    body = style[style.index(".assessment {"):style.index(".assessment .whose")]
+    #: Its own, because the one it would inherit anywhere near that table belongs to a row.
+    assert "line-height" in body, "prose must set its own line height, not take a row's"
+
+
+def test_prose_never_takes_the_tables_row_height_as_a_line_height() -> None:
+    """feat-010/AC-87, feat-010/AC-53: the fault behind the doubled spacing, pinned at the root.
+
+    `table.grid td` sets `line-height` to the row height so that a one-line cell is exactly one row
+    tall, which is what lets the virtual window place rows by arithmetic. Anything wordy drawn
+    inside a cell inherits it and is set a full line apart. The assessment moved out of the table
+    for that reason; this is here so the next thing that puts a paragraph in a cell is made to think
+    about it rather than meeting it in a screenshot.
     """
     style = (STATIC / "app.css").read_text(encoding="utf-8")
-    panel = style[style.index(".assessment {"):style.index(".assessment .whose")]
-    assert "white-space: normal" in panel, "prose in this table has to be told to wrap"
-    assert "position: sticky" in panel and "left: 0" in panel
-    assert "width:" in panel, "a line the full width of forty-four columns is not a readable line"
+    cells = next(body for selector, body in _rules_for(style, ("table.grid th, table.grid td",))
+                 if "line-height" in body)
+    assert "var(--cell-line)" in cells, (
+        "the row height is what a cell's line height is; if that stops being true, so does this"
+    )
+
+    for selector, body in _rules_for(style, (".assessment",)):
+        if selector.strip() == ".assessment":
+            assert "line-height" in body, (
+                "prose that could be drawn near this table has to state its own line height"
+            )
+            break
+    else:
+        raise AssertionError("the assessment's own rule went away")

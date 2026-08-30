@@ -3311,15 +3311,17 @@ def test_the_marker_appears_and_leaves_in_a_real_browser(served) -> None:
         process.wait(timeout=10)
 
 
-def test_a_concern_count_opens_and_closes_and_the_table_still_measures(served) -> None:
-    """feat-010/AC-87, feat-010/AC-53: an expanding row against a table that places by measurement.
+def test_the_concerns_control_opens_a_dialog_and_gives_focus_back(served) -> None:
+    """feat-010/AC-86, feat-010/AC-87: the claims about this that only a real browser can settle.
 
-    The one claim about this only a real browser can check. Every other test can pass while the row
-    never opens, or opens and leaves the rows below it drawn in the wrong places.
+    Three of them, and each has failed at some point in a way nothing else caught. That the control
+    is drawn at all, and carries its count. That pressing it opens a dialog over the page rather
+    than a row inside the table, with the whole assessment in it and its evidence with it. And that
+    closing it puts the keyboard back on the control it came from, which is the difference between
+    reading two assessments in a row and walking the table again between them.
 
-    The second half is the one that would be missed. This table keeps sixty rows in the DOM and
-    positions them from heights it measured, so a row that grows has to be measured with the detail
-    it grew by, or every row below it is placed against a stale ladder and the scrollbar lies.
+    The table is checked as well, because this used to open inside it: the rows drawn must be the
+    rows the ladder measured, with nothing extra wedged among them.
     """
     base, _held, store = served
 
@@ -3347,64 +3349,91 @@ def test_a_concern_count_opens_and_closes_and_the_table_still_measures(served) -
                  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
                  let button = null;
                  for (let i = 0; i < 150; i++) {
-                   button = document.querySelector("td.assessed .concerns");
+                   button = document.querySelector("td.assessed button.glass");
                    if (button) break;
                    await wait(100);
                  }
                  if (!button) return {found: false};
-                 const before = document.querySelectorAll("#body > tr").length;
+                 const rowsBefore = document.querySelectorAll("#body > tr").length;
                  button.click();
-                 /* Waited on the content rather than on the row. The row appears at once with a
+                 /* Waited on the content rather than on the dialog. The dialog opens at once with a
                   * placeholder in it, because the text is fetched when it opens rather than sent
-                  * with the table; a test that stopped at the row would be asserting the
-                  * placeholder. */
-                 let panel = null;
+                  * with the table; a test stopping at the dialog would assert a placeholder. */
                  for (let i = 0; i < 150; i++) {
-                   panel = document.querySelector("tr.detailrow .assessment .concern");
-                   if (panel) break;
+                   if (document.querySelector("dialog.assessed .concern")) break;
                    await wait(100);
                  }
-                 panel = document.querySelector("tr.detailrow .assessment");
+                 const dialog = document.querySelector("dialog.assessed");
                  return {
                    found: true,
-                   count: button.textContent,
+                   badge: (button.querySelector(".tally") || {}).textContent || "",
+                   glass: !!button.querySelector("svg"),
                    serious: button.classList.contains("bad"),
-                   opened: !!panel,
-                   text: panel ? panel.textContent : "",
-                   rowsBefore: before,
+                   spoken: button.getAttribute("aria-label") || "",
+                   opened: !!(dialog && dialog.open),
+                   modal: !!(dialog && dialog.matches(":modal")),
+                   text: dialog ? dialog.textContent : "",
+                   /* Nothing wedged among the rows the ladder measured. */
+                   rowsSame: document.querySelectorAll("#body > tr").length === rowsBefore,
+                   insideTable: !!(dialog && dialog.closest("table")),
+                   /* The badge hangs off the corner of the icon and every cell in this table is
+                    * `overflow: hidden`, so "drawn" and "visible" are two different claims. */
+                   badgeInside: (() => {
+                     const tally = button.querySelector(".tally");
+                     if (!tally) return null;
+                     const cell = button.closest("td").getBoundingClientRect();
+                     const box = tally.getBoundingClientRect();
+                     return box.top >= cell.top && box.bottom <= cell.bottom
+                         && box.left >= cell.left && box.right <= cell.right;
+                   })(),
                  };
                })()""",
         )
-        assert opened["found"], "no concern count was drawn for an assessed property"
-        assert opened["count"] == "1"
+        assert opened["found"], "no control was drawn for an assessed property"
+        assert opened["glass"], "the control is an icon, not a bare number"
+        assert opened["badge"] == "1", "the count rides on the icon as a badge"
         # Marked, because one of them is serious and that is the thing worth seeing from a distance.
         assert opened["serious"] is True
-        assert opened["opened"], "pressing the count did not open the assessment"
+        # The badge is hidden from a screen reader, so the control has to say it in words.
+        assert "1 concern" in opened["spoken"]
+
+        assert opened["opened"], "pressing the control did not open the assessment"
+        assert opened["modal"], "it has to be over the page, not merely present on it"
+        assert not opened["insideTable"], "the whole point is that this is not in the table"
+        assert opened["rowsSame"], "opening it changed the rows the ladder measured"
+        assert opened["badgeInside"], (
+            "the badge is drawn outside its cell, which clips it: every cell here is overflow "
+            "hidden, so a count hanging off the corner of the icon has to fit inside the column"
+        )
         assert "Nearby higher-hazard ground" in opened["text"]
         assert "orange to the north" in opened["text"], "a concern must carry its evidence"
         # Labelled as the model's, so it cannot be mistaken for something the person wrote.
         assert "Not your notes" in opened["text"]
 
-        settled = evaluate(
+        closed = evaluate(
             connection,
             """(async () => {
                  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-                 await wait(400);
-                 const row = document.querySelector("#body > tr[data-index]");
-                 const detail = document.querySelector("tr.detailrow");
-                 const scroller = document.querySelector(".scroller") || document.scrollingElement;
-                 // The detail must be inside the same scrolling body as the rows, or it is drawn
-                 // somewhere the ladder does not account for.
-                 const together = !!(row && detail && row.parentElement === detail.parentElement);
-                 const button = document.querySelector("td.assessed .concerns");
-                 button.click();
-                 await wait(300);
-                 return {together, closed: !document.querySelector("tr.detailrow")};
+                 const dialog = document.querySelector("dialog.assessed");
+                 /* Escape, because that is how every dialog in this interface closes and it is the
+                  * one a reader will reach for without being told. */
+                 dialog.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+                 dialog.close();
+                 await wait(200);
+                 const back = document.activeElement;
+                 return {
+                   gone: !document.querySelector("dialog.assessed"),
+                   focused: !!(back && back.classList && back.classList.contains("glass")),
+                 };
                })()""",
             message_id=2,
         )
-        assert settled["together"], "the detail is not in the same body the ladder measures"
-        assert settled["closed"], "pressing again did not close it"
+        assert closed["gone"], "the dialog was left on the page after closing"
+        assert closed["focused"], (
+            "focus did not come back to the control, so a keyboard reader has to walk the table "
+            "again to reach the next row"
+        )
     finally:
         process.terminate()
         process.wait(timeout=10)
+

@@ -290,10 +290,15 @@ function watchTheMachine() {
     if (!passes.length) where.replaceChildren();
     else {
       const first = passes[0];
-      where.replaceChildren(
+      /* Filtered, because `replaceChildren` is not `el`. The builder used everywhere else in this
+       * file drops a null child; this one turns it into a text node, so a single running pass drew
+       * the word "null" next to its own name. */
+      const drawn = [
         link(showingPass(first), nameOfPass(first), {class: "marker", title: "Started " +
           (first.started_at || "just now")}),
-        passes.length > 1 ? el("span", {class: "more"}, `+${passes.length - 1}`) : null);
+        passes.length > 1 ? el("span", {class: "more"}, `+${passes.length - 1}`) : null,
+      ].filter(Boolean);
+      where.replaceChildren(...drawn);
     }
     /* Appearing and going away both change the height above a table that measures its own, which
      * is the fault AC-53 exists to prevent, reintroduced by a marker. */

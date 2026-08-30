@@ -291,6 +291,27 @@ def test_the_marker_removes_itself_and_remeasures() -> None:
     assert "fit === \"function\"" in strip, "a change in height must remeasure the table"
 
 
+def test_one_running_pass_draws_one_thing_and_not_the_word_null() -> None:
+    """feat-010/AC-84: the marker said "Running a search: nm-statewide null" for weeks.
+
+    `replaceChildren` is not the element builder used everywhere else in this file. That one drops a
+    null child, which is what lets every other piece of drawing here write
+    `condition ? el(...) : null` and read cleanly. `replaceChildren` turns it into a text node
+    instead, so the second child, present only when more than one pass is running, printed itself as
+    the word `null` beside the name of the first whenever exactly one was.
+    """
+    common = (STATIC / "common.js").read_text(encoding="utf-8")
+    strip = common[common.index("function watchTheMachine"):common.index("async function rejoin")]
+
+    called = strip[strip.index("where.replaceChildren(..."):]
+    assert ".filter(Boolean)" in strip, (
+        "a list handed to replaceChildren has to be filtered; it does not drop nulls itself"
+    )
+    assert "null" not in called[:called.index(")")], (
+        "a null is being passed to replaceChildren, which draws it as the word"
+    )
+
+
 def test_a_stopped_pass_is_never_drawn_as_running_or_as_finished() -> None:
     """feat-010/AC-83: what the store cannot distinguish, the screen must not pretend to."""
     for name in ("common.js", "searches.js"):

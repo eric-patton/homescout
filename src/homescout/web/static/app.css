@@ -1931,42 +1931,119 @@ table.grid tbody tr.picked:hover td { background: #dfe9f6; }
  * that does, because reading a stale one as current is how this misleads rather than disappoints. */
 td.assessed { text-align: center; }
 
-.concerns {
-  font: inherit;
-  min-width: 1.9rem;
-  padding: 0 0.35rem;
-  border: 1px solid var(--edge, #ccc);
-  border-radius: 999px;
-  background: var(--fill, #fff);
+/* A magnifying glass carrying the number of concerns.
+ *
+ * `relative` so the badge has something to hang off, and a fixed square so that a cell with a badge
+ * and a cell without one are the same width and the column does not shimmer as it scrolls. */
+.glass {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  /* Always present and usually invisible, so that marking one dashed moves nothing beside it. */
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted, #777);
   cursor: pointer;
-  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+  box-sizing: border-box;
 }
 
-.concerns:hover, .concerns:focus { border-color: var(--ink, #333); }
-.concerns.bad { border-color: #a2402a; color: #a2402a; font-weight: 600; }
-/* Read and nothing raised. Quiet, because 55 of 155 are this and a table of grey noughts is a
- * table somebody stops reading. */
-.concerns.none { color: var(--muted, #777); border-color: transparent; }
-.concerns.stale { border-style: dashed; }
+.glass svg { width: 15px; height: 15px; display: block; }
+.glass svg circle, .glass svg line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
 
-tr.detailrow > td { padding: 0; background: var(--panel, #f7f5f0); }
+.glass:hover { background: var(--link-wash); color: var(--ink, #333); }
+.glass:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Pinned to the left edge and held to a reading width.
+/* The count, sitting on the glass the way a notification count sits on anything else.
  *
- * Without both, this is a paragraph laid across forty-four columns of table: sixteen hundred pixels
- * of line length, clipped at the right edge, and gone entirely the moment somebody scrolls sideways
- * to look at a column. Sticky keeps it where the reader is; the width keeps a line readable. */
+ * Its own line height and a fixed one, because this lives inside a cell whose line height is the
+ * row height (25px) rather than a line height, and a badge set on that is a badge two rows tall. */
+.glass .tally {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--sky, #43607c);
+  color: #fff;
+  font-size: 9.5px;
+  line-height: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+/* One of the concerns is serious.
+ *
+ * Shape as well as colour, and the shape is the part that matters: this feature's own accessibility
+ * requirement is that nothing is conveyed by colour alone, and a red badge next to a blue one is
+ * exactly that. A round badge is an ordinary count and a squared one is a serious one, which is
+ * legible at fourteen pixels, survives a monochrome screen, and reads down a column at a glance.
+ * The spoken name says it too. */
+.glass.bad .tally { background: #a2402a; border-radius: 3px; }
+.glass.bad { color: #a2402a; }
+
+/* The assessment no longer describes the property. Dashed, which is a texture rather than a colour
+ * and which composes with the squared badge instead of competing with it: a property can be both.
+ * The border is always there and usually invisible, so turning it on moves nothing. */
+.glass.stale { border-color: var(--edge, #bbb); border-style: dashed; }
+.glass.stale svg { opacity: 0.55; }
+
+/* What the model made of one property, read on its own.
+ *
+ * In a dialog rather than in the table. Every cell of that table is deliberately `nowrap`, because
+ * a data row is read across, and every cell takes the table's line height, which is a *row* height
+ * of 25px: prose inheriting it is set a full line apart, and that is not a slip to patch in place
+ * but what a grid built for one-line cells does to paragraphs. */
+dialog.assessed {
+  width: min(46rem, calc(100vw - 3rem));
+  max-height: min(80vh, 52rem);
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--fill, #fff);
+  color: var(--ink, #222);
+  box-shadow: 0 18px 48px rgba(20, 24, 33, 0.28);
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.assessed::backdrop { background: rgba(20, 24, 33, 0.35); }
+
+dialog.assessed .head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: 0.9rem 1.1rem 0.6rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+dialog.assessed .head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+dialog.assessed .head button.close { flex: none; }
+
 .assessment {
-  position: sticky;
-  left: 0;
-  width: min(58rem, 100vw - 3rem);
-  padding: 0.9rem 1.1rem;
-  border-left: 3px solid var(--sky, #43607c);
-  /* The cells of this table do not wrap, on purpose, because a data row is read across. This is
-   * prose in the same table and has to. Without it the panel is the right width and the sentences
-   * are not: they run past its edge and off the screen, which measures as a correctly sized box
-   * containing a line a thousand pixels too long. */
-  white-space: normal;
+  padding: 0.9rem 1.1rem 1.2rem;
+  overflow-y: auto;
+  /* Its own, because the one it would otherwise inherit belongs to a table row. */
+  line-height: 1.5;
 }
 
 .assessment .whose {

@@ -76,7 +76,7 @@ in five years. The problem brief is in `research.md`.
   something about, so that a table of a hundred and fifty rows tells me where to look.
 
 - As the person running searches, I want the whole of what it said about one property without
-  leaving the table, so that reading an assessment is not a decision to navigate away from what I
+  leaving the page, so that reading an assessment is not a decision to navigate away from what I
   was doing.
 
 - As the person running searches, I want to leave a pass running and come back to it, so that a job
@@ -870,17 +870,28 @@ in five years. The problem brief is in `research.md`.
       the browser's own process. The store records and does not refuse; the refusal is computed from
       what the store says. A command somebody typed is not refused: they asked for it explicitly,
       and this guards a button rather than a person at a keyboard.
-- [ ] AC-86: The results table carries a column saying how many concerns the assessment raised about
-      each property. It is marked when any of them is serious, and marked differently when the
-      assessment no longer describes the property because what it was assessed from has changed. A
-      property with no concerns shows nothing rather than a zero, and a property never assessed shows
-      nothing rather than an absence, because those are different facts and neither is a number.
+- [ ] AC-86: The results table carries a column for what the assessment made of each property,
+      drawn as a control rather than as a measurement: a magnifying glass carrying the number of
+      concerns as a badge, the way a count riding on an icon is read everywhere else as "there are
+      this many things here, press to see them". It is marked when any concern is serious, and
+      marked differently when the assessment no longer describes the property because what it was
+      assessed from has changed.
+
+      Three facts stay apart, and the drawing is what keeps them apart. **Nothing has assessed this
+      property**: the cell is empty, because an absence is not a count. **It was assessed and raised
+      nothing**: the icon, with no badge. That is a real answer and 55 of the first 155 properties
+      were it, so it is drawn rather than left blank, and "read and clear" can never be mistaken for
+      "not read". It carries no zero, because a badge reading `0` is a thing a person has to be
+      taught to read and an unbadged icon is not. **It raised concerns**: the icon with the number
+      on it.
 
       It is an ordinary column: it hides, comes back from the chooser, sorts and filters exactly as
-      every other column does, which is AC-45 and AC-52 applying to it without being restated. It
-      joins the chooser under an origin of its own, because what a model made of a property is a
-      different kind of claim from a value a source reported, one this tool computed, one read out
-      of a description, public data about the place, or something the person wrote.
+      every other column does, which is AC-45 and AC-52 applying to it without being restated. Its
+      value is still the number, so a sort orders by how much was raised and a filter tests the
+      count, whatever the cell happens to draw. It joins the chooser under an origin of its own,
+      because what a model made of a property is a different kind of claim from a value a source
+      reported, one this tool computed, one read out of a description, public data about the place,
+      or something the person wrote.
 
       **Ordinary means it joins the declaration every column is declared in, and not the default
       spreadsheet.** Those are already two different things: forty-four columns are declared and the
@@ -891,16 +902,44 @@ in five years. The problem brief is in `research.md`.
 
       **It is in the view the table opens on.** A count somebody has to go and un-hide is a count
       they will not see, and this one exists only where a person is deciding.
-- [ ] AC-87: Pressing the count opens the assessment for that property beneath it, in the table,
-      without leaving the page. What opens is the whole of it: the account of the property, every
-      concern with the evidence it came from, what each picture showed, what to check before
-      visiting, and what could not be determined. Pressing again closes it, and it opens from the
-      keyboard the same way, because the cell is already reachable that way.
 
-      **The count and not the row.** Pressing a row already means two things here: it moves the cell
-      focus, which is what makes a writable column typable, and with shift held it extends the range
-      AC-81 acts on. A third meaning on the same press would have taken one of those away, and the
-      one it would have taken is the one somebody already reported losing.
+      **Neither mark is a colour.** This feature's own accessibility requirement is that nothing is
+      conveyed by colour alone, and a red badge beside a blue one is exactly that. A serious count
+      is squared where an ordinary one is round, and an assessment that no longer describes the
+      property is drawn dashed. A property can be both, so the two marks are a shape and a texture
+      rather than two colours competing for the same pixels. Both are said in words as well, because
+      the badge is hidden from a screen reader and the control has to speak the count itself.
+      **Why a control and not a number.** A right-aligned integer in a column standing between Tags
+      and Town is read as one more measurement of the house, like beds or square feet. It is not a
+      measurement; it is a door. Drawing it as a door is the whole of the difference, and it costs
+      nothing, because the sortable, filterable value underneath is unchanged.
+- [ ] AC-87: Pressing it opens the assessment for that property in a dialog over the page, without
+      leaving the page. What opens is the whole of it: the account of the property, every concern
+      with the evidence it came from, what each picture showed, what to check before visiting, and
+      what could not be determined. It closes with its own control, with Escape, and by pressing
+      outside it, which is how every other dialog in this interface closes. It opens from the
+      keyboard the same way, because the cell is already reachable that way, and focus moves into it
+      when it opens and back to the control it came from when it closes.
+
+      **Over the page rather than inside the table.** Three reasons, and the first was learned by
+      looking at it built the other way. *Prose does not survive this grid*: every cell here is
+      deliberately `white-space: nowrap`, because a data row is read across, and every cell takes
+      the table's line height, which is a *row* height of 25px rather than a line height. A
+      paragraph inheriting it is set a full line apart, and that is not a styling slip to correct in
+      place; it is what a table configured for one-line cells does to prose, and the next thing that
+      puts prose in a cell would meet it again. *The reading is not the deciding*: the table exists
+      to compare a hundred and fifty rows, while reading what a model made of one house is a
+      single-subject act, and this interface already opens a dialog for exactly that kind of act,
+      for the photographs and for the question asked before a house is passed on. *Nothing behind it
+      moves*: an opened row changes the height of the virtual window and pushes every row below it
+      down the page, where a dialog leaves the table untouched, so closing it puts the reader back
+      on the row they were looking at rather than near it. That also removes the one place where
+      AC-53's measurement had to account for a second row belonging to a first.
+
+      **The control and not the row.** Pressing a row already means two things here: it moves the
+      cell focus, which is what makes a writable column typable, and with shift held it extends the
+      range AC-81 acts on. A third meaning on the same press would have taken one of those away, and
+      the one it would have taken is the one somebody already reported losing.
 
       **The person's own judgment stays visibly theirs.** What is drawn is labelled as the model's
       and dated, and nothing in it is written into `rank`, `verdict`, `red_flags`, `summary`,
@@ -911,7 +950,7 @@ in five years. The problem brief is in `research.md`.
       **An assessment that no longer describes the property says so before its content.** Reading a
       stale assessment as current is the one way this misleads rather than merely disappoints.
 
-      **The text is fetched when a row is opened rather than sent with the table.** The results
+      **The text is fetched when the dialog is opened rather than sent with the table.** The results
       answer for this workspace is already 2.7MB, and adding every assessment's prose to every page
       load to show what is usually one of them is the wrong trade. The count in AC-86 is three small
       values per row and travels with the table.

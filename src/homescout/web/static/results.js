@@ -119,10 +119,9 @@ const ORIGINS = {
  * same six the tooltips above use to say what an empty cell means, because two sets of words for
  * six origins is how a chooser comes to call something "public data" while the heading over the
  * same column calls it something else. */
-/* Which property's assessment is open, and what was fetched for it. One at a time: two open rows
- * on a table this wide is two places to scroll between, and the whole point of opening it here
- * rather than on another page is not going anywhere. */
-let openAssessment = null;
+/* What has been fetched for each property, kept so that closing a dialog and opening it again does
+ * not ask twice. What is *open* is no longer state here: a dialog knows whether it is open, and one
+ * of them is the whole of it, because `showModal` allows exactly one. */
 const ASSESSMENTS = new Map();
 
 const ORIGIN_GROUPS = [
@@ -1546,10 +1545,7 @@ function window_(again) {
   const slice = state.shown.slice(first, last);
 
   const frag = document.createDocumentFragment();
-  slice.forEach((row, offset) => {
-    frag.append(rowFor(row, first + offset));
-    if (openAssessment === row.listing_id) frag.append(assessmentPanel(row));
-  });
+  slice.forEach((row, offset) => frag.append(rowFor(row, first + offset)));
   body.replaceChildren(frag);
 
   /* The rows that are not drawn, given as height above and below the ones that are.
@@ -1593,16 +1589,8 @@ function settle(scroller, rungs, again) {
   for (const tr of body.children) {
     const row = state.shown[Number(tr.dataset.index)];
     if (!row) continue;
-    let tall = tr.getBoundingClientRect().height;
+    const tall = tr.getBoundingClientRect().height;
     if (!tall) continue;
-    /* An open assessment is drawn as a second row and belongs to the height of the first. One line,
-     * because this table already places rows from measured heights rather than assuming they are
-     * all the same; against a fixed-height table an expanding row would have been a new mechanism.
-     */
-    const detail = tr.nextElementSibling;
-    if (detail && detail.dataset.detailFor === row.listing_id) {
-      tall += detail.getBoundingClientRect().height;
-    }
     const known = state.heights.get(row.listing_id);
     if (known === undefined || Math.abs(known - tall) > 0.5) {
       state.heights.set(row.listing_id, tall);
@@ -1619,83 +1607,192 @@ function settle(scroller, rungs, again) {
   window_(true);
 }
 
-/* Open this property's assessment, or close it if it is the one already open.
+/* What the model made of this property, as something to press rather than something to read.
  *
- * The text is fetched here rather than sent with the table. The results answer for this workspace
- * is already 2.7MB, and putting 155 assessments' prose into every page load to show the one
- * somebody opens is the wrong trade; the count that decides whether there is anything to open
- * travels with the row and costs three small values.
+ * A right-aligned integer sitting between Tags and Town reads as one more measurement of the house,
+ * like beds or square feet. It is not a measurement, it is a door, so it is drawn as a door: a
+ * magnifying glass with the count riding on it, which is the shape a person already knows means
+ * "there are this many things here, press to see them".
+ *
+ * Three states, and they are three different facts:
+ *
+ *   nothing at all   nothing has assessed this property. An absence is not a count.
+ *   the glass alone  assessed, and it raised nothing. A real answer, and 55 of the first 155 were
+ *                    it, so it is drawn rather than left blank: "read and clear" must never be
+ *                    mistaken for "not read". No badge, because a badge reading `0` is a thing a
+ *                    person has to be taught and an unbadged icon is not.
+ *   glass and badge  this many concerns, marked when any of them is serious.
+ *
+ * A fourth mark rides on top of any of the last two: an assessment that no longer describes the
+ * property, because what it was made from has changed.
+ *
+ * The value underneath is still the number, which is what AC-45 sorts and AC-52 filters on. Only
+ * the drawing changed.
  */
-async function toggleAssessment(row) {
-  if (openAssessment === row.listing_id) {
-    openAssessment = null;
-    window_();
-    return;
-  }
-  openAssessment = row.listing_id;
-  window_();
-  if (ASSESSMENTS.has(row.listing_id)) return;
-  try {
-    ASSESSMENTS.set(row.listing_id,
-      await ask(`/api/assessment/${encodeURIComponent(row.listing_id)}`));
-  } catch (error) {
-    ASSESSMENTS.set(row.listing_id, {failed: String(error.message || error)});
-  }
-  if (openAssessment === row.listing_id) window_();
+function concernsControl(row) {
+  const held = row.assessment;
+  if (!held || typeof held.concerns !== "number") return [];
+
+  const badge = held.concerns > 0
+    ? el("span", {class: "tally", "aria-hidden": "true"},
+         held.concerns > 99 ? "99+" : String(held.concerns))
+    : null;
+
+  /* Said in words as well as drawn, because this feature's accessibility requirement is that
+   * nothing is conveyed by colour alone and the badge is hidden from a screen reader anyway. Every
+   * mark the drawing makes has a clause here. */
+  const said = held.concerns > 0
+    ? `${held.concerns} ${held.concerns === 1 ? "concern" : "concerns"}`
+      + (held.worst === "serious" ? ", one of them serious" : "")
+    : "nothing raised";
+  const marks = ["glass"];
+  if (held.worst === "serious") marks.push("bad");
+  if (held.stale) marks.push("stale");
+
+  return [el("button", {
+    type: "button",
+    class: marks.join(" "),
+    /* The name a screen reader says, because the glass is a picture and the badge is hidden from
+     * it. The visible number and the spoken sentence say the same thing. */
+    "aria-label": held.stale
+      ? `Read the assessment: ${said}, and no longer current`
+      : `Read the assessment: ${said}`,
+    title: held.stale
+      ? "What this was assessed from has changed since. Press to read it anyway."
+      : `Read what the model made of this property, assessed ${when(held.made_at)}`,
+    onclick: (event) => {
+      event.stopPropagation();
+      openAssessment(row, event.currentTarget);
+    },
+  },
+    glassIcon(),
+    badge,
+  )];
 }
 
-/* The whole of what a model made of one property, drawn under its row.
+/* Drawn rather than pulled in. This interface ships no icon font and no sprite sheet, and one
+ * fourteen-pixel glass is not the reason to start: it would be a second thing to load before a
+ * table can be read, on the page whose load is already the most expensive here.
+ */
+function glassIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ring.setAttribute("cx", "6.75");
+  ring.setAttribute("cy", "6.75");
+  ring.setAttribute("r", "4.25");
+  const handle = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  handle.setAttribute("x1", "9.9");
+  handle.setAttribute("y1", "9.9");
+  handle.setAttribute("x2", "13.6");
+  handle.setAttribute("y2", "13.6");
+  svg.append(ring, handle);
+  return svg;
+}
+
+/* Open this property's assessment over the page.
+ *
+ * The text is fetched here rather than sent with the table. The results answer for this workspace
+ * is already 2.7MB, and putting a hundred and fifty assessments' prose into every page load to show
+ * the one somebody opens is the wrong trade; the count that decides whether there is anything to
+ * open travels with the row and costs three small values.
+ *
+ * The dialog is drawn before the text arrives, saying so, rather than after. A control that does
+ * nothing for a second and then produces a window is a control somebody presses twice.
+ */
+async function openAssessment(row, pressed) {
+  const inside = el("div", {class: "assessment"}, ...assessmentBody(null));
+  const dialog = assessmentDialog(row, inside, pressed);
+
+  if (!ASSESSMENTS.has(row.listing_id)) {
+    try {
+      ASSESSMENTS.set(row.listing_id,
+        await ask(`/api/assessment/${encodeURIComponent(row.listing_id)}`));
+    } catch (error) {
+      ASSESSMENTS.set(row.listing_id, {failed: String(error.message || error)});
+    }
+  }
+  /* Closed while it was being fetched, which is a second and a keystroke away. Drawing into a
+   * dialog nobody is looking at is harmless; not doing it is one line. */
+  if (!dialog.open) return;
+  inside.replaceChildren(...assessmentBody(ASSESSMENTS.get(row.listing_id)));
+}
+
+/* The frame, built the way the other two dialogs in this interface are built: closed by its own
+ * control, by Escape, and by pressing the backdrop, and taken off the page when it closes rather
+ * than left lying about.
+ */
+function assessmentDialog(row, inside, pressed) {
+  const shut = el("button", {type: "button", class: "quiet close",
+                             onclick: () => dialog.close()}, "Close");
+  const dialog = el("dialog", {
+    class: "assessed",
+    "aria-label": `What the model made of ${row.values["Property"] || "this property"}`,
+    onclose: () => {
+      dialog.remove();
+      /* Back to the control that opened it. Without this, focus falls to the top of the document
+       * and somebody reading by keyboard has to walk the whole table again to reach the next row. */
+      if (pressed && pressed.isConnected) pressed.focus();
+    },
+    onclick: (event) => { if (event.target === dialog) dialog.close(); },
+  },
+    el("div", {class: "head"},
+      el("h2", {}, row.values["Property"] || "This property"),
+      shut),
+    inside,
+  );
+  document.body.append(dialog);
+  dialog.showModal();
+  shut.focus();
+  return dialog;
+}
+
+/* The whole of what a model made of one property.
  *
  * Labelled and dated, and never inside the person's own columns. Somebody reading a concern has to
  * be able to tell at a glance that they are reading an opinion rather than their own note, which is
  * the presentation half of a boundary the store enforces by keeping the two in different tables.
  */
-function assessmentPanel(row) {
-  const held = ASSESSMENTS.get(row.listing_id);
-  const inside = el("div", {class: "assessment"});
+function assessmentBody(held) {
+  if (!held) return [el("p", {class: "meta"}, "Reading it\u2026")];
+  if (held.failed) return [el("p", {class: "notice notice-problem"}, held.failed)];
 
-  if (!held) {
-    inside.append(el("p", {class: "meta"}, "Reading it…"));
-  } else if (held.failed) {
-    inside.append(el("p", {class: "notice notice-problem"}, held.failed));
-  } else {
-    /* Before the content and not after it. Reading a stale assessment as a current one is the way
-     * this misleads rather than merely disappoints. */
-    if (held.stale) {
-      inside.append(el("p", {class: "notice notice-flag"},
-        "What this was assessed from has changed since it was written, so it may no longer "
-        + "describe this property. It is kept as it was."));
-    }
-    inside.append(el("p", {class: "whose"},
-      `What the model made of this property, ${when(held.made_at)}. Not your notes: yours are in `
-      + `Rank, Verdict, Red Flags, Summary and Next Step, and nothing here writes to them.`));
-    if (held.fit) inside.append(el("p", {class: "fit"}, held.fit));
+  const parts = [];
+  /* Before the content and not after it. Reading a stale assessment as a current one is the way
+   * this misleads rather than merely disappoints. */
+  if (held.stale) {
+    parts.push(el("p", {class: "notice notice-flag"},
+      "What this was assessed from has changed since it was written, so it may no longer "
+      + "describe this property. It is kept as it was."));
+  }
+  parts.push(el("p", {class: "whose"},
+    `What the model made of this property, ${when(held.made_at)}. Not your notes: yours are in `
+    + `Rank, Verdict, Red Flags, Summary and Next Step, and nothing here writes to them.`));
+  if (held.fit) parts.push(el("p", {class: "fit"}, held.fit));
 
-    for (const concern of held.concerns || []) {
-      inside.append(el("div", {class: "concern" + (concern.severity === "serious" ? " bad" : "")},
-        el("p", {class: "about"},
-          el("span", {class: "sev"}, concern.severity || "worth checking"),
-          concern.about || ""),
-        concern.detail ? el("p", {}, concern.detail) : null,
-        concern.evidence
-          ? el("p", {class: "evidence"},
-              el("span", {class: "kind"}, concern.evidence_kind || "evidence"), concern.evidence)
-          : null));
-    }
-    if (!(held.concerns || []).length) {
-      inside.append(el("p", {class: "meta"}, "It raised nothing about this property."));
-    }
-
-    for (const shown of held.seen || []) {
-      inside.append(el("p", {class: "saw"},
-        el("span", {class: "kind"}, shown.name), shown.said));
-    }
-    inside.append(listOf("Before visiting", held.before_visiting));
-    inside.append(listOf("What it could not tell", held.could_not_tell));
+  for (const concern of held.concerns || []) {
+    parts.push(el("div", {class: "concern" + (concern.severity === "serious" ? " bad" : "")},
+      el("p", {class: "about"},
+        el("span", {class: "sev"}, concern.severity || "worth checking"),
+        concern.about || ""),
+      concern.detail ? el("p", {}, concern.detail) : null,
+      concern.evidence
+        ? el("p", {class: "evidence"},
+            el("span", {class: "kind"}, concern.evidence_kind || "evidence"), concern.evidence)
+        : null));
+  }
+  if (!(held.concerns || []).length) {
+    parts.push(el("p", {class: "meta"}, "It raised nothing about this property."));
   }
 
-  return el("tr", {class: "detailrow", "data-detail-for": row.listing_id},
-    el("td", {colspan: String(Math.max(1, state.columns.length))}, inside));
+  for (const shown of held.seen || []) {
+    parts.push(el("p", {class: "saw"}, el("span", {class: "kind"}, shown.name), shown.said));
+  }
+  parts.push(listOf("Before visiting", held.before_visiting));
+  parts.push(listOf("What it could not tell", held.could_not_tell));
+  return parts.filter(Boolean);
 }
 
 function listOf(title, items) {
@@ -1773,27 +1870,7 @@ function cellFor(row, column, index, column_) {
    * this table's whole performance argument is about how many elements exist. */
   const inner = state.wrap ? el("span", {class: "cell"}) : cell;
   if (column.origin === "assessed") {
-    /* Three states and they are three different facts, which is why none of them is a zero.
-     *
-     * Nothing has assessed this property: empty, because an absence is not a count. Assessed and
-     * nothing raised: `0`, quietly, because "read and found nothing" is a real answer and 55 of the
-     * 155 properties here are it. Assessed with concerns: the number, marked when any of them is
-     * serious, and marked differently when the assessment no longer describes the property.
-     */
-    const held = row.assessment;
-    if (held && typeof held.concerns === "number") {
-      const worst = held.worst === "serious";
-      inner.append(el("button", {
-        type: "button",
-        class: "concerns" + (worst ? " bad" : "") + (held.stale ? " stale" : "")
-          + (held.concerns === 0 ? " none" : ""),
-        "aria-expanded": openAssessment === row.listing_id ? "true" : "false",
-        title: held.stale
-          ? "What this was assessed from has changed since. Press to read it anyway."
-          : `Read what the model made of this property, assessed ${when(held.made_at)}`,
-        onclick: (event) => { event.stopPropagation(); toggleAssessment(row); },
-      }, String(held.concerns)));
-    }
+    inner.append(...concernsControl(row));
     cell.classList.add("assessed");
     return cell;
   }

@@ -1601,3 +1601,40 @@ is written in this file beside this function and the wrong pattern is the one cu
       below it still measures (`feat-010/AC-87`, `feat-010/AC-53`). The one claim about this that
       only a real browser can check, and the table's own height rule is exactly what an expanding
       row threatens.
+
+## changes/an-icon-and-a-dialog
+
+- [x] T208: `web/static/results.js`, `app.css`: the cell draws a control, not a measurement
+      (`feat-010/AC-86`). A magnifying glass carrying the count as a badge. Three states stay apart
+      and get easier to draw: empty for never assessed, the icon alone for assessed and clear, the
+      icon with a badge for concerns. Serious is marked; an assessment that no longer describes the
+      property is marked differently. The column's value is still the number, so AC-45's sort and
+      AC-52's filter keep working on the count whatever the cell draws.
+
+- [x] T209: `web/static/results.js`, `app.css`: the assessment opens in a dialog over the page
+      (`feat-010/AC-87`). Built like the gallery and the pass question, which are the two dialogs
+      this interface already has: closed by its own control, by Escape, and by pressing outside it,
+      with focus moving in on open and back to the control on close. Still fetched when opened, and
+      still labelled, dated and never inside the person's own columns.
+
+- [x] T210: `web/static/results.js`: take the expanded row back out (`feat-010/AC-53`,
+      `feat-010/AC-87`). The detail row, the parent-plus-detail height in `settle`, and the sticky
+      full-width panel styling all existed to put prose in a grid. With the prose in a dialog the
+      measurement returns to one row, one height.
+
+- [x] T211: `tests/test_web_surfaces.py`, `tests/test_web_browser.py`: the control's three states,
+      and the dialog opening, closing and returning focus in a real browser (`feat-010/AC-86`,
+      `feat-010/AC-87`).
+
+## Defects found by looking at the built page
+
+- [x] D2: `web/static/common.js`: the running marker draws the word `null` beside itself whenever
+      exactly one pass is running (`feat-010/AC-84`). `replaceChildren` turns a null argument into a
+      text node; the element builder used everywhere else in this codebase drops it. Regression test
+      pins that one running pass draws one thing.
+
+- [x] D3: `app.css`, `tests/test_web_surfaces.py`: prose inside a cell inherits the table's row
+      height as its line height (`feat-010/AC-87`, `feat-010/AC-53`). `table.grid td` sets
+      `line-height: 25px` so a one-line cell is exactly one row tall, which sets a paragraph's own
+      lines a full line apart. Fixed at the root by moving the prose out of the table; pinned by a
+      test so the next thing that puts prose in a cell does not meet it again.
