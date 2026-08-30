@@ -386,6 +386,10 @@ def test_every_column_is_either_filled_or_writable_and_says_which() -> None:
 
     assert {column.origin for column in cols.COLUMNS} <= {
         "listing", "derived", "extracted", "enriched", "annotation",
+        # The sixth, and its own rather than folded into one of the five. What a model made of a
+        # property is not a reported value, a computed one, one read out of a description, public
+        # data, or something the person wrote (feat-010/AC-86).
+        "assessed",
     }, "a column that is neither filled by this tool nor writable by a person"
     assert "yours to write in" in results, "the heading does not say whose an empty column is"
     assert "th.yours" in style, "and it is not marked"
@@ -690,11 +694,11 @@ def test_a_view_naming_a_column_that_is_gone_narrows_rather_than_breaks() -> Non
 
 
 def test_the_chooser_groups_columns_by_where_their_values_come_from() -> None:
-    """feat-010/AC-75: five groups, in the words the headings already use for the same five."""
+    """feat-010/AC-75, feat-010/AC-86: a group per origin, in the words the headings already use."""
     results = script("results")
     assert "const ORIGIN_GROUPS" in results
     groups = results[results.index("const ORIGIN_GROUPS"):results.index("/* The named views")]
-    for origin in ("listing", "derived", "extracted", "enriched", "annotation"):
+    for origin in ("listing", "derived", "extracted", "enriched", "annotation", "assessed"):
         assert f'["{origin}"' in groups, f"{origin} has a group"
     assert "column.origin === origin" in results, "sorted by the origin the answer declares"
     # Shown or put away as a group, which is the two most common of the thirty decisions.

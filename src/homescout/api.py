@@ -1363,6 +1363,7 @@ def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
     """
     from .assess.criteria import criteria_for
     from .assess.dossier import dossier_for
+    from .assess.model import PICTURES
     from .assess.pass_ import fingerprint_of
     from .export import latest_run, rows_of
     from .extract.notes import read as read_notes
@@ -1395,7 +1396,11 @@ def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         "made_at": held.made_at,
         "stale": stale,
         "fit": held.fit,
-        "seen": dict(held.seen),
+        # Named by the core, so a page shows what a picture is called rather than inventing it.
+        "seen": [
+            {"where": where, "name": PICTURES.get(where, where), "said": said}
+            for where, said in held.seen.items()
+        ],
         "concerns": [dict(c) for c in held.concerns],
         "before_visiting": list(held.before_visiting),
         "could_not_tell": list(held.could_not_tell),
@@ -1530,6 +1535,11 @@ def results(
         for column in cols.COLUMNS
     ]
     with_pictures = workspace.store.listings_with_preview_images()
+    # What each assessment was made from, against what the property looks like now. Computed here
+    # rather than stored, because staleness is a fact about the present: an assessment is current
+    # exactly while what it was made from still holds. The criteria are read once for the whole
+    # table; the rest is a hash over values the row already carries.
+    stated = _stated_criteria(workspace, name)
     documents = []
     passed = 0
     for row in rows:
@@ -1540,6 +1550,7 @@ def results(
         document["judgment"] = judgment
         document["hidden_by_default"] = judgment == "pass" and not include_passed
         document["has_image"] = row.listing_id in with_pictures
+        document["assessment"] = _assessment_summary(row, stated)
         documents.append(document)
 
     return {
@@ -1549,6 +1560,52 @@ def results(
         "rows": documents,
         "passed": passed,
         "include_passed": include_passed,
+    }
+
+
+def _stated_criteria(workspace: Workspace, name: str) -> dict[str, Any] | None:
+    """What this search says it wants, for deciding whether an assessment still describes a row.
+
+    `None` when it cannot be read, which reads as "cannot tell" rather than as stale: telling
+    somebody an assessment is out of date when it is not sends them to redo a pass that costs money.
+    """
+    from .assess.criteria import criteria_for
+    from .extract.notes import read as read_notes
+
+    try:
+        with _translating():
+            definition = workspace.catalog.load(name)
+        written = read_notes(workspace.root, definition)
+        return criteria_for(
+            definition, notes=[n for n in (written.everywhere, written.search) if n]
+        ).stated()
+    except Exception:  # noqa: BLE001 - unable to tell is not the same as stale
+        return None
+
+
+def _assessment_summary(row: Any, stated: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """The three values a table row carries about its assessment, or nothing.
+
+    A count, the worst severity, and whether it still describes the property. Not the prose: the
+    answer is already 2.7MB for this workspace and the text is fetched when a row is opened.
+    """
+    held = getattr(row, "assessment", None)
+    if held is None:
+        return None
+    stale = False
+    if stated is not None:
+        from .assess.dossier import dossier_for
+        from .assess.pass_ import fingerprint_of
+
+        try:
+            stale = fingerprint_of(dossier_for(row), stated) != held.get("fingerprint")
+        except Exception:  # noqa: BLE001 - and again: unable to tell is not stale
+            stale = False
+    return {
+        "concerns": held.get("concerns"),
+        "worst": held.get("worst"),
+        "made_at": held.get("made_at"),
+        "stale": stale,
     }
 
 

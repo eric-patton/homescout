@@ -112,18 +112,30 @@ const ORIGINS = {
   extracted: "recovered from the listing's own description",
   enriched: "public data about where the property is",
   annotation: "yours to write in",
+  assessed: "what a model made of the property, read against your own criteria",
 };
 
 /* What a group of columns is called in the chooser, in the order the origins are declared in. The
- * same five the tooltips above use to say what an empty cell means, because two sets of words for
- * five origins is how a chooser comes to call something "public data" while the heading over the
+ * same six the tooltips above use to say what an empty cell means, because two sets of words for
+ * six origins is how a chooser comes to call something "public data" while the heading over the
  * same column calls it something else. */
+/* Which property's assessment is open, and what was fetched for it. One at a time: two open rows
+ * on a table this wide is two places to scroll between, and the whole point of opening it here
+ * rather than on another page is not going anywhere. */
+let openAssessment = null;
+const ASSESSMENTS = new Map();
+
 const ORIGIN_GROUPS = [
   ["listing", "Reported by the listing"],
   ["derived", "Worked out by this tool"],
   ["extracted", "Read out of the description"],
   ["enriched", "Public data about the place"],
   ["annotation", "Yours to write in"],
+  /* Last, and its own group rather than folded into one of the five. What a model made of a
+   * property is not a reported value, a computed one, one read out of a description, public data,
+   * or something the person wrote, and a reader deciding whether to trust a number needs that
+   * distinction more here than anywhere else in the table. */
+  ["assessed", "What the model made of it"],
 ];
 
 /* The named views the table can open on.
@@ -1530,7 +1542,10 @@ function window_(again) {
   const slice = state.shown.slice(first, last);
 
   const frag = document.createDocumentFragment();
-  slice.forEach((row, offset) => frag.append(rowFor(row, first + offset)));
+  slice.forEach((row, offset) => {
+    frag.append(rowFor(row, first + offset));
+    if (openAssessment === row.listing_id) frag.append(assessmentPanel(row));
+  });
   body.replaceChildren(frag);
 
   /* The rows that are not drawn, given as height above and below the ones that are.
@@ -1574,8 +1589,16 @@ function settle(scroller, rungs, again) {
   for (const tr of body.children) {
     const row = state.shown[Number(tr.dataset.index)];
     if (!row) continue;
-    const tall = tr.getBoundingClientRect().height;
+    let tall = tr.getBoundingClientRect().height;
     if (!tall) continue;
+    /* An open assessment is drawn as a second row and belongs to the height of the first. One line,
+     * because this table already places rows from measured heights rather than assuming they are
+     * all the same; against a fixed-height table an expanding row would have been a new mechanism.
+     */
+    const detail = tr.nextElementSibling;
+    if (detail && detail.dataset.detailFor === row.listing_id) {
+      tall += detail.getBoundingClientRect().height;
+    }
     const known = state.heights.get(row.listing_id);
     if (known === undefined || Math.abs(known - tall) > 0.5) {
       state.heights.set(row.listing_id, tall);
@@ -1590,6 +1613,92 @@ function settle(scroller, rungs, again) {
   const wanted = Math.max(0, now[anchor] + into);
   if (Math.abs(wanted - scroller.scrollTop) >= 1) scroller.scrollTop = wanted;
   window_(true);
+}
+
+/* Open this property's assessment, or close it if it is the one already open.
+ *
+ * The text is fetched here rather than sent with the table. The results answer for this workspace
+ * is already 2.7MB, and putting 155 assessments' prose into every page load to show the one
+ * somebody opens is the wrong trade; the count that decides whether there is anything to open
+ * travels with the row and costs three small values.
+ */
+async function toggleAssessment(row) {
+  if (openAssessment === row.listing_id) {
+    openAssessment = null;
+    window_();
+    return;
+  }
+  openAssessment = row.listing_id;
+  window_();
+  if (ASSESSMENTS.has(row.listing_id)) return;
+  try {
+    ASSESSMENTS.set(row.listing_id,
+      await ask(`/api/assessment/${encodeURIComponent(row.listing_id)}`));
+  } catch (error) {
+    ASSESSMENTS.set(row.listing_id, {failed: String(error.message || error)});
+  }
+  if (openAssessment === row.listing_id) window_();
+}
+
+/* The whole of what a model made of one property, drawn under its row.
+ *
+ * Labelled and dated, and never inside the person's own columns. Somebody reading a concern has to
+ * be able to tell at a glance that they are reading an opinion rather than their own note, which is
+ * the presentation half of a boundary the store enforces by keeping the two in different tables.
+ */
+function assessmentPanel(row) {
+  const held = ASSESSMENTS.get(row.listing_id);
+  const inside = el("div", {class: "assessment"});
+
+  if (!held) {
+    inside.append(el("p", {class: "meta"}, "Reading it…"));
+  } else if (held.failed) {
+    inside.append(el("p", {class: "notice notice-problem"}, held.failed));
+  } else {
+    /* Before the content and not after it. Reading a stale assessment as a current one is the way
+     * this misleads rather than merely disappoints. */
+    if (held.stale) {
+      inside.append(el("p", {class: "notice notice-flag"},
+        "What this was assessed from has changed since it was written, so it may no longer "
+        + "describe this property. It is kept as it was."));
+    }
+    inside.append(el("p", {class: "whose"},
+      `What the model made of this property, ${when(held.made_at)}. Not your notes: yours are in `
+      + `Rank, Verdict, Red Flags, Summary and Next Step, and nothing here writes to them.`));
+    if (held.fit) inside.append(el("p", {class: "fit"}, held.fit));
+
+    for (const concern of held.concerns || []) {
+      inside.append(el("div", {class: "concern" + (concern.severity === "serious" ? " bad" : "")},
+        el("p", {class: "about"},
+          el("span", {class: "sev"}, concern.severity || "worth checking"),
+          concern.about || ""),
+        concern.detail ? el("p", {}, concern.detail) : null,
+        concern.evidence
+          ? el("p", {class: "evidence"},
+              el("span", {class: "kind"}, concern.evidence_kind || "evidence"), concern.evidence)
+          : null));
+    }
+    if (!(held.concerns || []).length) {
+      inside.append(el("p", {class: "meta"}, "It raised nothing about this property."));
+    }
+
+    for (const shown of held.seen || []) {
+      inside.append(el("p", {class: "saw"},
+        el("span", {class: "kind"}, shown.name), shown.said));
+    }
+    inside.append(listOf("Before visiting", held.before_visiting));
+    inside.append(listOf("What it could not tell", held.could_not_tell));
+  }
+
+  return el("tr", {class: "detailrow", "data-detail-for": row.listing_id},
+    el("td", {colspan: String(Math.max(1, state.columns.length))}, inside));
+}
+
+function listOf(title, items) {
+  if (!items || !items.length) return null;
+  return el("div", {class: "said"},
+    el("h4", {}, title),
+    el("ul", {}, items.map((one) => el("li", {}, one))));
 }
 
 function rowFor(row, index) {
@@ -1659,6 +1768,31 @@ function cellFor(row, column, index, column_) {
    * When text is kept to a line the box is not built at all: it is one more element per cell, and
    * this table's whole performance argument is about how many elements exist. */
   const inner = state.wrap ? el("span", {class: "cell"}) : cell;
+  if (column.origin === "assessed") {
+    /* Three states and they are three different facts, which is why none of them is a zero.
+     *
+     * Nothing has assessed this property: empty, because an absence is not a count. Assessed and
+     * nothing raised: `0`, quietly, because "read and found nothing" is a real answer and 55 of the
+     * 155 properties here are it. Assessed with concerns: the number, marked when any of them is
+     * serious, and marked differently when the assessment no longer describes the property.
+     */
+    const held = row.assessment;
+    if (held && typeof held.concerns === "number") {
+      const worst = held.worst === "serious";
+      inner.append(el("button", {
+        type: "button",
+        class: "concerns" + (worst ? " bad" : "") + (held.stale ? " stale" : "")
+          + (held.concerns === 0 ? " none" : ""),
+        "aria-expanded": openAssessment === row.listing_id ? "true" : "false",
+        title: held.stale
+          ? "What this was assessed from has changed since. Press to read it anyway."
+          : `Read what the model made of this property, assessed ${when(held.made_at)}`,
+        onclick: (event) => { event.stopPropagation(); toggleAssessment(row); },
+      }, String(held.concerns)));
+    }
+    cell.classList.add("assessed");
+    return cell;
+  }
   if (!sortable(column)) {
     cell.classList.add("control");
     inner.append(keepToggle(row), passToggle(row));

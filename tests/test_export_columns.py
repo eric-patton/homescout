@@ -156,6 +156,8 @@ def test_every_column_declares_where_its_value_comes_from() -> None:
             "extracted",
             "enriched",
             "annotation",
+            # feat-010/AC-86: what a model made of the property, which is none of the other five.
+            "assessed",
         ), column.name
 
 

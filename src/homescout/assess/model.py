@@ -32,6 +32,16 @@ REASONING_HEADROOM = 6_000
 
 PACING_KEY = "assess"
 
+#: What each picture is called, for anything that shows what the model said about one.
+#:
+#: Declared here rather than made out of the key by whoever draws it. A surface turning
+#: `hazard_map` into "hazard map" is a surface inventing a name for something the core already
+#: named, and the two drift the moment either changes.
+PICTURES: dict[str, str] = {
+    "photograph": "the photograph",
+    "hazard_map": "the fire map",
+}
+
 
 class AssessmentFailed(Exception):
     """This property could not be assessed. Every one names why, without the credential."""

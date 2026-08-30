@@ -1553,3 +1553,51 @@ is written in this file beside this function and the wrong pattern is the one cu
       `tests/test_web_background.py`: rejoining after a reload, the marker appearing and going away,
       a terminal-started pass visible in the browser, and a killed pass reading as stopped
       (`feat-010/AC-83`, `feat-010/AC-84`, `feat-010/AC-13`, `feat-001/AC-31`).
+
+## What the model made of it (`changes/what-the-model-made-of-it/`)
+
+- [ ] T200: `store/core.py`: summarise many assessments in one query (`feat-010/AC-86`). How many
+      concerns, the worst severity, and what each was assessed from, for a list of properties. One
+      query rather than one per row: a table of a thousand asking per row is the shape that turns a
+      column into a wait.
+
+- [ ] T201: `api.py`: three values per row in the results answer (`feat-010/AC-86`). The count, the
+      worst severity, and whether it is stale. Not the prose: the answer is already 2.7MB for this
+      workspace, and sending 155 assessments' text on every page load to show what is usually one of
+      them is the wrong trade.
+
+- [ ] T201a: `export/columns.py`: the column joins the declaration and not the default sheet
+      (`feat-010/AC-86`). Declared, so the table sorts, filters, hides and chooses it with no special
+      case; out of `DEFAULT`, so feat-011/AC-1's header test is untouched and that feature needs no
+      change. Forty-three declared and thirty-two in the default sheet is already the arrangement.
+
+- [ ] T202: `web/static/results.js`, `app.css`: the column (`feat-010/AC-86`). Marked when anything
+      is serious, marked differently when stale, and empty both when nothing was raised and when
+      nothing was assessed, because those are different facts and neither is a zero. An ordinary
+      column otherwise: hides, returns from the chooser, sorts and filters.
+
+- [ ] T203: `web/static/results.js`: a sixth origin in the chooser (`feat-010/AC-86`,
+      `feat-010/AC-75`). What a model made of a property is not a reported value, a computed one, one
+      read out of a description, public data, or the person's own note.
+
+- [ ] T204: `web/static/results.js`, `app.css`: pressing the count expands the row
+      (`feat-010/AC-87`, `feat-010/AC-81`). The count and not the row: a press on a row already moves
+      the cell focus, and with shift extends the batch range, and a third meaning would have taken
+      one of those away. The account,
+      each concern with its evidence, what the pictures showed, what to check, and what could not be
+      told. Fetched when opened. The virtual window already measures rows and builds its offsets from
+      what it measured, so a taller row needs one line in the measurement to count the detail with
+      its parent rather than a new mechanism.
+
+- [ ] T205: `web/static/results.js`, `app.css`: it is visibly the model's (`feat-010/AC-87`,
+      `feat-013/AC-6`). Labelled and dated, next to but never inside the person's own columns, and a
+      stale assessment says so before its content rather than after it.
+
+- [ ] T206: `tests/test_web_surfaces.py`, `tests/test_assessment.py`: the column's three states, the
+      summary query, and that nothing drawn here is written into an annotation (`feat-010/AC-86`,
+      `feat-010/AC-87`).
+
+- [ ] T207: `tests/test_web_browser.py`: the row opens and closes in a real browser and the table
+      below it still measures (`feat-010/AC-87`, `feat-010/AC-53`). The one claim about this that
+      only a real browser can check, and the table's own height rule is exactly what an expanding
+      row threatens.

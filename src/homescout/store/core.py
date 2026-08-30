@@ -1775,6 +1775,45 @@ class Store:
                 found[row["listing_id"]] = row["fingerprint"]
         return found
 
+    def assessment_summaries(self, listing_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+        """How many concerns each carries, the worst of them, and what it was assessed from.
+
+        One query for the whole table. Asked per row it would be a round trip per property, which
+        is the shape that turns a column into a wait on a table of a thousand; the judgment lookup
+        beside it already has that problem and does not need company.
+
+        The summary and not the prose: a hundred and fifty-five assessments' text on every page
+        load, to show the one somebody opens, is the wrong trade against an answer already measured
+        at 2.7MB.
+        """
+        if not listing_ids:
+            return {}
+        worst = {"serious": 3, "worth checking": 2, "minor": 1}
+        found: dict[str, dict[str, Any]] = {}
+        for chunk in _in_chunks(list(listing_ids)):
+            marks = ",".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                "SELECT listing_id, concerns, fingerprint, made_at FROM assessments "  # noqa: S608
+                f"WHERE listing_id IN ({marks}) ORDER BY seq",
+                chunk,
+            )
+            for row in rows:
+                concerns = json.loads(row["concerns"]) if row["concerns"] else []
+                ranked = [
+                    (worst.get(str(c.get("severity")), 0), str(c.get("severity") or ""))
+                    for c in concerns
+                    if isinstance(c, Mapping)
+                ]
+                # Ordered by seq, so a later assessment of one property replaces an earlier one
+                # here. Both are still readable; this answers "what does it say now".
+                found[row["listing_id"]] = {
+                    "concerns": len(concerns),
+                    "worst": max(ranked)[1] if ranked else None,
+                    "fingerprint": row["fingerprint"],
+                    "made_at": row["made_at"],
+                }
+        return found
+
     def _assessment_from(
         self, row: sqlite3.Row, fingerprint: str | None
     ) -> StoredAssessment:

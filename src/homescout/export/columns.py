@@ -35,13 +35,18 @@ Kind = Only["text", "number"]
 #: There is deliberately no sixth kind for a column nothing fills. There was one, and it meant a
 #: column that was empty forever and could not be typed into either, which is not a column: it is a
 #: heading with an apology under it.
-Origin = Only["listing", "derived", "extracted", "enriched", "annotation"]
+Origin = Only["listing", "derived", "extracted", "enriched", "annotation", "assessed"]
 
 #: What an empty column of each kind means, in words a person can act on.
 WHY_EMPTY: dict[str, str] = {
     "extracted": "no listing description said so",
     "enriched": "the enrichment pass has not been run for these properties",
     "annotation": "nothing has been written about these properties yet",
+    # Two different blanks and the difference matters: a property nothing has assessed, and one that
+    # was assessed and had nothing raised about it. The column keeps them apart by holding `None`
+    # for the first and `0` for the second; this sentence is for a whole column that is empty, which
+    # means the pass has not been run.
+    "assessed": "nothing has read these properties against your criteria yet",
 }
 
 
@@ -267,6 +272,18 @@ def _sources(row: Row) -> str | None:
 # The table
 # ---------------------------------------------------------------------------
 
+def _concerns(row: Row) -> Any:
+    """How many things the model raised about this property.
+
+    `None` rather than zero when nothing was assessed, and zero when an assessment raised nothing.
+    Those are different facts and the difference is the useful part: 55 of the 155 properties in
+    this workspace were read and had nothing raised about them, which is a real answer and not an
+    absence. Invariant 10's rule that an undetermined value is empty is what keeps them apart.
+    """
+    found = getattr(row, "assessment", None)
+    return None if found is None else found.get("concerns")
+
+
 COLUMNS: tuple[Column, ...] = (
     Column("Rank", "number", "annotation", _annotated("rank")),
     Column("Status", "text", "derived", _status),
@@ -280,6 +297,15 @@ COLUMNS: tuple[Column, ...] = (
     # down the column, so it goes where the address is. It stays out of the default sheet, which is
     # a promise about a document that already exists.
     Column("Tags", "text", "annotation", _tags),
+    # An origin of its own, and the sixth. What a model made of a property is not a value a source
+    # reported, one this tool computed, one read out of a description, public data about the place,
+    # or something the person wrote, and the chooser groups by exactly that question.
+    #
+    # Declared here and deliberately not in `DEFAULT` below: declaring it is what makes the table
+    # sort, filter, hide and choose it with no special case, and staying out of the default sheet is
+    # what leaves the spreadsheet's header exactly as feat-011/AC-1 requires. Anybody who wants
+    # it in a sheet puts it in a template, which is what a template is for.
+    Column("Concerns", "number", "assessed", _concerns),
     Column("Town/Area", "text", "listing", _listing("city")),
     Column("County/Region", "text", "derived", _county),
     Column("Price", "number", "listing", _listing("price")),

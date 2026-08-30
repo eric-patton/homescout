@@ -45,6 +45,12 @@ class Row:
     #: tool's: keeping and passing answer one fixed question and everything else somebody wants to
     #: say about a house is a word they made up.
     tags: tuple[str, ...] = ()
+    #: What a model made of this property, in summary: how many concerns, the worst of them, and
+    #: whether it still describes the property. `None` when nothing has assessed it.
+    #:
+    #: The summary and not the prose. A hundred and fifty-five assessments' text on every page load,
+    #: to show the one a person opens, is the wrong trade against an answer that is already 2.7MB.
+    assessment: dict[str, Any] | None = None
 
 
 def rows_for(
@@ -81,6 +87,8 @@ def rows_for(
     #: Asked once for the whole sheet. One query per row is how a table of a thousand becomes a
     #: table somebody waits for.
     tags = store.tags_for_many([entry.listing_id for entry in wanted])
+    #: And once, for the same reason. What a model made of each property, in summary.
+    assessed = store.assessment_summaries([entry.listing_id for entry in wanted])
     enriched = _enriched(store, wanted)
     from_model = _model_values(store, run_id, root)
     notes = _area_notes(store)
@@ -102,6 +110,7 @@ def rows_for(
                 source_links=links,
                 area_notes=notes,
                 tags=tags.get(entry.listing_id, ()),
+                assessment=assessed.get(entry.listing_id),
             )
         )
     return tuple(made)

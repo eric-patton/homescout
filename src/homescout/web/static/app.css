@@ -1922,3 +1922,77 @@ table.grid tbody tr.picked:hover td { background: #dfe9f6; }
 @media (prefers-reduced-motion: reduce) {
   .running .marker::before { animation: none; }
 }
+
+/* What the model made of a property.
+ *
+ * Two things are being kept apart visually and both matter. A concern count is the model's, and the
+ * columns beside it are the person's, so the cell reads as a control rather than as a value they
+ * wrote. And an assessment that no longer describes the property has to look different from one
+ * that does, because reading a stale one as current is how this misleads rather than disappoints. */
+td.assessed { text-align: center; }
+
+.concerns {
+  font: inherit;
+  min-width: 1.9rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--edge, #ccc);
+  border-radius: 999px;
+  background: var(--fill, #fff);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.concerns:hover, .concerns:focus { border-color: var(--ink, #333); }
+.concerns.bad { border-color: #a2402a; color: #a2402a; font-weight: 600; }
+/* Read and nothing raised. Quiet, because 55 of 155 are this and a table of grey noughts is a
+ * table somebody stops reading. */
+.concerns.none { color: var(--muted, #777); border-color: transparent; }
+.concerns.stale { border-style: dashed; }
+
+tr.detailrow > td { padding: 0; background: var(--panel, #f7f5f0); }
+
+.assessment {
+  padding: 0.9rem 1.1rem;
+  max-width: 60rem;
+  border-left: 3px solid var(--sky, #43607c);
+}
+
+.assessment .whose {
+  font-size: 0.82rem;
+  color: var(--muted, #666);
+  margin: 0 0 0.6rem;
+}
+
+.assessment .fit { margin: 0 0 0.9rem; }
+
+.assessment .concern {
+  border-left: 3px solid var(--edge, #ccc);
+  padding-left: 0.8rem;
+  margin-bottom: 0.7rem;
+}
+
+.assessment .concern.bad { border-left-color: #a2402a; }
+.assessment .concern p { margin: 0.15rem 0; }
+.assessment .about { font-weight: 600; }
+
+.assessment .sev,
+.assessment .kind {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #777);
+  margin-right: 0.5rem;
+  font-weight: 400;
+}
+
+.assessment .evidence { font-size: 0.85rem; color: var(--muted, #666); font-style: italic; }
+.assessment .saw { font-size: 0.88rem; margin: 0.3rem 0; }
+.assessment .said { margin-top: 0.7rem; }
+.assessment .said h4 {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #777);
+  margin: 0 0 0.25rem;
+}
+.assessment .said ul { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; }
