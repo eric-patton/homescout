@@ -5,24 +5,24 @@ sent, the storage before the pass writes to it, and the surfaces last.
 
 ## The dossier
 
-- [ ] T1: `assess/dossier.py`: assemble everything about one property that goes in one request
+- [x] T1: `assess/dossier.py`: assemble everything about one property that goes in one request
       (`feat-013/AC-2`, `feat-013/AC-3`). The listing's fields, its description, the six recovered
       fields with provenance, every enrichment value held for it, and the rule verdicts with their
       severities. Read from what feat-001, feat-007, feat-008 and feat-009 already collected;
       nothing is fetched here. The address and coordinates are in it, deliberately, and the module
       docstring says why this boundary differs from `extract/model.py`'s.
 
-- [ ] T2: `assess/dossier.py`: name what is absent (`feat-013/AC-14`). A property with no
+- [x] T2: `assess/dossier.py`: name what is absent (`feat-013/AC-14`). A property with no
       coordinates has no hazard rating, no elevation, no aquifer answer and no station; one with no
       photograph has no picture. Each absence is stated in the dossier rather than omitted, because
       a silent gap reads as a thing that raised no concern.
 
-- [ ] T3: `assess/criteria.py`: gather what the household has already said (`feat-013/AC-4`). The
+- [x] T3: `assess/criteria.py`: gather what the household has already said (`feat-013/AC-4`). The
       search's description, each exclusion area's reason in the person's own words, the rules with
       severities, the installation's and the search's notes, and a sample of kept and passed
       properties with the reason recorded at the time. Nothing here authors a criterion.
 
-- [ ] T4: `assess/criteria.py`: the exclusion reasons are context and not tests (`feat-013/AC-4`).
+- [x] T4: `assess/criteria.py`: the exclusion reasons are context and not tests (`feat-013/AC-4`).
       The polygons already removed what they remove, so a property being assessed survived them.
       Said in the instruction, because the failure mode is a model that reads "dairy odor" and flags
       the eastern half of the state.
@@ -32,7 +32,7 @@ sent, the storage before the pass writes to it, and the surfaces last.
       owns. The second is the substitute for a distance this product cannot compute, because the
       layer is a raster; the docstring says so.
 
-- [ ] T6: `assess/wind.py`: the nearest station and its distance (`feat-013/AC-16`). Arithmetic over
+- [x] T6: `assess/wind.py`: the nearest station and its distance (`feat-013/AC-16`). Arithmetic over
       the station list already on disk. What is sent carries the station, how far away it is, and a
       plain statement that a rose is regional, so nothing writes a confident sentence about the
       prevailing wind at a parcel.
@@ -44,21 +44,21 @@ sent, the storage before the pass writes to it, and the surfaces last.
 
 ## Asking, and what comes back
 
-- [ ] T8: `assess/model.py`: the request, through feat-009's client, account and pacing
+- [x] T8: `assess/model.py`: the request, through feat-009's client, account and pacing
       (`feat-013/AC-13`). No second client, no second credential, no second politeness policy. What
       is new here is the body and the instruction, not the transport.
 
-- [ ] T9: `assess/model.py`: the instruction (`feat-013/AC-5`). It asks for a short account, the
+- [x] T9: `assess/model.py`: the instruction (`feat-013/AC-5`). It asks for a short account, the
       concerns with the evidence for each, how well the property matches the stated criteria, what
       to check before visiting, and what could not be determined. Evidence is a quoted phrase, or a
       field name and value, or a statement that it came from the photograph.
 
-- [ ] T10: `assess/model.py`: nothing is partially applied (`feat-013/AC-11`, `feat-013/AC-5`). An
+- [x] T10: `assess/model.py`: nothing is partially applied (`feat-013/AC-11`, `feat-013/AC-5`). An
       answer that is unusable makes the property a reported failure rather than a half-recorded
       assessment, and leaves any previous one exactly as it was. The same rule feat-009 applies to a
       field, applied to a property.
 
-- [ ] T11: `assess/model.py`: a failure names the property and never the credential
+- [x] T11: `assess/model.py`: a failure names the property and never the credential
       (`feat-013/AC-11`). Through the stripper that already exists, and now also through the store's
       own scrubbing on the way in.
 
