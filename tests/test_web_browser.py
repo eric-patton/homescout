@@ -3309,3 +3309,102 @@ def test_the_marker_appears_and_leaves_in_a_real_browser(served) -> None:
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+def test_a_concern_count_opens_and_closes_and_the_table_still_measures(served) -> None:
+    """feat-010/AC-87, feat-010/AC-53: an expanding row against a table that places by measurement.
+
+    The one claim about this only a real browser can check. Every other test can pass while the row
+    never opens, or opens and leaves the rows below it drawn in the wrong places.
+
+    The second half is the one that would be missed. This table keeps sixty rows in the DOM and
+    positions them from heights it measured, so a row that grows has to be measured with the detail
+    it grew by, or every row below it is placed against a stale ladder and the scrollbar lies.
+    """
+    base, _held, store = served
+
+    listing_id = next(iter(store.listings())).id
+    store.record_assessment(
+        listing_id,
+        model="a-model",
+        fingerprint="sha256:whatever",
+        fit="A house with a metal roof.",
+        seen={"photograph": "Bare ground and a metal roof."},
+        concerns=[
+            {"about": "Nearby higher-hazard ground", "detail": "Orange is adjacent.",
+             "severity": "serious", "evidence_kind": "map", "evidence": "orange to the north"},
+        ],
+        before_visiting=["Ask about defensible space."],
+    )
+
+    process, debug = chrome(f"{base}/results/portales")
+    try:
+        connection = talk(debug, "/results/portales")
+
+        opened = evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                 let button = null;
+                 for (let i = 0; i < 150; i++) {
+                   button = document.querySelector("td.assessed .concerns");
+                   if (button) break;
+                   await wait(100);
+                 }
+                 if (!button) return {found: false};
+                 const before = document.querySelectorAll("#body > tr").length;
+                 button.click();
+                 /* Waited on the content rather than on the row. The row appears at once with a
+                  * placeholder in it, because the text is fetched when it opens rather than sent
+                  * with the table; a test that stopped at the row would be asserting the
+                  * placeholder. */
+                 let panel = null;
+                 for (let i = 0; i < 150; i++) {
+                   panel = document.querySelector("tr.detailrow .assessment .concern");
+                   if (panel) break;
+                   await wait(100);
+                 }
+                 panel = document.querySelector("tr.detailrow .assessment");
+                 return {
+                   found: true,
+                   count: button.textContent,
+                   serious: button.classList.contains("bad"),
+                   opened: !!panel,
+                   text: panel ? panel.textContent : "",
+                   rowsBefore: before,
+                 };
+               })()""",
+        )
+        assert opened["found"], "no concern count was drawn for an assessed property"
+        assert opened["count"] == "1"
+        # Marked, because one of them is serious and that is the thing worth seeing from a distance.
+        assert opened["serious"] is True
+        assert opened["opened"], "pressing the count did not open the assessment"
+        assert "Nearby higher-hazard ground" in opened["text"]
+        assert "orange to the north" in opened["text"], "a concern must carry its evidence"
+        # Labelled as the model's, so it cannot be mistaken for something the person wrote.
+        assert "Not your notes" in opened["text"]
+
+        settled = evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                 await wait(400);
+                 const row = document.querySelector("#body > tr[data-index]");
+                 const detail = document.querySelector("tr.detailrow");
+                 const scroller = document.querySelector(".scroller") || document.scrollingElement;
+                 // The detail must be inside the same scrolling body as the rows, or it is drawn
+                 // somewhere the ladder does not account for.
+                 const together = !!(row && detail && row.parentElement === detail.parentElement);
+                 const button = document.querySelector("td.assessed .concerns");
+                 button.click();
+                 await wait(300);
+                 return {together, closed: !document.querySelector("tr.detailrow")};
+               })()""",
+            message_id=2,
+        )
+        assert settled["together"], "the detail is not in the same body the ladder measures"
+        assert settled["closed"], "pressing again did not close it"
+    finally:
+        process.terminate()
+        process.wait(timeout=10)

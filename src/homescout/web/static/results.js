@@ -152,12 +152,16 @@ const ORIGIN_GROUPS = [
  * `null` means every column, which is what this table did before there were views.
  */
 const VIEWS = [
+  /* `Concerns` is in the opening view, second, and that placement is the point of it. A column
+   * saying what a model made of a property is only worth having where somebody is deciding, and a
+   * count they have to go and un-hide is a count they will not see. It sits beside the address
+   * because the two are read together: which house, and is there anything to know about it. */
   ["deciding", "Deciding", [
-    "Property", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres", "Year Built",
+    "Property", "Concerns", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres", "Year Built",
     "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
   ]],
   ["hazards", "Hazards", [
-    "Property", "Town/Area", "Price", "Wildfire Hazard", "Wildland-Urban Interface",
+    "Property", "Concerns", "Town/Area", "Price", "Wildfire Hazard", "Wildland-Urban Interface",
     "FEMA Flood Zone", "Principal Aquifer", "Elevation (ft)", "Water Source", "Sewer/Septic",
     "Fire/Egress/Terrain", "Sewage & Reclaimed-Water Exposure", "Crime/Safety",
   ]],

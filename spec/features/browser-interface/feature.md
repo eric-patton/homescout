@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,7 +15,7 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"
@@ -185,3 +185,27 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   A fourth was found by a test rather than by the check: the recorder did not close its own row on
   the way out, so a caller who forgot the closing call would have left a pass reading as running
   until the clock said otherwise. It closes itself now.
+
+- **2026-08-29, what the model made of it (`changes/what-the-model-made-of-it/`).** A hundred and
+  fifty-five assessments existed and the table did not know they were there: they were readable
+  from a terminal, from the raw API, and nowhere a person looks. Deliberately left until somebody
+  had read real ones, because what is worth showing about an assessment in a table already
+  forty-three columns wide is a question of taste and guessing it first would have been guessing.
+
+  A count, second in the opening view beside the address, marked when anything is serious and marked
+  differently when the assessment no longer describes the property. Pressing it opens the whole
+  assessment under the row: the account, each concern with the evidence it came from, what each
+  picture showed, what to check, and what could not be told.
+
+  The pre-build check held it twice and the second one mattered. "Pressing a row opens it" would
+  have taken a meaning away from a gesture that already had two: moving the cell focus, which is
+  what makes a writable column typable, and extending the batch range with shift. The one it would
+  have displaced is the one somebody had already reported losing, in those words, in a comment that
+  is still in the file. The count opens it instead. The first finding was that "an ordinary column"
+  is a claim about where a column is declared, and declaring it raised feat-011's header test;
+  both are answered by an arrangement that already existed, since forty-four columns are declared
+  and the default sheet uses thirty-two.
+
+  The expanding row cost one line rather than a mechanism, because this table already places rows
+  from heights it measured rather than assuming they are equal. That was checked before the change
+  was proposed rather than after.

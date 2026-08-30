@@ -59,6 +59,6 @@ not is sound: long text in a virtual table competes for width with the columns s
 decides on.
 
 ## Status
-- [ ] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] delta reviewed (analyze)
+- [x] implemented & verified
+- [x] folded into spec.md

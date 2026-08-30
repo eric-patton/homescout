@@ -865,3 +865,49 @@ def test_a_builder_panel_says_when_it_is_unsaved() -> None:
     )
     assert 'dataset: {panel: "areas"}' in search_body
     assert "section.unsaved" in (STATIC / "app.css").read_text(encoding="utf-8")
+
+
+def test_the_concerns_column_keeps_three_different_blanks_apart() -> None:
+    """feat-010/AC-86: a property nobody assessed and one assessed with nothing found are not equal.
+
+    Neither of them is a zero, and only one of them is empty. 55 of the 155 properties in this
+    workspace were read and had nothing raised, which is a real answer; a property nothing has read
+    is an absence. Collapsing the two would make a blank column mean two things.
+    """
+    from homescout.export import columns as cols
+
+    column = next(c for c in cols.COLUMNS if c.name == "Concerns")
+    assert column.origin == "assessed"
+    assert column.kind == "number"
+    # Declared, so the table sorts, filters, hides and chooses it with no special case; out of the
+    # default sheet, so feat-011/AC-1's header is untouched and that feature needs no change.
+    assert "Concerns" not in cols.DEFAULT
+
+    results = script("results")
+    strip = results[results.index('column.origin === "assessed"'):]
+    assert '" none"' in strip, "assessed and nothing raised has to look different from a concern"
+    assert '" stale"' in strip, "an assessment that no longer describes the property must say so"
+    assert '" bad"' in strip, "a serious concern must be visible without opening the row"
+
+
+def test_the_assessment_is_drawn_as_the_models_and_never_as_the_persons() -> None:
+    """feat-010/AC-87, feat-013/AC-6: the boundary the store enforces, said on the screen.
+
+    Non-negotiable 7 is what makes this feature safe to be wrong. Somebody reading a concern has to
+    be able to tell at a glance that they are reading an opinion rather than their own note.
+    """
+    results = script("results")
+    assert "Not your notes" in results
+    assert "nothing here writes to them" in results
+    # Before the content, not after it: reading a stale assessment as current is how this misleads.
+    panel = results[results.index("function assessmentPanel"):results.index("function listOf")]
+    assert panel.index("held.stale") < panel.index("held.fit"), (
+        "a stale assessment must say so before its content, not after"
+    )
+
+
+def test_the_column_is_in_the_view_somebody_decides_with() -> None:
+    """feat-010/AC-86, feat-010/AC-74: a count behind a chooser is a count nobody sees."""
+    results = script("results")
+    deciding = results[results.index('["deciding"'):results.index('["hazards"')]
+    assert '"Concerns"' in deciding

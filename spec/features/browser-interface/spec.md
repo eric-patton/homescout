@@ -72,6 +72,13 @@ in five years. The problem brief is in `research.md`.
   have used for a year is not carrying every experiment I ever made.
 - As the person running searches, I want a link to say where it goes, so that I do not have to open
   a screen to find out it does more than its name admits.
+- As the person running searches, I want to see at a glance which properties the model raised
+  something about, so that a table of a hundred and fifty rows tells me where to look.
+
+- As the person running searches, I want the whole of what it said about one property without
+  leaving the table, so that reading an assessment is not a decision to navigate away from what I
+  was doing.
+
 - As the person running searches, I want to leave a pass running and come back to it, so that a job
   that takes twenty minutes does not require me to sit in front of it.
 
@@ -863,6 +870,51 @@ in five years. The problem brief is in `research.md`.
       the browser's own process. The store records and does not refuse; the refusal is computed from
       what the store says. A command somebody typed is not refused: they asked for it explicitly,
       and this guards a button rather than a person at a keyboard.
+- [ ] AC-86: The results table carries a column saying how many concerns the assessment raised about
+      each property. It is marked when any of them is serious, and marked differently when the
+      assessment no longer describes the property because what it was assessed from has changed. A
+      property with no concerns shows nothing rather than a zero, and a property never assessed shows
+      nothing rather than an absence, because those are different facts and neither is a number.
+
+      It is an ordinary column: it hides, comes back from the chooser, sorts and filters exactly as
+      every other column does, which is AC-45 and AC-52 applying to it without being restated. It
+      joins the chooser under an origin of its own, because what a model made of a property is a
+      different kind of claim from a value a source reported, one this tool computed, one read out
+      of a description, public data about the place, or something the person wrote.
+
+      **Ordinary means it joins the declaration every column is declared in, and not the default
+      spreadsheet.** Those are already two different things: forty-four columns are declared and the
+      default sheet uses thirty-two. Joining the declaration is what makes sorting, filtering,
+      hiding and the chooser work without a special case; staying out of the default sheet is what
+      leaves feat-011/AC-1's header exactly as it was. Anybody who wants the count in a sheet puts
+      it in a template, which is what feat-011/AC-7 says a template is for.
+
+      **It is in the view the table opens on.** A count somebody has to go and un-hide is a count
+      they will not see, and this one exists only where a person is deciding.
+- [ ] AC-87: Pressing the count opens the assessment for that property beneath it, in the table,
+      without leaving the page. What opens is the whole of it: the account of the property, every
+      concern with the evidence it came from, what each picture showed, what to check before
+      visiting, and what could not be determined. Pressing again closes it, and it opens from the
+      keyboard the same way, because the cell is already reachable that way.
+
+      **The count and not the row.** Pressing a row already means two things here: it moves the cell
+      focus, which is what makes a writable column typable, and with shift held it extends the range
+      AC-81 acts on. A third meaning on the same press would have taken one of those away, and the
+      one it would have taken is the one somebody already reported losing.
+
+      **The person's own judgment stays visibly theirs.** What is drawn is labelled as the model's
+      and dated, and nothing in it is written into `rank`, `verdict`, `red_flags`, `summary`,
+      `next_step` or the rest, which remain the user's own as feat-013/AC-6 requires. Somebody
+      reading a concern must be able to tell instantly that they are reading an opinion rather than
+      their own note.
+
+      **An assessment that no longer describes the property says so before its content.** Reading a
+      stale assessment as current is the one way this misleads rather than merely disappoints.
+
+      **The text is fetched when a row is opened rather than sent with the table.** The results
+      answer for this workspace is already 2.7MB, and adding every assessment's prose to every page
+      load to show what is usually one of them is the wrong trade. The count in AC-86 is three small
+      values per row and travels with the table.
 - [ ] AC-64: Two requests that read the database never run at the same time, because there is one
       connection under all of them. The exceptions are named in one place and are the answers that
       never open the store at all: a hazard tile, a wind rose, and this tool's own files, the first
