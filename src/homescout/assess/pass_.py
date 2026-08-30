@@ -151,3 +151,194 @@ def _with_wind(dossier: Dossier, wind: Mapping[str, Any]) -> Dossier:
     from dataclasses import replace
 
     return replace(dossier, wind=dict(wind))
+
+
+def assess_search(
+    store: Any,
+    definition: Any,
+    *,
+    root: Any,
+    limit: int | None = None,
+    session: Any = None,
+    progress: Callable[[str], None] | None = None,
+) -> PassOutcome:
+    """Assess one saved search's properties, assembling everything the request needs.
+
+    Here rather than in `api` because two callers need it and only one of them is a surface: a
+    person asking for a pass, and a run that was told to assess what it found. Left in `api`, the
+    second would have had to reach across into the first, or duplicate it, and duplicated assembly
+    is how the pass a run does drifts from the pass a person asks for.
+
+    Everything it reaches for is below it. `store` for the rows and the photographs, `enrich` for
+    the hazard picture and the wind, `extract` for the account and the pacing. Nothing above.
+    """
+    from ..enrich import settings as enrich_settings
+    from ..enrich import wind as wind_module
+    from ..enrich.hazard import dimensions, rectangle, tile
+    from ..export import latest_run, rows_of
+    from ..extract import settings as model_settings
+    from ..extract.notes import read as read_notes
+    from ..extract.pass_ import _session
+    from . import criteria as criteria_module
+    from . import surroundings as around
+
+    say = progress or (lambda _message: None)
+
+    try:
+        account = model_settings.account(root)
+    except model_settings.ExtractionMisconfigured as exc:
+        # Before anything is sent. Invariant 9 at the point of use: an installation with no model
+        # configured is not broken, it simply does not have this.
+        return PassOutcome(skipped=str(exc))
+
+    name = definition.name
+    rows = list(rows_of(store, latest_run(store, name), root=root))
+    in_play = [row for row in rows if _still_deciding(store, row)]
+
+    kept, passed = criteria_module.examples_from(rows)
+    written = read_notes(root, definition)
+    criteria = criteria_module.criteria_for(
+        definition,
+        notes=[n for n in (written.everywhere, written.search) if n],
+        kept=kept,
+        passed=passed,
+    )
+
+    already = store.assessed_fingerprints([row.listing_id for row in in_play])
+    stations = _stations_for(root, rows)
+    hazard_service = enrich_settings.picture_of("wildfire")
+
+    def pictures_for(row: Any, dossier: Dossier) -> list[tuple[str, bytes]]:
+        found: list[tuple[str, bytes]] = []
+        path = store.preview_image_path(row.listing_id)
+        if path is not None and path.is_file():
+            found.append(("the listing's own photograph", path.read_bytes()))
+        if dossier.has_place and hazard_service:
+            try:
+                box = around.bbox_around(dossier.latitude, dossier.longitude)
+                found.append((
+                    around.HAZARD_CAPTION,
+                    tile(root, hazard_service, "wildfire", rectangle(box), dimensions(around.TILE)),
+                ))
+            except Exception:  # noqa: BLE001 - a missing picture is not a failed assessment
+                pass
+        return found
+
+    def wind_for(dossier: Dossier) -> Mapping[str, Any] | None:
+        if not dossier.has_place or not stations:
+            return None
+        near = around.nearest_station(dossier.latitude, dossier.longitude, stations)
+        if near is None:
+            return None
+        station, miles = near
+        try:
+            found = wind_module.rose(
+                root,
+                enrich_settings.endpoint("wind").url,
+                str(station["network"]),
+                str(station["station"]),
+                around.SEASON,
+            )
+        except Exception:  # noqa: BLE001 - a pass without wind is still a pass
+            return None
+        return around.wind_from(found.document(), station, miles)
+
+    def record(listing_id: str, found: Any, mark: str) -> None:
+        store.record_assessment(
+            listing_id,
+            model=found.model or account.model,
+            fingerprint=mark,
+            fit=found.fit,
+            seen=found.seen,
+            concerns=[
+                {
+                    "about": c.about,
+                    "detail": c.detail,
+                    "severity": c.severity,
+                    "evidence_kind": c.evidence_kind,
+                    "evidence": c.evidence,
+                }
+                for c in found.concerns
+            ],
+            before_visiting=found.before_visiting,
+            could_not_tell=found.could_not_tell,
+        )
+
+    return run_pass(
+        in_play,
+        account=account,
+        criteria=criteria,
+        session=session or _session(),
+        already=already,
+        pictures_for=pictures_for,
+        wind_for=wind_for,
+        record=record,
+        limit=limit,
+        progress=say,
+    )
+
+
+def _still_deciding(store: Any, row: Any) -> bool:
+    """Is this property still in play?
+
+    Not passed on, still observed, still for sale. The set is what makes the whole feature
+    affordable: on this workspace it is 155 of the 951 the latest run found.
+    """
+    if store.judgment_of(row.listing_id) == "pass":
+        return False
+    if getattr(row, "presence", "observed") != "observed":
+        return False
+    status = getattr(row.fields, "listing_status", None)
+    return not status or str(status).lower() in ("for_sale", "for sale", "active")
+
+
+def _stations_for(root: Any, rows: Sequence[Any]) -> list[dict[str, Any]]:
+    """Every weather station in the states these properties are in, asked for once.
+
+    The states come from the properties rather than from the search's name or its areas, which is
+    the rule the map already follows: a search called `nm-statewide` that turned up something over
+    the Colorado line needs Colorado's stations too.
+    """
+    from ..enrich import settings as enrich_settings
+    from ..enrich import wind as wind_module
+
+    states = {
+        str(getattr(row.fields, "state", "") or "").strip().upper()
+        for row in rows
+    }
+    found: list[dict[str, Any]] = []
+    for state in sorted(s for s in states if len(s) == 2):
+        try:
+            found.extend(
+                wind_module.stations(
+                    root,
+                    enrich_settings.endpoint("wind_stations").url,
+                    wind_module.network_for(state),
+                )
+            )
+        except Exception:  # noqa: BLE001 - one state failing is not the pass failing
+            continue
+    return found
+
+
+def enabled_for(definition: Any) -> bool:
+    """Has this saved search asked a run to assess what it finds? Absent means no."""
+    return bool(getattr(definition, "model_assessment", False))
+
+
+def for_run(
+    store: Any,
+    definition: Any,
+    *,
+    root: Any,
+    progress: Callable[[str], None] | None = None,
+) -> PassOutcome | None:
+    """The assessment as a run performs it, or nothing when the search did not ask for one.
+
+    `None` rather than an empty outcome, so a caller can tell "off" from "on and found nothing to
+    do", which are different things to report and different things to fix. The same shape the
+    extraction pass uses, and off is the default, which is invariant 9.
+    """
+    if not enabled_for(definition):
+        return None
+    return assess_search(store, definition, root=root, progress=progress)

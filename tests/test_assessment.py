@@ -531,3 +531,41 @@ def _a_listing(conn: Any) -> None:
 def _annotation_row(conn: Any) -> tuple:
     row = conn.execute("SELECT * FROM annotations WHERE listing_id = 'a'").fetchone()
     return tuple(row) if row is not None else ()
+
+
+# ---------------------------------------------------------------------------
+# Whether a run does it at all
+# ---------------------------------------------------------------------------
+
+
+def test_a_run_assesses_only_when_the_search_asked_it_to() -> None:
+    """feat-013/AC-15, invariant 9: off is the default and off means nothing is reached.
+
+    This gap was found by auditing the built code against the spec rather than by a failing test.
+    The switch parsed, validated and appeared on the definition, and nothing anywhere read it, so
+    turning it on did exactly nothing. A setting that is accepted and ignored is worse than one that
+    does not exist, because it reads as a decision somebody made.
+    """
+    from homescout.assess.pass_ import enabled_for, for_run
+
+    class Off:
+        name = "portales"
+
+    class On:
+        name = "portales"
+        model_assessment = True
+
+    assert enabled_for(Off()) is False
+    assert enabled_for(On()) is True
+
+    # `None` rather than an empty outcome, because "off" and "on and found nothing" are different
+    # things to report. And nothing is reached to produce it: no store, no credential, no request.
+    exploding = object()
+    assert for_run(exploding, Off(), root=exploding) is None
+
+
+def test_the_run_carries_what_the_assessment_did() -> None:
+    """feat-013/AC-15: a run that assessed has to be able to say so."""
+    from homescout.runner import RunOutcome
+
+    assert "assessment" in RunOutcome.__dataclass_fields__

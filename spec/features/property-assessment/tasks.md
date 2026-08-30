@@ -145,7 +145,7 @@ sent, the storage before the pass writes to it, and the surfaces last.
       what the dossier sends before it is pressed, which is AC-3's second half, and names the local
       model as the alternative.
 
-- [ ] T28: A change against feat-010 for drawing an assessment beside the person's own notes, never
+- [-] T28: A change against feat-010 for drawing an assessment beside the person's own notes, never
       inside them. Deliberately deferred, and deliberately not specified until this has run over a
       real set, because what is worth showing is a question somebody answers after reading twenty of
       these rather than before reading any.

@@ -28,6 +28,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .assess.pass_ import for_run as assessment_pass
 from .errors import InvalidInput
 from .extract.pass_ import for_run as extraction_pass
 from .merge.pass_ import run_pass as merge_pass
@@ -107,6 +108,8 @@ class RunOutcome:
     #: What address matching did after the run: what it joined, and what it wants a person to
     #: settle. `None` on a path that did not run it.
     merge: Any = None
+    #: What the optional assessment pass did, or `None` when this search did not ask for one.
+    assessment: Any = None
     #: What the optional model extraction pass did, or `None` when this search did not ask for one.
     #: `None` and an empty outcome are different things: off, against on and found nothing.
     extraction: Any = None
@@ -384,6 +387,20 @@ def run_search(
         # that replaced it.
         merging = merge_pass(store, queue=queue, run_id=run.id, progress=progress)
         comparison = store.compare(definition.name, target_run_id=run.id)
+
+        # Last, and after the criteria rather than before them, because an assessment is handed
+        # which rules fired on a property and there is nothing to hand it until they have. Off
+        # unless this saved search turned it on, in which case none of it is reached at all: no
+        # credential is read, no picture is fetched and no request is made.
+        #
+        # Its own switch rather than the extraction one, because the two send different things. A
+        # description leaving the machine and an address, a photograph and a map leaving it are not
+        # the same decision, and one switch over both would have taken the second one away.
+        assessment = assessment_pass(
+            store, definition, root=store.path.parent, progress=progress
+        )
+        if assessment is not None and assessment.skipped:
+            say(f"assess: {assessment.skipped}")
     except Exception:
         store.fail_run(run.id)
         raise
@@ -394,4 +411,5 @@ def run_search(
         sources=tuple(reports),
         merge=merging,
         extraction=extraction,
+        assessment=assessment,
     )
