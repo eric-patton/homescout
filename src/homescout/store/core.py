@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ..records import ListingFields, SourceRow
+from ..redact import scrub
 from . import diff as _diff
 from .db import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -43,6 +44,7 @@ from .models import (
     ListingRecord,
     MergeContradiction,
     MergeDecision,
+    PassRecord,
     PriceHistoryEntry,
     RuleVerdict,
     RunRecord,
@@ -56,6 +58,38 @@ from .schema import SNAPSHOT_FIELDS
 
 _SNAPSHOT_COLUMNS = ", ".join(SNAPSHOT_FIELDS)
 _SNAPSHOT_PLACEHOLDERS = ", ".join(f":{name}" for name in SNAPSHOT_FIELDS)
+
+
+#: How many progress lines one pass keeps. The same bound the in-memory tracker used, moved to
+#: where the lines now live.
+PASS_KEPT_LINES = 200
+
+#: How long one line may be. A progress line can carry a snippet of a remote server's refusal, and
+#: that snippet is durable now rather than momentary.
+PASS_LINE_LIMIT = 2_000
+
+#: How often a working pass touches its row.
+PASS_HEARTBEAT_SECONDS = 20.0
+
+#: How many missed heartbeats before a row reads as stopped. A multiple rather than a second number
+#: chosen separately, so the two cannot drift apart: raise the interval and the threshold follows.
+PASS_STOPPED_AFTER = PASS_HEARTBEAT_SECONDS * 6
+
+
+def _gone_quiet(updated_at: str) -> bool:
+    """Has this row not been touched for long enough to read as abandoned?
+
+    A clock comparison rather than a fact about a process. Unparseable or in the future reads as
+    fresh, because the failure this protects against is showing a dead pass as running, and
+    inventing a dead one from a clock skew would be the same mistake pointing the other way.
+    """
+    try:
+        last = datetime.fromisoformat(updated_at)
+    except ValueError:
+        return False
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last).total_seconds() > PASS_STOPPED_AFTER
 
 
 def _new_id() -> str:
@@ -1615,6 +1649,150 @@ class Store:
             "INSERT INTO listing_events (listing_id, run_id, occurred_at, kind, detail) "
             "VALUES (?, ?, ?, ?, ?)",
             (listing_id, run_id, at, kind, json.dumps(detail) if detail is not None else None),
+        )
+
+    # -- what a long operation is doing ------------------------------------
+    #
+    # `runs` answers "was there a run and what did it find". These answer "is something happening
+    # now and what has it said", for every operation that takes minutes rather than for searches
+    # alone. See the note above `SCHEMA_V11`.
+
+    def begin_pass(
+        self, kind: str, *, subject: str | None = None, run_id: str | None = None
+    ) -> PassRecord:
+        """Record that a long operation has started."""
+        pass_id = _new_id()
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            cursor = conn.execute(
+                "INSERT INTO passes "
+                "(id, kind, subject, run_id, started_at, updated_at, finished_at, status) "
+                "VALUES (?, ?, ?, ?, ?, ?, NULL, 'running')",
+                (pass_id, kind, subject, run_id, now, now),
+            )
+            seq = int(cursor.lastrowid)
+        return PassRecord(
+            seq=seq,
+            id=pass_id,
+            kind=kind,
+            subject=subject,
+            run_id=run_id,
+            started_at=now,
+            updated_at=now,
+            finished_at=None,
+            status="running",
+        )
+
+    def say_on_pass(self, pass_id: str, line: str) -> None:
+        """Record one progress line, scrubbed and bounded.
+
+        Scrubbed here rather than by the caller, which is the whole point: this is the one function
+        that writes, so a caller who forgets cannot leak. Bounded here too, because a line can carry
+        a snippet of a remote server's refusal and that snippet is durable now rather than
+        momentary.
+        """
+        said = scrub(line)[:PASS_LINE_LIMIT]
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(seq), 0) AS last FROM pass_lines WHERE pass_id = ?",
+                (pass_id,),
+            ).fetchone()
+            seq = int(row["last"]) + 1
+            conn.execute(
+                "INSERT INTO pass_lines (pass_id, seq, said_at, line) VALUES (?, ?, ?, ?)",
+                (pass_id, seq, utc_now(), said),
+            )
+            # The same bound the in-memory version had, applied where the lines now live: enough to
+            # watch, few enough that a run over a county is not a megabyte of text in a file.
+            if seq > PASS_KEPT_LINES:
+                conn.execute(
+                    "DELETE FROM pass_lines WHERE pass_id = ? AND seq <= ?",
+                    (pass_id, seq - PASS_KEPT_LINES),
+                )
+            conn.execute("UPDATE passes SET updated_at = ? WHERE id = ?", (utc_now(), pass_id))
+
+    def touch_pass(self, pass_id: str) -> None:
+        """Say nothing, but say it recently.
+
+        The heartbeat, and it is not decoration. These operations are silent for minutes at a time
+        by design - extraction says one line and then asks a model about ten descriptions - so a row
+        whose freshness came only from its last line would read as abandoned while it was working.
+        """
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute("UPDATE passes SET updated_at = ? WHERE id = ?", (utc_now(), pass_id))
+
+    def finish_pass(
+        self, pass_id: str, *, outcome: Mapping[str, Any] | None = None, failed: str | None = None
+    ) -> PassRecord:
+        """Move a pass to its terminal state. Forwards only, and only once."""
+        now = utc_now()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute(
+                "UPDATE passes SET status = ?, finished_at = ?, updated_at = ?, "
+                "outcome = ?, failed = ? WHERE id = ?",
+                (
+                    "failed" if failed is not None else "completed",
+                    now,
+                    now,
+                    json.dumps(dict(outcome)) if outcome is not None else None,
+                    scrub(failed)[:PASS_LINE_LIMIT] if failed is not None else None,
+                    pass_id,
+                ),
+            )
+        return self.get_pass(pass_id)
+
+    def get_pass(self, pass_id: str) -> PassRecord:
+        row = self._conn.execute("SELECT * FROM passes WHERE id = ?", (pass_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"No pass with id {pass_id!r}")
+        return self._pass_from(row)
+
+    def passes_running(self) -> list[PassRecord]:
+        """Every pass that has not finished and has not gone quiet.
+
+        A row read as stopped is not in here. That is the point of reading it: a screen drawing this
+        would otherwise show a pass in progress that has not existed since the process was killed.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM passes WHERE status = 'running' ORDER BY seq"
+        ).fetchall()
+        return [held for held in (self._pass_from(r) for r in rows) if held.running]
+
+    def last_pass(self, kind: str, *, subject: str | None = None) -> PassRecord | None:
+        """The most recent pass of this kind, however it ended."""
+        sql = "SELECT * FROM passes WHERE kind = ?"
+        params: list[Any] = [kind]
+        if subject is not None:
+            sql += " AND subject = ?"
+            params.append(subject)
+        row = self._conn.execute(sql + " ORDER BY seq DESC LIMIT 1", params).fetchone()
+        return self._pass_from(row) if row is not None else None
+
+    def _pass_from(self, row: sqlite3.Row) -> PassRecord:
+        lines = tuple(
+            r["line"]
+            for r in self._conn.execute(
+                "SELECT line FROM pass_lines WHERE pass_id = ? ORDER BY seq", (row["id"],)
+            )
+        )
+        status = row["status"]
+        if status == "running" and _gone_quiet(row["updated_at"]):
+            # Computed on read and never written, because the only process that could write it is
+            # the one that died.
+            status = "stopped"
+        return PassRecord(
+            seq=row["seq"],
+            id=row["id"],
+            kind=row["kind"],
+            subject=row["subject"],
+            run_id=row["run_id"],
+            started_at=row["started_at"],
+            updated_at=row["updated_at"],
+            finished_at=row["finished_at"],
+            status=status,
+            outcome=json.loads(row["outcome"]) if row["outcome"] else None,
+            failed=row["failed"],
+            lines=lines,
         )
 
     def _run_from(self, row: sqlite3.Row) -> RunRecord:

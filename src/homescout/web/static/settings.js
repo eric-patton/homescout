@@ -62,6 +62,15 @@ function draw() {
   );
 }
 
+/* The passes this surface starts, so it can ask about every one of them when it loads rather than
+ * only about the one somebody happens to press. */
+const TOOL_PASSES = [
+  ["enrich", "Enrichment"],
+  ["extract", "Extraction"],
+  ["deliver", "Delivery"],
+  ["broadband", "Broadband"],
+];
+
 function drawTools() {
   shell("Tools",
     el("p", {class: "crumbs"}, link("/settings", "Settings"), " / ", el("span", {}, "Tools")),
@@ -72,6 +81,19 @@ function drawTools() {
     toolsPanel(),
     exportPanel(),
   );
+  rejoinAnythingRunning();
+}
+
+/* AC-83. Ask about each of this page's passes when it loads, and put the live panel back for any
+ * that is running. Before this the page fetched the configuration and the notes and never asked,
+ * so extraction could be twenty minutes in and the page looked idle with the button sitting there
+ * inviting a second press. */
+function rejoinAnythingRunning() {
+  const where = document.getElementById("toolprogress");
+  if (!where) return;
+  for (const [task, label] of TOOL_PASSES) {
+    rejoinBackgroundTask(task, where, label, () => load().catch(fail)).catch(() => {});
+  }
 }
 
 function present(is, yes, no) {

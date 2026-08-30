@@ -37,6 +37,25 @@ async function load() {
   const aside = await ask("/api/set-aside");
   gone = (aside.deleted || []).length + (aside.archived || []).length;
   draw();
+  rejoinAnythingRunning();
+}
+
+/* AC-83. A card said "a run is under way" and the overview counted what was running, both read
+ * once when the page drew and never again, with no progress behind either: you learned that
+ * something was happening and nothing else, frozen at whatever was true when you arrived. This
+ * puts the same live panel back that pressing the button would have given you.
+ *
+ * `run-all` as well, which is what the scheduled nightly job is, so arriving in the morning while
+ * it is still going shows it working rather than showing nothing.
+ */
+function rejoinAnythingRunning() {
+  const under = (held || []).find((entry) => entry.running);
+  if (under) watch(under.name);
+  const all = document.getElementById("allprogress");
+  if (all) {
+    rejoinBackgroundTask("run-all", all, "Every search", () => load().catch(fail))
+      .catch(() => {});
+  }
 }
 
 function draw() {
@@ -301,7 +320,11 @@ function watch(name) {
     if (status.finished) {
       clearInterval(polling);
       polling = null;
-      if (status.failed) {
+      if (status.status === "stopped") {
+        /* Nothing recorded how it ended, so nothing may claim it completed or failed. */
+        say(`${name}: stopped without finishing. Nothing recorded how it ended, which usually ` +
+            `means the process it was running in went away. What it found is kept.`, "problem");
+      } else if (status.failed) {
         say(`${name}: the run could not finish. ${status.failed}`, "problem");
       } else if (status.outcome) {
         const counts = status.outcome.counts || {};

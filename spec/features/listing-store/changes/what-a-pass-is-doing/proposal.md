@@ -61,14 +61,15 @@ than a guess about the process, and it is why the fact is worth recording separa
 Not a job queue. Nothing here schedules, retries or resumes anything. It records what is already
 happening, and the thing happening is still one thread in one process.
 
-Not a lock. Whether two passes may run at once is decided where it already is: by this store's own
-run claim and by the interface's own one-at-a-time rule. A row here refusing to be written would be
-a second answer to a question that already has one.
+Not a lock. Nothing here refuses a row, and the store has no constraint saying two passes may not
+both exist. Whether two may run at once is a question about operations rather than about rows: the
+pre-build check found this proposal and the browser's plan disagreeing about who answers it, and the
+answer is now feat-010/AC-85, in the core, computed from what these rows say.
 
 Not a log. It keeps the same lines a terminal prints and the same number of them, because the
 progress callback is the same callback. A pass over a county does not become a megabyte of text.
 
 ## Status
 - [x] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] implemented & verified
+- [x] folded into spec.md

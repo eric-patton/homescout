@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,7 +15,7 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"
@@ -155,3 +155,33 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   passed one at a time, each through a dialog. A range can be selected and one action applies to all
   of it, written by one core operation that reports what it wrote and what it refused. And the
   builder says which panel is unsaved instead of apologising for it in its opening line.
+
+- **2026-08-29, come back to it (`changes/come-back-to-it/`, with feat-001's
+  `changes/what-a-pass-is-doing/`).** Asked whether the interface says a pass is running and shows
+  how far along it is when you return to it. It did not. The panel was real, streamed live, and was
+  started in exactly one place: the button handler. Reload, open another tab or pick up a phone and
+  the tools page looked idle while extraction was twenty minutes in; the list of searches showed one
+  frozen badge with no progress behind it; every other screen said nothing at all, because the
+  navigation is four fixed links. The clearest evidence it was a gap rather than a decision is that
+  pressing the same button again worked: the server answered "already running", the page ignored
+  that and attached its watcher anyway, and the progress came back.
+
+  What a pass is doing now lives in the store rather than in the memory of whichever process started
+  it, so it survives a restart, and the scheduled nightly job is visible in a browser. Screens
+  rejoin what is already running when they load, and one marker in the shared frame says so from
+  wherever you are standing.
+
+  The pre-build check held both changes, and all three findings were mine. The security one is worth
+  keeping: recording a failure moves it from a string in one process to bytes in a database file
+  this workspace keeps a backup of beside, and extraction's existing credential stripper was applied
+  to its own per-description failures and not to the exception that ends a pass, which is exactly
+  the string this makes durable. The scrubbing moved into the single function that writes a row.
+  Then: the capability was reachable from the browser only, which invariant 5 forbids, answered by
+  widening the overview both surfaces already draw rather than inventing a command; and two
+  artifacts disagreed about who decides a pass is already running, which was hiding a real change,
+  since reading it from the store makes the answer global and the browser will now refuse to start
+  an extraction while the nightly job is running one.
+
+  A fourth was found by a test rather than by the check: the recorder did not close its own row on
+  the way out, so a caller who forgot the closing call would have left a pass reading as running
+  until the clock said otherwise. It closes itself now.

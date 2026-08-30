@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-001"
 slug: "listing-store"
 title: "Listing store and snapshot history"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,7 +15,7 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"

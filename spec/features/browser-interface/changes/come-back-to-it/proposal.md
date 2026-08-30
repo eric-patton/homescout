@@ -77,5 +77,5 @@ Not a lock on the button. Pressing a running pass's button is already answered b
 
 ## Status
 - [x] delta reviewed (analyze)
-- [ ] implemented & verified
-- [ ] folded into spec.md
+- [x] implemented & verified
+- [x] folded into spec.md

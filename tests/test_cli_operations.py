@@ -394,8 +394,21 @@ def listing_at(store: Store, address: str) -> str:
     return found[0].listing_id
 
 
+#: Not part of what an operation leaves behind, so not part of comparing two of them.
+#:
+#: feat-001/AC-31 says these rows are operational rather than historical: they record that something
+#: was running and what it printed, nothing computes a difference over time from them, and nothing
+#: refers to them. A surface wrapping its work in `api.recording` writes them and a direct call to
+#: the core does not, which is deliberate - it is how a pass started by the scheduled job becomes
+#: visible in a browser - and it is not the surfaces disagreeing about what an operation does.
+#:
+#: The same reasoning the command line's own progress output already gets: `homescout run` prints
+#: to stderr and `api.run_search` does not, and nobody calls that a difference in state.
+OPERATIONAL = frozenset({"passes", "pass_lines"})
+
+
 def dump(store: Store) -> list[tuple]:
-    """Everything in the store, with what a second run cannot repeat made comparable.
+    """Everything an operation leaves behind, with what a second run cannot repeat made comparable.
 
     Identifiers are generated, so they are replaced by their first-appearance order. That keeps
     every relationship between rows intact (which snapshot belongs to which run, which image to
@@ -429,6 +442,7 @@ def dump(store: Store) -> list[tuple]:
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
             "ORDER BY name"
         )
+        if r["name"] not in OPERATIONAL
     ]
     for table in tables:
         for record in store.connection.execute(f"SELECT * FROM {table} ORDER BY rowid"):
@@ -580,6 +594,13 @@ def test_the_facade_is_the_whole_surface() -> None:
         # interface rather than by a command, because a command is already the only thing in its
         # own process; see `api.open_beside`.
         "open_beside",
+        # What a long operation is doing, recorded by the core so both surfaces read one answer.
+        # `under_way` rides on `overview`, which is why no new command was needed for it.
+        "under_way",
+        "last_pass",
+        "already_running",
+        "recording",
+        "recorded",
         "overview",
         "delete_search",
         "restore_search",

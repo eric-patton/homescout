@@ -1868,3 +1868,57 @@ table.grid tbody tr.picked:hover td { background: #dfe9f6; }
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
 }
+
+/* What is running, in the frame every page draws.
+ *
+ * In the navigation because the question is asked from wherever somebody is standing, and drawn
+ * only when something is running: this installation is idle almost all of the time, and a marker
+ * that is always there saying "nothing" is a marker to learn to ignore. It pushes from the right so
+ * that appearing does not move the links somebody was about to press. */
+.running {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.running .marker {
+  font-size: 0.85rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--flag-edge, #c9a227);
+  background: var(--flag-fill, #fdf6e0);
+  color: var(--flag-text, #6b5400);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.running .marker::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+  /* Slow, because this says "still going" rather than asking for attention, and a marker that
+   * pulses quickly on every screen is one somebody turns off by not looking at it. */
+  animation: running-pulse 2.4s ease-in-out infinite;
+}
+
+.running .marker:hover,
+.running .marker:focus { text-decoration: underline; }
+
+.running .more {
+  font-size: 0.8rem;
+  color: var(--muted, #666);
+}
+
+@keyframes running-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running .marker::before { animation: none; }
+}

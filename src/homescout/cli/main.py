@@ -22,7 +22,7 @@ import json
 import os
 import sys
 from collections.abc import Sequence
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TextIO
@@ -780,6 +780,55 @@ def _dispatch(
     raise InvalidInput(f"No command named {args.command!r}.")
 
 
+#: Which commands take minutes, and what each is called where both surfaces can see it. One place,
+#: because a command added to this list is a command that becomes visible in a browser, and a
+#: command left out of it is one that silently is not.
+LONG_COMMANDS: dict[str, str] = {
+    "run": "run",
+    "enrich": "enrich",
+    "extract": "extract",
+    "broadband": "broadband",
+}
+
+
+@contextmanager
+def _recording(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Any:
+    """Record a long command while it runs, so a browser can see the scheduled job working.
+
+    Wrapped here, once, rather than inside each handler. Every one of these already reports through
+    a progress callback, so the seam already exists and the only thing this adds is a second reader
+    of the same lines. What a command prints is unchanged.
+
+    A command that is not long yields the callback untouched and writes no row: recording that
+    somebody listed their saved searches would be noise in a table whose whole purpose is answering
+    "is something still going".
+
+    `--json` and the exit code are unaffected, which is invariant 6, and the pass is closed either
+    way, which is what stops a command interrupted with Ctrl+C leaving a row that says "running"
+    until the clock says otherwise.
+    """
+    kind = LONG_COMMANDS.get(getattr(args, "command", ""))
+    if kind == "run" and getattr(args, "all", False):
+        kind = "run-all"
+    if kind is None:
+        yield note
+        return
+
+    subject = getattr(args, "name", None) if kind == "run" else getattr(args, "search", None)
+    if kind == "broadband":
+        subject = getattr(args, "state", None)
+
+    # `alone=False`: a person at a terminal has asked for this explicitly, and the core's refusal is
+    # what the browser's button consults before it starts something they did not ask for. Refusing
+    # a typed command because a background pass is running would be this tool telling its operator
+    # what they may do on their own machine.
+    with api.recording(workspace, kind, subject=subject, progress=note, alone=False) as say:
+        try:
+            yield say
+        finally:
+            api.recorded(workspace, say, None)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -843,17 +892,20 @@ def main(
                     f"Create it first; nothing has been run."
                 )
 
-        with api.open_workspace(
-            getattr(args, "db", None),
-            delay=getattr(args, "delay", None),
-            images=not getattr(args, "no_images", False),
-            # The one command that needs it. A web server hands requests to worker threads and
-            # SQLite refuses a connection used from a thread other than the one that opened it; the
-            # interface holds a lock around every request, which is what makes lifting that check
-            # safe. Every other command is one thread and keeps the check as a real guard.
-            shared=args.command == "serve",
-        ) as workspace:
-            answer = _dispatch(workspace, args, note, settings)
+        with (
+            api.open_workspace(
+                getattr(args, "db", None),
+                delay=getattr(args, "delay", None),
+                images=not getattr(args, "no_images", False),
+                # The one command that needs it. A web server hands requests to worker threads and
+                # SQLite refuses a connection used from a thread other than the one that opened it;
+                # the interface holds a lock around every request, which is what makes lifting that
+                # check safe. Every other command is one thread and keeps it as a real guard.
+                shared=args.command == "serve",
+            ) as workspace,
+            _recording(workspace, args, note) as say,
+        ):
+            answer = _dispatch(workspace, args, say, settings)
     except HomescoutError as failure:
         print(str(failure), file=err)
         return int(code_for(failure))

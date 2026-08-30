@@ -424,7 +424,17 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     @app.get("/api/tasks/{name}")
     def task_status(name: str) -> dict[str, Any]:
-        return answer("task-status", **app.state.runs.task_status(name))
+        return answer("task-status", **app.state.runs.task_status(held(), name))
+
+    @app.get("/api/under-way")
+    def under_way() -> dict[str, Any]:
+        """Everything happening right now, for the marker every screen carries.
+
+        One ask on one schedule rather than one per surface: six screens polling for themselves is
+        six answers that can disagree and six requests where one would do. Read from the store, so a
+        pass started from a terminal or by the scheduled job is in it.
+        """
+        return answer("under-way", passes=api.under_way(held()))
 
     # -- what this installation has set up ---------------------------------
 

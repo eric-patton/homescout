@@ -24,6 +24,7 @@ from .schema import (
     SCHEMA_V8,
     SCHEMA_V9,
     SCHEMA_V10,
+    SCHEMA_V11,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -49,6 +50,10 @@ MIGRATIONS: tuple[str, ...] = (
     # Two tables for the person's own vocabulary. No trigger, for the third time and the same
     # reason: a tag is a thing somebody is meant to be able to take back off a house.
     SCHEMA_V10,
+    # What a long operation is doing while it is doing it. A forward-only trigger, the same one
+    # `runs` has, because a pass row is a lifecycle. No append-only trigger on the lines: they are
+    # the one operational table here, and the note above `SCHEMA_V11` says why that is safe.
+    SCHEMA_V11,
 )
 
 

@@ -365,3 +365,56 @@ class MergeContradiction:
     noticed_at: str
     detail: str
     run_id: str | None = None
+
+
+#: What a pass reports as, which is the three a run reports as plus one nothing writes.
+#:
+#: `stopped` is never stored. Only the pass itself can move its row to completed or failed, so a
+#: process that was killed leaves a row saying `running` for ever; this is that row, read against
+#: the clock. Never reported as completed, because it did not complete, and never as failed,
+#: because nothing observed a failure.
+PassStatus = Literal["running", "completed", "failed", "stopped"]
+
+
+@dataclass(frozen=True, slots=True)
+class PassRecord:
+    """One long operation, and what it has said.
+
+    Not history. A row with a lifecycle, exactly as `RunRecord` is, and the one thing in this store
+    that may be removed by age: nothing computes a difference over time from it and no annotation
+    refers to it.
+    """
+
+    #: Insertion order, for the same reason `RunRecord` uses it: two passes recorded in the same
+    #: millisecond still have an unambiguous "which came first".
+    seq: int
+    id: str
+    #: What kind of operation this is: `run`, `run-all`, `enrich`, `extract`, `deliver`,
+    #: `broadband`. The browser's own token for the thing, so a page can ask for one by name.
+    kind: str
+    #: What it is over, when that means anything: a search name for a run, a state for a broadband
+    #: load, a search name or nothing for a pass that can be narrowed to one.
+    subject: str | None
+    #: The run this is, when this pass is a search run. `runs` stays the answer to what a run found;
+    #: this is the answer to what is happening now, and the link is what stops those becoming two
+    #: accounts of one thing.
+    run_id: str | None
+    started_at: str
+    #: Touched while the pass works, on a clock of its own rather than when it happens to speak.
+    #: This is what makes a killed process readable; see the note on `SCHEMA_V11`.
+    updated_at: str
+    finished_at: str | None
+    status: PassStatus
+    outcome: dict[str, Any] | None = None
+    failed: str | None = None
+    lines: tuple[str, ...] = ()
+
+    @property
+    def running(self) -> bool:
+        """Still going, as far as anything can tell. `stopped` is not running."""
+        return self.status == "running"
+
+    @property
+    def finished(self) -> bool:
+        """Over, however it ended, including having stopped without saying so."""
+        return self.status != "running"

@@ -226,8 +226,100 @@ function nav(active) {
     link("/", "HomeScout", {class: "brand"}),
     ...links.map(([href, text]) =>
       link(href, text, {class: href === active ? "here" : null,
-                        "aria-current": href === active ? "page" : null}))
+                        "aria-current": href === active ? "page" : null})),
+    /* Where the marker goes. In `nav` rather than in nine HTML files, and started from here rather
+     * than by each surface remembering to, because "is something still going" is asked from
+     * wherever you happen to be standing and the answer used to require navigating to the one page
+     * that might know. */
+    el("span", {id: "running", class: "running"})
   );
+  watchTheMachine();
+}
+
+/* ------------------------------------------------------------------ */
+/* What is running, anywhere on this machine                           */
+/* ------------------------------------------------------------------ */
+
+/* How often the marker asks. One ask on one schedule for the whole page: six surfaces polling for
+ * themselves would be six answers that can disagree and six requests where one will do. Slower than
+ * a progress panel on purpose - this answers "is anything happening", which changes twice an hour,
+ * not "how far along is it" - and it matters here because this runs on the results table too, whose
+ * own read is the most expensive this interface has and which every request queues behind. */
+const RUNNING_EVERY = 5000;
+
+let machineTimer = null;
+let machineSaid = null;
+
+/* Which screen shows a given pass in detail. A marker you cannot follow is a marker that makes you
+ * go looking, which is the thing this exists to stop. */
+function showingPass(pass) {
+  return (pass.task === "run" || pass.task === "run-all") ? "/" : "/tools";
+}
+
+function nameOfPass(pass) {
+  const named = {
+    "run": "Running a search",
+    "run-all": "Running every search",
+    "enrich": "Attaching public data",
+    "extract": "Asking the model",
+    "deliver": "Writing the digest",
+    "broadband": "Loading broadband data",
+  }[pass.task] || pass.task;
+  return pass.subject ? `${named}: ${pass.subject}` : named;
+}
+
+function watchTheMachine() {
+  const where = document.getElementById("running");
+  if (!where) return;
+  if (machineTimer) clearInterval(machineTimer);
+  machineSaid = null;
+
+  const tick = async () => {
+    let passes = [];
+    try {
+      passes = (await ask("/api/under-way")).passes || [];
+    } catch (_) {
+      /* A page that cannot ask says nothing rather than saying something wrong. */
+      return;
+    }
+    const said = passes.map((p) => `${p.task}:${p.subject || ""}`).join(",");
+    if (said === machineSaid) return;
+    machineSaid = said;
+
+    if (!passes.length) where.replaceChildren();
+    else {
+      const first = passes[0];
+      where.replaceChildren(
+        link(showingPass(first), nameOfPass(first), {class: "marker", title: "Started " +
+          (first.started_at || "just now")}),
+        passes.length > 1 ? el("span", {class: "more"}, `+${passes.length - 1}`) : null);
+    }
+    /* Appearing and going away both change the height above a table that measures its own, which
+     * is the fault AC-53 exists to prevent, reintroduced by a marker. */
+    if (typeof fit === "function") fit();
+  };
+
+  tick();
+  machineTimer = setInterval(tick, RUNNING_EVERY);
+}
+
+/* Pick up a pass that is already running, on a page that has just loaded.
+ *
+ * The whole of AC-83. The panel below was always real and was started in exactly one place, the
+ * button handler, so reloading or arriving from another device showed an idle-looking page while a
+ * pass was twenty minutes in. Nothing is drawn when nothing is running: this installation is idle
+ * almost all of the time, and a line saying so on every visit is a line to learn to ignore.
+ */
+async function rejoinBackgroundTask(task, where, label, done) {
+  let status;
+  try {
+    status = await ask(`/api/tasks/${encodeURIComponent(task)}`);
+  } catch (_) {
+    return false;
+  }
+  if (!status || !status.running) return false;
+  watchBackgroundTask(task, where, label, done);
+  return true;
 }
 
 /* ------------------------------------------------------------------ */
@@ -444,7 +536,13 @@ function watchBackgroundTask(task, where, label, done) {
 
     if (status.finished) {
       if (timer) clearInterval(timer);
-      if (status.failed) {
+      if (status.status === "stopped") {
+        /* Neither running nor finished, and saying either would be untrue. Only the pass itself can
+         * record how it ended, so a process that was killed leaves a row nobody can complete; the
+         * store reads that as stopped and this repeats it rather than deciding. */
+        say(`${label}: stopped without finishing. Nothing recorded how it ended, which usually ` +
+            `means the process it was running in went away. What it had done is kept.`, "problem");
+      } else if (status.failed) {
         say(`${label}: could not finish. ${status.failed}`, "problem");
       } else {
         const outcome = status.outcome || {};

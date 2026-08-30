@@ -28,6 +28,9 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
 - As the person running searches, I want price cuts, price increases, listing-status changes,
   disappearances, and returns surfaced to me, so that I stop re-reading listings I have already
   judged.
+- As the person running searches, I want an operation that takes minutes to record what it is
+  doing where anything can read it, so that the answer to "how far along is it" does not depend on
+  which window I am standing in front of.
 - As the person running searches, I want my rank, verdict, red flags, summary, next step, and free
   notes about a property to survive every future run, merge, and unmerge, so that the tool can
   replace my spreadsheet instead of merely feeding it.
@@ -234,6 +237,48 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       and cannot take off reads as the tool ignoring the click. Whatever is kept stays exactly where
       it is: nothing a person wrote moves between records, which is what carries their work through
       a merge and back out of one again.
+- [ ] AC-31: An operation that takes minutes records that it is under way, what it has said, and how
+      it ended. What is recorded is the operation's kind, when it started, every line its own
+      progress callback produced, and a terminal state of completed or failed with the outcome or
+      the failure. Every long operation this product has records itself this way: a search run, a
+      run of every search, an enrichment pass, an extraction pass, a digest, and a broadband load.
+
+      **Whoever asks gets the same answer.** A pass started from a terminal is readable from a
+      browser and a pass started from a browser is readable from a terminal, which is AC-1's rule
+      about a run applied to the operations that were left out of it. Reading it requires nothing of
+      the process that started it and works after that process is gone.
+
+      **A pass touches its own row while it works, and one not touched recently enough is reported
+      as having stopped without finishing.** Only the pass itself can move its row to completed or
+      failed, so a process that is killed leaves a row that would otherwise say "running" for ever.
+      A row is touched on a schedule of its own rather than only when the operation happens to say
+      something, because these operations are silent for minutes at a time by design; the threshold
+      for reading a row as stopped is a stated multiple of that interval, defined once beside it, so
+      the two cannot drift apart. A pass reported as stopped is reported as exactly that, and never
+      as completed and never as failed, because nothing knows which it was.
+
+      **Nothing written here may carry a credential.** Recording changes where a failure lives: from
+      a string in one process, gone when it exits, to bytes in a database file this product advises
+      keeping a backup of. Every line and every failure is scrubbed on the way in, in the one
+      function that writes a pass row, rather than by each caller remembering to. A caller who
+      forgets is the failure mode this exists to remove.
+
+      **A recorded line is bounded and is text.** The same callback the terminal prints and the same
+      bound on how many lines are kept, plus a bound on the length of one, because a progress line
+      can carry a snippet of a remote server's refusal and that snippet is durable now rather than
+      momentary. It is stored and returned as text and is never interpreted as anything else.
+
+      **These rows are operational rather than historical, and this is the one table here that is.**
+      Nothing computes a difference over time from them, no annotation refers to them, and what a
+      run found is recorded where it always was. Removing them by age is permitted and is not built.
+
+      **The store records and never refuses.** There is no constraint here that stops a second pass
+      being written while one is running. Whether two may run at once is a question about operations
+      rather than about rows, and it is answered elsewhere.
+
+      **A search run is one operation, not two.** It has a row here and a row in `runs`, and the row
+      here carries the run's id. `runs` stays the answer to what a run found; this is the answer to
+      what is happening now.
 
 ## Edge cases & errors
 

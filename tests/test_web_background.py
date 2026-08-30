@@ -23,7 +23,7 @@ import pytest
 
 from homescout import api
 from homescout.web.app import build
-from web_fakes import ORIGIN, held_workspace, ours, shared_store
+from web_fakes import ORIGIN, STATIC, held_workspace, ours, shared_store
 
 #: Long enough that a request queueing behind the task cannot pass by luck, short enough that a
 #: broken build fails a test run rather than stalling it.
@@ -97,7 +97,6 @@ def test_the_progress_endpoint_answers_while_its_own_task_runs(interface) -> Non
         began.set()
         release.wait(HELD_FOR)
 
-    client.post("/api/extract", json={"limit": 1}, headers=ours())
     app.state.runs.start_task("slow", work, held)
     assert began.wait(HELD_FOR), "the task never started"
 
@@ -115,10 +114,12 @@ def test_the_progress_endpoint_answers_while_its_own_task_runs(interface) -> Non
 
 
 def test_two_heavy_operations_still_do_not_run_at_once(interface) -> None:
-    """feat-010/AC-64: dropping the request lock must not let two passes fight over the store.
+    """feat-010/AC-64, feat-010/AC-85: dropping the request lock must not let two passes overlap.
 
-    The half of the old behaviour that was right. One lock was doing two jobs, and only one of them
-    was worth doing; this pins that the surviving one survived.
+    The half of the old behaviour that was right. One lock was doing two jobs and only one of them
+    was worth doing, so this pins that the surviving one survived - and that it survived somewhere
+    better. It is no longer a lock in this process but a refusal in the core, read from what the
+    store says, which means it now covers a pass started by the scheduled job as well.
     """
     _client, app, held = interface
 
@@ -205,3 +206,120 @@ def test_one_threads_geography_stays_on_that_thread() -> None:
 
     assert seen == [before], "one thread's provider was visible to another"
     assert boundaries() is before, "the provider was not put back"
+
+def test_a_pass_started_elsewhere_refuses_the_button(interface) -> None:
+    """feat-010/AC-85: one at a time means on this machine, not in this process.
+
+    The case the old per-process rule could not see. The scheduled nightly job runs in its own
+    process, so pressing a button in the browser while it was extracting started a second extraction
+    over the same store: the same descriptions asked about twice, at twice the cost, each slowing
+    the other. The store is what both processes have in common, so the refusal is read from there.
+    """
+    client, app, held = interface
+
+    release = threading.Event()
+    began = threading.Event()
+
+    def elsewhere(mine: api.Workspace, say: Any) -> None:
+        began.set()
+        release.wait(HELD_FOR)
+
+    app.state.runs.start_task("extract", elsewhere, held)
+    assert began.wait(HELD_FOR), "the first pass never started"
+
+    try:
+        answered = client.post("/api/enrich", json={}, headers=ours())
+        assert answered.status_code == 200
+        body = answered.json()
+        assert body["already_running"] is True
+        # Named, because a refusal about a pass you did not start and cannot see is one nobody can
+        # act on.
+        assert body["running"] == "extract"
+        assert body["started_at"]
+    finally:
+        release.set()
+
+
+# -- coming back to a pass that is already running -------------------------
+
+
+def test_the_tools_page_asks_whether_anything_is_running_when_it_loads() -> None:
+    """feat-010/AC-83: the gap this change exists to close.
+
+    The page fetched the configuration and the notes and never asked about a pass, so extraction
+    could be twenty minutes in and the page looked idle with the button sitting there inviting a
+    second press. The live panel was real; it was started in exactly one place, the button handler.
+    """
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
+    assert "rejoinAnythingRunning()" in settings, "the tools surface never asks on load"
+    assert "TOOL_PASSES" in settings, "it must ask about each of its passes, not only one"
+    for kind in ("enrich", "extract", "deliver", "broadband"):
+        assert f'"{kind}"' in settings
+
+    searches = (STATIC / "searches.js").read_text(encoding="utf-8")
+    assert "rejoinAnythingRunning()" in searches, "the list of searches never asks on load"
+    assert "entry.running" in searches, "it must pick up the run its own cards already know about"
+
+
+def test_every_screen_carries_the_marker() -> None:
+    """feat-010/AC-84: one ask on one schedule, in the frame every page draws.
+
+    In `nav` rather than in nine HTML files and started from there rather than by each surface
+    remembering to, because a surface that forgets is a screen that silently says nothing.
+    """
+    common = (STATIC / "common.js").read_text(encoding="utf-8")
+    assert "watchTheMachine()" in common
+    assert 'el("span", {id: "running"' in common, "the marker has nowhere to be drawn"
+    assert "/api/under-way" in common, "the marker must ask the one endpoint, not one per kind"
+
+    # Six surfaces polling for themselves would be six answers that can disagree.
+    assert common.count("/api/under-way") == 1
+
+    # It runs on the results table too, whose own read is the most expensive here.
+    assert "RUNNING_EVERY" in common
+
+
+def test_the_marker_removes_itself_and_remeasures() -> None:
+    """feat-010/AC-84: it goes away on its own, and the table below it still fits.
+
+    Appearing and disappearing both change the height above a table that measures its own, which is
+    the fault AC-53 exists to prevent, reintroduced by a marker.
+    """
+    common = (STATIC / "common.js").read_text(encoding="utf-8")
+    strip = common[common.index("function watchTheMachine"):common.index("async function rejoin")]
+    assert "where.replaceChildren()" in strip, "an idle machine must draw nothing at all"
+    assert "fit === \"function\"" in strip, "a change in height must remeasure the table"
+
+
+def test_a_stopped_pass_is_never_drawn_as_running_or_as_finished() -> None:
+    """feat-010/AC-83: what the store cannot distinguish, the screen must not pretend to."""
+    for name in ("common.js", "searches.js"):
+        body = (STATIC / name).read_text(encoding="utf-8")
+        assert 'status.status === "stopped"' in body, f"{name} does not read the stopped state"
+        assert "stopped without finishing" in body
+
+
+def test_what_is_under_way_is_one_endpoint(interface) -> None:
+    """feat-010/AC-84: and it answers with nothing when nothing is happening."""
+    client, app, held = interface
+
+    answered = client.get("/api/under-way", headers=ours())
+    assert answered.status_code == 200
+    assert answered.json()["passes"] == []
+
+    release = threading.Event()
+    began = threading.Event()
+
+    def work(mine: api.Workspace, say: Any) -> None:
+        say("working")
+        began.set()
+        release.wait(HELD_FOR)
+
+    app.state.runs.start_task("extract", work, held)
+    assert began.wait(HELD_FOR)
+    try:
+        passes = client.get("/api/under-way", headers=ours()).json()["passes"]
+        assert [p["task"] for p in passes] == ["extract"]
+        assert passes[0]["running"] is True
+    finally:
+        release.set()

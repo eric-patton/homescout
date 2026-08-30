@@ -50,10 +50,16 @@ is already running to say so, so that I do not quietly start the same work twice
   emits it structured, with the stable exit code invariant 6 asks for. A marker in the browser and
   a line in a terminal are then two renderings of one answer rather than two answers.
 
-- AC-85: Starting an operation that is already under way is refused rather than started, and the
-  refusal says what is running and when it began. This holds across processes: the browser will not
-  start an extraction pass while the scheduled nightly job is running one, which today it happily
-  would, because each process only knew about its own.
+- AC-85: Starting an operation that takes minutes while another is under way is refused rather than
+  started, and the refusal names what is running, what it is running on, and when it began. One at
+  a time means on this machine rather than in this process: the browser will not start an extraction
+  pass while the scheduled nightly job is running one, which today it happily would, because each
+  process knew only about its own work.
+
+  Any long operation blocks any other, not merely another of the same kind. Two of them has never
+  been faster: they are paced against the same sources and write to the same file, so the second
+  only makes the first take longer while doubling what it costs. This is the rule the browser
+  already applied to itself, moved somewhere it can see the whole machine.
 
   It is one core operation, so both surfaces refuse identically and for the same reason, which is
   AC-14's rule that this layer contains no business logic applied to a decision that currently

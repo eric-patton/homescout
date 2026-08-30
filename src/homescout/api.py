@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -2281,6 +2281,194 @@ def set_model_notes(workspace: Workspace, text: str) -> dict[str, Any]:
     return answer
 
 
+#: The kinds of long operation, as both surfaces name them. A page asks for one by name and a
+#: terminal prints it, so these are the product's own words rather than an implementation's.
+PASS_KINDS: tuple[str, ...] = ("run", "run-all", "enrich", "extract", "deliver", "broadband")
+
+
+def under_way(workspace: Workspace) -> list[dict[str, Any]]:
+    """Every long operation happening right now, whoever started it.
+
+    Read from the store, so a pass started from a terminal or by the scheduled job is in the answer,
+    a pass survives the process that began it, and the browser and the command line cannot give two
+    accounts of one thing. A pass that stopped without saying so is not in here.
+    """
+    with _translating():
+        return [_pass_document(held) for held in workspace.store.passes_running()]
+
+
+def last_pass(workspace: Workspace, kind: str, *, subject: str | None = None) -> dict[str, Any]:
+    """The most recent operation of one kind, running or not.
+
+    What a screen showing one pass asks for. It answers with the pass rather than with nothing when
+    the pass has finished, because "it finished, and here is what it said" is what somebody coming
+    back to the page needs, and an empty panel is not.
+    """
+    with _translating():
+        held = workspace.store.last_pass(kind, subject=subject)
+    return _pass_document(held) if held is not None else {"kind": kind, "started": False}
+
+
+def _pass_document(held: Any) -> dict[str, Any]:
+    """One pass in the shape both surfaces read.
+
+    The keys a page already used for a task are kept, so this replaces what the browser was holding
+    in memory rather than asking every screen to learn a second vocabulary for the same thing.
+    """
+    return {
+        "id": held.id,
+        # Not `kind`: these documents are splatted flat into the envelope, whose own key is `kind`.
+        # `task` is what the pages already called it, so nothing has a second vocabulary to learn.
+        "task": held.kind,
+        "subject": held.subject,
+        "search": held.subject,
+        "run_id": held.run_id,
+        "started_at": held.started_at,
+        "updated_at": held.updated_at,
+        "finished_at": held.finished_at,
+        "status": held.status,
+        "running": held.running,
+        "finished": held.finished,
+        "started": True,
+        "progress": list(held.lines),
+        "outcome": held.outcome,
+        "failed": held.failed,
+    }
+
+
+def already_running(
+    workspace: Workspace, kind: str | None = None, *, subject: str | None = None
+) -> Any:
+    """A long operation that is already happening, or None. Any of them, unless one is named.
+
+    Here rather than in a surface, which is the whole of AC-85. Each process knew only about its own
+    work, so pressing a button in the browser while the scheduled job was extracting started a
+    second extraction over the same store. Read from what the store says and the answer covers every
+    process on this machine.
+
+    Called with no kind, which is how `recording` calls it, this is the machine's one-at-a-time
+    rule. Two heavy passes at once has never been faster: they are paced against the same sources
+    and write to the same file, so the second one only makes the first take longer while doubling
+    what it costs.
+    """
+    with _translating():
+        for held in workspace.store.passes_running():
+            if kind is not None and held.kind != kind:
+                continue
+            if subject is not None and held.subject != subject:
+                continue
+            return held
+    return None
+
+
+@contextmanager
+def recording(
+    workspace: Workspace,
+    kind: str,
+    *,
+    subject: str | None = None,
+    run_id: str | None = None,
+    progress: Any = None,
+    alone: bool = True,
+) -> Iterator[Any]:
+    """Record a long operation while it runs, and yield the callback it should report through.
+
+    What comes back is a progress function: hand it to the operation and every line it would have
+    printed is both printed and recorded. Both surfaces wrap their long work in this, which is what
+    makes the answer to "what is happening" the same wherever it is asked and what makes it outlive
+    the process that started the work.
+
+    `alone` refuses to start when one of this kind is already under way, which is AC-85. It is the
+    default because two extraction passes over one store is duplicated work and duplicated cost
+    rather than a faster pass.
+
+    The heartbeat runs on a thread with a connection of its own. It cannot share the caller's, which
+    belongs to the calling thread, and it cannot be skipped: these operations are silent for minutes
+    at a time by design, so a row whose freshness came only from its last line would read as
+    abandoned while it was working.
+    """
+    import threading
+
+    if alone:
+        found = already_running(workspace)
+        if found is not None:
+            where = f" on {found.subject}" if found.subject else ""
+            raise PreconditionNotMet(
+                f"A {found.kind} pass{where} is already running, started {found.started_at}. "
+                "It may have been started from a terminal or by the scheduled job. This machine "
+                "runs one at a time: both are paced against the same sources and write to the same "
+                "file, so a second only makes the first take longer."
+            )
+
+    with _translating():
+        held = workspace.store.begin_pass(kind, subject=subject, run_id=run_id)
+
+    store = workspace.store
+    stop = threading.Event()
+
+    def beat() -> None:
+        from .store import Store
+        from .store.core import PASS_HEARTBEAT_SECONDS
+
+        try:
+            beside = Store.open(store.path)
+        except Exception:  # noqa: BLE001 - a missing heartbeat must never stop the work itself
+            return
+        try:
+            while not stop.wait(PASS_HEARTBEAT_SECONDS):
+                try:
+                    beside.touch_pass(held.id)
+                except Exception:  # noqa: BLE001 - and the same the other way round
+                    return
+        finally:
+            beside.close()
+
+    ticker = threading.Thread(target=beat, name=f"homescout-heartbeat-{kind}", daemon=True)
+    ticker.start()
+
+    def say(message: str) -> None:
+        if progress is not None:
+            progress(message)
+        with suppress(Exception):
+            # Recording a line must never be what fails an operation that is otherwise working.
+            store.say_on_pass(held.id, message)
+
+    say.pass_id = held.id  # type: ignore[attr-defined]
+    say.outcome = None  # type: ignore[attr-defined]
+
+    try:
+        yield say
+    except BaseException as exc:
+        with suppress(Exception):
+            store.finish_pass(held.id, failed=str(exc))
+        raise
+    else:
+        # Closed here rather than by the caller, which is the difference between a rule and a hope.
+        # An outcome is only known after the operation returns, so `recorded` leaves it on `say` and
+        # this writes it; a caller who never calls `recorded` still gets a row that ends, instead of
+        # one that says "running" until the clock decides otherwise.
+        with suppress(Exception):
+            store.finish_pass(held.id, outcome=getattr(say, "outcome", None))
+    finally:
+        stop.set()
+        # Waited for, not merely signalled. A context manager that has returned should not have left
+        # a thread of its own behind, and a command that exits with one still winding down is a
+        # command whose next line of output can arrive after its own last one.
+        ticker.join(timeout=2.0)
+
+
+def recorded(workspace: Workspace, say: Any, outcome: Mapping[str, Any] | None = None) -> None:
+    """Say what the operation `say` belongs to produced.
+
+    Not a close. `recording` closes its own row on the way out, always, so that a caller who forgets
+    this cannot leave a pass that never ends. This only supplies the outcome, which is knowable only
+    after the operation has returned and therefore cannot be an argument to the context manager.
+    """
+    if say is not None:
+        with suppress(AttributeError):
+            say.outcome = dict(outcome) if outcome is not None else None
+
+
 def overview(workspace: Workspace) -> dict[str, Any]:
     """What is in here, in the few numbers worth seeing before anything else.
 
@@ -2320,6 +2508,10 @@ def overview(workspace: Workspace) -> dict[str, Any]:
         "last_run_at": latest,
         "waiting_to_review": waiting,
         "searches_with_problems": trouble,
+        # Every long operation, not just the searches above. Here rather than behind a command of
+        # its own because invariant 5 wants this reachable from both surfaces and `overview` already
+        # is one, already takes `--json`, and already answers the question this is part of.
+        "under_way": under_way(workspace),
     }
 
 

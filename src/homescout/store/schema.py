@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -590,4 +590,74 @@ CREATE TABLE listing_tags (
 );
 
 CREATE INDEX listing_tags_tag ON listing_tags (tag);
+"""
+
+
+# Version 11. What a long operation is doing, while it is doing it.
+#
+# `runs` already records that a search run is under way, and the core reads it from there on
+# purpose: the answer is then the same whoever asks, so a run started from a terminal is visible to
+# a browser and the reverse. Everything else that takes minutes was left out of that - an
+# enrichment pass, an extraction pass, a digest, a broadband load - and each of them reports itself
+# through a callback into a dictionary held by whichever process started it. Restart the process
+# and the pass does not stop, it becomes invisible.
+#
+# Two tables rather than a column on `runs`. `runs` answers "was there a run and what did it find"
+# and is the anchor for snapshots, events and the whole comparison; a row there for an extraction
+# pass would carry a `search_name` that is not a search and make every query over runs wrong by one
+# row. A search run gets a row in both and this one carries the run's id, so the two are one
+# operation rather than two accounts of it.
+#
+# `updated_at` is the load-bearing column and it is not a timestamp for display. Only the pass
+# itself can move its row to completed or failed, so a process that is killed leaves a row saying
+# "running" for ever - which `runs` does today, and which nothing has noticed because nothing draws
+# it. A pass touches this while it works, on a clock of its own rather than when it happens to
+# speak, because these operations are silent for minutes at a time by design. A row not touched for
+# long enough reads as stopped without finishing: never completed, because it did not, and never
+# failed, because nothing saw a failure.
+#
+# The same forward-only rule `runs` has, for the same reason: a row here is a lifecycle rather than
+# an observation, and it may only move once, in one direction.
+#
+# No append-only trigger on the lines and none wanted. They are the one operational table in this
+# store: nothing computes a difference over time from them, no annotation refers to them, and what
+# a run found is recorded where it always was. Removing them by age is permitted and is not built.
+SCHEMA_V11 = """
+CREATE TABLE passes (
+    seq          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT NOT NULL UNIQUE,
+    kind         TEXT NOT NULL,
+    subject      TEXT,
+    run_id       TEXT REFERENCES runs (id),
+    started_at   TEXT NOT NULL,
+    updated_at   TEXT NOT NULL,
+    finished_at  TEXT,
+    status       TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+    outcome      TEXT,
+    failed       TEXT
+);
+
+CREATE INDEX idx_passes_kind ON passes (kind, seq);
+CREATE INDEX idx_passes_status ON passes (status, seq);
+
+CREATE TABLE pass_lines (
+    pass_id  TEXT NOT NULL REFERENCES passes (id) ON DELETE CASCADE,
+    seq      INTEGER NOT NULL,
+    said_at  TEXT NOT NULL,
+    line     TEXT NOT NULL,
+    PRIMARY KEY (pass_id, seq)
+);
+
+-- The same shape as `runs_forward_only`, and here for the same reason. Everything identifying a
+-- pass is fixed when it begins; only how it ended may move, and only once.
+CREATE TRIGGER passes_forward_only BEFORE UPDATE ON passes
+BEGIN
+    SELECT CASE WHEN NOT (
+        OLD.status = 'running'
+        AND NEW.seq = OLD.seq
+        AND NEW.id = OLD.id
+        AND NEW.kind = OLD.kind
+        AND NEW.started_at = OLD.started_at
+    ) THEN RAISE(ABORT, 'a pass may only move forwards, and only its outcome may move') END;
+END;
 """

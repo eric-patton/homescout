@@ -1513,43 +1513,43 @@ is written in this file beside this function and the wrong pattern is the one cu
 
 ## Come back to it (`changes/come-back-to-it/`)
 
-- [ ] T193: `api.py`: what is under way becomes part of the overview (`feat-010/AC-83`,
+- [x] T193: `api.py`: what is under way becomes part of the overview (`feat-010/AC-83`,
       `feat-010/AC-84`, `feat-001/AC-31`). Read from the store, so a pass started from a terminal or
       by the scheduled job is in the answer and a restarted server does not lose it. Widening the
       overview rather than adding an operation is what satisfies invariant 5 without a new command:
       `overview` is already on both surfaces and already takes `--json`. It reports running searches
       today and reports every pass after this.
 
-- [ ] T193a: `api.py`: starting a pass already under way is refused, in the core (`feat-010/AC-85`,
+- [x] T193a: `api.py`: starting a pass already under way is refused, in the core (`feat-010/AC-85`,
       `feat-010/AC-14`). Computed from what the store says, so the refusal holds across processes
       and the browser will not start an extraction while the nightly job is running one. Names what
       is running and when it began. The one-at-a-time decision leaves `web/runs.py`, which is where
       AC-14 says it should never have been.
 
-- [ ] T194: `web/runs.py`, `web/app.py`, `web/wire.py`: the tracker records to the store instead of
+- [x] T194: `web/runs.py`, `web/app.py`, `web/wire.py`: the tracker records to the store instead of
       to a dictionary, and one endpoint says what is running (`feat-010/AC-83`, `feat-010/AC-84`).
       The per-process memory goes away rather than being kept alongside, because two answers to one
       question is how they come to disagree.
 
-- [ ] T195: `cli/main.py`, `cli/render.py`: a long command records itself the same way
+- [x] T195: `cli/main.py`, `cli/render.py`: a long command records itself the same way
       (`feat-001/AC-31`, `feat-010/AC-83`). What it prints is unchanged. This is the half that makes
       the nightly job visible in a browser, which is the whole point of putting it in the store.
 
-- [ ] T196: `web/static/settings.js`, `web/static/searches.js`: asking on load and rejoining
+- [x] T196: `web/static/settings.js`, `web/static/searches.js`: asking on load and rejoining
       (`feat-010/AC-83`). The tools surface asks about each of its passes; the list of searches keeps
       asking while a run is under way instead of drawing one frozen badge. Nothing is drawn when
       nothing is running.
 
-- [ ] T197: `web/static/common.js`, `app.css`: the marker every screen carries (`feat-010/AC-84`).
+- [x] T197: `web/static/common.js`, `app.css`: the marker every screen carries (`feat-010/AC-84`).
       One ask on one schedule in the shared frame, not one per surface. It names what is running,
       reaches the screen showing its progress, and removes itself when the pass ends without a
       reload.
 
-- [ ] T198: `web/static/common.js`, `web/static/settings.js`: a pass that stopped without finishing
+- [x] T198: `web/static/common.js`, `web/static/settings.js`: a pass that stopped without finishing
       is shown as that (`feat-010/AC-83`). Never as running and never as completed. The browser
       reads the store's own answer rather than deciding it.
 
-- [ ] T199: `tests/test_web_surfaces.py`, `tests/test_web_parity.py`, `tests/test_cli_operations.py`,
+- [x] T199: `tests/test_web_surfaces.py`, `tests/test_web_parity.py`, `tests/test_cli_operations.py`,
       `tests/test_web_background.py`: rejoining after a reload, the marker appearing and going away,
       a terminal-started pass visible in the browser, and a killed pass reading as stopped
       (`feat-010/AC-83`, `feat-010/AC-84`, `feat-010/AC-13`, `feat-001/AC-31`).
