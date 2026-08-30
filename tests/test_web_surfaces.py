@@ -911,3 +911,19 @@ def test_the_column_is_in_the_view_somebody_decides_with() -> None:
     results = script("results")
     deciding = results[results.index('["deciding"'):results.index('["hazards"')]
     assert '"Concerns"' in deciding
+
+
+def test_the_assessment_panel_wraps_and_stays_where_the_reader_is() -> None:
+    """feat-010/AC-87: prose inside a table whose cells deliberately do not wrap.
+
+    Both halves were real. The panel is sized to a reading width and the sentences ignored it,
+    because a data row is read across and the cells are `nowrap`; the box measured correctly in the
+    DOM while every line ran a thousand pixels past its own edge and off the screen. And the table
+    scrolls sideways over forty-four columns, so a panel that did not stay put would slide away the
+    moment somebody went to look at a column.
+    """
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+    panel = style[style.index(".assessment {"):style.index(".assessment .whose")]
+    assert "white-space: normal" in panel, "prose in this table has to be told to wrap"
+    assert "position: sticky" in panel and "left: 0" in panel
+    assert "width:" in panel, "a line the full width of forty-four columns is not a readable line"

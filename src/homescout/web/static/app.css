@@ -1951,10 +1951,22 @@ td.assessed { text-align: center; }
 
 tr.detailrow > td { padding: 0; background: var(--panel, #f7f5f0); }
 
+/* Pinned to the left edge and held to a reading width.
+ *
+ * Without both, this is a paragraph laid across forty-four columns of table: sixteen hundred pixels
+ * of line length, clipped at the right edge, and gone entirely the moment somebody scrolls sideways
+ * to look at a column. Sticky keeps it where the reader is; the width keeps a line readable. */
 .assessment {
+  position: sticky;
+  left: 0;
+  width: min(58rem, 100vw - 3rem);
   padding: 0.9rem 1.1rem;
-  max-width: 60rem;
   border-left: 3px solid var(--sky, #43607c);
+  /* The cells of this table do not wrap, on purpose, because a data row is read across. This is
+   * prose in the same table and has to. Without it the panel is the right width and the sentences
+   * are not: they run past its edge and off the screen, which measures as a correctly sized box
+   * containing a line a thousand pixels too long. */
+  white-space: normal;
 }
 
 .assessment .whose {
