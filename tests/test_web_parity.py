@@ -865,7 +865,9 @@ def test_a_judgment_is_set_on_several_properties_at_once(store: Store, db_path: 
     assert all(row["judgment"] is None for row in untouched), "and nothing else was touched"
 
 
-def test_a_batch_that_cannot_be_written_entirely_says_which_part(store: Store, db_path: Path) -> None:
+def test_a_batch_that_cannot_be_written_entirely_says_which_part(
+    store: Store, db_path: Path
+) -> None:
     """feat-010/AC-81, feat-010/AC-6: never a count that might mean either.
 
     The one thing this must never do is leave somebody believing forty houses were ruled out when

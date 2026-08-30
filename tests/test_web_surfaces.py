@@ -587,7 +587,8 @@ def test_every_reason_a_row_is_missing_is_in_the_one_bar() -> None:
     assert "showFilters();" in load_body
 
     # One control lifts all of them, which now means all of them.
-    clearing = results[results.index("function clearFilters()"):results.index("function setJudgmentFilter")]
+    start = results.index("function clearFilters()")
+    clearing = results[start:results.index("function setJudgmentFilter")]
     assert 'state.judgment = "all"' in clearing
     assert "state.showGone = true" in clearing
 
@@ -663,7 +664,8 @@ def test_the_table_opens_on_a_view_rather_than_on_every_column(store: Store, db_
     for said in ('"Deciding"', '"Hazards"', '"Everything"'):
         assert said in results
 
-    named = set(re.findall(r'"([^"]+)"', results[results.index("const VIEWS"):results.index("const CUSTOM")]))
+    views = results[results.index("const VIEWS"):results.index("const CUSTOM")]
+    named = set(re.findall(r'"([^"]+)"', views))
     declared_names = {column["name"] for column in declared}
     unknown = {
         one for one in named
@@ -675,7 +677,9 @@ def test_the_table_opens_on_a_view_rather_than_on_every_column(store: Store, db_
     assert len(declared) > 30, "this test is only interesting while the table is wide"
 
 
-def test_a_remembered_arrangement_is_never_recomputed_from_a_view(store: Store, db_path: Path) -> None:
+def test_a_remembered_arrangement_is_never_recomputed_from_a_view(
+    store: Store, db_path: Path
+) -> None:
     """feat-010/AC-74, feat-010/AC-45: the load-bearing rule, asserted against how it is written.
 
     Two implementations satisfy "a remembered arrangement wins" and behave oppositely. Deriving the
@@ -730,7 +734,8 @@ def test_the_new_column_controls_answer_to_the_keyboard() -> None:
     that is why they were chosen over a row of divs with click handlers.
     """
     results = script("results")
-    control = results[results.index("function viewControl("):results.index("function redrawViewControl(")]
+    start = results.index("function viewControl(")
+    control = results[start:results.index("function redrawViewControl(")]
     assert 'el("select"' in control, "the view control is a real select"
     assert '"aria-label": "Which columns to open on"' in control
     chooser = results[results.index("function chooseColumns("):results.index("function filterBox(")]
@@ -757,7 +762,9 @@ def test_the_map_counts_what_is_held_back_over_the_same_properties_as_the_table(
         "the held-back counts are read off every row the run found"
     )
     for reason in ("kept", "passed", "gone"):
-        assert f"const {reason} = every.filter(" in counting, f"{reason} is counted over all of them"
+        assert f"const {reason} = every.filter(" in counting, (
+            f"{reason} is counted over all of them"
+        )
     assert "held.without" in counting, "and the ones with no location are still said separately"
     assert "held.all = found.rows;" in fire, "which means the answer's own rows are kept"
 
@@ -803,7 +810,8 @@ def test_the_builder_opens_on_the_areas_it_is_for() -> None:
 
 
 def test_every_total_says_which_properties_it_counts() -> None:
-    """feat-010/AC-76: four screens, four populations, and one noun on all of them read as a fault."""
+    """feat-010/AC-76: four screens, four populations, and one noun on all of them
+    read as a fault."""
     assert "properties across every search" in script("searches")
     assert "in the latest run of this search" in script("results")
     assert "matched against the earlier run" in script("changes")
@@ -850,7 +858,8 @@ def test_what_you_configure_and_what_you_run_are_two_surfaces() -> None:
 def test_a_figure_that_can_be_zero_is_drawn_at_zero() -> None:
     """feat-010/AC-80: a tile appearing is harder to notice than a number changing."""
     searches_body = script("searches")
-    strip = searches_body[searches_body.index("function overview()"):searches_body.index("function figure(")]
+    start = searches_body.index("function overview()")
+    strip = searches_body[start:searches_body.index("function figure(")]
     for label in ("waiting for your decision", "to fix before they run", "running right now"):
         assert f'label: "{label}"' in strip
     assert "waiting\n      ? figure(" not in strip, "no longer drawn only when non-zero"
@@ -858,7 +867,8 @@ def test_a_figure_that_can_be_zero_is_drawn_at_zero() -> None:
 
 
 def test_a_judgment_can_be_set_on_a_range_of_rows() -> None:
-    """feat-010/AC-81: passing is the daily work and it was one row at a time, each through a dialog."""
+    """feat-010/AC-81: passing is the daily work and it was one row at a time,
+    each through a dialog."""
     results = script("results")
     assert "function actingOn(" in results, "the selection, or the row the control was pressed on"
     assert "function pickRange(" in results
