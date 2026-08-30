@@ -622,6 +622,11 @@ def test_the_facade_is_the_whole_surface() -> None:
         "enrich",
         "extract",
         "extracted_for",
+        # Reading a property against the household's own criteria, and reading back what it made of
+        # one. Its own operation rather than a wider `extract`, because the two send different
+        # things: see feat-013/AC-3.
+        "assess",
+        "assessment_for",
         "export_templates",
         "configuration",
         "set_configuration",

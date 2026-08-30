@@ -225,6 +225,19 @@ def build_parser() -> argparse.ArgumentParser:
     enrich.add_argument("--stale", action="store_true", help="only values past their lifetime")
     enrich.add_argument("--search", metavar="NAME", help="only properties in this saved search")
 
+    assess = commands.add_parser(
+        "assess",
+        help="read the properties still in play against what you said you want",
+    )
+    assess.add_argument("--search", metavar="NAME", help="which saved search")
+    assess.add_argument(
+        "--limit", type=int, metavar="N",
+        help="assess at most this many, to see a first pass before paying for all of it",
+    )
+    assess.add_argument(
+        "--listing", metavar="ID", help="read one property's assessment instead of running a pass"
+    )
+
     extract = commands.add_parser(
         "extract", parents=[common], help="ask the configured model about listing descriptions"
     )
@@ -501,6 +514,33 @@ def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> An
     return Answer(document, render.enrichment(outcome), code)
 
 
+def _assess(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
+    """Assess what is in play, or read one property's assessment.
+
+    Two jobs behind one verb, the same way `extract --listing` already reads one property's
+    recovered fields rather than running a pass. Asking about one thing you already paid for should
+    not be a different command from the one that paid for it.
+    """
+    if args.listing:
+        found = api.assessment_for(workspace, args.listing)
+        return Answer(digest.envelope("assessment", **found), render.assessment_of(found))
+
+    outcome = api.assess(
+        workspace, search=args.search, limit=args.limit, progress=note
+    )
+    document = digest.envelope(
+        "assessment-pass",
+        considered=outcome.considered,
+        assessed=outcome.assessed,
+        current=outcome.current,
+        left_over=outcome.left_over,
+        failures=list(outcome.failures),
+        skipped=outcome.skipped,
+        degraded=outcome.degraded,
+    )
+    return Answer(document, render.assessment(outcome))
+
+
 def _extract(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
     if args.listing:
         return _extracted_for(workspace, args.listing)
@@ -747,6 +787,8 @@ def _dispatch(
         return _matches(workspace, args)
     if args.command == "export":
         return _export(workspace, args)
+    if args.command == "assess":
+        return _assess(workspace, args, note)
     if args.command == "extract":
         return _extract(workspace, args, note)
     if args.command == "enrich":
@@ -787,6 +829,7 @@ LONG_COMMANDS: dict[str, str] = {
     "run": "run",
     "enrich": "enrich",
     "extract": "extract",
+    "assess": "assess",
     "broadband": "broadband",
 }
 

@@ -208,6 +208,62 @@ def extraction(outcome: Any) -> str:
     return "\n".join(lines)
 
 
+def assessment(outcome: Any) -> str:
+    """What the assessment pass did.
+
+    The count of what is already current leads, because on a workspace where this has run before it
+    is the whole answer: nothing changed, nothing was asked, nothing was spent.
+    """
+    if outcome.skipped and not outcome.assessed:
+        return f"Nothing assessed: {outcome.skipped}"
+    lines = [
+        f"{outcome.considered} properties in play, "
+        f"{outcome.current} already current, {outcome.assessed} assessed"
+    ]
+    if outcome.left_over:
+        lines.append(f"  {outcome.left_over} left for a later pass")
+    for failure in outcome.failures[:5]:
+        lines.append(f"  could not be assessed: {failure}")
+    if len(outcome.failures) > 5:
+        lines.append(f"  and {len(outcome.failures) - 5} more could not be assessed")
+    return "\n".join(lines)
+
+
+def assessment_of(found: Any) -> str:
+    """One property's assessment, for reading in a terminal.
+
+    The concerns carry their evidence, which is the whole standard this feature is held to: a
+    concern nobody can check is one nobody can act on.
+    """
+    if not found.get("assessed"):
+        return "This property has not been assessed."
+    lines: list[str] = []
+    if found.get("stale"):
+        lines.append("This assessment is out of date: what it was made from has changed since.")
+    lines.append(f"Assessed {found['made_at']} by {found['model']}")
+    if found.get("fit"):
+        lines += ["", found["fit"]]
+    if found.get("concerns"):
+        lines += ["", "Concerns:"]
+        for concern in found["concerns"]:
+            lines.append(f"  [{concern.get('severity', 'worth checking')}] {concern.get('about')}")
+            if concern.get("detail"):
+                lines.append(f"      {concern['detail']}")
+            if concern.get("evidence"):
+                lines.append(
+                    f"      {concern.get('evidence_kind', 'evidence')}: {concern['evidence']}"
+                )
+    for where, what in (found.get("seen") or {}).items():
+        lines += ["", f"What it saw in the {where.replace('_', ' ')}:", f"  {what}"]
+    if found.get("before_visiting"):
+        lines += ["", "Before visiting:"]
+        lines += [f"  - {s}" for s in found["before_visiting"]]
+    if found.get("could_not_tell"):
+        lines += ["", "Could not tell:"]
+        lines += [f"  - {s}" for s in found["could_not_tell"]]
+    return "\n".join(lines)
+
+
 def export(written: Any) -> str:
     """What was written, and which columns came out empty and why.
 

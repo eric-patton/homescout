@@ -12,6 +12,7 @@ import sqlite3
 from .db import schema_version
 from .errors import SchemaTooNewError
 from .schema import (
+    ASSESSMENT_TABLES,
     DECISION_TABLES,
     DELIVERY_TABLES,
     SCHEMA_V1,
@@ -25,6 +26,7 @@ from .schema import (
     SCHEMA_V9,
     SCHEMA_V10,
     SCHEMA_V11,
+    SCHEMA_V12,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -54,6 +56,10 @@ MIGRATIONS: tuple[str, ...] = (
     # `runs` has, because a pass row is a lifecycle. No append-only trigger on the lines: they are
     # the one operational table here, and the note above `SCHEMA_V11` says why that is safe.
     SCHEMA_V11,
+    # What a model made of a property, beside the person's own judgment and never inside it.
+    # Append-only and it takes the triggers: a new assessment is a new row, and the ones before it
+    # stay readable, which is how somebody sees that the model changed its mind.
+    SCHEMA_V12 + "\n" + append_only_triggers(ASSESSMENT_TABLES),
 )
 
 

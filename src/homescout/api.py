@@ -1321,6 +1321,210 @@ def extract(
         )
 
 
+def assess(
+    workspace: Workspace,
+    *,
+    search: str | None = None,
+    limit: int | None = None,
+    progress: Any = None,
+) -> Any:
+    """Read the properties still in play against what this household has already said it wants.
+
+    The second model pass, and a different one from `extract` in the only way that matters: this one
+    is given the address, the coordinates, the photograph and a picture of the fire hazard around
+    the point. That boundary is feat-013/AC-3 and is the whole reason this is its own feature.
+
+    What it produces goes beside the person's own judgment and never into it, decides nothing, hides
+    nothing, and reorders nothing. It ranks, explains and flags; they keep and pass.
+    """
+    from .assess import criteria as criteria_module
+    from .assess import surroundings as around
+    from .assess.pass_ import PassOutcome, run_pass
+    from .export import latest_run, rows_of
+    from .extract import settings as model_settings
+    from .extract.notes import read as read_notes
+    from .extract.pass_ import _session
+
+    say = progress or (lambda _message: None)
+
+    with _translating():
+        names = [search] if search else list(list_searches(workspace))
+    if not names:
+        return PassOutcome(skipped="there is no saved search to assess")
+
+    try:
+        account = model_settings.account(workspace.root)
+    except model_settings.ExtractionMisconfigured as exc:
+        # Reported before anything is sent, which is invariant 9's absent-by-default read at the
+        # point of use: an installation with no model configured is not broken, it simply does not
+        # have this.
+        return PassOutcome(skipped=str(exc))
+
+    name = names[0]
+    with _translating():
+        definition = workspace.catalog.load(name)
+        run_id = latest_run(workspace.store, name)
+        rows = list(rows_of(workspace.store, run_id, root=workspace.root))
+
+    in_play = _in_play(workspace, rows)
+    kept, passed = criteria_module.examples_from(rows)
+    written = read_notes(workspace.root, definition)
+    criteria = criteria_module.criteria_for(
+        definition,
+        notes=[n for n in (written.everywhere, written.search) if n],
+        kept=kept,
+        passed=passed,
+    )
+
+    with _translating():
+        already = workspace.store.assessed_fingerprints([row.listing_id for row in in_play])
+
+    stations = _wind_stations(workspace, name)
+
+    def pictures_for(row: Any, dossier: Any) -> list[tuple[str, bytes]]:
+        found: list[tuple[str, bytes]] = []
+        shot = preview_image(workspace, row.listing_id)
+        if shot is not None:
+            found.append(("the listing's own photograph", shot[0]))
+        if dossier.has_place:
+            try:
+                box = around.bbox_around(dossier.latitude, dossier.longitude)
+                found.append((around.HAZARD_CAPTION, hazard_tile(workspace, "wildfire", box,
+                                                                 around.TILE)))
+            except Exception:  # noqa: BLE001 - a missing picture is not a failed assessment
+                pass
+        return found
+
+    def wind_for(dossier: Any) -> Mapping[str, Any] | None:
+        if not dossier.has_place or not stations:
+            return None
+        near = around.nearest_station(dossier.latitude, dossier.longitude, stations)
+        if near is None:
+            return None
+        station, miles = near
+        try:
+            rose = wind_rose(workspace, station["network"], station["station"], around.SEASON)
+        except Exception:  # noqa: BLE001 - same reason
+            return None
+        return around.wind_from(rose, station, miles)
+
+    def record(listing_id: str, found: Any, mark: str) -> None:
+        with _translating():
+            workspace.store.record_assessment(
+                listing_id,
+                model=found.model or account.model,
+                fingerprint=mark,
+                fit=found.fit,
+                seen=found.seen,
+                concerns=[
+                    {
+                        "about": c.about,
+                        "detail": c.detail,
+                        "severity": c.severity,
+                        "evidence_kind": c.evidence_kind,
+                        "evidence": c.evidence,
+                    }
+                    for c in found.concerns
+                ],
+                before_visiting=found.before_visiting,
+                could_not_tell=found.could_not_tell,
+            )
+
+    return run_pass(
+        in_play,
+        account=account,
+        criteria=criteria,
+        session=_session(),
+        already=already,
+        pictures_for=pictures_for,
+        wind_for=wind_for,
+        record=record,
+        limit=limit,
+        progress=say,
+    )
+
+
+def _in_play(workspace: Workspace, rows: Sequence[Any]) -> list[Any]:
+    """What is still being decided about: not passed on, not off the market.
+
+    The set is the affordability of the whole feature. On this workspace it is 155 of 951 in the
+    latest run, so a first pass is half an hour rather than most of a day, and every pass after it
+    covers what a run brought in.
+    """
+    found: list[Any] = []
+    for row in rows:
+        with _translating():
+            judgment = workspace.store.judgment_of(row.listing_id)
+        if judgment == "pass":
+            continue
+        if getattr(row, "presence", "observed") != "observed":
+            continue
+        status = getattr(row.fields, "listing_status", None)
+        if status and str(status).lower() not in ("for_sale", "for sale", "active"):
+            continue
+        found.append(row)
+    return found
+
+
+def _wind_stations(workspace: Workspace, name: str) -> list[dict[str, Any]]:
+    """Every weather station this run's properties could be near, asked for once.
+
+    Once per pass rather than once per property: the list is small, it is kept on disk, and asking
+    per property would put a lookup inside the loop for no gain.
+    """
+    try:
+        return list(wind_stations(workspace, name).get("stations") or [])
+    except Exception:  # noqa: BLE001 - a pass without wind is still a pass
+        return []
+
+
+def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
+    """What a model made of one property, and whether it still describes it.
+
+    The seam both surfaces read. Staleness is computed here rather than stored, because it is a fact
+    about the present: an assessment is current exactly while what it was made from still holds.
+    """
+    from .assess.criteria import criteria_for
+    from .assess.dossier import dossier_for
+    from .assess.pass_ import fingerprint_of
+    from .export import latest_run, rows_of
+    from .extract.notes import read as read_notes
+
+    with _translating():
+        held = workspace.store.assessment_of(listing_id)
+    if held is None:
+        return {"listing_id": listing_id, "assessed": False}
+
+    stale = False
+    try:
+        name = list(list_searches(workspace))[0]
+        with _translating():
+            definition = workspace.catalog.load(name)
+            rows = rows_of(workspace.store, latest_run(workspace.store, name), root=workspace.root)
+        row = next((r for r in rows if r.listing_id == listing_id), None)
+        if row is not None:
+            written = read_notes(workspace.root, definition)
+            criteria = criteria_for(
+                definition, notes=[n for n in (written.everywhere, written.search) if n]
+            )
+            stale = fingerprint_of(dossier_for(row), criteria.stated()) != held.fingerprint
+    except Exception:  # noqa: BLE001 - unable to tell is reported as not stale, never as stale
+        stale = False
+
+    return {
+        "listing_id": listing_id,
+        "assessed": True,
+        "model": held.model,
+        "made_at": held.made_at,
+        "stale": stale,
+        "fit": held.fit,
+        "seen": dict(held.seen),
+        "concerns": [dict(c) for c in held.concerns],
+        "before_visiting": list(held.before_visiting),
+        "could_not_tell": list(held.could_not_tell),
+    }
+
+
 def extracted_for(
     workspace: Workspace, listing_id: str, *, snapshot: Any = None
 ) -> dict[str, Any]:

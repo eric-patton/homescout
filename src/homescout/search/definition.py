@@ -134,6 +134,7 @@ class FileSearch:
         #: Whether this search asks for the optional model extraction pass. Off unless the file
         #: turned it on, and off is what makes the whole tool work with no model configured.
         self.model_extraction = reading.model_extraction
+        self.model_assessment = reading.model_assessment
         #: What this search wants the model told about how listings in its market are written.
         #: Empty unless somebody wrote one, and written by a person rather than by any code path.
         self.extract_notes = reading.extract_notes

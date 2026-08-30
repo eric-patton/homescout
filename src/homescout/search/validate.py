@@ -37,6 +37,7 @@ TOP_LEVEL = (
     "sources",
     "rules",
     "export",
+    "assess",
     "extract",
     "paused",
     "archived",
@@ -87,6 +88,14 @@ class Reading:
     #: What this search tells the model about how listings in its market are written. Plain words,
     #: written by a person, sent with every description. Empty unless somebody wrote one.
     extract_notes: str = ""
+    #: Whether a run of this search also assesses what it found. Off unless the file says otherwise,
+    #: the same shape and the same default as `model_extraction` above and for the same reason.
+    #:
+    #: A separate switch rather than the same one, because the two passes send different things. The
+    #: extraction pass is handed a description and nothing else; this one is handed the address, the
+    #: coordinates and a photograph. Somebody who turned on the first did not thereby agree to the
+    #: second, and one switch for both would have taken that decision away from them.
+    model_assessment: bool = False
     #: Paused: still a search, still runnable by name, simply not swept up by `run --all`. The
     #: seasonal case, where somebody stops watching a town for a while without losing what they
     #: know about it.
@@ -126,6 +135,7 @@ def examine(document: Document, *, known_sources: Sequence[str]) -> Reading:
     _sources(document, reading, known_sources)
     _rules_and_export(document, reading)
     _extraction(document, reading)
+    _assessment(document, reading)
     _standing(document, reading)
     _notices(document, reading)
     return reading
@@ -387,6 +397,42 @@ def _extraction(document: Document, reading: Reading) -> None:
         )
         return
     reading.model_extraction = wanted
+
+
+def _assessment(document: Document, reading: Reading) -> None:
+    """Whether a run of this search also assesses what it found.
+
+    Off unless the file says so, exactly like the extraction switch above. Two switches rather than
+    one because the two passes send different things: the extraction pass is handed a description
+    and nothing else, and this one is handed the address, the coordinates and a photograph of the
+    house. Somebody who agreed to the first has not thereby agreed to the second.
+
+    Assessing on demand needs none of this. The switch is only about whether a run does it.
+    """
+    section = document.data.get("assess")
+    if section is None:
+        return
+    if not isinstance(section, Mapping):
+        reading.say(document.at("assess"), "assess has to be an object, such as {model: true}")
+        return
+    for key in section:
+        if key != "model":
+            reading.say(
+                document.at("assess", key),
+                f"assess has no {key!r} setting. The only one is model, which is true or false.",
+            )
+    wanted = section.get("model")
+    if wanted is None:
+        return
+    if not isinstance(wanted, bool):
+        reading.say(
+            document.at("assess", "model"),
+            "assess.model is true or false. Turning it on asks a language model about each "
+            "property this search is still deciding about, and sends it that property's address, "
+            "its coordinates and its photograph, which the extraction pass never does.",
+        )
+        return
+    reading.model_assessment = wanted
 
 
 def _extraction_notes(document: Document, reading: Reading, section: Mapping[str, Any]) -> None:

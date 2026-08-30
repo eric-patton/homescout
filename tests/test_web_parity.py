@@ -65,6 +65,7 @@ REACHES: dict[str, tuple[str, str]] = {
     "matches resolve": ("POST", "/api/matches/{match_id}"),
     "enrich": ("POST", "/api/enrich"),
     "extract": ("POST", "/api/extract"),
+    "assess": ("POST", "/api/assess"),
     "export": ("POST", "/api/export"),
     "overview": ("GET", "/api/searches"),
     "passed": ("GET", "/api/passed"),

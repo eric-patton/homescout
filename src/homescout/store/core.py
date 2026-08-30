@@ -51,6 +51,7 @@ from .models import (
     Snapshot,
     SourceLink,
     SourceOutcome,
+    StoredAssessment,
     StoredImage,
     Tag,
 )
@@ -90,6 +91,27 @@ def _gone_quiet(updated_at: str) -> bool:
     if last.tzinfo is None:
         last = last.replace(tzinfo=UTC)
     return (datetime.now(UTC) - last).total_seconds() > PASS_STOPPED_AFTER
+
+
+#: SQLite's own bound on how many values one statement may carry, with room to spare. A pass over
+#: this workspace asks about 155 at a time and a future one could ask about thousands.
+_CHUNK = 900
+
+
+def _in_chunks(everything: list[str]) -> Iterable[list[str]]:
+    for start in range(0, len(everything), _CHUNK):
+        yield everything[start : start + _CHUNK]
+
+
+def _scrubbed(concern: dict[str, Any]) -> dict[str, Any]:
+    """One concern with nothing secret in it.
+
+    Same reason as everywhere else this appears: text that used to live in a process for a second is
+    becoming bytes on a disk, and the one place that writes is the one place that can guarantee it.
+    """
+    return {
+        key: scrub(value) if isinstance(value, str) else value for key, value in concern.items()
+    }
 
 
 def _new_id() -> str:
@@ -1649,6 +1671,130 @@ class Store:
             "INSERT INTO listing_events (listing_id, run_id, occurred_at, kind, detail) "
             "VALUES (?, ?, ?, ?, ?)",
             (listing_id, run_id, at, kind, json.dumps(detail) if detail is not None else None),
+        )
+
+    # -- what a model made of a property -----------------------------------
+    #
+    # Beside a person's annotation and never inside it. See the note above `SCHEMA_V12`.
+
+    def record_assessment(
+        self,
+        listing_id: str,
+        *,
+        model: str,
+        fingerprint: str,
+        fit: str | None = None,
+        seen: Mapping[str, str] | None = None,
+        concerns: Sequence[Mapping[str, Any]] = (),
+        before_visiting: Sequence[str] = (),
+        could_not_tell: Sequence[str] = (),
+    ) -> StoredAssessment:
+        """Write one assessment. A new one is a new row; the ones before it stay.
+
+        Scrubbed on the way in, for the same reason a pass's progress lines are: this text came back
+        from a model that was told about an address and a photograph, and anything it echoes becomes
+        bytes in a file this workspace keeps backups of.
+        """
+        made_at = utc_now()
+        assessment_id = _new_id()
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            cursor = conn.execute(
+                "INSERT INTO assessments (id, listing_id, model, made_at, fingerprint, fit, "
+                "seen, concerns, before_visiting, could_not_tell) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    assessment_id,
+                    listing_id,
+                    model,
+                    made_at,
+                    fingerprint,
+                    scrub(fit) if fit else None,
+                    json.dumps({k: scrub(v) for k, v in dict(seen or {}).items()}),
+                    json.dumps([_scrubbed(dict(c)) for c in concerns]),
+                    json.dumps([scrub(s) for s in before_visiting]),
+                    json.dumps([scrub(s) for s in could_not_tell]),
+                ),
+            )
+            seq = int(cursor.lastrowid)
+        return self.assessment_of(listing_id) or StoredAssessment(
+            seq=seq,
+            id=assessment_id,
+            listing_id=listing_id,
+            model=model,
+            made_at=made_at,
+            fingerprint=fingerprint,
+        )
+
+    def assessment_of(
+        self, listing_id: str, *, fingerprint: str | None = None
+    ) -> StoredAssessment | None:
+        """The most recent assessment of this property, or None.
+
+        `fingerprint` is what the property looks like now. Passed in, the answer says whether the
+        assessment still describes it; left out, `stale` is False because nothing was asked.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM assessments WHERE listing_id = ? ORDER BY seq DESC LIMIT 1",
+            (listing_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._assessment_from(row, fingerprint)
+
+    def assessments_of(self, listing_id: str) -> list[StoredAssessment]:
+        """Every assessment of this property, oldest first.
+
+        The reason this table is append-only rather than one row per property: somebody looking at a
+        concern wants to know whether the model has always said this or only started to.
+        """
+        return [
+            self._assessment_from(row, None)
+            for row in self._conn.execute(
+                "SELECT * FROM assessments WHERE listing_id = ? ORDER BY seq", (listing_id,)
+            )
+        ]
+
+    def assessed_fingerprints(self, listing_ids: Sequence[str]) -> dict[str, str]:
+        """What each of these was last assessed from, for deciding what a pass has to redo.
+
+        One query for the whole pass. Asked per property it would be one round trip per row, which
+        is the shape that turns a check costing nothing into a check costing a minute.
+        """
+        if not listing_ids:
+            return {}
+        found: dict[str, str] = {}
+        for chunk in _in_chunks(list(listing_ids)):
+            marks = ",".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                "SELECT listing_id, fingerprint FROM assessments "  # noqa: S608 - marks are ours
+                f"WHERE listing_id IN ({marks}) ORDER BY seq",
+                chunk,
+            )
+            for row in rows:
+                # Ordered by seq, so the last write for a listing is the one that survives.
+                found[row["listing_id"]] = row["fingerprint"]
+        return found
+
+    def _assessment_from(
+        self, row: sqlite3.Row, fingerprint: str | None
+    ) -> StoredAssessment:
+        return StoredAssessment(
+            seq=row["seq"],
+            id=row["id"],
+            listing_id=row["listing_id"],
+            model=row["model"],
+            made_at=row["made_at"],
+            fingerprint=row["fingerprint"],
+            fit=row["fit"],
+            seen=json.loads(row["seen"]) if row["seen"] else {},
+            concerns=tuple(json.loads(row["concerns"]) if row["concerns"] else ()),
+            before_visiting=tuple(
+                json.loads(row["before_visiting"]) if row["before_visiting"] else ()
+            ),
+            could_not_tell=tuple(
+                json.loads(row["could_not_tell"]) if row["could_not_tell"] else ()
+            ),
+            stale=bool(fingerprint is not None and fingerprint != row["fingerprint"]),
         )
 
     # -- what a long operation is doing ------------------------------------

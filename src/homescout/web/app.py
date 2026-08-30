@@ -390,6 +390,28 @@ def build(workspace: api.Workspace) -> FastAPI:
         )
         return answer("task-started", **started)
 
+    @app.post("/api/assess")
+    async def assess(request: Request) -> dict[str, Any]:
+        """Read the properties still in play against what this household said it wants.
+
+        Sends more to the model than any other operation here: the address, the coordinates and the
+        photograph, which the extraction pass is structurally forbidden. The control that starts it
+        says so before it is pressed; see `settings.js`.
+        """
+        body = await _body(request)
+        started = app.state.runs.start_task(
+            "assess",
+            lambda mine, say: api.assess(
+                mine, search=body.get("search"), limit=body.get("limit"), progress=say
+            ),
+            held(),
+        )
+        return answer("task-started", **started)
+
+    @app.get("/api/assessment/{listing_id}")
+    def assessment(listing_id: str) -> dict[str, Any]:
+        return answer("assessment", **api.assessment_for(held(), listing_id))
+
     @app.post("/api/deliver")
     async def deliver(request: Request) -> dict[str, Any]:
         started = app.state.runs.start_task(

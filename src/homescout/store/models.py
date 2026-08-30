@@ -418,3 +418,31 @@ class PassRecord:
     def finished(self) -> bool:
         """Over, however it ended, including having stopped without saying so."""
         return self.status != "running"
+
+
+@dataclass(frozen=True, slots=True)
+class StoredAssessment:
+    """What a model made of one property, as it was recorded.
+
+    Beside a person's annotation and never inside it. `Annotation` is the user's own judgment and
+    says so; this is somebody else's opinion about the same house, kept where the two cannot be
+    confused for each other.
+    """
+
+    seq: int
+    id: str
+    listing_id: str
+    model: str
+    made_at: str
+    #: A digest of what this was assessed FROM. Current exactly while it still matches; see the note
+    #: above `SCHEMA_V12` for what is deliberately not in it.
+    fingerprint: str
+    fit: str | None = None
+    #: What each picture showed, whether or not anything was wrong with it.
+    seen: dict[str, str] = field(default_factory=dict)
+    concerns: tuple[dict[str, Any], ...] = ()
+    before_visiting: tuple[str, ...] = ()
+    could_not_tell: tuple[str, ...] = ()
+    #: Filled on read by comparing `fingerprint` to what the property looks like now. Never stored:
+    #: staleness is a fact about the present rather than about the moment this was written.
+    stale: bool = False

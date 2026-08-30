@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -661,3 +661,49 @@ BEGIN
     ) THEN RAISE(ABORT, 'a pass may only move forwards, and only its outcome may move') END;
 END;
 """
+
+
+# Version 12. What a model made of a property, kept where a person's own judgment is not.
+#
+# Every property row already carries `rank`, `verdict`, `red_flags`, `summary`, `next_step`,
+# `taxes`, `crime`, `fire_egress`, `sewage_exposure` and `outbuildings`, and every one of them is
+# empty. They look like the obvious home for this and they are the wrong one: the note above them
+# says they are the user's own judgment, never written by a run, and that nothing writes them but a
+# person. Filling them from a model would delete the distinction the whole product rests on, and
+# would make it impossible to tell afterwards what somebody concluded from what a model guessed.
+#
+# So: its own table, read side by side. The question a person actually asks, standing in a kitchen
+# with a phone, is not "what does the summary say" but "it flagged the egress, do I agree", and that
+# question cannot be asked when both live in one cell.
+#
+# Append-only, and it takes the triggers to prove it. A new assessment is a new row; the most recent
+# one for a listing is the current one and the ones before it stay readable and attributed to when
+# they were made. That is what lets somebody see that the model changed its mind, and when.
+#
+# `fingerprint` is what makes staleness cheap and correct. It is a digest of what the assessment was
+# made FROM - the description, the enrichment values used, the rule verdicts, and the household's
+# stated criteria - so an assessment is current exactly while that digest still matches. A price cut
+# changes nothing in it and costs nothing. What is deliberately NOT in it is the sample of kept and
+# passed properties: that changes every time anybody passes on a house, and folding it in would mean
+# one click marking all 155 assessments stale and paying for a full pass over a change nobody made
+# to what they were looking for.
+SCHEMA_V12 = """
+CREATE TABLE assessments (
+    seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT NOT NULL UNIQUE,
+    listing_id      TEXT NOT NULL REFERENCES listings (id),
+    model           TEXT NOT NULL,
+    made_at         TEXT NOT NULL,
+    fingerprint     TEXT NOT NULL,
+    fit             TEXT,
+    seen            TEXT,
+    concerns        TEXT,
+    before_visiting TEXT,
+    could_not_tell  TEXT
+);
+
+CREATE INDEX idx_assessments_listing ON assessments (listing_id, seq);
+"""
+
+#: Protected the moment it exists, by the same generated triggers every other recorded thing takes.
+ASSESSMENT_TABLES: tuple[str, ...] = ("assessments",)

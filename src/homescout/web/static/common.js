@@ -262,6 +262,7 @@ function nameOfPass(pass) {
     "run-all": "Running every search",
     "enrich": "Attaching public data",
     "extract": "Asking the model",
+    "assess": "Reading the properties",
     "deliver": "Writing the digest",
     "broadband": "Loading broadband data",
   }[pass.task] || pass.task;

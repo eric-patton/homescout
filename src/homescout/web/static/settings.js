@@ -67,6 +67,7 @@ function draw() {
 const TOOL_PASSES = [
   ["enrich", "Enrichment"],
   ["extract", "Extraction"],
+  ["assess", "Assessment"],
   ["deliver", "Delivery"],
   ["broadband", "Broadband"],
 ];
@@ -605,6 +606,22 @@ function toolsPanel() {
             ["Just ten, to try it", () => start("extract",
               {limit: 10, search: searches.value.trim() || null}, where, "Extraction")],
           ]),
+        tool("Read each property against what you want",
+          "Every property still in play, read against your exclusion reasons, your rules and " +
+          "what you have kept and passed on. It writes what it makes of each one beside your own " +
+          "notes, never into them, and it decides nothing.",
+          [
+            ["Run it", () => start("assess", {search: searches.value.trim() || null}, where,
+              "Assessment")],
+            ["Just five, to try it", () => start("assess",
+              {limit: 5, search: searches.value.trim() || null}, where, "Assessment")],
+          ],
+          /* Said above the buttons rather than below them, and larger than the note the extraction
+           * pass carries, because this is the one operation that sends a property's address. */
+          "This one sends the model each property's address, its coordinates, its photograph and a " +
+          "map of the fire hazard around it. The pass that reads descriptions sends none of those. " +
+          "If you would rather none of it left this machine, point the model at a local one on the " +
+          "settings page; it needs no credential."),
         tool("Write the digest and email it",
           "What a scheduled night does at the end. The file is written either way; the email goes " +
           "only if something changed and an account is configured.",
@@ -615,11 +632,14 @@ function toolsPanel() {
   );
 }
 
-function tool(title, why, actions) {
+function tool(title, why, actions, warning) {
   return el("tr", {},
     el("th", {scope: "row"}, title),
     el("td", {},
       el("p", {class: "meta"}, why),
+      /* Above the buttons. A sentence about what leaves the machine, printed under the control it
+       * describes, is a sentence somebody reads after deciding. */
+      warning ? el("p", {class: "notice notice-flag"}, warning) : null,
       el("div", {class: "actions"},
         actions.map(([label, go]) => el("button", {type: "button", onclick: go}, label)))),
   );
