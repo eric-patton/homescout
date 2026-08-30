@@ -719,3 +719,9 @@ One invocation that produces several settles on the worst of them, in that order
 
 With `--json`, the structured document is the entire contents of standard output and everything
 else is on standard error, so a caller never has to disentangle them.
+
+## License
+
+[MIT](LICENSE), covering the code. That grant is about copyright and says nothing about how you
+may use the sites this tool reads: see "Please read this before using or sharing it" at the top,
+which is the part that actually governs whether running it is defensible.
