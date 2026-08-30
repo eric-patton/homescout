@@ -539,7 +539,7 @@ def _annotation_row(conn: Any) -> tuple:
 
 
 def test_a_run_assesses_only_when_the_search_asked_it_to() -> None:
-    """feat-013/AC-15, invariant 9: off is the default and off means nothing is reached.
+    """feat-013/AC-15, feat-013/AC-10, invariant 9: off is the default, and off reaches nothing.
 
     This gap was found by auditing the built code against the spec rather than by a failing test.
     The switch parsed, validated and appeared on the definition, and nothing anywhere read it, so
@@ -569,3 +569,68 @@ def test_the_run_carries_what_the_assessment_did() -> None:
     from homescout.runner import RunOutcome
 
     assert "assessment" in RunOutcome.__dataclass_fields__
+
+
+def test_the_pass_reports_that_no_model_is_configured_before_sending_anything() -> None:
+    """feat-013/AC-10: absent by default, and absent is reported rather than failed.
+
+    An installation with no model is not broken. It simply does not have this, in the same words
+    the description pass already uses for the same condition, and nothing else behaves differently.
+    """
+    import homescout.extract.settings as model_settings
+    from homescout.assess.pass_ import assess_search
+
+    class Definition:
+        name = "portales"
+
+    def refuse(_root: Any, *_a: Any, **_k: Any) -> Any:
+        raise model_settings.ExtractionMisconfigured("HOMESCOUT_EXTRACT_MODEL has to name a model.")
+
+    before = model_settings.account
+    model_settings.account = refuse  # type: ignore[assignment]
+    try:
+        # A store and a root that would raise if touched: reported before anything is reached.
+        out = assess_search(object(), Definition(), root=object())
+    finally:
+        model_settings.account = before  # type: ignore[assignment]
+
+    assert out.assessed == 0
+    assert "has to name a model" in (out.skipped or "")
+
+
+def test_the_pass_is_paced_by_the_model_client_and_adds_no_second_policy() -> None:
+    """feat-013/AC-13: non-negotiable 10, and the way this could have been silently wrong.
+
+    `assess` is a new pacing key and the model's politeness config names only `extract` in its
+    per-source table. A key absent from that table falls through to the config's default, and the
+    default here is the model policy, so this pass is paced identically. Asserted against the built
+    session rather than the table, because the failure mode is an unpaced pass against a paid API
+    with nothing anywhere reporting it.
+    """
+    from homescout.assess.model import PACING_KEY
+    from homescout.extract.pass_ import _session
+
+    session = _session()
+    mine = session.policy_for(PACING_KEY)
+    theirs = session.policy_for("extract")
+    assert (mine.delay, mine.timeout, mine.max_retries) == (
+        theirs.delay, theirs.timeout, theirs.max_retries
+    )
+    assert mine.delay > 0, "an unpaced pass against a paid API is what politeness forbids"
+
+
+def test_the_assessment_is_reachable_from_both_surfaces() -> None:
+    """feat-013/AC-12, feat-013/AC-17: invariant 5, and the pass reports itself like any other.
+
+    The command and the route are asserted to exist and to name the same core operation. A parity
+    test elsewhere already refuses a command with no route; this one names the pair from this
+    feature's side so a reader of this file can see it.
+    """
+    from homescout import api
+    from homescout.cli.main import LONG_COMMANDS, build_parser
+
+    commands = set(build_parser()._subparsers._group_actions[0].choices)  # noqa: SLF001
+    assert "assess" in commands
+    # A long operation, so it records itself and is watchable from either surface while it runs.
+    assert LONG_COMMANDS.get("assess") == "assess"
+    assert callable(api.assess) and callable(api.assessment_for)
