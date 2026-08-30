@@ -135,3 +135,28 @@ T5 and T6 touch disjoint files and neither needs the other.
       capture date noted, so a source schema change shows up as a fixture that no longer matches
       reality rather than as a test that quietly still passes.
       Files: `tests/fixtures/realtor/*.json`.
+
+## Defects found after the feature was built
+
+- [x] **D1. The bath count was reading two of the source's four kinds of bathroom.** The mapping
+      asked for `baths_full` and `baths_half` only, so a three-quarter bath (basin, lavatory,
+      shower, no tub) went uncounted. Measured against 800 live responses: the stored count was
+      wrong for 211 of the 391 properties that reported any bathroom, and empty for another 10 whose
+      bathrooms are all three-quarter ones. Tested three candidate mappings against what the
+      descriptions themselves say: adding the four kinds up agrees with the prose 77% of the time,
+      the old two-of-four mapping 49%, and the source's own room-count `baths` field 68%.
+      No spec changed. AC-5 always required the mapping to record what the source reported; the
+      request was short of the fields that carry it. The plan's mapping table said the same wrong
+      thing and now says the right one, with the reasoning beside it.
+      Found by the model assessment pass (feat-013), which flagged 34 of 155 shortlisted properties
+      as contradicting their own descriptions on bathroom count.
+      Regression tests cite feat-002/AC-5 and cover: a full plus a three-quarter bath counting as
+      three, a house of three-quarter baths no longer coming back empty, every kind being named in
+      the selection set, and a property with none of them staying empty per invariant 10. The one
+      check a recorded response structurally cannot make (a field the request never asks for is
+      absent from the recording too, so every offline test agrees with the omission) is a live test
+      against the real source.
+      Files: `src/homescout/sources/realtor/queries.py`,
+      `src/homescout/sources/realtor/normalize.py`, `tests/test_sources_realtor.py`,
+      `tests/test_sources_live.py`, `tests/fixtures/realtor/search_bathrooms.json`,
+      `tests/fixtures/realtor/search_city.json`, `tests/fixtures/realtor/README.md`.

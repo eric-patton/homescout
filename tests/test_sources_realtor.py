@@ -38,6 +38,17 @@ def homes() -> list[dict]:
     return fixture("search_city")["data"]["homeSearch"]["results"]
 
 
+def bathroom_homes() -> list[dict]:
+    """A second recorded market, kept for the shapes its bathroom fields come in."""
+    return fixture("search_bathrooms")["data"]["homeSearch"]["results"]
+
+
+def by_id(homes: list[dict], property_id: str) -> dict:
+    found = next((home for home in homes if home["property_id"] == property_id), None)
+    assert found is not None, f"{property_id} is not in the recorded response any more"
+    return found
+
+
 def responder(
     *,
     search: dict | None = None,
@@ -328,6 +339,54 @@ def test_half_baths_count_as_half() -> None:
     fields = normalize.to_fields({"description": {"baths_full": 2, "baths_half": 1}})
 
     assert fields.baths == 2.5
+
+
+def test_a_three_quarter_bath_is_a_bathroom() -> None:
+    """feat-002/AC-5: the second bathroom of a small house, and it used to go missing.
+
+    This is the shape the mapping got wrong for months: the source counts a shower-without-a-tub
+    separately, the request never asked for it, and the field came out a whole bathroom short of the
+    description printed beside it. Recorded response, so the number below is one property's own.
+    """
+    home = by_id(bathroom_homes(), "2359246430")
+
+    fields = normalize.to_fields(home)
+
+    assert home["description"]["baths_full"] == 2 and home["description"]["baths_3qtr"] == 1
+    assert fields.baths == 3.0
+    assert "4 bed 3 bath" in home["description"]["text"]
+
+
+def test_a_house_with_only_three_quarter_baths_still_has_them() -> None:
+    """feat-002/AC-5, invariant 10: the old mapping read this as a house nobody knew about.
+
+    Worse than the wrong number and easy to miss, because an empty field looks like a source that
+    stayed quiet rather than a question that was never asked.
+    """
+    fields = normalize.to_fields(by_id(bathroom_homes(), "1447674244"))
+
+    assert fields.baths == 3.0
+
+
+def test_every_kind_of_bathroom_the_source_counts_is_asked_for() -> None:
+    """feat-002/AC-5: the request is what decides this, so the request is what the test reads.
+
+    A mapping can only be as complete as the selection set feeding it. The four kinds below are
+    every one the source breaks out; leaving one unasked is invisible in a recorded response,
+    because the recording is made by this same request.
+    """
+    for kind in ("baths_full", "baths_3qtr", "baths_half", "baths_1qtr"):
+        assert kind in queries.HOME_FIELDS
+
+    for home in bathroom_homes():
+        assert set(home["description"]) >= {"baths_full", "baths_3qtr", "baths_half", "baths_1qtr"}
+
+
+def test_a_property_the_source_counts_no_bathroom_for_has_none() -> None:
+    """feat-002/AC-5, invariant 10: four absent counts are an absence, not a zero."""
+    fields = normalize.to_fields(by_id(bathroom_homes(), "2986199200"))
+
+    assert fields.baths is None
 
 
 def test_a_field_the_response_omits_stays_empty() -> None:

@@ -117,6 +117,44 @@ def _reported_total(source: RealtorSource, place: object, query: SearchQuery) ->
     return int(json.loads(fetched.body)["data"]["homeSearch"]["total"])
 
 
+def test_the_real_source_still_counts_bathrooms_the_way_the_mapping_reads_them() -> None:
+    """feat-002/AC-5: the one check a recorded response cannot make.
+
+    A fixture is recorded by the same request the adapter sends, so a field the request never asks
+    for is absent from the recording too, and every offline test agrees with the mistake. That is
+    exactly how the bath count stayed a whole bathroom short of the description for months. This
+    test asks the live source and reads what comes back, so leaving a kind of bathroom out of the
+    selection set fails here instead of quietly.
+    """
+    source = create("realtor", default_session())
+    result = source.search(SearchQuery(area=City("Santa Fe", "NM"), listing_status="for_sale"))
+    assert result.outcome == "ok" and result.rows
+
+    counted = [row.payload.get("description") or {} for row in result.rows]
+    #: Not every market has one, which is why the market is named rather than left to the search.
+    with_shower = [d for d in counted if d.get("baths_3qtr")]
+    assert with_shower, (
+        "no property in this market reported a three-quarter bath. Either the source renamed the "
+        "field or this market changed; check the response before assuming the mapping is fine."
+    )
+
+    for row, description in zip(result.rows, counted, strict=True):
+        parts = {
+            "baths_full": 1.0, "baths_3qtr": 1.0, "baths_half": 0.5, "baths_1qtr": 0.25,
+        }
+        assert set(description) >= set(parts), (
+            f"the source stopped answering with {set(parts) - set(description)}"
+        )
+        expected = sum(
+            worth * float(description[kind])
+            for kind, worth in parts.items()
+            if description.get(kind) is not None
+        )
+        assert row.fields.baths == (expected if any(
+            description.get(kind) is not None for kind in parts
+        ) else None)
+
+
 def test_a_real_preview_image_comes_back_as_a_picture() -> None:
     """feat-002/AC-23: the obligation this feature put on the interface, against the real site.
 

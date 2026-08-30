@@ -1,1898 +1,1727 @@
 {
- "data": {
-  "homeSearch": {
-   "count": 12,
-   "total": 87,
-   "results": [
-    {
-     "property_id": "1726746658",
-     "listing_id": "2989010555",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 74900,
-     "list_date": "2026-06-25T21:40:17.000000Z",
-     "last_update_date": "2026-08-15T01:00:13Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/432-S-Roosevelt-Road-V_Portales_NM_88130_M17267-46658",
-     "permalink": "432-S-Roosevelt-Road-V_Portales_NM_88130_M17267-46658",
-     "description": {
-      "type": "single_family",
-      "sqft": 1800,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 524462,
-      "year_built": 1992,
-      "text": "Country property. 12.04 Acres. Close proximity to town."
-     },
-     "location": {
-      "address": {
-       "line": "432 S Roosevelt Road V",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.195338,
-        "lon": -103.40546
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m943732414s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m943732414s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m916246771s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3665846371s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2406577900s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3425769854s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4157738960s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2720540181s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2289340096s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2491453472s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1229919942s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1229919942s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3180555226s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2963959937s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3005137300s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2359090927s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4114591164s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1242879771s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1709564324s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m526878829s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2981695888s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3164154483s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2047952508s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1634648582s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2503988155s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m530005047s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m530005047s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m866657678s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m114794354s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4249244958s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m135329317s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1787003622s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m741674728s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1854680638",
-     "listing_id": "2999726259",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 295000,
-     "list_date": "2026-08-15T01:33:29.000000Z",
-     "last_update_date": "2026-08-15T01:30:07Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/425-Monticello-Parkway-Dr_Portales_NM_88130_M18546-80638",
-     "permalink": "425-Monticello-Parkway-Dr_Portales_NM_88130_M18546-80638",
-     "description": {
-      "type": "single_family",
-      "sqft": 1978,
-      "beds": 4,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 6534,
-      "year_built": 2006,
-      "text": null
-     },
-     "location": {
-      "address": {
-       "line": "425 Monticello Parkway Dr",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.170552,
-        "lon": -103.32236
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2377663148s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2377663148s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1223638722s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2539195264s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1244438434s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m797851331s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2384296028s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2904927233s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m718697007s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2633901726s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m79104646s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4108049489s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3052073859s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m781649257s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2764887188s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3811507869s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4087548341s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1640853140s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2997981355s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2204829326s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m280980076s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1952112158s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3492507996s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m85583476s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4038938733s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3491639911s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3651555541s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3682178246s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m570458953s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4028759793s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2542703879s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m955444173s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2343141s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m267259623s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m951900365s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1775304181",
-     "listing_id": "2999431857",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 240000,
-     "list_date": "2026-08-07T22:48:03.000000Z",
-     "last_update_date": "2026-08-08T13:30:04Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/205-Floyd-Golden-Cir_Portales_NM_88130_M17753-04181",
-     "permalink": "205-Floyd-Golden-Cir_Portales_NM_88130_M17753-04181",
-     "description": {
-      "type": "single_family",
-      "sqft": 2550,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": 1,
-      "lot_sqft": 15246,
-      "year_built": 1965,
-      "text": "This home is a JEWEL-just waiting for someone to put the finishing touches on and restore it to all of it's former glory! Some great work has already been done and this home would be a perfect candidate for a REHAB loan to finish the few items that are left. This large custom built home features three bedrooms, 2 1/2 baths, two large living areas and a spectacular custom kitchen that is a MUST SEE with saltillo-look tile, granite countertops and a beautiful fireplace in the breakfast area! The master bath has been remodeled with modern cabinetry and finishes. The large lot has tons of potential with an in-ground pool (needs work) and mature landscaping providing privacy. This home is being sold AS-IS. Will not qualify for FHA. Sellers will consider all reasonable offers!"
-     },
-     "location": {
-      "address": {
-       "line": "205 Floyd Golden Cir",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.168869,
-        "lon": -103.347163
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m265076210s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m265076210s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3043444886s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1086118242s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1744558728s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3746869878s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m4018186685s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2014865615s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3765900617s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2231252117s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2972485560s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1551529022s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1499473946s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1292409785s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3712093782s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2422998742s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m287654477s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m763348211s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2548932224s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1765619520s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m279281584s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m4230772654s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1303055333s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1718548150",
-     "listing_id": "2998081066",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 69900,
-     "list_date": "2026-07-03T20:22:13.000000Z",
-     "last_update_date": "2026-08-01T15:15:06Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/715-N-Avenue-N_Portales_NM_88130_M17185-48150",
-     "permalink": "715-N-Avenue-N_Portales_NM_88130_M17185-48150",
-     "description": {
-      "type": "mobile",
-      "sqft": 1024,
-      "beds": 2,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 14375,
-      "year_built": 1994,
-      "text": "CLEAN, COZY and WELL-KEPT! Enjoy comfortable living in this well-maintained single-wide mobile home situated on an extra-large city lot. This home features a sunny and spacious living area, two bedrooms and two beautifully updated bathrooms. The inviting country-style kitchen and dining area includes a newer gas stove, nice cabinetry and pantry for storage. You'll appreciate the newer carpet and quality laminate flooring throughout. A durable metal roof offers low-maintenance protection, while the sturdy metal fence provides privacy and security. The large custom metal carport offers convenient covered parking. Whether you're looking for an affordable primary residence, an investment opportunity, or a place to downsize without sacrificing comfort, this property combines practical updates, very low utility bills, generous outdoor space and small-town charm in one attractive package! This home is not on a permanent foundation and is only eligible for cash purchase, conventional loan or private financing. Schedule your showing today!"
-     },
-     "location": {
-      "address": {
-       "line": "715 N Avenue N",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.186884,
-        "lon": -103.351219
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m4053606630s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m4053606630s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m820794341s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m196944178s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3677732136s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3569413885s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3796080000s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m311584998s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m685325437s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2979297480s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1684309953s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1296774905s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3805859199s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1050647878s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m966201931s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1937922225s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2893527221s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1699919142s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1574006373s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2785334841s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1208349386s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m123132609s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m496989326s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1827737362",
-     "listing_id": "2999683468",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 187000,
-     "list_date": "2026-08-14T14:15:20.000000Z",
-     "last_update_date": "2026-08-14T14:15:04Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/500-S-Avenue-A_Portales_NM_88130_M18277-37362",
-     "permalink": "500-S-Avenue-A_Portales_NM_88130_M18277-37362",
-     "description": {
-      "type": "single_family",
-      "sqft": 2195,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": 1,
-      "lot_sqft": 8276,
-      "year_built": 1980,
-      "text": null
-     },
-     "location": {
-      "address": {
-       "line": "500 S Avenue A",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.182711,
-        "lon": -103.335163
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2850112846s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2850112846s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2822539500s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3056458970s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3088135446s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2526212749s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1476369040s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3121473929s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1766090407s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m879967415s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3975271554s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4154244743s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1273306605s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m961765195s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m523098919s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3787611299s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2764229740s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3276299013s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2216436927s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1997554577s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4035047746s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3831759363s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3396929360s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4212202452s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3175712385s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m771534635s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3643778519s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2528917384s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3115947136s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1229162983s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1125965148s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3434347380s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2252669064s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1160639725",
-     "listing_id": "2998864239",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 399900,
-     "list_date": "2026-07-24T17:48:48.000000Z",
-     "last_update_date": "2026-07-31T06:00:44Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/1486-S-Roosevelt-Road-7_Portales_NM_88130_M11606-39725",
-     "permalink": "1486-S-Roosevelt-Road-7_Portales_NM_88130_M11606-39725",
-     "description": {
-      "type": "single_family",
-      "sqft": 3750,
-      "beds": 4,
-      "baths_full": 3,
-      "baths_half": null,
-      "lot_sqft": 677358,
-      "year_built": 2016,
-      "text": "Experience the best of country living on just over 15 acres, where wide-open Eastern New Mexico skies, privacy, and modern amenities come together just minutes from town. Horses are welcome, and with ample RV parking, there's plenty of room for all your vehicles, equipment, and outdoor toys. Inside, you'll find a bright, open-concept floor plan highlighted by vaulted ceilings that seamlessly connect the living, dining, and kitchen areas. The thoughtfully designed kitchen features abundant cabinetry, stainless steel appliances, a pantry, breakfast bar, and a dedicated coffee bar, making it ideal for everyday living and entertaining. New luxury blinds throughout the home add both style and functionality. The spacious primary suite offers a large en suite bathroom and an impressive walk-in closet. A secondary bedroom also features its own private full bath, providing an ideal setup for guests or multigenerational living. All four bedrooms are generously sized and include walk-in closets. Additional interior features include an oversized laundry room, a versatile bonus room perfect for a home office, hobby space, or extra storage, and a whole-home water filtration system for added convenience. The oversized attached garage features a 10' x 17' garage door, providing excellent clearance for larger vehicles and equipment. Recent owner improvements include two newly planted cherry trees, a new dishwasher, and a covered carport addition alongside the garage. If you've been searching for a property that offers space to spread out, modern comforts, room for horses, RV parking, and the peace of country living without giving up the conveniences of town, this exceptional property is ready to welcome you home. Call today to schedule your private showing!"
-     },
-     "location": {
-      "address": {
-       "line": "1486 S Roosevelt Road 7",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.159781,
-        "lon": -103.281374
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m851077792s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m851077792s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1466697468s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m649245217s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2502708310s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m528938321s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2512293125s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2493121821s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m296403764s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1399172428s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3868862124s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m327824885s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m599496508s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3356548958s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m76013169s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1856692655s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1200494932s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m719682914s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m782151314s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4203491049s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m326338072s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m73136149s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m447973186s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3890838638s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m306270487s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1900543768s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2281709414s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1069291580s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3421709842s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3845303996s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3734198028s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4084681274s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1607744379s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1538603209s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1061527264s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1646863899s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1181322570s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4113543798s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m272715743s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1873493798s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2243872180s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m658255500s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3587705858s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2407778791s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2693076933s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1136690699s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3081371597s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2371465111s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m661993317s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4293897435s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3350182389s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3314743820s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2471963695s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1175085311s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3455926431s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m671040795s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m242268494s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1219226859s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2912775406s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3045580896s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m86093424s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m255298402s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2884385633s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1830904579s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3093835637s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3732134360s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1499233527s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3258520977s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m45903175s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2161175739s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2023004010s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2787772589s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4061091871s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4134108307s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m904796265s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m695631018s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m756189929s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1733017842s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3377559711s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2521082543s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2458667694s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1418908996s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "2911782076",
-     "listing_id": "2994459625",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 35000,
-     "list_date": "2026-04-24T04:04:19.000000Z",
-     "last_update_date": "2026-08-03T17:09:56Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/612-S-Elgin-Ave_Portales_NM_88130_M29117-82076",
-     "permalink": "612-S-Elgin-Ave_Portales_NM_88130_M29117-82076",
-     "description": {
-      "type": "single_family",
-      "sqft": 798,
-      "beds": 2,
-      "baths_full": 1,
-      "baths_half": null,
-      "lot_sqft": 6970,
-      "year_built": null,
-      "text": "This home will not qualify for financing. Great investment opportunity for a flip or a rental on an extra deep corner lot!"
-     },
-     "location": {
-      "address": {
-       "line": "612 S Elgin Ave",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.185451,
-        "lon": -103.328377
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m4181771805s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m4181771805s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m976174860s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m234748690s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m138427423s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m874562328s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m1588025772s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m2505808407s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m1142451875s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1696092684",
-     "listing_id": "2999474301",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 140000,
-     "list_date": "2026-08-09T17:33:00.000000Z",
-     "last_update_date": "2026-08-21T03:15:07Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/691-Vans-Avenue-G_Portales_NM_88130_M16960-92684",
-     "permalink": "691-Vans-Avenue-G_Portales_NM_88130_M16960-92684",
-     "description": {
-      "type": "mobile",
-      "sqft": 1680,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 87120,
-      "year_built": 1991,
-      "text": "If you're looking for a country property close to town check out this 3 bedroom 2 bath doublewide on 2 acres on a permanent foundation. newer windows. 2 carport, awesome enclosed front porch, storage shed and plenty out buildings. Fenced all around. Property is move in ready. Home next door is also for sale and can be purchased together."
-     },
-     "location": {
-      "address": {
-       "line": "691 Vans Avenue G",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.157892,
-        "lon": -103.33909
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1869577384s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1869577384s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1369827317s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1600934256s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3986121329s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m230849404s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1448050123s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1377090420s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m768458921s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1205959652s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3133775231s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2273567265s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2351956335s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2211537096s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m972815980s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2500832990s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m583054190s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2977136965s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m376847562s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1676035928s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1076354440s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m374233102s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3354265960s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2481862830s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1396393667s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2344716737s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1909988791s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1991165022s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3511110505s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2828365274s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1148095952s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m628214487s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3678658670s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2744395513s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m102017040s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3465646468s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m630588159s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1575121963",
-     "listing_id": "2999480296",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 182000,
-     "list_date": "2026-08-10T01:03:25.000000Z",
-     "last_update_date": "2026-08-21T21:00:06Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/108-Texas-Dr_Portales_NM_88130_M15751-21963",
-     "permalink": "108-Texas-Dr_Portales_NM_88130_M15751-21963",
-     "description": {
-      "type": "single_family",
-      "sqft": 1481,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 6534,
-      "year_built": 1963,
-      "text": "Located just minutes from Eastern New Mexico University and outside the flood zone, this well-maintained brick home is full of charm and quality features. Inside, you'll find elegant crown molding, beautiful wood cabinetry, tile flooring in the kitchen, and comfortable carpeting in the bedrooms and hallway. The home offers a functional layout with a single-car garage, a utility closet with additional storage, and a spacious backyard complete with a handy workshop. The yard has been well maintained and is shaded by several mature trees, creating an inviting outdoor space. A cinder block fence encloses two sides of the backyard, with a wood privacy fence on the shared side. Additional peace of mind comes from a roof that was replaced in late 2024. This property has been exceptionally cared for and is ready for its next owner. Don't miss your opportunity to own this gem-schedule your private showing today before it's gone!"
-     },
-     "location": {
-      "address": {
-       "line": "108 Texas Dr",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.170698,
-        "lon": -103.347624
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2354211575s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2354211575s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1685563647s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3054550115s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m994721824s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2461023261s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1940570662s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1380058561s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m352978096s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m166182186s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m799261398s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m4267417328s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3992957241s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1329255915s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3640141076s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1472087432s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1223468248s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3451236783s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m553206557s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3380287935s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m883949621s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3294717743s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1608263994s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m35118761s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m380554528s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3248691175s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1542540894s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m824114668s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2478797875s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m961999182s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m308061614s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m4088636494s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3255602174s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2989877062s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3397524139s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2125089928s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m948299278s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3081263409s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m844633942s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3112558437s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2022933425s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2692326115s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2812643936s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2953646413s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2436976441s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m278769780s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3295770847s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3048930076s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3891988390s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3398648295s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1854531575",
-     "listing_id": "2998966295",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 265000,
-     "list_date": "2026-07-28T17:16:04.000000Z",
-     "last_update_date": "2026-08-03T17:10:10Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/512-E-17th-St_Portales_NM_88130_M18545-31575",
-     "permalink": "512-E-17th-St_Portales_NM_88130_M18545-31575",
-     "description": {
-      "type": "single_family",
-      "sqft": 2485,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 14375,
-      "year_built": 1990,
-      "text": "With over 2,400 square feet of living space, this well-maintained home offers room for everyone to spread out and enjoy. Featuring 3bedrooms, 2 bathrooms, and a desirable split floor plan, the spacious primary suite is thoughtfully separated from the secondary bedrooms and includes an oversized walk-in closet. Beautiful hardwood floors add warmth and character throughout much of the home, while updated appliances and a newer HVAC system installed in 2023 offer modern comfort and peace of mind. The home also features two sunrooms, providing flexible space for a home office, hobby room, workout area, or additional living space.Situated on an oversized lot of more than a quarter acre, the outdoor space is just as impressive with a covered patio, block fence, and plenty of room for entertaining, gardening, or simply enjoying the outdoors. If you're looking for space, comfort, and updates, this home is a must-see."
-     },
-     "location": {
-      "address": {
-       "line": "512 E 17th St",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.173076,
-        "lon": -103.320603
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m177044893s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m177044893s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m366133871s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3172873602s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1471067952s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1661345678s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3101766220s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m441980297s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3178792546s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2798692154s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m760351358s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m4137763135s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m765535735s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3454799040s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2872777573s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2860953162s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m646118085s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2386963605s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3609269996s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m521726979s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1023827621s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m556661132s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3609209527s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3645381704s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2386394475s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1619408312s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2449390224s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2353982896s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m614797528s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m799542525s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "2349182301",
-     "listing_id": "2996685055",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 114900,
-     "list_date": "2026-06-06T00:27:33.000000Z",
-     "last_update_date": "2026-08-14T19:30:08Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/724-W-14th-St_Portales_NM_88130_M23491-82301",
-     "permalink": "724-W-14th-St_Portales_NM_88130_M23491-82301",
-     "description": {
-      "type": "single_family",
-      "sqft": 1725,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 7405,
-      "year_built": 1982,
-      "text": "Large 1700+sq ft home on corner lot, updated bathrooms, newer flooring, and lots of light! Lovely solid surface flooring, fresh paint, this one is move in ready at an affordable price!"
-     },
-     "location": {
-      "address": {
-       "line": "724 W 14th St",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.177494,
-        "lon": -103.339824
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m966817752s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m966817752s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3754785580s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3499365468s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m446529756s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3706130638s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1005125398s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2709829780s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m454113771s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1827558043s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1958704497s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2864791956s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2542556520s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3515099410s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3530598369s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2432245722s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m4282934246s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2394904317s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2493093230s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3791368110s.jpg"
-      }
-     ]
-    },
-    {
-     "property_id": "1869028026",
-     "listing_id": "2999791490",
-     "status": "for_sale",
-     "mls_status": "Active",
-     "list_price": 250000,
-     "list_date": "2026-08-18T00:17:37.000000Z",
-     "last_update_date": "2026-08-19T22:45:04Z",
-     "href": "https://www.realtor.com/realestateandhomes-detail/767-S-Roosevelt-Road-Q_Portales_NM_88130_M18690-28026",
-     "permalink": "767-S-Roosevelt-Road-Q_Portales_NM_88130_M18690-28026",
-     "description": {
-      "type": "mobile",
-      "sqft": 1344,
-      "beds": 3,
-      "baths_full": 2,
-      "baths_half": null,
-      "lot_sqft": 349351,
-      "year_built": 1995,
-      "text": "Country property on 8.02 acres. Unique property south of Portales on 8 acres of land. The home features a metal roof with 3 bedrooms 2 bathrooms that have been updated. New paint and flooring. Large metal corrals with great potential."
-     },
-     "location": {
-      "address": {
-       "line": "767 Roosevelt Rd S",
-       "unit": null,
-       "city": "Portales",
-       "state_code": "NM",
-       "postal_code": "88130",
-       "coordinate": {
-        "lat": 34.146827,
-        "lon": -103.316268
-       }
-      },
-      "county": {
-       "name": "Roosevelt"
-      }
-     },
-     "tax_record": {
-      "apn": null,
-      "tax_parcel_id": null
-     },
-     "primary_photo": {
-      "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1687387109s.jpg"
-     },
-     "photos": [
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1687387109s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3239842820s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m546223020s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2876149934s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2851807275s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m4195985844s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2449148984s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2969740417s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1907558780s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2445181012s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m4223829195s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3599575296s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m4020048012s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m359197641s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3027314919s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2139348806s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m573251424s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2633558401s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m864706708s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2774371869s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1023135408s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3623476451s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3785647756s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1979013604s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1830700195s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2480406802s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1892871382s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m999795189s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m717831222s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1780000915s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3095480164s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m305105568s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2953783457s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2655735733s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2242337280s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2017496212s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m703548012s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m4127618277s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1958176019s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1169046652s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1404178982s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1843041933s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2330349432s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1967776361s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m526311334s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1975629684s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m4105152364s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3588406845s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3559657155s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1911013067s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m403870219s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3948577959s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3895535454s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1719202295s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1919485417s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m231570286s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1927883157s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m29849302s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2388181115s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2821639759s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3848713372s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3239475974s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1890374140s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1218461106s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m657723736s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2938519467s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2025323907s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2991474343s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m2695963549s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3516557835s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m227029125s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m121349992s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3217104793s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1923001516s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m3816699553s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1140171924s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1033094584s.jpg"
-      },
-      {
-       "href": "http://ap.rdcpix.com/cdcabd363cbccf422b618ff954cf5849l-m1442589418s.jpg"
-      }
-     ]
+  "data": {
+    "homeSearch": {
+      "count": 12,
+      "total": 86,
+      "results": [
+        {
+          "property_id": "1726746658",
+          "listing_id": "2989010555",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 74900,
+          "list_date": "2026-06-25T21:40:17.000000Z",
+          "last_update_date": "2026-08-15T01:00:13Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/432-S-Roosevelt-Road-V_Portales_NM_88130_M17267-46658",
+          "permalink": "432-S-Roosevelt-Road-V_Portales_NM_88130_M17267-46658",
+          "description": {
+            "type": "single_family",
+            "sqft": 1800,
+            "beds": 3,
+            "lot_sqft": 524462,
+            "year_built": 1992,
+            "text": "Country property. 12.04 Acres. Close proximity to town.",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "432 S Roosevelt Road V",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.195338,
+                "lon": -103.40546
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m943732414s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m943732414s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m916246771s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3455464979s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3665846371s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2406577900s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3425769854s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4157738960s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2720540181s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2289340096s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2491453472s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1229919942s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1229919942s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3180555226s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2963959937s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3005137300s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2359090927s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4114591164s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1242879771s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1709564324s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m526878829s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2981695888s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m3164154483s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2047952508s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1634648582s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m2503988155s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m530005047s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m530005047s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m866657678s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m114794354s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m4249244958s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m135329317s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m1787003622s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7b6e7be03d1c1ae591edc0fb788f53e0l-m741674728s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1854680638",
+          "listing_id": "2999726259",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 295000,
+          "list_date": "2026-08-15T01:33:29.000000Z",
+          "last_update_date": "2026-08-15T01:30:07Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/425-Monticello-Parkway-Dr_Portales_NM_88130_M18546-80638",
+          "permalink": "425-Monticello-Parkway-Dr_Portales_NM_88130_M18546-80638",
+          "description": {
+            "type": "single_family",
+            "sqft": 1978,
+            "beds": 4,
+            "lot_sqft": 6534,
+            "year_built": 2006,
+            "text": null,
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "425 Monticello Parkway Dr",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.170552,
+                "lon": -103.32236
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2377663148s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2377663148s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1223638722s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2539195264s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1244438434s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m797851331s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2384296028s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2904927233s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m718697007s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2633901726s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m79104646s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4108049489s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3052073859s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m781649257s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2764887188s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3811507869s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4087548341s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1640853140s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2997981355s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2204829326s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m280980076s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m1952112158s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3492507996s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m85583476s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4038938733s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3491639911s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3651555541s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m3682178246s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m570458953s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m4028759793s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2542703879s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m955444173s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m2343141s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m267259623s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/ebce19a6c93f490bc4c541882349a03fl-m951900365s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1775304181",
+          "listing_id": "2999431857",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 240000,
+          "list_date": "2026-08-07T22:48:03.000000Z",
+          "last_update_date": "2026-08-08T13:30:04Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/205-Floyd-Golden-Cir_Portales_NM_88130_M17753-04181",
+          "permalink": "205-Floyd-Golden-Cir_Portales_NM_88130_M17753-04181",
+          "description": {
+            "type": "single_family",
+            "sqft": 2550,
+            "beds": 3,
+            "lot_sqft": 15246,
+            "year_built": 1965,
+            "text": "This home is a JEWEL-just waiting for someone to put the finishing touches on and restore it to all of it's former glory! Some great work has already been done and this home would be a perfect candidate for a REHAB loan to finish the few items that are left. This large custom built home features three bedrooms, 2 1/2 baths, two large living areas and a spectacular custom kitchen that is a MUST SEE with saltillo-look tile, granite countertops and a beautiful fireplace in the breakfast area! The master bath has been remodeled with modern cabinetry and finishes. The large lot has tons of potential with an in-ground pool (needs work) and mature landscaping providing privacy. This home is being sold AS-IS. Will not qualify for FHA. Sellers will consider all reasonable offers!",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": 1,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "205 Floyd Golden Cir",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.168869,
+                "lon": -103.347163
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m265076210s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m265076210s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3043444886s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1086118242s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1744558728s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3746869878s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m4018186685s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2014865615s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3765900617s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2231252117s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2972485560s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1551529022s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1499473946s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1292409785s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m3712093782s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2422998742s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m287654477s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m763348211s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m2548932224s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1765619520s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m279281584s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m4230772654s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427cd663ae0f5f8cebea6e38e02d91b2l-m1303055333s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1718548150",
+          "listing_id": "2998081066",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 69900,
+          "list_date": "2026-07-03T20:22:13.000000Z",
+          "last_update_date": "2026-08-01T15:15:06Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/715-N-Avenue-N_Portales_NM_88130_M17185-48150",
+          "permalink": "715-N-Avenue-N_Portales_NM_88130_M17185-48150",
+          "description": {
+            "type": "mobile",
+            "sqft": 1024,
+            "beds": 2,
+            "lot_sqft": 14375,
+            "year_built": 1994,
+            "text": "CLEAN, COZY and WELL-KEPT! Enjoy comfortable living in this well-maintained single-wide mobile home situated on an extra-large city lot. This home features a sunny and spacious living area, two bedrooms and two beautifully updated bathrooms. The inviting country-style kitchen and dining area includes a newer gas stove, nice cabinetry and pantry for storage. You'll appreciate the newer carpet and quality laminate flooring throughout. A durable metal roof offers low-maintenance protection, while the sturdy metal fence provides privacy and security. The large custom metal carport offers convenient covered parking. Whether you're looking for an affordable primary residence, an investment opportunity, or a place to downsize without sacrificing comfort, this property combines practical updates, very low utility bills, generous outdoor space and small-town charm in one attractive package! This home is not on a permanent foundation and is only eligible for cash purchase, conventional loan or private financing. Schedule your showing today!",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "715 N Avenue N",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.186884,
+                "lon": -103.351219
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m4053606630s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m4053606630s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m820794341s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m196944178s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3677732136s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3569413885s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3796080000s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m311584998s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m685325437s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2979297480s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1684309953s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1296774905s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m3805859199s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1050647878s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m966201931s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1937922225s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2893527221s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1699919142s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1574006373s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m2785334841s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m1208349386s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m123132609s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5c2d86af3454138244e87a62d34b8471l-m496989326s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1827737362",
+          "listing_id": "2999683468",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 187000,
+          "list_date": "2026-08-14T14:15:20.000000Z",
+          "last_update_date": "2026-08-14T14:15:04Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/500-S-Avenue-A_Portales_NM_88130_M18277-37362",
+          "permalink": "500-S-Avenue-A_Portales_NM_88130_M18277-37362",
+          "description": {
+            "type": "single_family",
+            "sqft": 2195,
+            "beds": 3,
+            "lot_sqft": 8276,
+            "year_built": 1980,
+            "text": null,
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": 1,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "500 S Avenue A",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.182711,
+                "lon": -103.335163
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2850112846s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2850112846s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2822539500s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3056458970s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3088135446s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2526212749s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1476369040s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3121473929s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1766090407s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m879967415s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3975271554s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4154244743s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1273306605s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m961765195s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m523098919s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3787611299s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2764229740s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3276299013s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2216436927s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1997554577s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4035047746s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3831759363s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3396929360s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m4212202452s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3175712385s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m771534635s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3643778519s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2528917384s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3115947136s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1229162983s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m1125965148s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m3434347380s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/427a492836ad0663383d22c7fec8b852l-m2252669064s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1160639725",
+          "listing_id": "2998864239",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 399900,
+          "list_date": "2026-07-24T17:48:48.000000Z",
+          "last_update_date": "2026-07-31T06:00:44Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/1486-S-Roosevelt-Road-7_Portales_NM_88130_M11606-39725",
+          "permalink": "1486-S-Roosevelt-Road-7_Portales_NM_88130_M11606-39725",
+          "description": {
+            "type": "single_family",
+            "sqft": 3750,
+            "beds": 4,
+            "lot_sqft": 677358,
+            "year_built": 2016,
+            "text": "Experience the best of country living on just over 15 acres, where wide-open Eastern New Mexico skies, privacy, and modern amenities come together just minutes from town. Horses are welcome, and with ample RV parking, there's plenty of room for all your vehicles, equipment, and outdoor toys. Inside, you'll find a bright, open-concept floor plan highlighted by vaulted ceilings that seamlessly connect the living, dining, and kitchen areas. The thoughtfully designed kitchen features abundant cabinetry, stainless steel appliances, a pantry, breakfast bar, and a dedicated coffee bar, making it ideal for everyday living and entertaining. New luxury blinds throughout the home add both style and functionality. The spacious primary suite offers a large en suite bathroom and an impressive walk-in closet. A secondary bedroom also features its own private full bath, providing an ideal setup for guests or multigenerational living. All four bedrooms are generously sized and include walk-in closets. Additional interior features include an oversized laundry room, a versatile bonus room perfect for a home office, hobby space, or extra storage, and a whole-home water filtration system for added convenience. The oversized attached garage features a 10' x 17' garage door, providing excellent clearance for larger vehicles and equipment. Recent owner improvements include two newly planted cherry trees, a new dishwasher, and a covered carport addition alongside the garage. If you've been searching for a property that offers space to spread out, modern comforts, room for horses, RV parking, and the peace of country living without giving up the conveniences of town, this exceptional property is ready to welcome you home. Call today to schedule your private showing!",
+            "baths_full": 3,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "1486 S Roosevelt Road 7",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.159781,
+                "lon": -103.281374
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m851077792s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m851077792s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1466697468s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m649245217s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2502708310s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m528938321s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2512293125s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2493121821s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m296403764s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1399172428s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3868862124s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m327824885s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m599496508s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3356548958s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m76013169s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1856692655s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1200494932s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m719682914s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m782151314s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4203491049s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m326338072s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m73136149s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m447973186s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3890838638s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m306270487s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1900543768s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2281709414s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1069291580s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3421709842s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3845303996s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3734198028s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4084681274s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1607744379s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1538603209s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1061527264s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1646863899s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1181322570s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4113543798s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m272715743s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1873493798s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2243872180s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m658255500s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3587705858s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2407778791s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2693076933s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1136690699s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3081371597s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2371465111s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m661993317s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4293897435s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3350182389s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3314743820s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2471963695s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1175085311s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3455926431s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m671040795s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m242268494s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1219226859s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2912775406s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3045580896s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m86093424s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m255298402s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2884385633s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1830904579s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3093835637s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3732134360s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1499233527s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3258520977s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m45903175s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2161175739s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2023004010s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2787772589s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4061091871s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m4134108307s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m904796265s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m695631018s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m756189929s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1733017842s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m3377559711s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2521082543s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m2458667694s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/7d74ebd19de5f5c0e193166e20c8a9c2l-m1418908996s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "2911782076",
+          "listing_id": "2994459625",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 35000,
+          "list_date": "2026-04-24T04:04:19.000000Z",
+          "last_update_date": "2026-08-03T17:09:56Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/612-S-Elgin-Ave_Portales_NM_88130_M29117-82076",
+          "permalink": "612-S-Elgin-Ave_Portales_NM_88130_M29117-82076",
+          "description": {
+            "type": "single_family",
+            "sqft": 798,
+            "beds": 2,
+            "lot_sqft": 6970,
+            "year_built": null,
+            "text": "This home will not qualify for financing. Great investment opportunity for a flip or a rental on an extra deep corner lot!",
+            "baths_full": 1,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "612 S Elgin Ave",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.185451,
+                "lon": -103.328377
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m4181771805s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m4181771805s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m976174860s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m234748690s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m138427423s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m874562328s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m1588025772s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m2505808407s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/6c85d155edaafe9da45f93d3777c6653l-m1142451875s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1696092684",
+          "listing_id": "2999474301",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 140000,
+          "list_date": "2026-08-09T17:33:00.000000Z",
+          "last_update_date": "2026-08-21T03:15:07Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/691-Vans-Avenue-G_Portales_NM_88130_M16960-92684",
+          "permalink": "691-Vans-Avenue-G_Portales_NM_88130_M16960-92684",
+          "description": {
+            "type": "mobile",
+            "sqft": 1680,
+            "beds": 3,
+            "lot_sqft": 87120,
+            "year_built": 1991,
+            "text": "If you're looking for a country property close to town check out this 3 bedroom 2 bath doublewide on 2 acres on a permanent foundation. newer windows. 2 carport, awesome enclosed front porch, storage shed and plenty out buildings. Fenced all around. Property is move in ready. Home next door is also for sale and can be purchased together.",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "691 Vans Avenue G",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.157892,
+                "lon": -103.33909
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1869577384s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1869577384s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1369827317s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1600934256s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3986121329s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m230849404s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1448050123s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1377090420s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m768458921s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1205959652s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3133775231s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2273567265s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2351956335s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2211537096s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m972815980s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2500832990s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m583054190s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2977136965s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m376847562s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1676035928s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1076354440s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m374233102s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3354265960s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2481862830s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1396393667s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2344716737s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1909988791s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1991165022s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3511110505s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2828365274s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m1148095952s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m628214487s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3678658670s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m2744395513s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m102017040s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m3465646468s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/bdfcfaebb74567f1cf480cb37ed5654el-m630588159s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1575121963",
+          "listing_id": "2999480296",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 182000,
+          "list_date": "2026-08-10T01:03:25.000000Z",
+          "last_update_date": "2026-08-21T21:00:06Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/108-Texas-Dr_Portales_NM_88130_M15751-21963",
+          "permalink": "108-Texas-Dr_Portales_NM_88130_M15751-21963",
+          "description": {
+            "type": "single_family",
+            "sqft": 1481,
+            "beds": 3,
+            "lot_sqft": 6534,
+            "year_built": 1963,
+            "text": "Located just minutes from Eastern New Mexico University and outside the flood zone, this well-maintained brick home is full of charm and quality features. Inside, you'll find elegant crown molding, beautiful wood cabinetry, tile flooring in the kitchen, and comfortable carpeting in the bedrooms and hallway. The home offers a functional layout with a single-car garage, a utility closet with additional storage, and a spacious backyard complete with a handy workshop. The yard has been well maintained and is shaded by several mature trees, creating an inviting outdoor space. A cinder block fence encloses two sides of the backyard, with a wood privacy fence on the shared side. Additional peace of mind comes from a roof that was replaced in late 2024. This property has been exceptionally cared for and is ready for its next owner. Don't miss your opportunity to own this gem-schedule your private showing today before it's gone!",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "108 Texas Dr",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.170698,
+                "lon": -103.347624
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2354211575s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2354211575s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1685563647s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3054550115s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m994721824s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2461023261s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1940570662s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1380058561s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m352978096s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m166182186s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m799261398s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m4267417328s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3992957241s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1329255915s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3640141076s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1472087432s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1223468248s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3451236783s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m553206557s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3380287935s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m883949621s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3294717743s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1608263994s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m35118761s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m380554528s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3248691175s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m1542540894s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m824114668s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2478797875s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m961999182s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m308061614s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m4088636494s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3255602174s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2989877062s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3397524139s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2125089928s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m948299278s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3081263409s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m844633942s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3112558437s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2022933425s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2692326115s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2812643936s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2953646413s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m2436976441s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m278769780s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3295770847s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3048930076s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3891988390s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/5b2eb85694a9277b1e1ea50722edad35l-m3398648295s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "2377897529",
+          "listing_id": "3000171823",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 60000,
+          "list_date": "2026-08-28T16:33:59.000000Z",
+          "last_update_date": "2026-08-28T16:30:07Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/1116-W-Fir-St_Portales_NM_88130_M23778-97529",
+          "permalink": "1116-W-Fir-St_Portales_NM_88130_M23778-97529",
+          "description": {
+            "type": "single_family",
+            "sqft": 728,
+            "beds": 2,
+            "lot_sqft": 4356,
+            "year_built": 1960,
+            "text": "This well-maintained 2-bedroom, 1-bathroom home is a great opportunity for a first-time homebuyer or investor! The home is well insulated for added comfort and energy efficiency, while the roof is less than five years old. Plumbing beneath the home has also been updated all the way to the alley, providing added peace of mind. Whether you're looking for an affordable place to call home or your next rental property, this home is full of potential! Home is sold AS-IS, cash or conventional loan only.",
+            "baths_full": 1,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "1116 W Fir St",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.186517,
+                "lon": -103.345613
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m850721878s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m850721878s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m3094554584s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m1834991829s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m3405450278s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m2561102275s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m477912116s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m283873259s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m2144541499s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m1217057920s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m364803314s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m2576900523s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m1036904139s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/69d83f387ef154da90bf838ef5725fa7l-m2860789230s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1854531575",
+          "listing_id": "2998966295",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 265000,
+          "list_date": "2026-07-28T17:16:04.000000Z",
+          "last_update_date": "2026-08-03T17:10:10Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/512-E-17th-St_Portales_NM_88130_M18545-31575",
+          "permalink": "512-E-17th-St_Portales_NM_88130_M18545-31575",
+          "description": {
+            "type": "single_family",
+            "sqft": 2485,
+            "beds": 3,
+            "lot_sqft": 14375,
+            "year_built": 1990,
+            "text": "With over 2,400 square feet of living space, this well-maintained home offers room for everyone to spread out and enjoy. Featuring 3bedrooms, 2 bathrooms, and a desirable split floor plan, the spacious primary suite is thoughtfully separated from the secondary bedrooms and includes an oversized walk-in closet. Beautiful hardwood floors add warmth and character throughout much of the home, while updated appliances and a newer HVAC system installed in 2023 offer modern comfort and peace of mind. The home also features two sunrooms, providing flexible space for a home office, hobby room, workout area, or additional living space.Situated on an oversized lot of more than a quarter acre, the outdoor space is just as impressive with a covered patio, block fence, and plenty of room for entertaining, gardening, or simply enjoying the outdoors. If you're looking for space, comfort, and updates, this home is a must-see.",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "512 E 17th St",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.173076,
+                "lon": -103.320603
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m177044893s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m177044893s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m366133871s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3172873602s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1471067952s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1661345678s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3101766220s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m441980297s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3178792546s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2798692154s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m760351358s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m4137763135s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m765535735s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3454799040s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2872777573s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2860953162s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m646118085s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2386963605s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3609269996s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m521726979s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1023827621s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m556661132s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3609209527s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m3645381704s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2386394475s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m1619408312s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2449390224s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m2353982896s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m614797528s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/e7b0557cce651107f6081fe0a352858bl-m799542525s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "2349182301",
+          "listing_id": "2996685055",
+          "status": "for_sale",
+          "mls_status": "Pending",
+          "list_price": 114900,
+          "list_date": "2026-06-06T00:27:33.000000Z",
+          "last_update_date": "2026-08-26T02:45:03Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/724-W-14th-St_Portales_NM_88130_M23491-82301",
+          "permalink": "724-W-14th-St_Portales_NM_88130_M23491-82301",
+          "description": {
+            "type": "single_family",
+            "sqft": 1725,
+            "beds": 3,
+            "lot_sqft": 7405,
+            "year_built": 1982,
+            "text": "Large 1700+sq ft home on corner lot, updated bathrooms, newer flooring, and lots of light! Lovely solid surface flooring, fresh paint, this one is move in ready at an affordable price!",
+            "baths_full": 2,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "724 W 14th St",
+              "unit": null,
+              "city": "Portales",
+              "state_code": "NM",
+              "postal_code": "88130",
+              "coordinate": {
+                "lat": 34.177494,
+                "lon": -103.339824
+              }
+            },
+            "county": {
+              "name": "Roosevelt"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m966817752s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m966817752s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3754785580s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3499365468s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m446529756s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3706130638s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1005125398s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2709829780s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m454113771s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1827558043s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m1958704497s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2864791956s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2542556520s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3515099410s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3530598369s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2432245722s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m4282934246s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2394904317s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m2493093230s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/463a2956f74e71f0fc4be2ad335d2c81l-m3791368110s.jpg"
+            }
+          ]
+        }
+      ],
+      "_captured_note": "Trimmed to 12 of the 86 results the source returned, for repository size. `total` is left at the source's own figure so paging behaviour stays exercisable."
     }
-   ],
-   "_captured_note": "Trimmed to 12 of the 87 results the source returned, for repository size. `total` is left at the source's own figure so paging behaviour stays exercisable."
   }
- }
 }

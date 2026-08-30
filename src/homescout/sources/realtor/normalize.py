@@ -50,13 +50,37 @@ def _mapping(value: Any, where: str) -> Mapping[str, Any]:
     return value
 
 
+#: How much of a bathroom each kind the source counts separately is worth, in the decimal everyone
+#: quotes. A three-quarter bath (basin, lavatory, shower, no tub) counts as a whole one: that is how
+#: the listings themselves write it, and a house the source records as one full and one
+#: three-quarter is a house whose own description says "two bath".
+_BATH_KINDS = {
+    "baths_full": 1.0,
+    "baths_3qtr": 1.0,
+    "baths_half": 0.5,
+    "baths_1qtr": 0.25,
+}
+
+
 def _baths(description: Mapping[str, Any]) -> float | None:
-    """Full baths plus half of the half baths, which is how everyone quotes them."""
-    full = _as(float, description.get("baths_full"), "description.baths_full")
-    half = _as(float, description.get("baths_half"), "description.baths_half")
-    if full is None and half is None:
+    """How many bathrooms, in the decimal the listings are written in.
+
+    The source counts four kinds separately and never states the decimal itself. It does publish a
+    plain `baths`, but that one is a room count, so a house with two full and one half is a three
+    there and a two-and-a-half everywhere else, including in the other two sources this tool merges
+    against. Adding the kinds up here is what keeps one property's bath count the same number no
+    matter which source found it.
+
+    Asking for only two of the four kinds is what this used to do, and it was wrong for about half
+    of the properties that have any: a three-quarter bath is the ordinary second bathroom of a small
+    house, and dropping it left the field a whole bathroom short of the description beside it.
+    """
+    counted = {
+        kind: _as(float, description.get(kind), f"description.{kind}") for kind in _BATH_KINDS
+    }
+    if all(value is None for value in counted.values()):
         return None
-    return (full or 0.0) + (half or 0.0) / 2
+    return sum(_BATH_KINDS[kind] * value for kind, value in counted.items() if value is not None)
 
 
 def _photo_urls(home: Mapping[str, Any]) -> tuple[str, ...] | None:

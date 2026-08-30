@@ -44,7 +44,10 @@ HOME_FIELDS = """
   last_update_date
   href
   permalink
-  description { type sqft beds baths_full baths_half lot_sqft year_built text }
+  description {
+    type sqft beds lot_sqft year_built text
+    baths_full baths_3qtr baths_half baths_1qtr
+  }
   location {
     address {
       line unit city state_code postal_code

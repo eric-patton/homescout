@@ -1,0 +1,815 @@
+{
+  "data": {
+    "homeSearch": {
+      "count": 5,
+      "total": 1382,
+      "results": [
+        {
+          "property_id": "1447674244",
+          "listing_id": "2997726675",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 799000,
+          "list_date": "2026-06-26T19:10:59.000000Z",
+          "last_update_date": "2026-08-25T15:46:55Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/610-Jiron-St_Santa-Fe_NM_87505_M14476-74244",
+          "permalink": "610-Jiron-St_Santa-Fe_NM_87505_M14476-74244",
+          "description": {
+            "type": "single_family",
+            "sqft": 1700,
+            "beds": 3,
+            "lot_sqft": 3049,
+            "year_built": 1900,
+            "text": "Classic beauty and contemporary amenities - this property has it all. Versatility meets exceptional updates at 610 Jiron Street. Featuring an updated classic Santa Fe main residence as well as an attached studio, this move-in-ready property offers excellent flexibility-an elegant home with additional rental income, a private guest suite, or dedicated work-from-home space. The studio has its own private entrance, covered patio, outdoor space, and loft with mountain views. Behind latilla and stucco walls, the light-filled main residence blends classic Santa Fe character with extensive modern improvements. Venetian plaster walls, coved viga ceilings, nichos, and a striking kiva-style fireplace highlight warmth and architectural appeal. Thoughtful renovations include a completely new kitchen, new windows, new Venetian plaster, added primary bathroom, remodeled second bathroom, new radiant heating, new plumbing, new windows, new flooring, new on-demand water heater, new lighting, new exterior doors, and new fencing. The single-level main residence offers two bedrooms, two bathrooms, and a flexible skylit bonus room currently used as the dining room. Removable cabinetry in the office adds style and functionality while allowing the space to easily serve other uses, including a second bedroom. The covered front portal provides an inviting outdoor seating area. The attached two-level studio offers its own kitchen, remodeled bathroom with a custom plaster shower, living area, loft, separate entrance, and private outdoor spaces, making it ideal for guests, extended family, rental opportunities, or a retreat. A large double gate provides secure off-street parking within the fenced property. Conveniently located near South St. Francis Drive, Agua Fria Street, downtown Santa Fe, restaurants, galleries, museums, parks, shopping, and employment centers, this updated property combines flexibility, quality improvements, and move-in readiness in one superb offering.",
+            "baths_full": null,
+            "baths_3qtr": 3,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "610 Jiron St",
+              "unit": null,
+              "city": "Santa Fe",
+              "state_code": "NM",
+              "postal_code": "87505",
+              "coordinate": {
+                "lat": 35.679829,
+                "lon": -105.963365
+              }
+            },
+            "county": {
+              "name": "Santa Fe"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m303787909s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m303787909s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m4143580221s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3780436639s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3520334937s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3913968920s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3990121239s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1863468738s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1679097196s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1553063805s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3468848838s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m143682454s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2864428429s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3653554787s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m4247610900s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2855784493s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3536049221s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2032068224s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m4245611663s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m4106689008s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m177371556s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2605302355s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3581490886s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m761219982s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1394117433s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1379145088s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m1023707876s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3573310557s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m4150419296s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m3838256505s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2433091692s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/35d53e16747d947055b3e9cda44cf0b2l-m2818807397s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "2359246430",
+          "listing_id": "3000149810",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 1375000,
+          "list_date": "2026-08-27T22:58:30.000000Z",
+          "last_update_date": "2026-08-27T23:48:19Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/872-Don-Cubero-Ave_Santa-Fe_NM_87505_M23592-46430",
+          "permalink": "872-Don-Cubero-Ave_Santa-Fe_NM_87505_M23592-46430",
+          "description": {
+            "type": "single_family",
+            "sqft": 2429,
+            "beds": 4,
+            "lot_sqft": 8276,
+            "year_built": 1927,
+            "text": "On one of the sweetest streets in South Capital, and in the revered Wood Gormley school district, this 100 year old 4 bed 3 bath split level home has been beautifully updated and refurbished! One enters through an exceptional perennial filled front garden on drip, under apple, apricot and peach trees to the hand crafted curved front door and into the entry hall. Both the living and dining rooms are nicely proportioned with plenty of windows and great light, and the living room fireplace has a wood burning insert. From the French doors of the living room is a room adjacent to the South facing greenhouse, that makes a great study/office, exercise or media room and then a back bedroom with walk in closet. There is another bedroom off the front hall and the two bedrooms share a full bath. The newly remodeled cook's kitchen, has both farmhouse and prep sinks, leathered Taj Mahal quartzite counters, custom cabinets, induction cooktop, 2023 Blue Star appliances and a cozy eat in space by the door to the back garden. The primary bedroom is up 4 steps and feels like living in a tree house with greenery out all the windows, and a newly remodeled en suite bath enjoying a marble countertop and Hans Grohe shower. Down some steps from the main level is the very private guest suite with outside access, hand crafted stained glass window, en suite bath and large closet. The back garden is fully fenced with a covered portal for al fresco dining and grilling and roll down sunscreens on the West side for shade from the summer sun. There are also raised bed gardens for your veggies, two grape bushes as well as 750 gallons of water catchment for supplemental watering. The old one car garage is being used as a workshop, but could also revert to garage space. A unique plus in Santa Fe is a large basement with a wine cellar, laundry, dark room and plenty of storage! There are so many upgrades for this cool casa!!! Including new electrical wiring and electric panel, new on demand hot water heater and toilets too! An enormous bonus is the solar array, which power the new European electric baseboards and has eliminated any electric bills for the past 5 years. This is a most special home with the old wood floors, nichos, classic windows and an absolutely stunning garden which includes native grasses, echinacea, sages, hummingbird mints, lavender, yarrow, penstemon, columbine, spring bulbs- snow drops, grape hyacinths, daffodils and tulips; and herbs- hardy rosemary, sage, mint, tarragon and chives.",
+            "baths_full": 2,
+            "baths_3qtr": 1,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "872 Don Cubero Ave",
+              "unit": null,
+              "city": "Santa Fe",
+              "state_code": "NM",
+              "postal_code": "87505",
+              "coordinate": {
+                "lat": 35.67627,
+                "lon": -105.947519
+              }
+            },
+            "county": {
+              "name": "Santa Fe"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2394560602s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2394560602s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2820361780s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2618236053s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3364733586s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2730593484s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3661519391s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3945609747s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3737872651s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m4206233919s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1953107378s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m505905617s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1015099992s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m345091454s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2690305515s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2231118234s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m989585950s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2465275130s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2500030163s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m4199743157s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3663004795s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m606352220s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3462140703s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3190392136s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m584038954s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3940333017s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1259896650s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m4152534183s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2284158209s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3631530507s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1851472366s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2736294851s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3793847823s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2353025834s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1291777423s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3884434284s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3610522091s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3470344620s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2570056409s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1600516789s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2603374896s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m649054856s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3085138117s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1354412604s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2796398467s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2677572361s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m727656458s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3901725087s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3030666592s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2261256504s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1399295320s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3461309428s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1656132044s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3479584167s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1495776729s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2605466378s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2939615430s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3265693422s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m4293285520s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3153908475s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3457555106s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m445962595s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m4273651404s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1724128303s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2171598536s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1029486634s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m1320678072s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m817538515s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m539521048s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m3660178552s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2962591115s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/95a7ce5b7672e4a188018df980f44131l-m2686086846s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "1708234566",
+          "listing_id": "2999144528",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 429000,
+          "list_date": "2026-07-31T23:02:10.000000Z",
+          "last_update_date": "2026-08-23T21:01:02Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/3226-La-Avenida-De-San-Marcos_Santa-Fe_NM_87507_M17082-34566",
+          "permalink": "3226-La-Avenida-De-San-Marcos_Santa-Fe_NM_87507_M17082-34566",
+          "description": {
+            "type": "single_family",
+            "sqft": 1577,
+            "beds": 2,
+            "lot_sqft": 3920,
+            "year_built": 1982,
+            "text": "Peaceful and quiet Las Quintas townhouse. 2-story, 2 bedrooms, 1.5 baths, corner unit, wood-burning fireplace, built-in shelving, Brick floors and beamed living room ceiling downstairs, New roof in 2022, one-car attached garage, backs up to open space. Convenient to many amenities: the Rodeo grounds, Albertsons, Lowes, restaurants, and much more.",
+            "baths_full": 1,
+            "baths_3qtr": null,
+            "baths_half": 1,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "3226 La Avenida De San Marcos",
+              "unit": null,
+              "city": "Santa Fe",
+              "state_code": "NM",
+              "postal_code": "87507",
+              "coordinate": {
+                "lat": 35.636915,
+                "lon": -105.993398
+              }
+            },
+            "county": {
+              "name": "Santa Fe"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1863380260s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1863380260s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m4273087053s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3132257780s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m934718396s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3535370198s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m680441449s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1917748965s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m857338768s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3298170378s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3994298078s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m114628600s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3739145920s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m538099263s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1907070739s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2580335659s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m911013077s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m401821660s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3802273835s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m487379836s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2896635099s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2931594642s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2391249516s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2081086035s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m2403471185s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1484463517s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m600295686s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3935994203s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m3311721536s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m176128795s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1625906942s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1048147275s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m332532639s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m1098531127s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m943135339s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/c74f593b70b60c053f4b5363872f494el-m539719666s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "9556008485",
+          "listing_id": "2999848236",
+          "status": "for_sale",
+          "mls_status": null,
+          "list_price": 299000,
+          "list_date": "2026-08-19T15:00:33.000000Z",
+          "last_update_date": "2026-08-19T15:00:33Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/54-Paseo-Del-Pajaro-11_Santa-Fe_NM_87506_M95560-08485",
+          "permalink": "54-Paseo-Del-Pajaro-11_Santa-Fe_NM_87506_M95560-08485",
+          "description": {
+            "type": "single_family",
+            "sqft": 3000,
+            "beds": 3,
+            "lot_sqft": null,
+            "year_built": null,
+            "text": "THIS IS VACANT LAND ONLY. WE ARE NOW TAKING RESERVATIONS --- Introducing Conejo Hills Estates, A New Luxury Estate Development in the Hills of Northwestern Santa Fe! Discover the perfect blend of forever New Mexico vistas and bespoke beauty and elegance at Conejo Hills Estates, an exclusive new subdivision offering expansive 2.5-acre estate lots - 12 minutes from the historic Plaza in Santa Fe. With the panoramic sunset views of the Jemez, Ortiz, and Sandia mountains, and sunrise views of the Sangre de Cristo range and Santa Fe Ski mountains, each property provides an unparalleled 180 - 360 degree views of Santa Fe's stunning landscape. This is your opportunity to own a luxury estate in one of Santa Fe's most desirable neighborhoods, with extraordinary privacy and amazing views. Construction time is approximately 12 months after permitting - the best lots will sell first, so hurry. Start your journey toward the home of your dreams TODAY - in Conejo Hills Estates - Starting under $2 million. SEE MLS #: 202600108 for the To-Be-Built Listing.",
+            "baths_full": 3,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "60 Paseo Del Pajaro Lot 11",
+              "unit": "Lot 11",
+              "city": "Santa Fe",
+              "state_code": "NM",
+              "postal_code": "87506",
+              "coordinate": {
+                "lat": 35.736324,
+                "lon": -106.007484
+              }
+            },
+            "county": {
+              "name": "Santa Fe"
+            }
+          },
+          "tax_record": null,
+          "primary_photo": {
+            "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f2195190598s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f2195190598s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f2098556067s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f1709534038s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f573579459s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f1392045691s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555l-f391292762s.jpg"
+            },
+            {
+              "href": "http://nh.rdcpix.com/40d90117c49d901f4ed65414aebcb555f-f342416379s.jpg"
+            }
+          ]
+        },
+        {
+          "property_id": "2986199200",
+          "listing_id": "2998334368",
+          "status": "for_sale",
+          "mls_status": "Active",
+          "list_price": 899000,
+          "list_date": "2026-07-09T22:38:07.000000Z",
+          "last_update_date": "2026-07-09T22:35:56Z",
+          "href": "https://www.realtor.com/realestateandhomes-detail/4301-Calle-Andrew-Apt-D_Santa-Fe_NM_87507_M29861-99200",
+          "permalink": "4301-Calle-Andrew-Apt-D_Santa-Fe_NM_87507_M29861-99200",
+          "description": {
+            "type": "multi_family",
+            "sqft": 4032,
+            "beds": 8,
+            "lot_sqft": 3920,
+            "year_built": 1994,
+            "text": "A rare opportunity to own a fully leased fourplex in one of Santa Fe's most stable rental corridors. This well-maintained multi-family property features four spacious units, each offering two bedrooms and two bathrooms, designed for long-term livability and consistent income performance. Property Highlights: Four (4) Two-Bedroom, Two-Bath Units, each with gas fireplace and small yard Off Street Parking Generous floor plans with functional layouts ideal for a wide range of tenants. Fully Leased & Producing Income Immediate cash flow with established tenants and strong rental history. Low-Maintenance Investment Prime Santa Fe Location Convenient access to shopping, employment centers, schools, and major roadways. Multi-family inventory in this neighborhood is limited-properties like this rarely come to market. This fourplex is an exceptional opportunity for investors seeking turnkey income, predictable occupancy, and long-term appreciation in one of Santa Fe's most competitive rental markets. With all units leased and performing, it's a solid addition to any portfolio-whether you're expanding or entering the multi-family space.",
+            "baths_full": null,
+            "baths_3qtr": null,
+            "baths_half": null,
+            "baths_1qtr": null
+          },
+          "location": {
+            "address": {
+              "line": "4301 Calle Andrew",
+              "unit": null,
+              "city": "Santa Fe",
+              "state_code": "NM",
+              "postal_code": "87507",
+              "coordinate": {
+                "lat": 35.645921,
+                "lon": -106.023511
+              }
+            },
+            "county": {
+              "name": "Santa Fe"
+            }
+          },
+          "tax_record": {
+            "apn": null,
+            "tax_parcel_id": null
+          },
+          "primary_photo": {
+            "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m4086594970s.jpg"
+          },
+          "photos": [
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m4086594970s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m807827644s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2015146074s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m129969395s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1776604139s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2063633206s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3571329323s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3467850317s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2204773242s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1037333546s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2829175073s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2628445114s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1975825231s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m4274773992s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m765845705s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3571074497s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m625463553s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m4197293377s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m453627423s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1055373437s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1673683372s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1986890610s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m602186983s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2404004158s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3430020751s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3188252000s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1994505014s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2630172774s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2801167366s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m185953792s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3944976057s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3105081583s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1997369118s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1434663s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m4214508642s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2650470107s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1217327103s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3146675646s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3095668929s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2226940865s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m388609013s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m152544042s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m3824130295s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m1262238464s.jpg"
+            },
+            {
+              "href": "http://ap.rdcpix.com/d06a48f95328c37a05c31c43233eeb7cl-m2126956342s.jpg"
+            }
+          ]
+        }
+      ],
+      "_captured_note": "Five of the 1382 results the source returned for this market, chosen one per shape its bathroom fields come in rather than by position, because the shapes are what this file exists to hold: a three-quarter bath alone, a full one beside a three-quarter one, full baths with a half, full baths only, and a property the source counts no bathroom of any kind for. `total` is the source's own figure."
+    }
+  }
+}

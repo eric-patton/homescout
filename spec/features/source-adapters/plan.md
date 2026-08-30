@@ -205,7 +205,7 @@ Field mapping, transcribed from a real response:
 | price | `list_price` |
 | listing_status | `status` |
 | beds | `description.beds` |
-| baths | `description.baths_full` plus half of `description.baths_half` |
+| baths | `description.baths_full` + `.baths_3qtr` + half of `.baths_half` + a quarter of `.baths_1qtr` (see note) |
 | sqft, lot_sqft, year_built | `description.sqft`, `.lot_sqft`, `.year_built` |
 | property_type | `description.type` |
 | address_line, unit, city, state, postal_code | `location.address.*` (`state_code`) |
@@ -217,6 +217,20 @@ Field mapping, transcribed from a real response:
 | photo_urls | `photos[].href` |
 | days_on_market_source | days from `list_date` to now, the source's own claim, recorded and never compared |
 | source_listing_id | `property_id` |
+
+**The bath count, corrected 2026-08-30.** This row first read "`baths_full` plus half of
+`baths_half`", and that was wrong for about half of the properties that have any bathroom at all.
+The source breaks the count into four kinds, not two: a three-quarter bath (basin, lavatory, shower,
+no tub) is the ordinary second bathroom of a small house and is counted as a whole one by the
+listings themselves, so a house the source records as one full and one three-quarter is a house
+whose own description reads "two bath". Asking for only two of the four left the field a whole
+bathroom short of the prose beside it, and left it empty altogether for a house whose bathrooms are
+all three-quarter ones.
+
+The source also publishes a plain `description.baths`, and this deliberately does not use it: that
+one is a room count, so two full and one half is a three there and a two-and-a-half in Zillow, in
+Redfin, and in the listing's own words. Adding the four kinds up is what keeps one property's bath
+count the same number whichever source found it.
 
 A field the response omits stays empty, per invariant 10. A field the response carries in a shape the
 mapping does not expect fails the whole query with a parse error naming the field (AC-12 and the
