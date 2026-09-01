@@ -525,6 +525,48 @@ class Store:
             for r in rows
         ]
 
+    def source_links_for_many(self, listing_ids: Sequence[str]) -> dict[str, list[SourceLink]]:
+        """The same answer for many properties, in one query rather than one per property.
+
+        A results table asks the question above once per row, to say which sites a property was
+        seen on and to offer a way back to each of them. Measured on a statewide table, that was
+        the single largest cost in assembling it: a thousand round trips for a thousand rows.
+
+        The per-property version stays, because one opened property is one question and should not
+        pay for a list. Ordering is the same and for the same reason: oldest first, so a caller
+        keeping the last address per site keeps the one still answering.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+        found: dict[str, list[SourceLink]] = {one: [] for one in wanted}
+        for chunk in _in_chunks(wanted):
+            marks = ",".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                "SELECT ls.listing_id, ls.raw_listing_id, ls.join_signal, ls.decided_by, "  # noqa: S608
+                "       ls.linked_at, rl.source, rl.source_listing_id, rl.fetched_at, "
+                "       rl.listing_url "
+                "FROM listing_sources ls "
+                "JOIN raw_listings rl ON rl.id = ls.raw_listing_id "
+                f"WHERE ls.listing_id IN ({marks}) "
+                "ORDER BY rl.fetched_at, ls.raw_listing_id",
+                chunk,
+            ).fetchall()
+            for r in rows:
+                found[r["listing_id"]].append(
+                    SourceLink(
+                        raw_listing_id=r["raw_listing_id"],
+                        source=r["source"],
+                        source_listing_id=r["source_listing_id"],
+                        fetched_at=r["fetched_at"],
+                        join_signal=r["join_signal"],
+                        decided_by=r["decided_by"],
+                        linked_at=r["linked_at"],
+                        listing_url=r["listing_url"],
+                    )
+                )
+        return found
+
     def snapshot_at(self, listing_id: str, run_id: str) -> Snapshot | None:
         row = self._conn.execute(
             f"SELECT run_id, listing_id, observed_at, {_SNAPSHOT_COLUMNS} "
@@ -541,7 +583,7 @@ class Store:
         ).fetchall()
         return [self._snapshot_from(r) for r in rows]
 
-    def latest_snapshots(self) -> dict[str, Snapshot]:
+    def latest_snapshots(self, listing_ids: Sequence[str] | None = None) -> dict[str, Snapshot]:
         """The most recent snapshot of every live canonical listing, in one query.
 
         What address matching compares. One query rather than one per listing, because a county is
@@ -549,18 +591,37 @@ class Store:
 
         Ordered by insertion, so the last row seen for a listing is its newest: `seq` on the run is
         the only ordering in this database that cannot tie, which is why comparisons use it too.
+
+        `listing_ids` narrows it to the properties a caller actually wants. Building every snapshot
+        in the database to keep a handful of them is the shape of waste that does not show up until
+        the database is a year old, and the caller that does that is asking which properties have
+        stopped appearing, which is usually none of them.
         """
-        rows = self._conn.execute(
+        wanted = None if listing_ids is None else list(dict.fromkeys(listing_ids))
+        if wanted is not None and not wanted:
+            return {}
+        select = (
             f"SELECT s.run_id, s.listing_id, s.observed_at, {_SNAPSHOT_COLUMNS} "
             f"FROM listing_snapshots s "
             f"JOIN listings l ON l.id = s.listing_id "
             f"JOIN runs r ON r.id = s.run_id "
             f"WHERE l.retracted = 0 AND l.superseded_by IS NULL "
-            f"ORDER BY s.listing_id, r.seq"
-        ).fetchall()
+        )
         found: dict[str, Snapshot] = {}
-        for row in rows:
-            found[row["listing_id"]] = self._snapshot_from(row)
+        if wanted is None:
+            for row in self._conn.execute(select + "ORDER BY s.listing_id, r.seq").fetchall():
+                found[row["listing_id"]] = self._snapshot_from(row)
+            return found
+        #: Chunked, and each listing falls in exactly one chunk, so ordering within a chunk is all
+        #: the ordering the answer needs.
+        for chunk in _in_chunks(wanted):
+            marks = ",".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                select + f"AND s.listing_id IN ({marks}) ORDER BY s.listing_id, r.seq",  # noqa: S608
+                chunk,
+            ).fetchall()
+            for row in rows:
+                found[row["listing_id"]] = self._snapshot_from(row)
         return found
 
     # -- cached public data about places -------------------------------------
@@ -842,6 +903,73 @@ class Store:
             events=tuple(self.events(listing_id)),
         )
 
+    def histories_for(
+        self, listing_ids: Sequence[str], *, as_of: str | None = None
+    ) -> dict[str, ListingHistory]:
+        """How each of these listings has moved, in three queries rather than three apiece.
+
+        The same answer as `history` above, which stays because one opened property is one
+        question. A table asks for every row it draws, and three round trips per row is the shape
+        that turns opening a table into waiting for one.
+
+        A listing this cannot find is left out rather than raised over. A caller assembling a table
+        wants the rows it can build, and the single-property version is still there to raise for a
+        caller that asked about one thing and deserves to be told it does not exist.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+        reference = datetime.now(UTC) if as_of is None else _parse_utc(as_of)
+        records: dict[str, ListingRecord] = {}
+        prices: dict[str, list[PriceHistoryEntry]] = {one: [] for one in wanted}
+        events: dict[str, list[ListingEvent]] = {one: [] for one in wanted}
+        for chunk in _in_chunks(wanted):
+            marks = ",".join("?" for _ in chunk)
+            for row in self._conn.execute(
+                f"SELECT * FROM listings WHERE id IN ({marks})",  # noqa: S608 - placeholders only
+                chunk,
+            ):
+                records[row["id"]] = self._listing_from(row)
+            for row in self._conn.execute(
+                "SELECT listing_id, observed_at, run_id, price FROM listing_snapshots "  # noqa: S608
+                f"WHERE listing_id IN ({marks}) ORDER BY observed_at, id",
+                chunk,
+            ):
+                prices[row["listing_id"]].append(
+                    PriceHistoryEntry(
+                        observed_at=row["observed_at"], run_id=row["run_id"], price=row["price"]
+                    )
+                )
+            for row in self._conn.execute(
+                f"SELECT * FROM listing_events WHERE listing_id IN ({marks}) "  # noqa: S608
+                "ORDER BY occurred_at, id",
+                chunk,
+            ):
+                events[row["listing_id"]].append(
+                    ListingEvent(
+                        id=row["id"],
+                        listing_id=row["listing_id"],
+                        run_id=row["run_id"],
+                        occurred_at=row["occurred_at"],
+                        kind=row["kind"],
+                        detail=json.loads(row["detail"]) if row["detail"] else None,
+                    )
+                )
+        return {
+            one: ListingHistory(
+                listing_id=one,
+                first_observed_at=records[one].first_observed_at,
+                days_on_market=max(
+                    0, (reference - _parse_utc(records[one].first_observed_at)).days
+                ),
+                presence=records[one].presence,
+                prices=tuple(prices[one]),
+                events=tuple(events[one]),
+            )
+            for one in wanted
+            if one in records
+        }
+
     # -- merge mechanics (used by the address matching feature) ------------
 
     def supersede(
@@ -1006,6 +1134,72 @@ class Store:
         if "pass" in held:
             return "pass"
         return "keep" if "keep" in held else None
+
+    def annotations_of_many(self, listing_ids: Sequence[str]) -> dict[str, Annotation]:
+        """Each of these properties' own annotation, in one query rather than one apiece.
+
+        Its own, and not what anything merged into it carries: that is `judgments_for` below, and
+        the two are deliberately different questions. This one is what a table's notes and verdict
+        columns read, and those are the property's own words.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+        found: dict[str, Annotation] = {}
+        for chunk in _in_chunks(wanted):
+            marks = ",".join("?" for _ in chunk)
+            for row in self._conn.execute(
+                f"SELECT * FROM annotations WHERE listing_id IN ({marks})",  # noqa: S608
+                chunk,
+            ):
+                found[row["listing_id"]] = Annotation(
+                    listing_id=row["listing_id"],
+                    updated_at=row["updated_at"],
+                    **{name: row[name] for name in Annotation.ANNOTATION_FIELDS},
+                )
+        return found
+
+    def judgments_for(self, listing_ids: Sequence[str]) -> dict[str, str | None]:
+        """The judgment on each of these properties, merges included, in two queries.
+
+        `judgment_of` above, asked for a whole table at once and answering by the same rule: a
+        merged record presents its constituents' judgments and `pass` wins, so that noticing two
+        records were one house never undoes a decision somebody made about the house.
+
+        The note beside `assessment_summaries` named this lookup as the one still costing a round
+        trip per row while the summary beside it cost one for the table. This is that paid.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+        # Which annotations answer for which row. A property reads its own and those of anything
+        # folded into it, and one annotation can answer for two rows when a constituent is itself
+        # being asked about, so this is a list per holder rather than one owner per annotation.
+        answers_for: dict[str, list[str]] = {one: [one] for one in wanted}
+        for chunk in _in_chunks(wanted):
+            marks = ",".join("?" for _ in chunk)
+            for row in self._conn.execute(
+                f"SELECT id, superseded_by FROM listings WHERE superseded_by IN ({marks})",  # noqa: S608
+                chunk,
+            ):
+                answers_for.setdefault(row["id"], []).append(row["superseded_by"])
+
+        held: dict[str, set[str]] = {one: set() for one in wanted}
+        for chunk in _in_chunks(list(answers_for)):
+            marks = ",".join("?" for _ in chunk)
+            for row in self._conn.execute(
+                f"SELECT listing_id, judgment FROM annotations WHERE listing_id IN ({marks})",  # noqa: S608
+                chunk,
+            ):
+                if not row["judgment"]:
+                    continue
+                for target in answers_for.get(row["listing_id"], ()):
+                    if target in held:
+                        held[target].add(row["judgment"])
+        return {
+            one: ("pass" if "pass" in said else "keep" if "keep" in said else None)
+            for one, said in held.items()
+        }
 
     # -- the household's own vocabulary -------------------------------------
 
@@ -1607,6 +1801,53 @@ class Store:
         person reads has to ask this, or it shows the halves instead of the whole.
         """
         return self._live_listing_id(self._conn, listing_id)
+
+    def live_listing_ids(self, listing_ids: Sequence[str]) -> dict[str, str]:
+        """Whichever record represents each of these properties now, following any merges.
+
+        `live_listing_id` above, asked for a whole table at once. Everything that assembles what a
+        person reads asks it for every row, twice, and almost every answer is the property itself:
+        a merge is uncommon and a chain of them rarer still. So the whole set is read in one query,
+        the ones that were never merged are settled there, and a second query happens only when
+        there is actually a chain to follow.
+        """
+        wanted = list(dict.fromkeys(listing_ids))
+        if not wanted:
+            return {}
+        #: Each id and the one that supersedes it, as far as the chain has been read. An id that
+        #: ends here maps to itself, which is also the answer for an id no listing carries: the
+        #: single-property version returns what it was given rather than raising, and so does this.
+        onward: dict[str, str] = {}
+        frontier = wanted
+        while frontier:
+            after: dict[str, str | None] = dict.fromkeys(frontier)
+            for chunk in _in_chunks(frontier):
+                marks = ",".join("?" for _ in chunk)
+                for row in self._conn.execute(
+                    f"SELECT id, superseded_by FROM listings WHERE id IN ({marks})",  # noqa: S608
+                    chunk,
+                ):
+                    after[row["id"]] = row["superseded_by"]
+            for one in frontier:
+                onward[one] = after[one] or one
+            frontier = [
+                one
+                for one in dict.fromkeys(after.values())
+                if one is not None and one not in onward
+            ]
+
+        answers: dict[str, str] = {}
+        for one in wanted:
+            seen: set[str] = set()
+            current = one
+            while current not in seen:
+                seen.add(current)
+                nxt = onward.get(current, current)
+                if nxt == current:
+                    break
+                current = nxt
+            answers[one] = current
+        return answers
 
     @staticmethod
     def _live_listing_id(conn: sqlite3.Connection, listing_id: str) -> str:

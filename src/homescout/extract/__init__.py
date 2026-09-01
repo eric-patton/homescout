@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from . import fields as fx
@@ -57,6 +58,26 @@ class Extracted:
         return self.value is not None
 
 
+@lru_cache(maxsize=8192)
+def _recovered(description: str | None) -> Mapping[str, Extracted]:
+    """What the patterns make of one description, remembered for as long as this process runs.
+
+    Keyed by the words rather than by the property, which is the same key `extract/cache.py` uses
+    for the model and for the same two reasons: two listings carrying identical prose are one
+    question, and the same listing read on a hundred consecutive nights is one question asked a
+    hundred times. Unlike the model's, this answer is free to compute and expensive only in bulk:
+    thirty-four expressions against every sentence of a thousand descriptions is the largest single
+    cost in drawing a results table, paid again on every page load.
+
+    There is nothing to invalidate. The patterns are code, so an edit to them is a new process, and
+    the key is the whole of the input. The bound is memory, not staleness.
+
+    The answer is shared between callers and must not be modified. Nothing does: `Extracted` is
+    frozen and `values_for` below only reads.
+    """
+    return _from_patterns(read_prose(description))
+
+
 def _from_patterns(prose: Prose | None) -> dict[str, Extracted]:
     if prose is None:
         return {}
@@ -87,8 +108,7 @@ def values_for(
     A field nobody determined comes back with a `value` of `None`, which the rule engine reads as
     unknown and therefore as undetermined rather than false (AC-14).
     """
-    prose = read_prose(getattr(fields, "description", None))
-    recovered = _from_patterns(prose)
+    recovered = _recovered(getattr(fields, "description", None))
     supplied = model or {}
 
     answers: dict[str, Extracted] = {}

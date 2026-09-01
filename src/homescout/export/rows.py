@@ -15,7 +15,7 @@ Nothing here writes. The store is opened, read, and left exactly as it was.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -59,12 +59,18 @@ def rows_for(
     *,
     include_dropped: bool = False,
     root: Any = None,
+    only: Sequence[str] | None = None,
 ) -> tuple[Row, ...]:
     """Every property this run's criteria kept, as rows, in the order the results come out in.
 
     `include_dropped` is the spec's "unless explicitly requested". A property a `drop` rule removed
     is still observed, still snapshotted and still in the store; it is simply not in the sheet
     somebody asked for, unless they asked for it.
+
+    `only` narrows it to named properties, and exists for the callers that want one row rather than
+    a sheet. Asking about a single property used to mean building every row of the run and throwing
+    all but one away, which cost the same second as opening the whole table. Named by the record
+    that represents a property now, because that is the id anything reading a table is holding.
     """
     from ..extract import values_for as extracted_values
     from ..rules.results import excluded, results
@@ -81,27 +87,48 @@ def rows_for(
             for gone in excluded(store, run_id)
             if gone.listing_id not in seen
         )
+    if only is not None:
+        asked = set(only)
+        #: The whole set resolved in one query, before the narrowing rather than after it: this
+        #: still has every row of the run in hand at this point, and asking per row which record
+        #: represents it would be the cost the narrowing exists to avoid.
+        live_of = store.live_listing_ids([entry.listing_id for entry in wanted])
+        wanted = [
+            entry
+            for entry in wanted
+            if entry.listing_id in asked or live_of[entry.listing_id] in asked
+        ]
 
     wanted = _as_they_stand_now(store, wanted)
-    annotations = _annotations(store, [entry.listing_id for entry in wanted])
-    #: Asked once for the whole sheet. One query per row is how a table of a thousand becomes a
-    #: table somebody waits for.
-    tags = store.tags_for_many([entry.listing_id for entry in wanted])
-    #: And once, for the same reason. What a model made of each property, in summary.
-    assessed = store.assessment_summaries([entry.listing_id for entry in wanted])
+    #: Asked once for the whole sheet, every one of them. One query per row is how a table of a
+    #: thousand becomes a table somebody waits for, and this loop used to make six of those trips
+    #: per row: its annotation, its tags, its assessment, its sources, its history and the record
+    #: behind it. The first three were paid off when they were written; the rest are here.
+    asked = [entry.listing_id for entry in wanted]
+    annotations = _annotations(store, asked)
+    tags = store.tags_for_many(asked)
+    #: What a model made of each property, in summary.
+    assessed = store.assessment_summaries(asked)
+    #: Which sites each was seen on, and how each has moved. The history carries the record's
+    #: presence with it, so the row does not go back for the record as well.
+    linked = store.source_links_for_many(asked)
+    histories = store.histories_for(asked)
     enriched = _enriched(store, wanted)
     from_model = _model_values(store, run_id, root)
     notes = _area_notes(store)
 
     made: list[Row] = []
     for entry in wanted:
-        links = _sources_of(store, entry.listing_id)
+        links = _sources_from(linked.get(entry.listing_id, ()))
+        #: A property the batch could not find is asked about on its own, which raises the way it
+        #: always did rather than quietly leaving a row half built.
+        history = histories.get(entry.listing_id) or store.history(entry.listing_id)
         made.append(
             Row(
                 listing_id=entry.listing_id,
                 fields=entry.fields,
-                history=store.history(entry.listing_id),
-                presence=store.get_listing(entry.listing_id).presence,
+                history=history,
+                presence=history.presence,
                 annotation=annotations.get(entry.listing_id),
                 extracted=extracted_values(entry.fields, model=from_model.get(entry.listing_id)),
                 enriched=enriched.get(entry.listing_id, {}),
@@ -131,9 +158,13 @@ def _as_they_stand_now(store: Store, wanted: list[_Kept]) -> list[_Kept]:
     same one, the fullest is kept: the halves rarely carry the same amount, and the point of the
     merge is to show the more complete house rather than an arbitrary one of the two.
     """
+    #: Read once for the whole list rather than per row, twice. Both loops below need the same
+    #: answer for the same property, and asking the database for it each time was two queries per
+    #: row of a table already assembled from one.
+    live_of = store.live_listing_ids([entry.listing_id for entry in wanted])
     best: dict[str, _Kept] = {}
     for entry in wanted:
-        live = store.live_listing_id(entry.listing_id)
+        live = live_of[entry.listing_id]
         held = entry
         if live != entry.listing_id:
             held = _Kept(live, entry.fields, entry.flags, entry.dropped)
@@ -144,7 +175,7 @@ def _as_they_stand_now(store: Store, wanted: list[_Kept]) -> list[_Kept]:
     seen: set[str] = set()
     ordered: list[_Kept] = []
     for entry in wanted:
-        live = store.live_listing_id(entry.listing_id)
+        live = live_of[entry.listing_id]
         if live in seen:
             continue
         seen.add(live)
@@ -174,18 +205,13 @@ class _Kept:
 
 
 def _annotations(store: Store, listing_ids: Sequence[str]) -> dict[str, Annotation]:
-    """Every annotation these properties carry.
+    """Every annotation these properties carry, in one query.
 
-    One call apiece for now, because the store has no bulk read for them and adding one is that
-    feature's business rather than this one's. It is a lookup by primary key against a local file,
-    which is the cheapest thing in this module by a wide margin.
+    It was a call apiece, on the grounds that a lookup by primary key against a local file is the
+    cheapest thing here. That is true of one and stops being true of a thousand: cheap and per-row
+    is still a thousand round trips, and this loop had six of those.
     """
-    found: dict[str, Annotation] = {}
-    for listing_id in listing_ids:
-        held = store.get_annotation(listing_id)
-        if held is not None:
-            found[listing_id] = held
-    return found
+    return store.annotations_of_many(list(listing_ids))
 
 
 def _enriched(store: Store, results: Sequence[Any]) -> dict[str, dict[str, Any]]:
@@ -225,15 +251,17 @@ def _area_notes(store: Store) -> dict[tuple[str, str], str]:
     return found
 
 
-def _sources_of(store: Store, listing_id: str) -> dict[str, str]:
+def _sources_from(links: Iterable[Any]) -> dict[str, str]:
     """Which listing sites this property was seen on, and where on each, keyed by site.
 
     Provenance in one cell and a way back to each site in the next. The last address wins per site
-    because `source_links` comes back oldest first and a site that reorganises its URLs leaves the
-    old one answering nothing.
+    because the links come back oldest first and a site that reorganises its URLs leaves the old
+    one answering nothing.
+
+    Given the links rather than fetching them, so the whole sheet can ask the store once.
     """
     found: dict[str, str] = {}
-    for link in store.source_links(listing_id):
+    for link in links:
         if link.listing_url:
             found[link.source] = link.listing_url
         else:

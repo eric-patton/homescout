@@ -1123,13 +1123,22 @@ def _judged(workspace: Workspace, judgment: str) -> tuple[dict[str, object], obj
     a single word and two copies of this would be two places for that word to end up wrong.
     """
     with _translating():
+        store = workspace.store
+        records = store.listings()
+        #: Every one of these is read once for the whole list. The snapshots in particular: this
+        #: asked for all of them inside the loop, which rebuilt every snapshot in the database once
+        #: per listing and turned a question about a shortlist into several minutes of work with
+        #: the interface's one-request-at-a-time lock held for all of it.
+        judgments = store.judgments_for([record.id for record in records])
+        snapshots = store.latest_snapshots()
+        annotations = store.annotations_of_many([record.id for record in records])
         found = []
-        for record in workspace.store.listings():
-            if workspace.store.judgment_of(record.id) != judgment:
+        for record in records:
+            if judgments.get(record.id) != judgment:
                 continue
-            snapshot = workspace.store.latest_snapshots().get(record.id)
+            snapshot = snapshots.get(record.id)
             fields = snapshot.fields if snapshot is not None else None
-            annotation = workspace.store.get_annotation(record.id)
+            annotation = annotations.get(record.id)
             found.append(
                 {
                     "listing_id": record.id,
@@ -1378,7 +1387,16 @@ def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         name = list(list_searches(workspace))[0]
         with _translating():
             definition = workspace.catalog.load(name)
-            rows = rows_of(workspace.store, latest_run(workspace.store, name), root=workspace.root)
+            #: This one property, not the run it belongs to. Staleness is a comparison against the
+            #: row as it stands, and building the row needs the same assembly a sheet does; asking
+            #: for the sheet and keeping one row of it made opening an assessment cost exactly what
+            #: opening the whole table costs, for one property somebody clicked on.
+            rows = rows_of(
+                workspace.store,
+                latest_run(workspace.store, name),
+                root=workspace.root,
+                only=[listing_id],
+            )
         row = next((r for r in rows if r.listing_id == listing_id), None)
         if row is not None:
             written = read_notes(workspace.root, definition)
@@ -1545,8 +1563,12 @@ def results(
     stated = _stated_criteria(workspace, name)
     documents = []
     passed = 0
+    #: Asked once for the whole table, like the tags and the assessments beside it. Per row it was
+    #: two queries apiece, and a table of a thousand does not get to spend two thousand round trips
+    #: working out which rows to hide.
+    judgments = workspace.store.judgments_for([row.listing_id for row in rows])
     for row in rows:
-        judgment = workspace.store.judgment_of(row.listing_id)
+        judgment = judgments.get(row.listing_id)
         if judgment == "pass":
             passed += 1
         document = _row_document(row, cols.COLUMNS)
@@ -1624,18 +1646,27 @@ def _disappeared(workspace: Workspace, run_id: str, already: set[str]) -> list[A
     from .export.rows import Row
 
     store = workspace.store
+    #: Which records have stopped appearing, read once. `listings` is already the live, unretracted
+    #: set, which is two of the three conditions this used to ask the database about per snapshot.
+    gone = sorted(
+        record.id
+        for record in store.listings()
+        if record.presence == "disappeared" and record.id not in already
+    )
+    #: Their snapshots and nobody else's. Sorted, because the answer used to come out of a query
+    #: ordered by listing id and the rows it makes are still in that order.
+    snapshots = store.latest_snapshots(gone)
+    histories = store.histories_for(list(snapshots))
     made: list[Row] = []
-    for listing_id, snapshot in store.latest_snapshots().items():
-        if listing_id in already:
-            continue
-        record = store.get_listing(listing_id)
-        if record.presence != "disappeared" or record.superseded_by or record.retracted:
+    for listing_id, snapshot in snapshots.items():
+        history = histories.get(listing_id)
+        if history is None:
             continue
         made.append(
             Row(
                 listing_id=listing_id,
                 fields=snapshot.fields,
-                history=store.history(listing_id),
+                history=history,
                 presence="disappeared",
             )
         )
