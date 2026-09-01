@@ -4,25 +4,11 @@ A local-first property search monitor. It pulls listings from several free sourc
 into one record per property, enriches them with public geospatial data, applies criteria you
 write, and tracks how everything changes over time.
 
-## Please read this before using or sharing it
-
-**This is a personal-use tool, and that constraint is not decorative.**
-
-Scraping the listing sites this tool reads from is against their terms of service. HomeScout is
-built to stay on the right side of the only thing that makes that defensible: it is low volume, it
-is deliberately slow, it is throttled per source with backoff, it identifies itself honestly, and
-nothing it collects is republished, redistributed, or used commercially.
-
-Concretely, do not:
-
-- raise the request rate or remove the pacing floor,
-- publish, sell, or redistribute the data it gathers,
-- use it for commercial purposes or anything work-adjacent,
-- run it against a site's terms in a jurisdiction where that carries more weight than it does for
-  personal research.
-
-It requires no MLS or IDX credentials and no paid data API, by design. If you find yourself wanting
-to remove a limit here, the honest move is to buy a data licence instead.
+> **Personal use only.** This tool reads listing sites whose terms do not permit it, and it is
+> built so that staying defensible is the only road to the network: a pacing floor a caller cannot
+> lower, a separate budget per source, honest identification, and nothing it collects republished
+> or used commercially. Read [Responsible use](docs/responsible-use.md) before running or sharing
+> it.
 
 ## What it is for
 
@@ -723,5 +709,5 @@ else is on standard error, so a caller never has to disentangle them.
 ## License
 
 [MIT](LICENSE), covering the code. That grant is about copyright and says nothing about how you
-may use the sites this tool reads: see "Please read this before using or sharing it" at the top,
-which is the part that actually governs whether running it is defensible.
+may use the sites this tool reads: see [Responsible use](docs/responsible-use.md), which is the
+part that actually governs whether running it is defensible.
