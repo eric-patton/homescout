@@ -1655,3 +1655,25 @@ is written in this file beside this function and the wrong pattern is the one cu
 - [x] T214: `tests/test_web_surfaces.py`, `tests/test_web_browser.py`: both columns' three states,
       the shared builder, the order, and both controls opening one dialog in a real browser
       (`feat-010/AC-86`, `feat-010/AC-87`).
+
+## Defect: asking about an operation that had never run answered 500
+
+- [x] D4: `api.py`, `tests/test_web_background.py`: the branch for a pass that is not on record
+      names its field `task`, like the branch for one that is (`feat-010/AC-83`).
+
+      Found in the server's own log while looking into why the interface was down. Eight identical
+      tracebacks, all `TypeError: answer() got multiple values for argument 'kind'` from
+      `/api/tasks/{name}`.
+
+      Both branches of `last_pass` are splatted flat into the envelope, and the envelope's own key
+      is `kind`. `_pass_document` already knew that and carries the pass's kind as `task`, with a
+      comment saying why. The other branch, the one for "this has never run", had kept `kind`, so
+      the argument arrived twice and the endpoint raised before it could answer.
+
+      It only ever showed on an idle workspace, which is exactly the case AC-83 names: a screen
+      that finds nothing running shows nothing and says nothing. The screen still drew nothing,
+      because the browser treats a failed ask as nothing running, so the visible cost was a log
+      full of 500s rather than a wrong page. That is also why it survived: every test that asks
+      this endpoint had started a pass first.
+
+      Not the reason the site was down. The server keeps running through a request that raises.

@@ -2479,7 +2479,10 @@ def last_pass(workspace: Workspace, kind: str, *, subject: str | None = None) ->
     """
     with _translating():
         held = workspace.store.last_pass(kind, subject=subject)
-    return _pass_document(held) if held is not None else {"kind": kind, "started": False}
+    # `task` rather than `kind` for the same reason `_pass_document` gives: both branches are
+    # splatted flat into an envelope whose own key is `kind`, so naming it that here passed the
+    # argument twice and the endpoint answered 500 on every workspace where the pass had never run.
+    return _pass_document(held) if held is not None else {"task": kind, "started": False}
 
 
 def _pass_document(held: Any) -> dict[str, Any]:

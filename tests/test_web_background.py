@@ -344,3 +344,26 @@ def test_what_is_under_way_is_one_endpoint(interface) -> None:
         assert passes[0]["running"] is True
     finally:
         release.set()
+
+
+def test_asking_about_a_task_that_has_never_run_says_nothing_is_running(interface) -> None:
+    """feat-010/AC-83: a screen that finds nothing running must be told that, not handed a 500.
+
+    The idle installation is the normal case, and it is the one that broke. Every screen about a
+    long operation asks this endpoint when it loads, so on a workspace where that operation has
+    never run the answer came back 500 and the server log filled with the same traceback.
+
+    The envelope every structured answer carries has its own `kind`, and the document for a pass
+    that exists deliberately calls that field `task` for exactly this reason. The branch for a pass
+    that does not exist had kept `kind`, so splatting it into the envelope passed `kind` twice.
+    """
+    client, _app, _held = interface
+
+    answered = client.get("/api/tasks/never-run", headers=ours())
+
+    assert answered.status_code == 200, answered.text
+    body = answered.json()
+    assert body["kind"] == "task-status", "the envelope names what kind of answer this is"
+    assert body["task"] == "never-run", "the document names the task that was asked about"
+    assert body["started"] is False
+    assert not body.get("running"), "nothing has ever run, so nothing is running"
