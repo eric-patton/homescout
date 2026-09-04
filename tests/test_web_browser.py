@@ -2414,6 +2414,122 @@ def test_a_property_under_a_drawn_data_centre_still_opens(served, monkeypatch) -
     assert found["shapeTakesThePointer"], "the data centre itself can no longer be opened"
 
 
+def _county_lines(monkeypatch) -> None:
+    """One county, Roosevelt, without asking the Census for it."""
+    from homescout.enrich import ground
+
+    counties = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "properties": {"BASENAME": "Roosevelt", "COUNTY": "041",
+                           "CENTLAT": "+34.1862", "CENTLON": "-103.3452"},
+            "geometry": {"type": "Polygon",
+                         "coordinates": [[[-103.9, 33.8], [-102.9, 33.8], [-102.9, 34.6],
+                                          [-103.9, 34.6], [-103.9, 33.8]]]},
+        }],
+    })
+    towns = json.dumps({"features": []})
+
+    def ground_fetched(url: str, what: str) -> bytes:
+        return (towns if "/88/query" in url else counties).encode()
+
+    monkeypatch.setattr(ground, "_fetch", ground_fetched)
+
+
+def test_the_data_centre_layer_does_not_grow_the_page_as_the_map_moves(
+    served, monkeypatch
+) -> None:
+    """feat-010/AC-88, feat-010/AC-93: a layer on the same terms as the others, which includes
+    still being a map after it has been dragged.
+
+    A regression. Every data centre shape was given a drawing surface of its own, a fresh SVG
+    renderer per polygon and per mark, and the layer is cleared and drawn again on every move. The
+    shapes were cleared; the surfaces were not, because clearing a layer group removes what is in
+    it and a renderer is a layer on the map in its own right. So each pan left a few hundred empty
+    SVG elements behind it, each one still listening to every zoom, and one zoom out over the
+    whole state took nine seconds and left eleven thousand of them in the page. It was reported as
+    "the map is super laggy with the data centres on, especially zoomed out".
+
+    The surfaces were also in the wrong pane. A renderer draws where its own pane is, not where the
+    shape's says, so the shapes were in the overlay pane, under the properties' canvas rather than
+    in the pane built for them, and the pointer rule written on that pane never touched them.
+
+    Asserted on what the page holds after moving, rather than on timing, because the count is the
+    fault and the time is only its symptom: after six pans and a zoom, the page has exactly the
+    number of SVG surfaces it had before, and every shape is in the data centres' own pane.
+    """
+    _county_lines(monkeypatch)
+
+    #: Enough of them spread around the fixture that every pan draws something new: thirty pinned,
+    #: two mapped outlines, and one the record places no better than the county.
+    sites = [{
+        "name": f"Site {index}", "kind": ("operating", "approved", "proposed")[index % 3],
+        "confidence": "high",
+        "latitude": 34.1862 + ((index % 6) - 2.5) * 0.09,
+        "longitude": -103.3452 + ((index // 6) - 2) * 0.12,
+        "outline": [], "operator": "Somebody", "source": "", "state": "NM", "county": "Roosevelt",
+    } for index in range(30)]
+    for index in range(2):
+        west, south = -103.50 + index * 0.2, 34.05 + index * 0.1
+        sites.append({
+            "name": f"Campus {index}", "kind": "operating", "confidence": "high",
+            "latitude": south + 0.03, "longitude": west + 0.05,
+            "outline": [[west, south], [west + 0.1, south], [west + 0.1, south + 0.06],
+                        [west, south + 0.06], [west, south]],
+            "operator": "Somebody", "source": "", "state": "NM", "county": "Roosevelt",
+        })
+    sites.append({
+        "name": "Somewhere in Roosevelt", "kind": "proposed", "confidence": "low",
+        "latitude": 34.1862, "longitude": -103.3452, "outline": [],
+        "operator": "Somebody", "source": "", "state": "NM", "county": "Roosevelt",
+    })
+    _data_centres(monkeypatch, sites)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 10);
+        await until(() => true);
+        document.getElementById("centers").click();
+        await until(() => centers.layer && centers.layer.getLayers().length, 400);
+        await wait(200);
+
+        const count = () => ({
+          surfaces: document.querySelectorAll(".leaflet-container svg").length,
+          inTheirPane: document.querySelectorAll(".leaflet-centers-pane svg path").length,
+          /* Panes nest inside the map pane, so this asks each shape for the nearest pane it is in
+           * rather than for any ancestor pane that is not the right one. */
+          elsewhere: [...document.querySelectorAll("path.dc-mark, path.dc-outline")]
+            .filter((shape) => !shape.closest(".leaflet-centers-pane")).length,
+          shapes: centers.layer.getLayers().length,
+          /* What the map holds that is not one of the shapes currently drawn. The shapes come
+           * and go with the screen; this number must not. */
+          besides: Object.keys(held.map._layers).length - centers.layer.getLayers().length,
+        });
+        const first = count();
+        for (let i = 0; i < 6; i++) {
+          held.map.panBy([i % 2 ? 60 : -60, 30], {animate: false});
+          await wait(150);
+        }
+        held.map.setZoom(9, {animate: false});
+        await wait(300);
+        const later = count();
+        return {first, later};
+    """)
+
+    first, later = found["first"], found["later"]
+    assert first["shapes"], "no data centre was drawn, so this test asks nothing"
+    assert later["shapes"], "nothing was drawn after moving, so this test asks nothing"
+    assert first["inTheirPane"] and not first["elsewhere"], (
+        f"the shapes are drawn outside their own pane: {first}"
+    )
+    assert later["surfaces"] == first["surfaces"], (
+        f"moving the map grew the page from {first['surfaces']} to {later['surfaces']} "
+        "SVG surfaces: a renderer is being made per shape and never taken away"
+    )
+    assert later["besides"] == first["besides"], (
+        f"moving the map left {later['besides'] - first['besides']} extra layers on it"
+    )
+
+
 def test_an_address_the_tracker_carries_is_never_rendered_as_a_link_it_should_not_be(
     served, monkeypatch
 ) -> None:

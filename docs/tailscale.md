@@ -100,6 +100,16 @@ request does not come back `200`. Asking rather than assuming is what makes it s
 schedule: a copy already running answers, so nothing is started, and a copy holding the port while
 unable to answer is treated as down, which a port check could not tell apart.
 
+**Why it is fast at hour six as well as at minute one.** A copy started this way has no window and
+a below-normal priority, which is the profile Windows 11 moves into its efficiency mode some time
+after it starts: onto the slow cores, at a reduced clock, everything in it at a fraction of the
+speed. Measured on this workspace, one results page went from 0.7 seconds right after a start to
+between 3 and 4.8 seconds a few hours later, doing exactly the same work, and back to 0.7 the moment
+the throttling was lifted. So the server asks Windows not to throttle it when it starts, whichever
+way it was started. If the interface is fast after a restart and slow by the afternoon, that is
+the first thing to suspect, not a leak; Task Manager's "Efficiency mode" column shows whether the
+`python.exe` serving it has been throttled.
+
 ```
 # see whether it is up
 Get-NetTCPConnection -State Listen -LocalPort 47823

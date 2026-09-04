@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -149,6 +150,48 @@ def test_a_routable_bind_address_is_refused(host: str, store: Store, db_path: Pa
     with pytest.raises(InvalidInput) as raised:
         serving.serve(held_workspace(shared_store(db_path)), host=host)
     assert "127.0.0.1" in str(raised.value)
+
+
+def test_the_server_asks_windows_not_to_slow_it_down(
+    store: Store, db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """feat-010/AC-96: a request costs the same at hour six as at minute one.
+
+    Windows 11 moves a hidden background process into its efficiency mode some time after it
+    starts, and the scheduled task starts this server hidden. Measured on the real workspace, one
+    results answer went from 0.7 seconds to between 3 and 4.8 with nothing else changed, and back
+    the moment the throttling was lifted. So the server asks not to be throttled, on the way in.
+
+    Asserted through `serve()` itself rather than through the helper, because "when it starts" is
+    the requirement: a helper nobody calls would pass a test of the helper. The server that would
+    be run is replaced with a recorder, since the point is what happens before it runs. On Windows
+    the state has to read back as explicitly off; anywhere else, asking has to be harmless and say
+    it did nothing. The test process is put back the way it was found either way.
+    """
+    started: list[dict[str, object]] = []
+
+    def record(app: object, **options: object) -> None:
+        started.append({"app": app, **options})
+
+    import uvicorn
+
+    monkeypatch.setattr(uvicorn, "run", record)
+    before = serving.power_throttling()
+    try:
+        serving.serve(held_workspace(shared_store(db_path)), port=0)
+        assert len(started) == 1, "the server was not started exactly once"
+        found = serving.power_throttling()
+        if sys.platform == "win32":
+            assert found is not None, "Windows would not say whether this process is throttled"
+            control, state = found
+            assert control & serving.EXECUTION_SPEED, "throttling was never spoken about"
+            assert not state & serving.EXECUTION_SPEED, "throttling was asked for, not against"
+        else:
+            assert found is None
+            assert serving.at_full_speed() is False
+    finally:
+        if before is not None:
+            serving._set_power_throttling(*before)
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "localhost", "::1"])

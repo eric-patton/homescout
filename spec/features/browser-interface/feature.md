@@ -247,3 +247,24 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   moved on without them: "satellite view" for "satellite", and two counts still expecting
   "disappeared" after both surfaces were made to say "off the market" from one place. The code was
   right in all three; the expectations had drifted while nothing was watching.
+
+- **2026-09-04, a defect found in use: the data centre layer made the map slow.** Reported as
+  laggy with the layer on and worst zoomed out, and measured in the browser as eleven thousand
+  `<svg>` elements and a nine-second zoom. Every shape had been given a renderer of its own, and a
+  renderer is a layer the map keeps after the shapes drawn on it are cleared, so every pan left a
+  few hundred empty drawing surfaces behind. One renderer now, made once in the layer's own pane,
+  which is also where the shapes were always meant to be and had never been: a renderer draws in
+  its own pane, not the shape's, so the pointer rule written for that pane had been reaching
+  nothing. Recorded as `T215`, with a regression test that counts surfaces after moving the map.
+
+- **2026-09-04, as fast at hour six (`changes/as-fast-at-hour-six/`).** Reported as the site
+  slowing down over time and being fast again right after a restart, which reads as a leak and was
+  not one. The server was measured doing the same work at two speeds: a results answer of 1,251
+  rows in 0.7 seconds from a fresh process and in 3 to 4.8 seconds from the copy the scheduled
+  task had started three hours earlier, with the same reads, the same bytes and the same memory in
+  both. Windows 11 had moved the hidden, below-normal-priority process into its efficiency mode.
+  Lifting that alone took the answer back to 0.7 seconds; raising the priority did nothing. So the
+  server asks not to be throttled when it starts, from the one place every start passes through,
+  best effort and Windows only, with a test that reads the state back through `serve()` itself.
+  The interface's own three-second requirement had been missed in practice for a reason no
+  requirement named; AC-96 names it.

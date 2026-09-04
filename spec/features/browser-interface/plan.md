@@ -554,3 +554,37 @@ Both routes are thin over the indexes the enrichment change builds and caches. T
 machine, this machine reads what it already has, and only a stale index causes anything to leave the
 building. That is D-2's shape unchanged and it is why this layer costs the map nothing to keep
 current.
+
+## Design decisions: as fast at hour six (`changes/as-fast-at-hour-six/`)
+
+### The slowdown was outside the tool, and the answer still belongs inside it
+
+The interface was measured doing the same work at two speeds. One results answer, 1,251 rows,
+80,868 file reads and 325 megabytes read either way, costs 0.7 seconds in a process started from a
+terminal and between 3 and 4.8 seconds in the copy the scheduled task had started three hours
+earlier. Same reads, same bytes, same 870 megabytes of private memory. Nothing in the process had
+grown or leaked; it was simply doing everything at a fraction of the speed, and a sampling profile
+showed the slowness spread evenly across Python, SQLite and the file reads under it.
+
+That is what Windows 11's efficiency mode looks like from inside. The system moves a process it
+judges to be background work onto the slow cores at a reduced clock, and it judges by what it can
+see: no window, started by the task scheduler, below-normal priority, which is precisely the
+profile the watchdog gives this server. It does not do it at once, which is why the interface is
+fast right after a restart and slow later, and why the report reads as a leak when it is not one.
+
+Confirmed rather than inferred: lifting the throttling on the running process, and nothing else,
+took the answer to 0.7 seconds; putting it back took it to 4.8; raising the process priority to
+normal on its own changed nothing. So priority is left alone, and the one thing that mattered is
+asked for.
+
+### Where the call lives
+
+In `web/serve.py`, made from `serve()` before the server is run, as one call to the operating
+system that is best effort and Windows only. Not in the scheduled task's settings and not in the
+watchdog script, because both of those exist on one machine and neither travels with the tool: a
+copy started by hand, from a shortcut, or from a task somebody else writes would be throttled the
+same way for the same reason. The server is the one place every start passes through.
+
+Best effort, because the alternative is a server that will not start on a Windows build that
+refuses the call, which is a worse outcome than a slow one; and a call that is not a security
+setting, so it needs no elevation and changes nothing for any other process.

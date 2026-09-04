@@ -1714,8 +1714,52 @@ is written in this file beside this function and the wrong pattern is the one cu
 - [x] T-dcm-9: The page says an absence of shapes is not evidence of an absence of data centers,
       where a person reads the layer rather than only in the README (`feat-010/AC-95`).
 - [x] T-dcm-10: Nothing scored, ranked, hidden or coloured by a data center, asserted rather than
-      assumed (`feat-010/AC-96`, `feat-010/AC-56`).
+      assumed (`feat-010/AC-56`).
 - [x] T-dcm-12: The legend read as one object rather than as four additions. It will carry the
       hazard scale, three judgment colours, the wind arrow and three data center fills at once, and
       the time to look at that together is before this goes on rather than after.
 - [x] T-dcm-11: `uv run ruff check .` and the full suite, default and slow, green.
+
+## Defect: the data centre layer grew the page by one drawing surface per shape
+
+- [x] T215: `web/static/fire.js`: one SVG renderer for the whole layer, made once in the map's
+      own pane and handed to every shape (`feat-010/AC-88`, `feat-010/AC-93`).
+
+      Reported as "the map is super laggy when you have the data centers enabled, especially if
+      you zoom out", and measured in the real browser: four hundred and thirty-one `<svg>`
+      elements in the page after switching the layer on over the state, four and a half thousand
+      after five pans, eleven thousand and a nine-second zoom after zooming out once.
+
+      Every shape was given `renderer: L.svg()`, a fresh renderer of its own. A renderer is a
+      layer on the map in its own right: the first shape handed to it adds it, and clearing the
+      layer group the shapes are in removes the shapes and leaves the renderer. So every redraw,
+      which is every move, left a few hundred empty surfaces behind, each still listening to every
+      zoom and each moved separately by every zoom animation. The comment above the redraw said
+      "only what is on screen is drawn, so the number of shapes stays a property of the screen
+      rather than of the country", and it was true of the shapes and false of the surfaces.
+
+      The same mistake put the shapes in the wrong pane. A renderer draws in its own pane, not
+      the shape's, and a plain `L.svg()` lives in the overlay pane, under the properties' canvas,
+      so the pane built for this layer, with its pointer rule, held nothing at all. The test for
+      that rule still passed, because the rule was rewritten to match a path in any pane after its
+      first version failed for what looked like specificity; this is why.
+
+      The regression test counts rather than times: after six pans and a zoom, the page holds
+      exactly the SVG surfaces it held before, the map holds no more layers besides the shapes
+      than it did, and every shape is in the data centres' pane. Red against the old code, at 64
+      surfaces for 63 shapes and none of them in the pane.
+
+## Change: as fast at hour six (`changes/as-fast-at-hour-six/`)
+
+- [x] T-afh-1: `web/serve.py`: ask Windows not to power-throttle this process, from `serve()`
+      before the server is run, best effort and Windows only; a way to read the state back; and a
+      test that on Windows the state reads as explicitly off after asking, and that anywhere else
+      asking is harmless (`feat-010/AC-96`).
+- [x] T-afh-2: `docs/tailscale.md`: where it explains how the interface is kept up, say that the
+      server asks not to be throttled and why, so that the next person who sees a fast restart
+      and a slow afternoon does not go looking for a leak (`feat-010/AC-96`).
+- [x] T-afh-3: `uv run ruff check .` and the suite, default and slow, green, with one exception
+      that predates this change: three live provider tests (`test_enrich_live.py`, one per
+      state) fail because the data center provider is skipped in a fresh workspace and the
+      test's list of providers allowed to skip was not widened when that provider arrived
+      earlier today. Nothing in this change touches enrichment; noted for that feature.

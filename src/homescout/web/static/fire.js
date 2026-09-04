@@ -71,7 +71,7 @@ const land = {lines: false, rain: false, counties: [], towns: [], byCounty: {},
  * and a project that was dropped drawn exactly like one going up is the same error about a larger
  * thing. */
 const centers = {on: false, dropped: false, sites: [], asked: false, asking: false,
-                 layer: null, credits: [], incomplete: ""};
+                 layer: null, renderer: null, credits: [], incomplete: ""};
 
 /* Dark rather than coloured, and cased in white, because this has to be legible over a hazard
  * layer that is red in exactly the places somebody is looking hardest. */
@@ -537,6 +537,20 @@ function build() {
    * for a point rather than covering ground, answers on all of itself. The fill stays visible
    * either way, because how filled a shape is is the whole legend. */
   map.getPane("centers").style.pointerEvents = "none";
+
+  /* ONE drawing surface for the whole layer, made once, and every shape is told to use it.
+   *
+   * A renderer is a layer on the map in its own right: the first shape handed to it adds it, and
+   * clearing the layer group the shapes are in removes the shapes and leaves the renderer where it
+   * is. So a fresh `L.svg()` per shape, which is what this was, was a fresh svg element in the
+   * page per polygon and per mark, none of them ever taken away, each still listening to every
+   * zoom. Measured on the real map: four hundred after switching the layer on, four and a half
+   * thousand after five pans, eleven thousand and a nine-second zoom after zooming out once.
+   *
+   * It also drew in the wrong pane. A renderer draws in its own pane, not the shape's, and a plain
+   * `L.svg()` lives in the overlay pane, under the properties' canvas, where the pointer rule
+   * written for this pane never reached the shapes. Naming the pane here is what puts them in it. */
+  centers.renderer = L.svg({pane: "centers"});
 
   held.markers = L.layerGroup().addTo(map);
   centers.layer = L.layerGroup();
@@ -1327,7 +1341,7 @@ function bareCounty(name) {
 function drawOutline(site) {
   const ring = site.outline.map((point) => [point[1], point[0]]);
   const shape = L.polygon(ring, {
-    pane: "centers", renderer: L.svg(), className: "dc-outline",
+    pane: "centers", renderer: centers.renderer, className: "dc-outline",
     color: CENTER_INK, weight: 2, opacity: 0.9,
     fillColor: CENTER_INK, fillOpacity: CENTER_FILL[site.kind] ?? 0.2,
   });
@@ -1347,11 +1361,11 @@ function drawOutline(site) {
 function drawMark(site, size) {
   const approximate = size === CENTER_SIZE.medium;
   centers.layer.addLayer(L.circleMarker([site.latitude, site.longitude], {
-    pane: "centers", renderer: L.svg(), interactive: false,
+    pane: "centers", renderer: centers.renderer, interactive: false,
     radius: size + 1.5, color: "#ffffff", weight: 3, opacity: 0.85, fill: false,
   }));
   const shape = L.circleMarker([site.latitude, site.longitude], {
-    pane: "centers", renderer: L.svg(), className: "dc-mark", color: CENTER_INK, weight: 2,
+    pane: "centers", renderer: centers.renderer, className: "dc-mark", color: CENTER_INK, weight: 2,
     radius: size, fillColor: CENTER_INK, fillOpacity: CENTER_FILL[site.kind] ?? 0.2,
     /* Dashed means the record knows the town and not the parcel. */
     dashArray: approximate ? "3 3" : null,
@@ -1367,7 +1381,7 @@ function drawMark(site, size) {
  * desert that nobody said anything about. */
 function drawCoarse(site, county) {
   const shape = L.polygon(county.outline, {
-    pane: "centers", renderer: L.svg(), className: "dc-outline",
+    pane: "centers", renderer: centers.renderer, className: "dc-outline",
     color: CENTER_INK, weight: 2, opacity: 0.7,
     dashArray: "6 5", fillColor: CENTER_INK, fillOpacity: 0.07,
   });
