@@ -199,3 +199,47 @@ def test_a_texas_point_inside_the_new_mexico_box_is_not_called_a_negative(paced)
     found = WildlandUrbanInterface().fetch(paced, 31.7619, -106.4850)
 
     assert found == {"wildland_urban_interface": "outside coverage"}
+
+
+def test_the_trackers_status_vocabulary_is_still_the_one_this_build_knows(tmp_path) -> None:
+    """feat-007/AC-31: the assertion most likely to fail first, and failing loudly is the point.
+
+    Every other provider here reads a value out of a response. This one reads a *vocabulary*: seven
+    status words that decide which of three kinds a site is. A tracker that adds an eighth is
+    not a broken tracker, it is one that has learned a distinction, and a build that quietly
+    bucketed the new word would put a data centre in the wrong category on somebody's map.
+
+    So when this fails, read it as news about the source. The fix is a line in `KIND_BY_STATUS`
+    after somebody has decided what the new word means, which is a decision rather than a mapping.
+    """
+    from homescout.enrich import datacenters
+
+    sites = datacenters.tracked(tmp_path, settings.endpoint("data_centers").url)
+
+    assert len(sites) > 500, f"the tracker answered with only {len(sites)} sites"
+    assert {site["kind"] for site in sites} >= {"operating", "approved", "proposed"}
+    # Every record was collapsible, or `tracked` would have raised naming the status it could not
+    # place. This asserts the other half: that the confidences are still the three we handle.
+    seen = {site["confidence"] for site in sites}
+    assert seen <= {"high", "medium", "low", ""}, f"unknown siting confidences: {seen}"
+
+
+def test_both_data_centre_sources_answer_and_the_second_closes_the_first_ones_gap(tmp_path) -> None:
+    """feat-007/AC-12 and feat-007/AC-35: national, and the gap is a real one that is really closed.
+
+    Los Lunas is the case this second source exists for. Meta's campus has been running there since
+    2018 and the tracker does not have it, so a build with only the tracker would tell somebody in
+    Valencia County that the nearest running data centre is a hundred and ninety miles away.
+    """
+    from homescout.enrich import datacenters
+
+    built = datacenters.built(tmp_path, settings.endpoint("data_centers_built").url)
+    assert len(built) > 500, f"OpenStreetMap answered with only {len(built)} buildings"
+
+    nearby = datacenters.Nearby(
+        datacenters.tracked(tmp_path, settings.endpoint("data_centers").url) + built
+    )
+    got = nearby.nearest("operating", 34.8100, -106.7300)
+    assert got is not None
+    _, miles = got
+    assert miles < 10, f"the nearest running data centre to Los Lunas read as {miles:.0f} miles"

@@ -2051,11 +2051,20 @@ def test_escaping_the_reason_leaves_the_house_kept(served) -> None:
 
 
 def on_the_map(served, script):
-    """Run one script against a loaded fire map, and always close the browser."""
+    """Run one script against a loaded map, and always close the browser.
+
+    The address is `/map/`, and asking for `/fire/` here is how every test in this file that uses
+    this helper quietly stopped running. That surface was renamed and its old address kept, so a
+    browser sent to `/fire/portales` is answered with a permanent redirect and lands on
+    `/map/portales`; the page this then went looking for, by matching the address it had asked
+    for, no longer existed, and the miss is a skip rather than a failure. Six map tests reported
+    themselves skipped with "the browser did not open the page", which reads as a machine without
+    Chrome on it rather than as a test looking for the wrong page.
+    """
     base, _held, _store = served
-    process, debug = chrome(f"{base}/fire/portales")
+    process, debug = chrome(f"{base}/map/portales")
     try:
-        connection = talk(debug, "/fire/portales")
+        connection = talk(debug, "/map/portales")
         return evaluate(
             connection,
             """(async () => {
@@ -2295,6 +2304,306 @@ def test_nothing_drawn_over_the_map_takes_the_pointer_off_the_properties(
         f"with the wind on, the property answers to {found['withWind']['what']}"
     )
     assert found["inkTakesThePointer"], "the arrow itself can no longer be opened"
+
+
+def _data_centres(monkeypatch, sites):
+    """Both data centre records, without asking either of them."""
+    from homescout.enrich import datacenters
+
+    monkeypatch.setattr(datacenters, "tracked", lambda root, service, **kw: list(sites))
+    monkeypatch.setattr(datacenters, "built", lambda root, service, **kw: [])
+
+
+def test_a_property_under_a_drawn_data_centre_still_opens(served, monkeypatch) -> None:
+    """feat-010/AC-93, feat-010/AC-60: the pointer rule, at the layer this one breaks it hardest.
+
+    Every earlier overlay on this map broke the rule in its own way: the county lines by being a
+    canvas over the whole pane, the wind arrows by being a hundred-and-twelve-pixel box that is
+    nearly all empty. This one is the first with clickable shapes of real extent, so a campus
+    outline is a hole in the map for every house inside it, and the houses inside a data centre's
+    outline are exactly the ones somebody turned this layer on to look at.
+
+    So the outline in this fixture is drawn deliberately over the properties. What the browser says
+    is under the pointer at a pin has to still be the thing the pins are drawn on.
+    """
+    from homescout.enrich import ground
+
+    counties = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "properties": {"BASENAME": "Roosevelt", "COUNTY": "041",
+                           "CENTLAT": "+34.1862", "CENTLON": "-103.3452"},
+            "geometry": {"type": "Polygon",
+                         "coordinates": [[[-103.9, 33.8], [-102.9, 33.8], [-102.9, 34.6],
+                                          [-103.9, 34.6], [-103.9, 33.8]]]},
+        }],
+    })
+    towns = json.dumps({"features": []})
+
+    def ground_fetched(url: str, what: str) -> bytes:
+        return (towns if "/88/query" in url else counties).encode()
+
+    monkeypatch.setattr(ground, "_fetch", ground_fetched)
+
+    #: A campus outline laid straight over the address every property in this fixture shares. On a
+    #: canvas this is the case that swallows every click on the screen.
+    _data_centres(monkeypatch, [{
+        "name": "A campus over the houses",
+        "kind": "operating",
+        "confidence": "high",
+        "latitude": 34.1862,
+        "longitude": -103.3452,
+        "outline": [[-103.40, 34.15], [-103.30, 34.15], [-103.30, 34.22],
+                    [-103.40, 34.22], [-103.40, 34.15]],
+        "operator": "Somebody",
+        "source": "",
+        "state": "NM",
+        "county": "Roosevelt",
+    }])
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => true);
+
+        const map = held.map;
+        const pin = Object.values(held.pins)[0].pin;
+        const drawnOn = pin._renderer._container;
+        const box = map.getContainer().getBoundingClientRect();
+        const at = map.latLngToContainerPoint(pin.getLatLng());
+        const answers = () => {
+          const on = document.elementFromPoint(box.left + at.x, box.top + at.y);
+          return {itself: on === drawnOn,
+                  what: on ? on.tagName + "." + (on.getAttribute("class") || "") : "nothing"};
+        };
+
+        const plain = answers();
+        document.getElementById("centers").click();
+        await until(() => centers.layer && centers.layer.getLayers().length, 400);
+        await wait(200);
+        const withCentres = answers();
+
+        /* And the shape itself is still openable, or the layer is decoration.
+         *
+         * Asked at its ink rather than at the middle of its box, which is the same distinction the
+         * wind arrows already make: an outline answers on the line that is drawn, and the ground
+         * inside it belongs to whatever is standing there. */
+        const shape = centers.layer.getLayers().find((one) => one.getBounds);
+        const over = shape ? shape.getBounds() : null;
+        const drawn = shape ? shape._path.getBoundingClientRect() : null;
+        const onShape = drawn
+          ? document.elementFromPoint(drawn.left + drawn.width / 2, drawn.top + 1) : null;
+
+        return {
+          plain, withCentres,
+          drawn: centers.layer.getLayers().length,
+          coversThePin: over ? over.contains(pin.getLatLng()) : false,
+          shapeTakesThePointer: !!(onShape && onShape.tagName.toLowerCase() === "path"),
+        };
+    """)
+
+    assert found["plain"]["itself"], (
+        f"with nothing switched on, a property already answers to {found['plain']['what']}"
+    )
+    assert found["drawn"], "no data centre was drawn, so this test asks nothing"
+    assert found["coversThePin"], (
+        "the data centre outline is not over the property, so this test asks nothing"
+    )
+    assert found["withCentres"]["itself"], (
+        f"with data centres on, the property answers to {found['withCentres']['what']}"
+    )
+    assert found["shapeTakesThePointer"], "the data centre itself can no longer be opened"
+
+
+def test_an_address_the_tracker_carries_is_never_rendered_as_a_link_it_should_not_be(
+    served, monkeypatch
+) -> None:
+    """feat-010/AC-92: the records are crowd-sourced, so their addresses are somebody else's text.
+
+    This layer is the first on any surface here to render addresses this tool did not construct.
+    The tracker accepts contributions from the public and carries petition links, community-group
+    sites and up to eight source links a record, so `javascript:` in one of them is not a far
+    fetched thing to guard against.
+
+    The defence already existed, in the one helper that builds every anchor on every page and
+    yields nothing unless the scheme is http or https. What this asserts is that the new layer
+    uses it, because a hand-built `href` is exactly how such a check gets bypassed and the test
+    that would notice is this one.
+    """
+    _data_centres(monkeypatch, [
+        {"name": "Hostile", "kind": "proposed", "confidence": "high",
+         "latitude": 34.1862, "longitude": -103.3452,
+         "source": "javascript:alert(document.domain)",
+         "operator": "", "state": "NM", "county": "Roosevelt"},
+        {"name": "Ordinary", "kind": "operating", "confidence": "high",
+         "latitude": 34.1870, "longitude": -103.3460,
+         "source": "https://example.org/a-real-source",
+         "operator": "", "state": "NM", "county": "Roosevelt"},
+    ])
+
+    found = on_the_map(served, """
+        held.map.setView([34.1866, -103.3456], 14);
+        document.getElementById("centers").click();
+        await until(() => centers.layer && centers.layer.getLayers().length, 400);
+
+        const hostile = centers.sites.find((one) => one.name === "Hostile");
+        const ordinary = centers.sites.find((one) => one.name === "Ordinary");
+        const read = (site) => {
+          const bubble = centerPopup(site);
+          const anchors = [...bubble.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+          return {anchors, text: bubble.textContent};
+        };
+        return {hostile: read(hostile), ordinary: read(ordinary)};
+    """)
+
+    # Carried, so somebody can see what the record says, and not made pressable.
+    assert found["hostile"]["anchors"] == [], (
+        f"a javascript: address became a link: {found['hostile']['anchors']}"
+    )
+    assert "javascript:alert" in found["hostile"]["text"], (
+        "the address was dropped rather than shown as text; the record should still be readable"
+    )
+    # And an ordinary one still works, or the guard has broken the feature instead of the attack.
+    assert found["ordinary"]["anchors"] == ["https://example.org/a-real-source"], (
+        f"an ordinary source link did not survive: {found['ordinary']['anchors']}"
+    )
+
+
+def test_a_data_centre_is_drawn_no_more_precisely_than_its_record_knows_it(
+    served, monkeypatch
+) -> None:
+    """feat-010/AC-89, feat-010/AC-90, feat-010/AC-91: three fills, three precisions, two kept back.
+
+    The whole design of this layer is in one screen, so it is asserted in one test.
+
+    **What is drawn at all.** A cancelled project drawn beside one that is being built is the same
+    error this page already made once with houses that were no longer for sale, so the dropped ones
+    are off until somebody asks. **How real each one is** is carried by how filled its shape is,
+    because every hue on this map is already spoken for. **How well each one is placed** is carried
+    by the shape's own size and edge: a pinned site is a small mark, a town-level one is bigger and
+    dashed, a county-level one is not given a point on the ground at all, and a surveyed building is
+    drawn at its real size.
+
+    The last of those is the one worth having a picture of. Drawn over Ashburn the footprints are
+    enormous next to the houses around them, which says what a data centre is more plainly than any
+    legend could.
+    """
+    from homescout.enrich import ground
+
+    counties = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "properties": {"BASENAME": "Roosevelt", "COUNTY": "041",
+                           "CENTLAT": "+34.1862", "CENTLON": "-103.3452"},
+            "geometry": {"type": "Polygon",
+                         "coordinates": [[[-103.9, 33.8], [-102.9, 33.8], [-102.9, 34.6],
+                                          [-103.9, 34.6], [-103.9, 33.8]]]},
+        }],
+    })
+
+    def ground_fetched(url: str, what: str) -> bytes:
+        return (json.dumps({"features": []}) if "/88/query" in url else counties).encode()
+
+    monkeypatch.setattr(ground, "_fetch", ground_fetched)
+
+    at = {"state": "NM", "county": "Roosevelt", "operator": "", "source": ""}
+    _data_centres(monkeypatch, [
+        {"name": "Running", "kind": "operating", "confidence": "high",
+         "latitude": 34.180, "longitude": -103.340, **at},
+        {"name": "Being built", "kind": "approved", "confidence": "high",
+         "latitude": 34.182, "longitude": -103.342, **at},
+        {"name": "Asked for", "kind": "proposed", "confidence": "high",
+         "latitude": 34.184, "longitude": -103.344, **at},
+        {"name": "Roughly there", "kind": "proposed", "confidence": "medium",
+         "latitude": 34.186, "longitude": -103.346, **at},
+        {"name": "Somewhere in the county", "kind": "proposed", "confidence": "low",
+         "latitude": 34.188, "longitude": -103.348, **at},
+        {"name": "A surveyed campus", "kind": "operating", "confidence": "high",
+         "latitude": 34.190, "longitude": -103.350,
+         "outline": [[-103.355, 34.188], [-103.345, 34.188], [-103.345, 34.193],
+                     [-103.355, 34.193], [-103.355, 34.188]], **at},
+        {"name": "Dropped", "kind": "cancelled", "confidence": "high",
+         "latitude": 34.192, "longitude": -103.352, **at},
+        {"name": "On hold", "kind": "suspended", "confidence": "high",
+         "latitude": 34.194, "longitude": -103.354, **at},
+    ])
+
+    found = on_the_map(served, """
+        held.map.setView([34.186, -103.346], 13);
+        document.getElementById("centers").click();
+        await until(() => centers.asked && centers.layer.getLayers().length, 400);
+        await wait(300);
+
+        /* Every shape on the layer, by the site it was built for. Read off the layer rather than
+         * off the data, so what is asserted is what somebody would actually see. */
+        const shapes = () => centers.layer.getLayers()
+          .filter((one) => one.options && one.options.className)
+          .map((one) => ({
+            kind: one.options.className,
+            fill: one.options.fillOpacity,
+            dashed: !!one.options.dashArray,
+            radius: one.options.radius || null,
+            points: one.getLatLngs ? JSON.stringify(one.getLatLngs()).length : 0,
+          }));
+
+        const off = shapes();
+        document.getElementById("dropped").click();
+        await wait(300);
+        const on = shapes();
+
+        const named = (n) => centers.sites.find((s) => s.name === n);
+        const drawnFor = (n) => {
+          const s = named(n);
+          return centers.layer.getLayers().find((one) =>
+            one.getPopup && one.getPopup && one.options.className &&
+            (one._latlng ? Math.abs(one._latlng.lat - s.latitude) < 1e-9 : false));
+        };
+
+        const outline = centers.layer.getLayers().find(
+          (one) => one.options.className === "dc-outline" && one.getLatLngs);
+
+        return {
+          drawnWithDroppedOff: off.length,
+          drawnWithDroppedOn: on.length,
+          fills: ["Running", "Being built", "Asked for"].map((n) => {
+            const one = drawnFor(n);
+            return one ? one.options.fillOpacity : null;
+          }),
+          pinnedRadius: (drawnFor("Asked for") || {}).options
+                          ? drawnFor("Asked for").options.radius : null,
+          roughRadius: (drawnFor("Roughly there") || {}).options
+                          ? drawnFor("Roughly there").options.radius : null,
+          roughIsDashed: !!(drawnFor("Roughly there") || {options: {}}).options.dashArray,
+          countyLevelHasNoPoint: !drawnFor("Somewhere in the county"),
+          outlineIsAPolygon: !!outline,
+          namesTicked: document.getElementById("names").checked,
+        };
+    """)
+
+    # Cancelled and suspended are held back until somebody asks, then both appear.
+    assert found["drawnWithDroppedOn"] == found["drawnWithDroppedOff"] + 2, found
+
+    # Solid is running, half is being built, empty is asked for. One axis, three fills, no hue.
+    running, building, asked = found["fills"]
+    assert running > building > asked, (
+        f"the three kinds are not told apart by fill: {found['fills']}"
+    )
+    assert asked == 0, "a proposal is drawn as an outline, not a filled shape"
+
+    # A site the record pins is a place; one it knows to the right town is not, and reads bigger
+    # and dashed so that it says "around here" without needing a sentence.
+    assert found["roughRadius"] > found["pinnedRadius"], found
+    assert found["roughIsDashed"], "a town-level site is drawn as crisply as a pinned one"
+
+    # And one it places no better than a county is never given a point on the ground at all.
+    assert found["countyLevelHasNoPoint"], (
+        "a county centroid was drawn as if it were a location"
+    )
+    assert found["namesTicked"], (
+        "the county outlines a coarse site needs were not turned on with the layer"
+    )
+
+    # A surveyed building is drawn as itself.
+    assert found["outlineIsAPolygon"], "a mapped building was not drawn at its real size"
 
 
 def test_the_map_draws_the_properties_and_says_what_it_cannot(served) -> None:
@@ -2669,7 +2978,10 @@ def test_the_map_switches_between_the_drawn_map_and_the_photograph(served, monke
     """)
 
     assert found["offered"], "no way to switch to the photograph"
-    assert found["label"] == "satellite view", found["label"]
+    # "satellite view" until the toolbar was regrouped, when the surrounding words started doing
+    # that work and the label was shortened. Stale here rather than wrong there, and it went unseen
+    # because this whole file was skipping: see the note on `on_the_map`.
+    assert found["label"] == "satellite", found["label"]
     assert found["startsOnTheDrawnMap"], "the map opened on the photograph rather than the map"
 
     # One background at a time. Both at once is the drawn map wasted underneath, or worse, on top.
@@ -2761,7 +3073,11 @@ def test_the_map_hides_a_house_that_is_no_longer_for_sale(served) -> None:
         };
     """)
 
-    assert found["checkbox"] == "show properties that disappeared", (
+    # The words are the results table's, which is the whole point of the criterion: both surfaces
+    # hide the same properties with the same control saying the same thing. The table now reads
+    # "include ones off the market" and the map was brought into line with it; this expectation was
+    # left behind, and this file was skipping so nothing said so.
+    assert found["checkbox"] == "include ones off the market", (
         f"the map's control has to read like the table's: {found['checkbox']!r}"
     )
     assert found["delisted"] > 0, "no delisted property reached the page, so nothing was asked"
@@ -2771,10 +3087,13 @@ def test_the_map_hides_a_house_that_is_no_longer_for_sale(served) -> None:
     assert found["shown"]["pins"] == found["hidden"]["pins"] + found["delisted"], (
         "ticking the box did not put back exactly the houses that had come off the market"
     )
-    assert "disappeared and hidden" in found["hidden"]["says"], (
+    # "disappeared and hidden" until both surfaces were made to say this in one place, in
+    # `common.js`, so the map and the table could not drift into two wordings for one number. The
+    # words moved and this expectation did not, and this file was skipping so nothing said so.
+    assert "off the market, hidden" in found["hidden"]["says"], (
         f"the count has to say what it is holding back: {found['hidden']['says']!r}"
     )
-    assert "disappeared and hidden" not in found["shown"]["says"], (
+    assert "off the market, hidden" not in found["shown"]["says"], (
         "the count still claimed to be hiding them while they were on screen"
     )
     # The list under the map follows the pins, which is the rule it already had for passing.

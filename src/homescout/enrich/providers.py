@@ -1,4 +1,4 @@
-"""The seven public services, one small class each.
+"""The eight public services, one small class each.
 
 Every one of them answers the same shape of question (what is true at this point) and every one
 answers it differently, which is why they are plugins rather than branches in a pass.
@@ -23,7 +23,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..sources.politeness import PacedSession
-from . import settings
+from . import datacenters, settings
 from .provider import ProviderFailed, ask_json, attributes_of, features_of, point_query
 
 #: The classified wildfire hazard raster answers with a number. These are its classes, from the
@@ -470,3 +470,143 @@ class County:
             raise ProviderFailed("county: the response shape has changed")
         name = str(found.get("BASENAME") or found.get("NAME") or "").strip()
         return {"county_name": name or None}
+
+
+class DataCenters:
+    """How close the data centers are, and how close the ones that do not exist yet are.
+
+    The only provider here whose `fetch` makes no request at all. Every other one asks a service
+    about a point; this one asks a set, and there is no service anywhere that answers "what is the
+    nearest data center to here". So the two indexes are fetched whole and the arithmetic is local,
+    which makes this the cheapest provider in the pass rather than the most expensive (D-15).
+
+    Five values, and the shape of them is one question asked three ways plus two answers about what
+    the numbers could not say. `data_center_miles` is what is running, `data_center_approved_miles`
+    is what is being built, `data_center_proposed_miles` is what somebody has applied for. Those
+    three are the whole of what was asked for, and keeping them apart is the point: conflating a
+    running data center with one somebody has applied for would answer a question nobody asked.
+    """
+
+    name = "data_centers"
+
+    def __init__(self) -> None:
+        #: Set by the pass, like broadband's. The indexes live beside the database rather than in
+        #: it: three and a half thousand rows refreshed whole is a file, not a table (D-15).
+        self._root: Any = None
+        self._nearby: Any = None
+
+    def attach(self, store: Any) -> None:
+        self._root = store.path.parent
+
+    def values(self) -> tuple[str, ...]:
+        return (
+            "data_center_miles",
+            "data_center_approved_miles",
+            "data_center_proposed_miles",
+            "data_center_nearest",
+            "data_center_in_county",
+        )
+
+    def precision(self) -> int:
+        # Four places is about eleven metres, chosen to be finer than anything this reports. Three
+        # would be about a hundred and ten, which is the same order as the 161 metres a tenth of a
+        # mile resolves, and a cache key coarser than the number it keys would quietly undo the one
+        # promise this provider is built around (AC-32).
+        return 4
+
+    def ttl_days(self) -> int | None:
+        # The tracker's own life, because a value derived from an index cannot be fresher than it.
+        return datacenters.TRACKED_DAYS
+
+    def configured(self) -> bool:
+        return self._root is not None
+
+    def why_not(self) -> str:
+        return "nothing has told it where the indexes live"
+
+    def ready(self) -> Any:
+        """The indexes, read once per pass rather than once per location.
+
+        Staleness is decided here, which is to say once, and not inside `fetch`. At the five
+        thousand properties the performance requirement names, the difference between those two
+        readings is one check and five thousand.
+        """
+        if self._nearby is None:
+            self._nearby = build_nearby(self._root)
+        return self._nearby
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        nearby = self.ready()
+        found: dict[str, Any] = {}
+        closest: tuple[float, Mapping[str, Any]] | None = None
+
+        for kind, into in (
+            ("operating", "data_center_miles"),
+            ("approved", "data_center_approved_miles"),
+            ("proposed", "data_center_proposed_miles"),
+        ):
+            answer = nearby.nearest(kind, latitude, longitude)
+            if answer is None:
+                found[into] = None
+                continue
+            site, miles = answer
+            found[into] = datacenters.rounded(miles, site.get("confidence"))
+            if closest is None or miles < closest[0]:
+                closest = (miles, site)
+
+        found["data_center_nearest"] = (
+            f"{closest[1]['name']}, {closest[1]['kind']}" if closest else None
+        )
+        # Not a gap. A site nobody could place inside its own county still stands in that county,
+        # and without this a house beside a seven-thousand-megawatt proposal would read exactly like
+        # a house nobody asked about (AC-33).
+        kinds = nearby.counties_holding(latitude, longitude)
+        found["data_center_in_county"] = ", ".join(kinds) if kinds else None
+        return found
+
+
+def build_nearby(root: Any) -> Any:
+    """Both indexes, refreshed if stale, arranged for asking.
+
+    Here rather than in the module so the provider and the map share one way of building it, and so
+    that the county outlines a coarse site needs are gathered in the one place that knows which
+    counties those are.
+    """
+    from . import ground as land
+
+    sites = list(datacenters.tracked(root, settings.endpoint("data_centers").url))
+    sites.extend(datacenters.built(root, settings.endpoint("data_centers_built").url))
+
+    wanted = datacenters.coarse_counties(sites)
+    counties: list[dict[str, Any]] = []
+    if wanted:
+        service = settings.endpoint("boundaries").url
+        by_county: dict[tuple[str, str], set[str]] = {}
+        for site in sites:
+            key = (site.get("state"), datacenters.bare_county(site.get("county", "")))
+            if key in wanted and site.get("kind") in datacenters.MEASURED:
+                by_county.setdefault(key, set()).add(site["kind"])
+        for state in sorted({one[0] for one in wanted}):
+            try:
+                held = land.counties(root, service, state)
+            except Exception:  # noqa: BLE001 - one state's outlines, not the whole provider
+                continue
+            for one in held:
+                kinds = by_county.get((state, datacenters.bare_county(one["name"])))
+                if not kinds:
+                    continue
+                counties.append(
+                    {
+                        "outline": _as_polygon(one["outline"]),
+                        "kinds": sorted(kinds),
+                    }
+                )
+    return datacenters.Nearby(sites, counties)
+
+
+def _as_polygon(rings: Any) -> dict[str, Any]:
+    """The boundary module's rings, which are [latitude, longitude], as GeoJSON, which is not."""
+    return {
+        "type": "MultiPolygon",
+        "coordinates": [[[[point[1], point[0]] for point in ring]] for ring in rings],
+    }

@@ -169,3 +169,57 @@ alongside its peers.
 - [x] T-county-3: `tests/test_enrich_providers.py`: a county comes back for a point in one, a point
       in none is an answer rather than a gap, and the provider needs nothing configured
       (`feat-007/AC-27`, `feat-007/AC-7`).
+
+## Change: how close the data centers (`changes/how-close-the-data-centers/`)
+
+- [x] T-dc-1: `enrich/settings.py`: two endpoint entries, each overridable as every other one is
+      (`feat-007/AC-14`). The tracker's query endpoint at the FracTracker ArcGIS service, and the
+      Overpass endpoint for the mapped buildings. Both keyless, both national.
+- [x] T-dc-2: A new module holding the two indexes: fetch whole, store, read back, and say how old
+      each one is. The tracker is paged (1,000 a request, 1,665 records); the buildings are one
+      query returning nodes, ways and relations, kept as outlines. Ninety days for the buildings and
+      seven for the tracker, for the reason in D-15 (`feat-007/AC-29`, `feat-007/AC-30`). The
+      buildings query is a constant asking for the whole country and interpolates nothing.
+
+      Paced with backoff like every other outbound request (`feat-007/AC-13`), and the Overpass
+      endpoint needs that said rather than assumed: it answers 429 and 504 when it is busy, its
+      published usage policy is stricter than this feature's one-second floor, and it is a
+      volunteer service rather than a government one. It is the first source here where retrying
+      briskly is impolite rather than merely wasteful, so back off hard.
+- [x] T-dc-3: Status collapse in one table, read rather than inferred, with an unrecognised status
+      raising a failure that names it rather than guessing a bucket (`feat-007/AC-31`). Suspended
+      and cancelled map to neither, and feed no distance.
+- [x] T-dc-4: `enrich/providers.py`: a `DataCenters` provider supplying the five values, whose
+      `fetch` makes no request and reads the indexes. Distance to a building is to its outline via
+      `shapely`, distance to a tracker point is great-circle (`feat-007/AC-28`, `feat-007/AC-34`).
+      The nearest is found through a spatial index rather than by walking the set, which is what
+      keeps the first pass over a new area inside the performance requirement (`feat-007/AC-37`).
+      Rounds to four decimal places, finer than the finest distance it reports (`feat-007/AC-32`).
+      Registered in `enrich/registry.py`; the pass is unchanged, which is `feat-007/AC-1`.
+- [x] T-dc-5: Precision follows the source's declared confidence: a tenth of a mile for a pinned
+      site or an outline, a whole mile for a town-level one, and no distance for a county-level one
+      (`feat-007/AC-32`).
+- [x] T-dc-6: The county-grain value: a site too coarsely located to measure, standing in this
+      property's county, is named with which of the three it is. Reads differently from a distance
+      and from a value nobody obtained (`feat-007/AC-33`, `feat-007/AC-7`).
+- [x] T-dc-7: `rules/namespace.py`: the five fields declared as enriched, which the registry's
+      two-way check requires. Three numbers and two words, so a criterion can say
+      `data_center_proposed_miles < 5`.
+- [x] T-dc-8: `export/columns.py` and the templates: the columns, outside the default set as
+      wildfire hazard already is (`feat-011/AC-7`).
+- [x] T-dc-9: `tests/test_enrich_providers.py` and the fakes: the nine criteria above, each citing
+      its token. The precision test asserts one site at one distance reporting three different ways,
+      and the county test asserts three readings that must stay apart.
+- [x] T-dc-10: `tests/test_enrich_live.py` (slow): both services answer, nationally, and the
+      tracker's status vocabulary is still the one this build knows. That second assertion is the
+      one that will fail first, and failing loudly is the point (`feat-007/AC-31`).
+- [x] T-dc-11: README: what the three distances answer, that a distance to an operating one is to
+      the nearest *known* one, and why the number's precision varies (`feat-007/AC-32`,
+      `feat-007/AC-35`). Add both hosts to the list of what this tool talks to, and credit both
+      sources as their terms require (`feat-007/AC-36`).
+- [x] T-dc-13: The performance requirement, asserted rather than reasoned about: a first pass over
+      five thousand properties in an area whose indexes are already held finishes inside the time
+      the requirement allows. This is the criterion the pre-build check found this change missing,
+      and a loop instead of a spatial index is what it catches (`feat-007/AC-37`,
+      `feat-007/NFR-performance`).
+- [x] T-dc-12: `uv run ruff check .` and the full suite, default and slow, green.

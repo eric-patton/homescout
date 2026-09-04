@@ -825,6 +825,55 @@ def ground(workspace: Workspace, name: str) -> dict[str, Any]:
     return {"search": name, "counties": counties, "towns": towns, "unreachable": unreachable}
 
 
+def data_centers(workspace: Workspace) -> dict[str, Any]:
+    """Every data center this tool knows about, from both sources, nationally.
+
+    National rather than per run, unlike the county lines above, because the indexes are national
+    and splitting them by state would be work to make the answer smaller rather than better. It is
+    a few thousand records; the map draws what is on screen.
+
+    Each site arrives already carrying which of the three kinds it is. The tracker publishes seven
+    statuses and collapsing them is core work, not the browser's: a `switch` over status strings in
+    a page would be business logic on the wrong side of the line (`feat-010/AC-88`).
+
+    Slow exactly once. The mapped buildings are a single large query to a volunteer service and take
+    half a minute the first time; after that both indexes are read off the disk, and they are
+    refreshed on their own schedules, three months for buildings and a week for the tracker, because
+    a building does not move and a project's status is the whole point.
+    """
+    from .enrich import datacenters
+    from .enrich import settings as where
+
+    sites: list[dict[str, Any]] = []
+    unreachable: list[str] = []
+    for what, service in (
+        ("the tracker", where.endpoint("data_centers").url),
+        ("the mapped buildings", where.endpoint("data_centers_built").url),
+    ):
+        reader = datacenters.tracked if what == "the tracker" else datacenters.built
+        try:
+            sites.extend(reader(workspace.root, service))
+        except Exception as exc:  # noqa: BLE001 - one source failing is not the layer failing
+            unreachable.append(f"{what}: {exc}")
+
+    return {
+        "sites": sites,
+        "unreachable": unreachable,
+        #: Both sources are free and both require credit, which no layer on this map has needed
+        #: before. Sent with the data rather than written into the page, so the page cannot drift
+        #: from what it is actually drawing.
+        "credits": [
+            "Data centers and their status: FracTracker Alliance, used non-commercially.",
+            "Mapped buildings: OpenStreetMap contributors, under the Open Database License.",
+        ],
+        "incomplete": (
+            "An absence of shapes is not evidence of an absence of data centers. The tracker's "
+            "interest is contested projects, so a quietly-running facility nobody objected to can "
+            "be missing from it, and the mapped buildings only close part of that gap."
+        ),
+    }
+
+
 def rainfall(workspace: Workspace, name: str) -> dict[str, Any]:
     """How much rain and snow each county on this map gets in a year, averaged over thirty of them.
 

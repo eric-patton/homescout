@@ -66,3 +66,52 @@ def test_a_second_pass_over_a_cached_county_makes_no_requests(store: Store) -> N
 
     assert 0 < asked < 300, "properties within a rounding step of each other shared a lookup"
     assert len(providers[0].asked) == asked, "the second pass asked again"
+
+
+def test_the_nearest_data_centre_is_found_by_index_rather_than_by_walking_the_set() -> None:
+    """feat-007/AC-37, feat-007/NFR-performance: the first pass over a new area, not the second.
+
+    This provider is the one that makes the performance requirement's second sentence false. Every
+    other one asks a service per location, so its cold pass is bounded by waiting; this one asks
+    nobody, so its cold pass is bounded entirely by local work, and the requirement says that does
+    not happen.
+
+    The number is what makes it a real risk rather than a wording problem. Roughly three and a half
+    thousand sites, asked once per cache key over an area of five thousand properties, is ten
+    million comparisons, which a straightforward loop does in tens of seconds. The pre-build check
+    caught this before any of it was written, and this test is what stops it coming back: a loop
+    put back in place of the spatial index fails here rather than in six months on a real county.
+    """
+    import random
+
+    from homescout.enrich import datacenters
+
+    random.seed(11)
+    # A stand-in for the two indexes at the size they actually are.
+    sites = [
+        {
+            "name": f"site {n}",
+            "kind": ("operating", "approved", "proposed")[n % 3],
+            "confidence": "high",
+            "latitude": random.uniform(25.0, 49.0),
+            "longitude": random.uniform(-124.0, -67.0),
+        }
+        for n in range(3_400)
+    ]
+    nearby = datacenters.Nearby(sites)
+    places = [
+        (random.uniform(32.0, 36.9), random.uniform(-109.0, -103.0)) for _ in range(PROPERTIES)
+    ]
+
+    started = time.monotonic()
+    for latitude, longitude in places:
+        for kind in datacenters.MEASURED:
+            nearby.nearest(kind, latitude, longitude)
+        nearby.counties_holding(latitude, longitude)
+    took = time.monotonic() - started
+
+    assert took < BUDGET, (
+        f"{PROPERTIES:,} properties against {len(sites):,} data centres took {took:.1f}s, over the "
+        f"{BUDGET}s this feature allows. A walk over the set rather than a spatial index is the "
+        "first thing to check."
+    )

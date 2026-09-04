@@ -17,7 +17,7 @@ readiness:
   plan:     ready
   tasks:    ready
 gate:
-  analyze: not-run
+  analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
@@ -95,3 +95,32 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
 
   Checked while verifying: the endpoint the shipped `wildfire` provider uses carries no such
   alteration notice and its legend matches `WILDFIRE_CLASSES` exactly. No defect there.
+
+- **2026-09-04, how close the data centres are (`changes/how-close-the-data-centers/`).** Asked for
+  as a map layer, and half of it belongs here: three distances, split by whether a data centre is
+  running, being built, or merely applied for, because a house four miles from each of those is in
+  three different positions.
+
+  The first provider here whose `fetch` makes no request. There is no service that answers "what is
+  the nearest data centre to here", because nearest is asked of a set rather than of a point, so two
+  national records are fetched whole and the arithmetic is local. That parts company with D-12,
+  which said an index is only ever built when a person asks; the boundary was protecting predictable
+  cost, and 1,665 records over two requests plus one query is not the FCC's gigabytes.
+
+  Two sources because neither is enough. The tracker is the only free national record carrying a
+  project's *status*, and its interest is contested projects, so Virginia has 463 rows and New
+  Mexico has 9 and Meta's Los Lunas campus is missing entirely. OpenStreetMap has that campus, as
+  outlines rather than pins.
+
+  The part worth remembering is the precision rule. The tracker rates its own siting and the bottom
+  rating is a county centroid: one New Mexico proposal is recorded at a city of "Lea County", 4,400
+  square miles. So the number's own precision carries the caveat, a tenth of a mile down to a whole
+  mile down to no number at all, and the sites that get no number are named as standing somewhere in
+  the property's county instead. Dropping them would have made a house beside a seven-thousand-
+  megawatt proposal read exactly like a house nobody asked about.
+
+  The pre-build check earned its place twice. It found that this provider makes the performance
+  requirement's own sentence false, since a cold pass here is bounded entirely by local work, and
+  that a plain loop over three and a half thousand sites would miss the five-second bar by an order
+  of magnitude; the fix is a spatial index and a test that asserts the time. It also found that D-12
+  claimed broadband was the only provider with state, which this made untrue.

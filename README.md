@@ -214,7 +214,7 @@ with the available names listed.
 
 ## Public data about a location
 
-The questions that decide a rural property are not listing fields. `homescout enrich` asks five free
+The questions that decide a rural property are not listing fields. `homescout enrich` asks free
 public services what is true at each property's coordinates, caches every answer against a rounded
 location, and never asks twice:
 
@@ -233,6 +233,40 @@ homescout enrich --search nm-acreage --json
 | Wildland-urban interface | New Mexico wildfire portal (New Mexico only) | `wildland_urban_interface` |
 | Boundaries | Census TIGERweb | the shapes a saved search's named areas resolve to |
 | Broadband | FCC National Broadband Map | `upload_mbps`, `download_mbps`, `broadband_provider` |
+| Data centres | FracTracker's tracker, and OpenStreetMap | `data_center_miles`, `data_center_approved_miles`, `data_center_proposed_miles`, `data_center_nearest`, `data_center_in_county` |
+
+**How close the data centres are, split three ways, because they are three different facts.**
+`data_center_miles` is how far it is to the nearest one that is running,
+`data_center_approved_miles` to the nearest one approved or under construction, and
+`data_center_proposed_miles` to the nearest one somebody has applied for. A house four miles from a
+running data centre and a house four miles from a proposal are not in the same position, and one
+number for both would answer a question nobody asked.
+
+Unlike every other value here, these ask nobody about your property. Two national records are
+fetched whole, kept, and the distance is worked out on this machine, so a pass over five thousand
+properties makes two requests rather than ten thousand.
+
+**The precision of the number is the caveat, and it varies on purpose.** The tracker rates how well
+it knows where each site is, and the bottom rating is not a small imprecision: one New Mexico
+proposal is recorded at a city of "Lea County", which is 4,400 square miles. So a site the record
+pins, or a building somebody surveyed, gives a distance to a tenth of a mile; a site known to the
+right town gives a whole number of miles, because five miles is a claim the record can support and
+5.3 is not; and a site known no better than a county gives no distance at all. That last one is not
+dropped: it turns up in `data_center_in_county` instead, saying which kind is somewhere in this
+property's county, because an empty cell here would read as "nobody asked" and there is a
+seven-thousand-megawatt proposal in Lea County.
+
+**A distance to a running data centre is a distance to the nearest *known* one.** The tracker's
+interest is contested projects, so what it records well is what somebody objected to: Virginia has
+463 records and New Mexico has 9, and Meta's campus at Los Lunas, running since 2018, is not in it
+at all. That is what the second source is for. OpenStreetMap has the Los Lunas buildings, as
+outlines rather than pins, so the distance is to the edge of the campus rather than to a guess at
+its middle. It does not fully close the gap, and neither of them knows about a data centre nobody
+has written down.
+
+Both are free and both want credit, which the map gives them: the tracker is FracTracker Alliance's,
+used non-commercially, and the buildings are OpenStreetMap contributors', under the Open Database
+Licence.
 
 **The wildland-urban interface covers New Mexico only, and says so elsewhere.** It is the one
 value here that does not answer for the whole country, and it is worth having anyway because it

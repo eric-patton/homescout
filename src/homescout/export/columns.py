@@ -358,6 +358,17 @@ COLUMNS: tuple[Column, ...] = (
     Column("Wildland-Urban Interface", "text", "enriched", _wui),
     Column("County (looked up)", "text", "enriched", _enriched("county_name")),
     Column("Elevation (ft)", "number", "enriched", _enriched("elevation_ft")),
+    # Three numbers rather than one, because conflating a data centre that is running with one
+    # somebody has merely applied for would answer a question nobody asked. The mixed precision is
+    # deliberate and is explained where the values are: a whole number of miles means the record
+    # knows the town rather than the parcel (feat-007/AC-32).
+    Column("Data Centre (mi)", "number", "enriched", _enriched("data_center_miles")),
+    Column("Approved Data Centre (mi)", "number", "enriched",
+           _enriched("data_center_approved_miles")),
+    Column("Proposed Data Centre (mi)", "number", "enriched",
+           _enriched("data_center_proposed_miles")),
+    Column("Nearest Data Centre", "text", "enriched", _enriched("data_center_nearest")),
+    Column("Data Centre In County", "text", "enriched", _enriched("data_center_in_county")),
     Column("Notes", "text", "annotation", _annotated("notes")),
     Column("Flags", "text", "derived", _flags),
     Column("Sources", "text", "derived", _sources),

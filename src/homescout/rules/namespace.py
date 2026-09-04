@@ -119,6 +119,11 @@ _ENRICHED: tuple[Field, ...] = (
     Field("elevation_ft", NUMBER, "enriched", populated=True),
     Field("wildland_urban_interface", TEXT, "enriched", populated=True),
     Field("county_name", TEXT, "enriched", populated=True),
+    Field("data_center_miles", NUMBER, "enriched", populated=True),
+    Field("data_center_approved_miles", NUMBER, "enriched", populated=True),
+    Field("data_center_proposed_miles", NUMBER, "enriched", populated=True),
+    Field("data_center_nearest", TEXT, "enriched", populated=True),
+    Field("data_center_in_county", TEXT, "enriched", populated=True),
 )
 
 #: Recovered from a listing's prose by description field extraction (feat-009).

@@ -548,6 +548,16 @@ def build(workspace: api.Workspace) -> FastAPI:
         """
         return answer("ground", **api.ground(held(), name))
 
+    @app.get("/api/data-centers")
+    def data_centers() -> dict[str, Any]:
+        """Where the data centers are, what is being built, and what somebody has applied for.
+
+        Fetched by this machine rather than by the browser, like every other layer on that map, and
+        kept. The first call after three months waits on a single large query to OpenStreetMap;
+        every call after it is off the disk.
+        """
+        return answer("data_centers", **api.data_centers(held()))
+
     @app.get("/api/rain/{name}")
     def rainfall(name: str) -> dict[str, Any]:
         """A yearly rainfall average for every county this run touches.

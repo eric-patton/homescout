@@ -1293,6 +1293,46 @@ table.grid tr.kept td.property .what { font-weight: 600; }
 .swatch.round.kept { background: #ffd75e; border-color: #8a6d00; }
 .swatch.round.passed { background: #e8b6b6; border-color: #8c2b2b; }
 
+/* Data centres, told apart by how filled they are rather than by their colour.
+ *
+ * Every hue on that map is already carrying a meaning: a green-to-red hazard scale underneath and
+ * three judgment colours on top. These are one ink at three fills, which is also the better
+ * encoding, because solid, half and empty are ordered the way running, being built and merely
+ * asked for are ordered. The dash on the third says the same thing twice on purpose. */
+.swatch.square { width: 13px; height: 13px; border-radius: 2px;
+                 border: 2px solid #15111f; background: transparent; }
+.swatch.square.dc-operating { background: #15111f; }
+.swatch.square.dc-approved { background: rgba(21, 17, 31, 0.35); }
+.swatch.square.dc-proposed { border-style: dashed; }
+
+/* The data centre pane takes no pointer, and its shapes put it back on their own ink.
+ *
+ * An outline answers on its stroke only. Its fill stays painted, because how filled a shape is is
+ * the whole legend, but that fill covers ground with houses standing on it, and the properties are
+ * drawn on a canvas in a pane *below* this one: a canvas does not get a second look at a click
+ * something above it has already claimed, so a fill that answers for a pixel takes that pixel away
+ * from a house for good. Measured before this existed: a property under a drawn campus outline
+ * could not be opened at all, which is the fault the browser test now holds shut.
+ *
+ * A mark is small and stands for a point rather than covering ground, so it answers on all of
+ * itself, the way a wind arrow's ink does.
+ *
+ * WRITTEN LONG TO OUT-SPECIFY THE MAP LIBRARY, WHICH IS WHY IT LOOKS OVERWROUGHT. Leaflet ships
+ * `.leaflet-pane > svg path.leaflet-interactive { pointer-events: auto }`, and anything shorter
+ * than that loses to it silently: the rule is simply not applied, the fill goes on answering for
+ * every pixel, and the only visible symptom is houses that will not open. The first version of
+ * this was `.leaflet-centers-pane path.dc-outline` and the browser test caught it. */
+.leaflet-pane > svg path.dc-outline.leaflet-interactive { pointer-events: stroke; }
+.leaflet-pane > svg path.dc-mark.leaflet-interactive { pointer-events: auto; }
+
+/* One data centre, in a bubble. Same shape as a property's, smaller, because there is less to
+ * say and none of it is a photograph. */
+.dcpopup strong { display: block; font-size: 1.02rem; line-height: 1.25; }
+.dcpopup p.meta { margin: 0.15rem 0 0.35rem; }
+.dcpopup ul { margin: 0; padding-left: 1.05rem; }
+.dcpopup li { margin: 0.1rem 0; }
+.dcpopup a { overflow-wrap: anywhere; }
+
 /* One property, in a bubble on the map. */
 /* The picture in a pin.
  *

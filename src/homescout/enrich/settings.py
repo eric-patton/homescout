@@ -85,6 +85,16 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://edacarc.unm.edu/arcgis/rest/services/NMWRAP/nmwrap_reference/MapServer/8/query",
         "New Mexico counties, which say whether the interface layer covers a point at all",
     ),
+    "data_centers": Endpoint(
+        "https://services.arcgis.com/jDGuO8tYggdCCnUJ/arcgis/rest/services/"
+        "data_centers_v4_agol_all/FeatureServer/0/query",
+        "FracTracker Alliance's US data centers tracker, which is the one free national source "
+        "that carries a project's status",
+    ),
+    "data_centers_built": Endpoint(
+        "https://overpass-api.de/api/interpreter",
+        "OpenStreetMap's own query service, for data centers that exist as mapped buildings",
+    ),
 }
 
 def picture_of(name: str) -> str | None:

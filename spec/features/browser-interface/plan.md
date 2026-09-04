@@ -507,3 +507,50 @@ rule and the connection it opens beside the interface's own.
 
 **Ordering.** The store change lands first. The first two parts of this could be built against the
 process's memory and then moved, which is building them twice.
+
+## Design decisions: data centers on the map (`changes/data-centers-on-the-map/`)
+
+### Fill, not hue, and the reason is arithmetic about the map
+
+The obvious encoding for three categories is three colours, and it is not available. Underneath
+this layer is a classified hazard raster running green, yellow, orange, red, grey and blue, drawn at
+an opacity a person chose. On top of it are property pins in gold, blue and red. Every hue on the
+wheel is already carrying meaning on this page, and a fourth family would either collide with the
+hazard scale or with the judgment colours, and over half the map it would collide with both.
+
+Fill is free, and it turns out to be the better encoding anyway. The three categories are not three
+unrelated kinds, they are one ordered axis: how real is this thing. Solid is running, half-filled is
+being built, outline is asked for. That is legible without the legend, it is legible in one ink over
+any background, and it degrades correctly: somebody who cannot tell which shade of red is which can
+always tell a filled shape from an empty one.
+
+### Drawn as precisely as the source knows, and no more
+
+Three siting confidences come out of the tracker and they are not three degrees of the same
+smallness. A pinned site is a place. A town-level site is a neighbourhood. A county-level site is a
+county: the New Era proposal's recorded city is "Lea County", 4,400 square miles, so its point is a
+centroid and means nothing but "in here somewhere".
+
+A map is worse than a column at hiding this, because a map has to put the mark *somewhere*, and
+wherever it lands looks chosen. So the mark's own size and edge carry what is known: a point where
+there is a point, something visibly approximate where the town is known, and a mark over the county
+where only the county is. The rule is the one the enrichment side already follows for the number,
+and it has to be followed harder here, because a person reading a map is measuring by eye against
+their own horizon.
+
+### The pointer, and why this layer is the dangerous one
+
+AC-60 already carries the rule that nothing drawn over the properties takes the pointer off them
+except where it is actually drawn, and it says the rule has to live at the layer because each new
+layer breaks it differently. The names broke it by being read and never clicked. The wind arrows
+broke it with the empty box around the ink. This one breaks it in the way that costs the most: it is
+the first layer with clickable shapes of real extent, so a campus outline is a hole in the map for
+every house inside it, and the houses inside a data center's outline are exactly the houses somebody
+opened this layer to look at.
+
+### Two routes, no new fetching
+
+Both routes are thin over the indexes the enrichment change builds and caches. The page asks this
+machine, this machine reads what it already has, and only a stale index causes anything to leave the
+building. That is D-2's shape unchanged and it is why this layer costs the map nothing to keep
+current.

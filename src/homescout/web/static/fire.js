@@ -53,6 +53,42 @@ const land = {lines: false, rain: false, counties: [], towns: [], byCounty: {},
               years: 30, asked: false, asking: false, raining: false, rainAsked: false,
               shapes: null, labels: null};
 
+/* Data centers: what is running, what is being built, and what somebody has applied for.
+ *
+ * Asked for by the person this page is drawn for, after reading about the Santa Teresa project:
+ * "current data centers, future known, guaranteed data center sites, and proposed possible future
+ * data center sites (like awaiting approval, etc)".
+ *
+ * Three categories and one axis, which is how real the thing is, and that is why they are told
+ * apart by how filled a shape is rather than by its colour. Hue is spent on this page: underneath
+ * is a green-to-red hazard scale and on top are three judgment colours, so a fourth family would
+ * be unreadable over half the map. Fill is also the better encoding, because solid, half and empty
+ * are ordered the way running, being built and asked for are ordered, and they survive being read
+ * over red.
+ *
+ * `dropped` holds the cancelled and suspended ones, which are off unless somebody asks. This page
+ * once drew fifty-five houses that were no longer for sale pinned exactly like the ones that were,
+ * and a project that was dropped drawn exactly like one going up is the same error about a larger
+ * thing. */
+const centers = {on: false, dropped: false, sites: [], asked: false, asking: false,
+                 layer: null, credits: [], incomplete: ""};
+
+/* Dark rather than coloured, and cased in white, because this has to be legible over a hazard
+ * layer that is red in exactly the places somebody is looking hardest. */
+const CENTER_INK = "#15111f";
+
+/* How filled, per kind. The whole legend is in this table. */
+const CENTER_FILL = {operating: 0.85, approved: 0.35, proposed: 0.0,
+                     suspended: 0.0, cancelled: 0.0};
+
+/* How big a mark is, per how well the source knows where the thing is.
+ *
+ * Not decoration. A site the tracker pins is a place; a site it knows to the right town is not,
+ * and drawing the second as crisply as the first would put a data center on somebody's particular
+ * horizon on the strength of nothing. So the approximate one is drawn bigger and dashed, which
+ * reads as "around here" without needing a sentence. */
+const CENTER_SIZE = {high: 6, medium: 12};
+
 const METRES_TO_A_MILE = 1609.344;
 const FEET_TO_A_METRE = 3.28084;
 
@@ -161,6 +197,21 @@ function draw() {
     onchange: (event) => showRain(event.target.checked),
   });
 
+  /* Turning this on turns the county lines on with it, and the box ticks itself, for the same
+   * reason the rain does it: a site the tracker can only place in a county is marked over that
+   * county, and that needs the county's outline to be on the map. */
+  const centred = el("input", {
+    type: "checkbox",
+    id: "centers",
+    onchange: (event) => showCenters(event.target.checked),
+  });
+
+  const dropped = el("input", {
+    type: "checkbox",
+    id: "dropped",
+    onchange: (event) => { centers.dropped = event.target.checked; drawCenters(); },
+  });
+
   const season = el("select", {
     id: "season",
     "aria-label": "Which months the wind is counted over",
@@ -209,6 +260,8 @@ function draw() {
           el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
           el("label", {for: "names"}, named, " counties and towns"),
           el("label", {for: "rain"}, wet, " rain and snow a year"),
+          el("label", {for: "centers"}, centred, " data centres"),
+          el("label", {for: "dropped"}, dropped, " including dropped ones"),
           el("label", {for: "ruler"}, ruler, " a ruler"),
         ),
       ),
@@ -221,6 +274,7 @@ function draw() {
       el("span", {id: "counts"}, ""),
       el("span", {id: "windcount"}, ""),
       el("span", {id: "landcount"}, ""),
+      el("span", {id: "centercount"}, ""),
     ),
     el("div", {class: "firemap"},
       el("div", {id: "map", role: "application", "aria-label": "Properties on the map"}),
@@ -241,6 +295,15 @@ function draw() {
       "The fire layer is the same one the enrichment pass reads, fetched by this machine rather " +
       "than by your browser and kept once fetched, so looking at the same part of the state twice " +
       "costs nothing and nothing new talks to the outside world."),
+    el("p", {class: "meta"},
+      "The data centres come from two public records, both fetched by this machine rather than " +
+      "by your browser and kept. ",
+      el("strong", {}, "An absence of shapes is not evidence of an absence of data centres"),
+      ": the tracker’s interest is contested projects, so a quietly-running facility nobody " +
+      "objected to can be missing from it, and the mapped buildings only close part of that gap. " +
+      "Data on projects and their status is FracTracker Alliance’s, used non-commercially; " +
+      "the mapped buildings are OpenStreetMap contributors’, under the Open Database " +
+      "Licence. Turning the layer on asks those two hosts, neither of them federal."),
     el("p", {class: "meta"},
       "The wind is every hourly reading each airport weather station has on record, not a " +
       "forecast: Thursday\u2019s wind is a fact about Thursday, and a house is a longer question " +
@@ -297,6 +360,18 @@ function legend() {
       ", which is the way a fire would run, so the red to worry about is the red the arrow " +
       "points at. It is longer where the wind more often does the same thing. The dark arrow " +
       "appears only where hard wind pushes somewhere else than the everyday wind does."),
+    el("h2", {}, "Data centres"),
+    el("ul", {},
+      el("li", {}, el("span", {class: "swatch square dc-operating"}), "running"),
+      el("li", {}, el("span", {class: "swatch square dc-approved"}), "approved or being built"),
+      el("li", {}, el("span", {class: "swatch square dc-proposed"}), "proposed, awaiting approval"),
+    ),
+    el("p", {class: "meta"},
+      "How filled a shape is says how real the thing is, because every colour on this map is " +
+      "already carrying a meaning. A shape drawn at its real size is a building somebody " +
+      "surveyed; a small mark is a site the record pins; a large dashed circle is a site the " +
+      "record places only in the right town, and a shaded county is one it places no better than " +
+      "that county. Nothing here is drawn more precisely than it is known."),
     el("h2", {}, "Where this is"),
     el("p", {class: "meta"},
       "County lines and town names are drawn on top of the fire layer rather than under it, "
@@ -434,7 +509,37 @@ function build() {
   map.getPane("labels").style.zIndex = "640";
   map.getPane("labels").style.pointerEvents = "none";
 
+  /* Data centres over the county lines and under the wind, so the property pins stay on top of
+   * everything. A house is what this page is about; a data centre is what it is next to.
+   *
+   * THIS LAYER IS DRAWN IN SVG AND THE REST OF THE MAP IS NOT, AND THAT IS THE POINT. Every other
+   * overlay here is either non-interactive or a marker, so it could go on the shared canvas. This
+   * one has shapes of real extent that open when they are pressed, and a canvas is one element
+   * covering its whole pane whatever is painted on it: a campus outline on canvas is a hole in the
+   * map for every house inside it, and the houses inside a data centre are exactly the ones
+   * somebody turned this on to look at. In SVG each shape is its own element and the gaps between
+   * them pass the click through to the pins underneath, which is what AC-93 asks for. */
+  map.createPane("centers");
+  map.getPane("centers").style.zIndex = "445";
+  /* The pane takes no pointer, and the shapes put it back on their own ink, in the stylesheet.
+   *
+   * The same answer the wind arrows already needed, arrived at from the worst direction. The
+   * properties are drawn on a canvas in the overlay pane, which is *below* this one, so anything
+   * here that answers for a pixel takes that pixel away from a house for good: a canvas below does
+   * not get a second look at a click that something above it already claimed.
+   *
+   * A campus outline is the case that makes this bite. It is painted across its whole interior,
+   * and its interior is ground with houses standing on it, so a filled polygon that takes the
+   * pointer is a hole in the map for exactly the properties somebody turned this layer on to look
+   * at. Measured before the fix: a property under a drawn outline could not be opened at all.
+   *
+   * So an outline answers on its stroke and not on its fill, and a mark, which is small and stands
+   * for a point rather than covering ground, answers on all of itself. The fill stays visible
+   * either way, because how filled a shape is is the whole legend. */
+  map.getPane("centers").style.pointerEvents = "none";
+
   held.markers = L.layerGroup().addTo(map);
+  centers.layer = L.layerGroup();
   wind.layer = L.layerGroup();
   land.shapes = L.layerGroup();
   land.labels = L.layerGroup();
@@ -446,6 +551,9 @@ function build() {
     listWhatIsOnScreen();
     /* Which names fit depends on how far out this is, so they are worked out again every move. */
     if (land.lines) drawLand();
+    /* Only what is on screen is drawn, so the number of shapes stays a property of the screen
+     * rather than of the country. Three thousand outlines in the page at once is a slow map. */
+    if (centers.on) drawCenters();
   });
   plot();
   const bounds = held.rows.map((row) => [row.latitude, row.longitude]);
@@ -1099,6 +1207,230 @@ async function showRain(on) {
     }
   }
   drawLand();
+}
+
+/* ------------------------------------------------------------------ */
+/* Data centres                                                        */
+/* ------------------------------------------------------------------ */
+
+/* Turn the layer on, fetching both records once, ever.
+ *
+ * The county lines come on with it and the box ticks itself. A site the tracker can only place in
+ * a county is drawn as that county, which needs the county's outline; without this the coarse
+ * sites would silently not be drawn, and the ones the record knows least about are the biggest
+ * ones on it. */
+async function showCenters(on) {
+  centers.on = Boolean(on);
+  if (!centers.on) {
+    drawCenters();
+    centerCount();
+    return;
+  }
+  if (!land.lines) await showLand(true);
+  if (!centers.asked) {
+    centers.asking = true;
+    centerCount();
+    try {
+      const found = await ask("/api/data-centers");
+      centers.sites = found.sites || [];
+      centers.credits = found.credits || [];
+      centers.incomplete = found.incomplete || "";
+      centers.asked = true;
+      for (const said of found.unreachable || []) say(said, "problem");
+    } catch (error) {
+      say(`The data centre records could not be read: ${error.message}`, "problem");
+      centers.on = false;
+      const box = document.getElementById("centers");
+      if (box) box.checked = false;
+    } finally {
+      centers.asking = false;
+    }
+  }
+  drawCenters();
+  centerCount();
+}
+
+function centerCount() {
+  const where = document.getElementById("centercount");
+  if (!where) return;
+  let said = "";
+  if (centers.asking) {
+    said = "reading the data centre records…";
+  } else if (centers.on && centers.sites.length) {
+    const drawn = centers.sites.filter(worthDrawingCenter).length;
+    said = `${count(drawn, "data centre", "data centres")} known in the country`;
+  }
+  where.replaceChildren(document.createTextNode(said));
+}
+
+/* Cancelled and suspended are not drawn unless somebody asks for them. */
+function worthDrawingCenter(site) {
+  if (site.kind === "cancelled" || site.kind === "suspended") return centers.dropped;
+  return true;
+}
+
+/* Everything on screen, drawn again.
+ *
+ * Cleared and rebuilt on every move, like the county lines and unlike the wind. A bubble open when
+ * the map moves is closed by this, which is the same trade the names make and is worth it here:
+ * the alternative is three thousand shapes in the page at once. */
+function drawCenters() {
+  if (!centers.layer) return;
+  centers.layer.clearLayers();
+  if (!centers.on) {
+    held.map.removeLayer(centers.layer);
+    centerCount();
+    return;
+  }
+  centers.layer.addTo(held.map);
+
+  const bounds = held.map.getBounds();
+  for (const site of centers.sites) {
+    if (!worthDrawingCenter(site)) continue;
+    const known = CENTER_SIZE[site.confidence];
+    if (known === undefined) {
+      /* Known no better than a county, so it is drawn as that county or not at all. Never as a
+       * point: its stored position is a county centroid, and a county here can be four thousand
+       * square miles. */
+      const county = countyFor(site);
+      if (county) drawCoarse(site, county);
+      continue;
+    }
+    if (!bounds.contains([site.latitude, site.longitude])) continue;
+    if (site.outline && site.outline.length >= 3) drawOutline(site);
+    else drawMark(site, known);
+  }
+  centerCount();
+}
+
+/* The county a coarsely-placed site stands somewhere in, out of what the names layer already
+ * fetched. The tracker is not consistent with itself about the word "county", so both sides are
+ * folded before they are compared: one New Mexico row says "Lea County" and the next "Dona Ana". */
+function countyFor(site) {
+  const wanted = bareCounty(site.county);
+  if (!wanted) return null;
+  return land.counties.find(
+    (one) => one.state === site.state && bareCounty(one.name) === wanted) || null;
+}
+
+function bareCounty(name) {
+  return String(name || "").trim().toLowerCase()
+    .replace(/\s+(county|parish|borough|census area|municipality)$/, "").trim();
+}
+
+/* A surveyed building, at its real size.
+ *
+ * The clearest thing this layer can say is the difference between a shape with the right footprint
+ * and a pin somebody announced, so a mapped building is drawn as itself. Below the zoom where that
+ * is more than a few pixels it becomes a mark instead, because a layer that shows least when the
+ * map is widest would be emptiest exactly when somebody turns it on to ask where these are. */
+function drawOutline(site) {
+  const ring = site.outline.map((point) => [point[1], point[0]]);
+  const shape = L.polygon(ring, {
+    pane: "centers", renderer: L.svg(), className: "dc-outline",
+    color: CENTER_INK, weight: 2, opacity: 0.9,
+    fillColor: CENTER_INK, fillOpacity: CENTER_FILL[site.kind] ?? 0.2,
+  });
+  const box = shape.getBounds();
+  const across = held.map.latLngToLayerPoint(box.getNorthEast())
+    .distanceTo(held.map.latLngToLayerPoint(box.getSouthWest()));
+  if (across < 7) {
+    drawMark(site, CENTER_SIZE.high);
+    return;
+  }
+  shape.bindPopup(() => centerPopup(site), {maxWidth: 320});
+  centers.layer.addLayer(shape);
+}
+
+/* A point, cased in white so it is legible over the red the hazard layer paints exactly where
+ * somebody is looking hardest. Two circles rather than one, because a path has only one stroke. */
+function drawMark(site, size) {
+  const approximate = size === CENTER_SIZE.medium;
+  centers.layer.addLayer(L.circleMarker([site.latitude, site.longitude], {
+    pane: "centers", renderer: L.svg(), interactive: false,
+    radius: size + 1.5, color: "#ffffff", weight: 3, opacity: 0.85, fill: false,
+  }));
+  const shape = L.circleMarker([site.latitude, site.longitude], {
+    pane: "centers", renderer: L.svg(), className: "dc-mark", color: CENTER_INK, weight: 2,
+    radius: size, fillColor: CENTER_INK, fillOpacity: CENTER_FILL[site.kind] ?? 0.2,
+    /* Dashed means the record knows the town and not the parcel. */
+    dashArray: approximate ? "3 3" : null,
+  });
+  shape.bindPopup(() => centerPopup(site), {maxWidth: 320});
+  centers.layer.addLayer(shape);
+}
+
+/* Somewhere in this county, drawn as the county.
+ *
+ * The honest drawing of "the record places this no better than a county" is the county, shaded.
+ * The alternative, a point at the county's middle, is a data centre put on a particular patch of
+ * desert that nobody said anything about. */
+function drawCoarse(site, county) {
+  const shape = L.polygon(county.outline, {
+    pane: "centers", renderer: L.svg(), className: "dc-outline",
+    color: CENTER_INK, weight: 2, opacity: 0.7,
+    dashArray: "6 5", fillColor: CENTER_INK, fillOpacity: 0.07,
+  });
+  shape.bindPopup(() => centerPopup(site, county), {maxWidth: 320});
+  centers.layer.addLayer(shape);
+}
+
+/* What is known about one of them.
+ *
+ * EVERY ADDRESS IN HERE WAS WRITTEN BY SOMEBODY ELSE. The tracker is crowd-sourced and carries
+ * petition links, community-group sites and up to eight source links a record, so nothing here
+ * builds an href of its own: `link` is this page's one way to make one and it yields nothing at
+ * all unless the scheme is http or https, which is what turns a `javascript:` address into plain
+ * text. This is the first layer on any surface here that renders addresses this tool did not
+ * write, and the rule that holds is the one nobody has to remember. */
+function centerPopup(site, county) {
+  const said = {
+    operating: "running",
+    approved: "approved or being built",
+    proposed: "proposed, awaiting approval",
+    suspended: "suspended",
+    cancelled: "cancelled",
+  }[site.kind] || site.kind;
+
+  const rows = [];
+  const add = (name, value) => { if (value) rows.push(el("li", {}, `${name}: ${value}`)); };
+  add("Operator", site.operator);
+  add("Megawatts", site.megawatts);
+  add("Acres", site.acres);
+  add("Expected", site.expected);
+
+  /* How well its position is known, in words, on every one of them. The drawing already says it
+   * and the words are what somebody can be sure of. */
+  if (county) {
+    rows.push(el("li", {},
+      `Somewhere in ${county.name} County: the record places it no better than that.`));
+  } else if (CENTER_SIZE[site.confidence] === undefined) {
+    /* Read off the confidence rather than off whether a county was handed in, because those are
+     * different questions and only one of them is about the record. Today a coarse site is only
+     * ever drawn when its county was found, so this branch is unreachable from the map; written
+     * this way round anyway, because the version that said "the record pins this one" here would
+     * have started lying the moment anything called this without one. */
+    rows.push(el("li", {}, "The record places this no better than a county."));
+  } else if (site.confidence === "medium") {
+    rows.push(el("li", {}, "Roughly here: the record knows the town rather than the parcel."));
+  } else if (site.outline) {
+    rows.push(el("li", {}, "Drawn at its real size, from a surveyed outline."));
+  } else {
+    rows.push(el("li", {}, "The record pins this one."));
+  }
+
+  const address = /^https?:\/\//i.test(String(site.source || ""));
+  return el("div", {class: "dcpopup"},
+    el("strong", {}, site.name),
+    el("p", {class: "meta"}, said),
+    rows.length ? el("ul", {}, rows) : null,
+    site.source
+      ? el("p", {class: "meta"},
+          "From: ",
+          address ? link(site.source, site.source) : site.source,
+          address ? " (leaves this page)" : null)
+      : null,
+  );
 }
 
 function landCount() {

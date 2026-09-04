@@ -8,7 +8,7 @@ owner: "eric-patton"
 depth: "mvp"
 sprint: null
 external: null
-depends_on: [feat-004, feat-006, feat-008]
+depends_on: [feat-004, feat-006, feat-007, feat-008]
 requires_design: true
 readiness:
   research: ready
@@ -209,3 +209,41 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   The expanding row cost one line rather than a mechanism, because this table already places rows
   from heights it measured rather than assuming they are equal. That was checked before the change
   was proposed rather than after.
+
+- **2026-09-04, data centres on the map (`changes/data-centers-on-the-map/`).** A fourth layer over
+  the fire, off by default, on the terms the other three already have. Three kinds told apart by how
+  filled a shape is rather than by its colour, because every hue on that map is spoken for: a
+  green-to-red hazard scale underneath and three judgment colours on top. Fill turned out to be the
+  better encoding anyway, since solid, half and empty are ordered the way running, being built and
+  merely asked for are ordered.
+
+  Nothing is drawn more precisely than its record knows it. A mapped building is drawn at its real
+  size, which over Ashburn says what a data centre is more plainly than the legend does; a
+  town-level site is bigger and dashed; and a site placed no better than a county is drawn as that
+  county, which is why turning this on turns the county outlines on with it.
+
+  The pre-build check held this one on a security finding, and the finding was right. The tracker is
+  crowd-sourced and carries petition links, community-group sites and up to eight source links a
+  record, so this is the first layer on any surface here to render addresses this tool did not
+  write. The defence already existed in `common.js`, which is the only thing that builds an anchor
+  and yields nothing for a scheme that is not http or https; what was missing was the requirement to
+  use it, and the test that would notice if somebody stopped.
+
+  The pointer rule of AC-60 was broken again, in the way that costs the most, and the browser test
+  caught it before anybody saw it. This is the first layer with clickable shapes of real extent, and
+  the properties are drawn on a canvas in a pane *below* it, so a filled campus outline was a hole
+  in the map for every house inside it. An outline now answers on its stroke and not on its fill.
+  The first fix did not work and looked as though it had: the rule was written
+  `.leaflet-centers-pane path.dc-outline`, which loses on specificity to Leaflet's own
+  `.leaflet-pane > svg path.leaflet-interactive`, so it was simply never applied.
+
+- **2026-09-04, a defect found while building that.** Every browser test of the map had been
+  silently skipping. The surface moved to `/map/{name}` with the old address kept as a permanent
+  redirect, and the harness still asked for `/fire/{name}` and then looked for a page at the address
+  it had asked for. The miss is a skip rather than a failure, and the message is "the browser did
+  not open the page", which reads as a machine without Chrome on it.
+
+  Six tests came back when the address was corrected, and three of them failed on wording that had
+  moved on without them: "satellite view" for "satellite", and two counts still expecting
+  "disappeared" after both surfaces were made to say "off the market" from one place. The code was
+  right in all three; the expectations had drifted while nothing was watching.

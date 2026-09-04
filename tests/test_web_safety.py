@@ -12,6 +12,7 @@ in an export and a digest as well, and the digest already learned that lesson.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -144,6 +145,32 @@ def test_every_anchor_goes_through_the_checked_helper() -> None:
             assert anchors == 2, "link() and skipLink(), and nothing else"
         else:
             assert anchors == 0, f"{script.name} builds an anchor itself instead of link()"
+
+
+def test_no_property_is_scored_or_ranked_by_a_data_centre() -> None:
+    """feat-010/AC-56, feat-010/AC-88: the layer says where they are and decides nothing.
+
+    Asserted rather than assumed, because this is the first thing drawn on that page that a person
+    arrives with an opinion about, and "quietly demote anything within five miles" is a small,
+    reasonable-sounding edit that would turn a map into a judgment nobody could argue with. The
+    place to make that decision is a rule the person wrote, which is what the enriched values are
+    for; it is not this page.
+
+    Read off the two functions that decide which properties are drawn and how each one looks. If
+    either ever consults the data centre layer, this fails.
+    """
+    text = (STATIC / "fire.js").read_text(encoding="utf-8")
+
+    for name in ("function worthDrawing(", "function plot(", "function popup("):
+        at = text.index(name)
+        body = text[at : text.index(chr(10) + "}", at)]
+        assert "centers" not in body, (
+            f"{name} consults the data centre layer to decide something about a property"
+        )
+
+    # And the pins themselves know only about the judgment a person made.
+    pins = text[text.index("const PINS = {") : text.index("};", text.index("const PINS = {"))]
+    assert set(re.findall(r"^\s*(\w+):", pins, re.M)) == {"keep", "pass", "none"}, pins
 
 
 # ---------------------------------------------------------------------------

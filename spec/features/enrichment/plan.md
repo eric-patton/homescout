@@ -114,6 +114,7 @@ eleven metres) and elevation three (about a hundred).
 | wildfire | 3 | 110 m |
 | elevation | 3 | 110 m |
 | boundaries | 3 | 110 m |
+| data centers | 4 | 11 m |
 
 ### D-4: a provider is a plugin, and the pass never names one
 
@@ -229,11 +230,16 @@ questions the whole feature exists to answer. The constitution already anticipat
 shape (secrets read from the environment, never committed, optional components absent by default),
 which is why the delta is small.
 
-### D-12: a dataset behind one provider, and only that one
+### D-12: an index a person builds, and why that boundary is where it is
 
 Every other provider here is a function of a point: `configured()`, then `fetch(session, lat, lon)`,
 with nothing behind it. Broadband cannot be, because no service will answer that question (M-7). So
-this provider gets state, and it is the only one that does.
+this provider gets state.
+
+It was the only one that did, and it is now one of two: D-15 gives the data center provider an index
+as well, for a different reason and on a different footing. What stays true of broadband alone is
+the rest of this decision, which is that *a person builds the index*. That is the boundary, and D-15
+says why it does not reach the other case.
 
 The state is an index in the store: one row per census block, the best advertised residential
 download and upload in it, and the providers that offer them. Building it is `homescout broadband
@@ -309,6 +315,88 @@ layer: in a New Mexico county the answer is the known negative, and in none of t
 the coverage. Verified on 2026-08-25: El Paso answers with no county, and the bootheel at -109.00
 answers Hidalgo, which is correct and is the case a box would most easily get wrong.
 
+### D-15: two indexes behind one provider, held for very different lengths of time
+
+The second provider with state, and the argument for it is the opposite of D-12's. Broadband gets an
+index because no service will answer the question per point. This one gets an index because the
+whole question is *nearest*, and nearest cannot be asked of a point at all: it is asked of a set.
+There is no request that returns "the closest data center to here", and inventing one out of a
+bounding-box query per property would be five thousand requests to answer what two requests and some
+arithmetic answer exactly.
+
+So `fetch` here makes no request. It reads two indexes and computes, which makes this the first
+provider whose per-location path never touches the network, and the performance requirement gets
+easier rather than harder.
+
+The two indexes are not alike and must not share a time to live.
+
+The mapped buildings are OpenStreetMap features under `telecom=data_center` and the two older tags
+beside it: 1,778 of them nationally, polygons, surveyed. A building does not move. Held for months,
+and a stale one is still correct.
+
+The tracker is 1,665 records from FracTracker, and its `status` field is the most perishable value
+this feature has ever cached. Everything else here is close to permanent: a flood zone, an aquifer,
+an elevation. A data center's status is a thing that changes *because somebody decided something*,
+and the decision is precisely what a person watching this wants to hear about. Proposed became
+approved is the event. So it is held for days, not months, and this is the first provider whose
+time to live is short enough to matter.
+
+Ninety days for the buildings and seven for the tracker, which are the numbers rather than the
+argument, so the test has something to move a clock past.
+
+The query that fetches the buildings is a constant. It asks for the whole country and interpolates
+nothing, and that is a property worth stating rather than an accident of the current shape: it is a
+query language, a per-state version would build it by concatenating a state name, and the nearest
+place a state name comes from is a hand-edited saved search.
+
+Both are fetched whole and neither is an explicit action, which is where this parts company with
+D-12 and needs saying, because D-12's boundary was drawn to stop exactly this. The reason it is safe
+here is arithmetic: the FCC's files are gigabytes per state, and these two are 1,665 rows over two
+paged requests and one query returning under two thousand features. A pass that quietly fetches
+those on finding them stale is a pass whose cost stays predictable, which is the property D-12 was
+protecting rather than the mechanism it happened to use.
+
+Stored the same way broadband's index is: a copy of somebody else's published dataset, refreshable,
+not history, no append-only trigger, and a refresh replaces rather than accumulates. Staleness is
+decided once per pass, not once per location, which at five thousand properties is the difference
+between one check and five thousand.
+
+**The nearest is found through a spatial index, and the performance requirement is why.** That
+requirement says a cold pass is bounded by provider pacing rather than by local work, and this is the
+provider that makes it false: there is no pacing here to be bounded by, because there is no request.
+Walking roughly 3,400 points and outlines for every distinct cache key is on the order of ten million
+comparisons over an area the size of the one that requirement names, which Python does in tens of
+seconds rather than in the five it allows. `shapely` is already a dependency and its own spatial
+index answers this exact query, so the fix costs a constructor rather than a design. The requirement's
+sentence is amended alongside, because it remains the right expectation for the other eight providers
+and a reader who cannot tell which kind they are looking at is the reader it was written for.
+
+### D-16: the precision of the number is the caveat
+
+The tracker declares how well it knows each site's location, and the three levels are not shades of
+the same thing. High is a pinned site. Medium is the right town. Low is a county centroid, and a
+county here can be four thousand square miles: the seven-thousand-megawatt New Era proposal is
+recorded at a city of "Lea County".
+
+The tempting shape is a distance plus a confidence column beside it. It was rejected because it does
+not work on a reader. A number is read as measured; a caveat in the next column is read second or
+not at all, and the failure is silent and lands on somebody making a decision about a house.
+
+This product has met the problem twice and answered it the same way both times. Rainfall is per
+county because that is the grain the record publishes, and it refuses to interpolate "a figure that
+would look like it was measured at the house". Broadband says on every surface that it is for the
+block. Both push the caveat into the value rather than beside it.
+
+So here the number's own precision is the claim. A tenth of a mile for a pinned site or a mapped
+outline. A whole mile for a town-level one: five miles, not 5.3, because 5.3 is a claim the source
+cannot support. And nothing at all for a county-level one, which instead becomes the county value of
+AC-33.
+
+That last one is not a rounding rule, it is the reason the fifth value exists. Drop a county-level
+site and a house beside a seven-thousand-megawatt proposal reads as an empty cell, and an empty cell
+in this feature means nobody asked (AC-7, D-7). This change would have manufactured the exact
+confusion this feature was built to prevent, so the coarse answer is carried rather than discarded.
+
 ### D-10: endpoints are configuration, because they move
 
 `settings.py` holds one entry per provider: the address, the timeout, and the fields it reads. Each
@@ -347,6 +435,17 @@ therefore left blank rather than filled from a source covering part of the count
 | AC-24 the three readings stay apart | one place outside coverage, one negative, one never asked, read together | `feat-007/AC-24` |
 | AC-25 an unknown code is a failure | a fake transport answering with a classification this build does not know | `feat-007/AC-25` |
 | AC-26 partial coverage is declared and shown | a live lookup in New Mexico and one outside it, marked slow; and `homescout enrich --json` carrying the declared coverage | `feat-007/AC-26` |
+
+| AC-28 the data center provider exists | `enrich.registry.registered()`, and the pass run with it registered | `feat-007/AC-28` |
+| AC-29 index-backed, no request per property | a pass over many properties on a fake transport, asserting two index fetches and nothing per location | `feat-007/AC-29` |
+| AC-37 nearest is found through a spatial index | five thousand properties over held indexes, inside the performance requirement's time, marked slow | `feat-007/AC-37` |
+| AC-30 the two indexes age differently | a clock moved past one time to live and not the other | `feat-007/AC-30` |
+| AC-31 statuses collapse to three, unknown fails | a fake index carrying each status, and one carrying a status this build does not know | `feat-007/AC-31` |
+| AC-32 precision follows confidence | one site at one distance, at each of the three confidences | `feat-007/AC-32` |
+| AC-33 county-grain is an answer, not a gap | a coarse site in the property's county, read against a real distance and against never having asked | `feat-007/AC-33` |
+| AC-34 both sources feed it, measured to an outline | a fake index holding the same site twice and one polygon | `feat-007/AC-34` |
+| AC-35 completeness is not coverage | `homescout enrich --json`, and the README | `feat-007/AC-35` |
+| AC-36 both sources are credited | the surfaces that show the values | `feat-007/AC-36` |
 
 Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_enrich_pass.py`,
 `tests/test_enrich_providers.py`, `tests/test_enrich_live.py` (slow).

@@ -31,10 +31,11 @@ def answering(payload) -> tuple:
     return session(transport), transport
 
 
-def test_the_seven_providers_exist_and_are_individually_named() -> None:
-    """feat-007/AC-11, feat-007/AC-22: the six, the wildland-urban interface, and the county."""
+def test_the_eight_providers_exist_and_are_individually_named() -> None:
+    """feat-007/AC-11, feat-007/AC-22, feat-007/AC-28: the six, the interface, the county, and
+    how close the data centres are."""
     assert set(registered()) == {
-        "flood", "elevation", "aquifer", "wildfire", "broadband", "wui", "county",
+        "flood", "elevation", "aquifer", "wildfire", "broadband", "wui", "county", "data_centers",
     }
 
     from homescout.enrich.boundaries import CensusBoundaries

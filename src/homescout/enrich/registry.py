@@ -19,6 +19,7 @@ from .providers import (
     Aquifer,
     Broadband,
     County,
+    DataCenters,
     Elevation,
     Flood,
     Wildfire,
@@ -34,6 +35,7 @@ SHIPPED: tuple[Callable[[], Provider], ...] = (
     Flood,
     Wildfire,
     WildlandUrbanInterface,
+    DataCenters,
     Broadband,
 )
 

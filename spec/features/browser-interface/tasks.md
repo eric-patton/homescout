@@ -1677,3 +1677,45 @@ is written in this file beside this function and the wrong pattern is the one cu
       this endpoint had started a pass first.
 
       Not the reason the site was down. The server keeps running through a request that raises.
+
+## Change: data centers on the map (`changes/data-centers-on-the-map/`)
+
+- [x] T-dcm-1: `api.py` and `web/app.py`: two read-only routes over the indexes the enrichment
+      change builds, one for the tracked sites and one for the mapped outlines, both scoped to what
+      the map is showing. No business logic in the route, which is `feat-010/AC-14`
+      (`feat-010/AC-88`).
+- [x] T-dcm-2: `fire.js`: the layer and its toggle, off by default, beside `wind` and `land`. Three
+      kinds told apart by fill and not by hue, for the reason in the plan (`feat-010/AC-88`).
+- [x] T-dcm-3: Cancelled and suspended are not drawn unless asked for, and say which they are when
+      they are, the same shape of answer the box for properties that are no longer for sale already
+      gives (`feat-010/AC-89`).
+- [x] T-dcm-4: Each site drawn no more precisely than its source locates it: a mark at a place, a
+      visibly approximate one for a town, and a mark over the county for a site located only to a
+      county (`feat-010/AC-90`). Turning the layer on turns the county outlines on with it, and the
+      box ticks itself, because marking a county needs that county's shape and rainfall already
+      settles this same question the same way (`feat-010/AC-60`, `feat-010/AC-61`).
+- [x] T-dcm-5: Mapped buildings drawn as outlines at real size; a site both sources hold is drawn
+      twice and not de-duplicated (`feat-010/AC-91`). A footprint too small to see at the current
+      zoom becomes a mark rather than nothing, so the layer is not at its emptiest at the zoom
+      somebody opens it at.
+- [x] T-dcm-6: The bubble: name, kind, operator, megawatts, acres, expected date, how well the
+      position is known, and where the entry came from. Nothing fetched from anywhere to fill it,
+      and any link out says it leaves (`feat-010/AC-92`).
+- [x] T-dcm-6a: Every address in that bubble goes through `common.js`'s own link helper, which
+      yields nothing for a scheme that is not `http` or `https`, and a test asserts it. These
+      addresses are crowd-sourced: the tracker carries petition links, community-group sites and up
+      to eight source links a record, none of them written by this tool. The control already exists
+      and this is the requirement to use it, in the same shape as the scan that asserts no data
+      anywhere becomes markup (`feat-010/AC-92`, `feat-010/D-5`).
+- [x] T-dcm-7: The pointer rule, at the layer rather than at the shapes, and a test that a property
+      under a drawn outline still opens (`feat-010/AC-93`, `feat-010/AC-60`).
+- [x] T-dcm-8: The legend gains a block; both sources credited on the map; the page's statement
+      about what it asks for gains the two new hosts (`feat-010/AC-94`, `feat-010/AC-55`).
+- [x] T-dcm-9: The page says an absence of shapes is not evidence of an absence of data centers,
+      where a person reads the layer rather than only in the README (`feat-010/AC-95`).
+- [x] T-dcm-10: Nothing scored, ranked, hidden or coloured by a data center, asserted rather than
+      assumed (`feat-010/AC-96`, `feat-010/AC-56`).
+- [x] T-dcm-12: The legend read as one object rather than as four additions. It will carry the
+      hazard scale, three judgment colours, the wind arrow and three data center fills at once, and
+      the time to look at that together is before this goes on rather than after.
+- [x] T-dcm-11: `uv run ruff check .` and the full suite, default and slow, green.

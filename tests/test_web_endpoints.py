@@ -673,3 +673,71 @@ def test_a_photograph_is_not_compressed_twice(opened, store: Store) -> None:
 
     assert answer.status_code == 200
     assert "content-encoding" not in {k.lower() for k in answer.headers}
+
+
+def test_both_data_centre_sources_travel_with_their_credit_and_their_limits(
+    opened, monkeypatch
+) -> None:
+    """feat-007/AC-36, feat-010/AC-94, feat-010/AC-95: the terms and the caveat ride with the data.
+
+    Two obligations that are easy to satisfy once and then quietly lose. Both sources are free and
+    both require attribution, one by its own terms and one by the Open Database Licence, so the
+    credit is sent alongside the sites rather than typed into the page: a page that carries its own
+    copy is a page that can end up crediting a source it is no longer drawing.
+
+    The third string is not a legal obligation but is the more important one. What the tracker is
+    short of is *completeness* rather than coverage: its interest is contested projects, so a
+    quietly-running facility nobody objected to can simply be absent, and a reader who takes an
+    empty patch of map as "none here" has been misled by an accurate drawing of an incomplete
+    record.
+    """
+    from homescout.enrich import datacenters
+
+    browser, held = opened
+    monkeypatch.setattr(datacenters, "tracked", lambda root, service, **kw: [])
+    monkeypatch.setattr(datacenters, "built", lambda root, service, **kw: [])
+
+    answer = browser.get("/api/data-centers", headers=ours()).json()
+
+    credits = " ".join(answer["credits"]).lower()
+    assert "fractracker" in credits, answer["credits"]
+    assert "openstreetmap" in credits, answer["credits"]
+    assert "open database licen" in credits, answer["credits"]
+    assert "non-commercial" in credits, answer["credits"]
+
+    # An absence of shapes is not evidence of an absence of data centres, and the payload says so
+    # even when it is carrying no shapes at all, which is exactly when it matters most.
+    assert answer["sites"] == []
+    assert "absence" in answer["incomplete"].lower()
+
+    # And the same call through the core says the same thing, which is this layer's own rule.
+    direct = api.data_centers(held)
+    assert direct["credits"] == answer["credits"]
+    assert direct["incomplete"] == answer["incomplete"]
+
+
+def test_one_data_centre_source_failing_costs_that_source_and_not_the_layer(
+    opened, monkeypatch
+) -> None:
+    """feat-007/AC-5, feat-010/AC-88: one dead record is one dead record.
+
+    Observed for real while building this: OpenStreetMap's query service answered 504 Gateway
+    Timeout because it was busy, and the layer drew the tracker's sixteen hundred sites and named
+    what it could not read. That is the behaviour this whole product is built around, and it is
+    worth pinning rather than rediscovering.
+    """
+    from homescout.enrich import datacenters
+    from homescout.enrich.provider import ProviderFailed
+
+    def busy(root, service, **kw):
+        raise ProviderFailed("the mapped data centers: the public record did not answer (504)")
+
+    browser, _held = opened
+    monkeypatch.setattr(datacenters, "tracked", lambda root, service, **kw: [{"name": "One"}])
+    monkeypatch.setattr(datacenters, "built", busy)
+
+    answer = browser.get("/api/data-centers", headers=ours()).json()
+
+    assert [site["name"] for site in answer["sites"]] == ["One"]
+    assert len(answer["unreachable"]) == 1
+    assert "504" in answer["unreachable"][0]

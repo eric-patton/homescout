@@ -652,6 +652,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "wind_rose",
         "ground",
         "rainfall",
+        "data_centers",
         "review_queue",
         "run_status",
         "area_notes",
