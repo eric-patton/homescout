@@ -164,3 +164,10 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   refreshed whole, so `state` is on every row rather than inferred from the block, and replacing a
   stale quarter leaves every other state alone.
 
+
+- **2026-09-04, a defect found by profiling the results page.** Schema version 14: two covering
+  indexes, on `raw_listings` and `listing_sources`, and the source-links query names them. A raw
+  row carries the whole scraped record ahead of the three small columns a source link needs, so
+  every results page was reading through every payload of every raw row each property was ever
+  built from, 250 megabytes a load and growing nightly. The join is answered from the indexes now
+  and never touches a row; nothing is rewritten. Recorded as `T21`.

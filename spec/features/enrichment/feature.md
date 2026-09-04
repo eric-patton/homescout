@@ -124,3 +124,9 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   that a plain loop over three and a half thousand sites would miss the five-second bar by an order
   of magnitude; the fix is a spatial index and a test that asserts the time. It also found that D-12
   claimed broadband was the only provider with state, which this made untrue.
+
+- **2026-09-04, a defect found by the slow suite: the live coverage test skipped the data center
+  provider.** Three failures, one per distant state, the day after the provider arrived. The test
+  built its providers bare, and this one is not configured until it has been told where its indexes
+  live; a pass attaches the store, the test never had. It attaches a throwaway workspace now, so the
+  provider is checked live like the rest. Recorded as `T-dc-14`.

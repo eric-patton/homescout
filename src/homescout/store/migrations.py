@@ -28,6 +28,7 @@ from .schema import (
     SCHEMA_V11,
     SCHEMA_V12,
     SCHEMA_V13,
+    SCHEMA_V14,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -66,6 +67,9 @@ MIGRATIONS: tuple[str, ...] = (
     # and every assessment written before it keeps a null: nobody asked, which is not the same
     # answer as asked and found none.
     SCHEMA_V13,
+    # Two indexes and nothing else. An index is not history and rewrites none: the rows they cover
+    # are the same rows, read by a shorter road. See the note above `SCHEMA_V14`.
+    SCHEMA_V14,
 )
 
 

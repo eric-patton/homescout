@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -718,6 +718,24 @@ CREATE INDEX idx_assessments_listing ON assessments (listing_id, seq);
 #: has to hold the difference so a top-up knows which properties it still owes an answer for.
 SCHEMA_V13 = """
 ALTER TABLE assessments ADD COLUMN in_favour TEXT;
+"""
+
+#: Two covering indexes, so that answering "which source rows was this property built from, and
+#: where can each be read" never touches a raw row.
+#:
+#: A raw listing row carries the whole record the source returned, ahead of the few small columns a
+#: source link needs, and SQLite stores a row in column order: reaching `listing_url` means walking
+#: through the payload's overflow pages first. The results table asks this for every property on
+#: it and every raw row each was ever built from, which grows by one per source per nightly run.
+#: Measured on a real workspace after sixteen runs, 1,251 properties had 19,336 links between them,
+#: and reading them cost 61,700 page reads, 250 megabytes, on every page load, three quarters of
+#: everything the page read. With both indexes the planner answers the join from the indexes alone
+#: and the same question costs a quarter of the reads. No row is changed; nothing is rewritten.
+SCHEMA_V14 = """
+CREATE INDEX idx_raw_link_columns
+    ON raw_listings (id, source, source_listing_id, fetched_at, listing_url);
+CREATE INDEX idx_listing_sources_link
+    ON listing_sources (listing_id, raw_listing_id, join_signal, decided_by, linked_at);
 """
 
 #: Protected the moment it exists, by the same generated triggers every other recorded thing takes.

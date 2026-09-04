@@ -37,19 +37,35 @@ def paced():
 
 
 @pytest.mark.parametrize("where", list(DISTANT), ids=list(DISTANT))
-def test_every_provider_answers_at_a_point_in_this_state(where: str, paced) -> None:
+def test_every_provider_answers_at_a_point_in_this_state(where: str, paced, tmp_path) -> None:
     """feat-007/AC-12: national coverage, checked where the country stops looking alike.
 
     A provider that cannot be run on this installation is skipped by name rather than passed over
     silently, so the output says what was not checked. Broadband is the one that usually is: it
     needs an FCC account, and it needs that state's data downloaded, which is deliberately not
     something a test does on its own.
+
+    The providers are attached to a workspace first, the way a pass attaches them, because one of
+    them keeps its dataset beside the database rather than asking a service per point, and it is
+    not configured until something has told it where that is. This test built its providers bare,
+    so the day that provider arrived it was skipped by name here and failed the list of providers
+    allowed to skip, in all three states. A throwaway workspace is what a live check of it costs:
+    both of its indexes, about a megabyte and a half, fetched once into a temporary directory.
     """
+    from homescout.store import Store
+
     latitude, longitude = DISTANT[where]
     skipped: list[str] = []
     answered: dict[str, object] = {}
 
-    for provider in create():
+    providers = create()
+    with Store.open(tmp_path / "homescout.db") as store:
+        for provider in providers:
+            attach = getattr(provider, "attach", None)
+            if attach is not None:
+                attach(store)
+
+    for provider in providers:
         if not provider.configured():
             skipped.append(provider.name)
             continue

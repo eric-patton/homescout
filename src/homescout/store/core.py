@@ -542,12 +542,19 @@ class Store:
         found: dict[str, list[SourceLink]] = {one: [] for one in wanted}
         for chunk in _in_chunks(wanted):
             marks = ",".join("?" for _ in chunk)
+            # Both sides answered from their covering indexes and never from a row, said outright
+            # rather than left to the planner: a raw row carries the whole record the source
+            # returned ahead of these few columns, and the planner only prefers the index once
+            # the table is big enough for the difference to show, which is exactly when a test
+            # database is not. Naming the indexes makes the short road the only road, at any
+            # size, and a migration that lost one would fail here by name rather than slow down.
             rows = self._conn.execute(
                 "SELECT ls.listing_id, ls.raw_listing_id, ls.join_signal, ls.decided_by, "  # noqa: S608
                 "       ls.linked_at, rl.source, rl.source_listing_id, rl.fetched_at, "
                 "       rl.listing_url "
-                "FROM listing_sources ls "
-                "JOIN raw_listings rl ON rl.id = ls.raw_listing_id "
+                "FROM listing_sources ls INDEXED BY idx_listing_sources_link "
+                "JOIN raw_listings rl INDEXED BY idx_raw_link_columns "
+                "  ON rl.id = ls.raw_listing_id "
                 f"WHERE ls.listing_id IN ({marks}) "
                 "ORDER BY rl.fetched_at, ls.raw_listing_id",
                 chunk,

@@ -235,3 +235,32 @@ earlier.
       Including that a failure carrying an address with a key in its query string is stored without
       it, asserted against the unscrubbed version, because that is the one thing here that turns a
       momentary string into bytes on a disk that gets backed up.
+
+## Defect: reading a property's source links read the whole raw record
+
+- [x] T21: `store/schema.py`, `store/migrations.py`, `store/core.py`: schema version 14, two
+      covering indexes, and the source-links query naming them (`feat-001/AC-13`,
+      `feat-001/AC-27`, `feat-010/NFR-performance`).
+
+      Found while profiling the results page. A raw listing row carries the whole record the
+      source returned ahead of the few small columns a source link needs, and SQLite reads a row in
+      column order, so reaching the address meant walking through every payload's overflow pages
+      first. The results table asks this for every property on it and every raw row each was ever
+      built from, which grows by one per source per nightly run: after sixteen runs, 1,251
+      properties had 19,336 links between them, and reading them cost 61,700 page reads and 250
+      megabytes on every page load, three quarters of everything the page read.
+
+      Two covering indexes, one on each side of the join, and the query names both. Naming them
+      rather than trusting the planner, because the planner only prefers the index once the table
+      is large enough for the difference to show, which a test database never is; named, the short
+      road is the only road at any size, and a migration that lost an index fails by name rather
+      than slowing down. An index is not history and rewrites none: the rows are the same rows.
+
+      Measured on a copy of the real workspace: the migration takes a third of a second on a
+      four-hundred-megabyte file, the source-links query drops from 80,800 page reads to 20,600,
+      and the whole results answer from 80,868 reads and 325 megabytes to 38,004 and 151.
+
+- [x] T21-test: `tests/test_store_schema.py`: the plan for the source-links query names both
+      covering indexes, on a new database and on one brought forward from the version before them,
+      because an index a migration forgot is a results page that stops answering
+      (`feat-001/AC-13`, `feat-001/AC-27`).

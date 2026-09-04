@@ -223,3 +223,22 @@ alongside its peers.
       and a loop instead of a spatial index is what it catches (`feat-007/AC-37`,
       `feat-007/NFR-performance`).
 - [x] T-dc-12: `uv run ruff check .` and the full suite, default and slow, green.
+
+## Defect: the live coverage test never gave its providers a workspace
+
+- [x] T-dc-14: `tests/test_enrich_live.py`: the providers are attached to a throwaway workspace
+      before they are asked, the way a pass attaches them (`feat-007/AC-12`).
+
+      Found by the slow suite the day after the data center provider arrived: three failures, one
+      per distant state, each saying that provider had been skipped. It had. That provider keeps
+      its dataset beside the database rather than asking a service per point, and reports itself
+      not configured until something has told it where that is; the test built its providers bare,
+      so the provider was skipped by name and failed the list of providers allowed to skip, which
+      knew only broadband. Nothing was wrong on the real install, where a pass attaches the store
+      and both indexes were already on disk.
+
+      The honest fix rather than the quick one. Widening the allowed-skip list would have kept the
+      suite green while excusing exactly the provider that claims national coverage from the test
+      that checks it. A temporary workspace costs both indexes fetched once, about a megabyte and a
+      half, which is what a live check of this provider is worth. Passing in all three states, two
+      minutes and a quarter, most of it the paced fetch.

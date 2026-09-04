@@ -218,3 +218,69 @@ def test_a_failed_write_leaves_the_last_completed_run_usable(db_path: Path) -> N
         third = do_run(store, sources={"realtor": [prop("a1", price=390_000)]})
         comparison = store.compare("test-search", target_run_id=third.id)
         assert comparison.baseline_run_id == first.id
+
+
+#: The question the results table asks for every property on it, in the shape the store asks it.
+SOURCE_LINKS_QUERY = (
+    "SELECT ls.listing_id, ls.raw_listing_id, ls.join_signal, ls.decided_by, ls.linked_at, "
+    "       rl.source, rl.source_listing_id, rl.fetched_at, rl.listing_url "
+    "FROM listing_sources ls INDEXED BY idx_listing_sources_link "
+    "JOIN raw_listings rl INDEXED BY idx_raw_link_columns ON rl.id = ls.raw_listing_id "
+    "WHERE ls.listing_id IN (?, ?) ORDER BY rl.fetched_at, ls.raw_listing_id"
+)
+LINK_INDEXES = ("idx_listing_sources_link", "idx_raw_link_columns")
+
+
+def _plan(conn: sqlite3.Connection) -> str:
+    return " | ".join(
+        str(row[3]) for row in conn.execute("EXPLAIN QUERY PLAN " + SOURCE_LINKS_QUERY, ("a", "b"))
+    )
+
+
+def test_source_links_are_answered_from_indexes_rather_than_raw_rows(
+    store: Store, db_path: Path, tmp_path: Path
+) -> None:
+    """feat-001/AC-13, feat-001/AC-27: the road from a property to its source rows is short.
+
+    A raw listing row carries the whole record the source returned ahead of the few small columns
+    a source link needs, and SQLite reads a row in column order, so answering "which rows was this
+    built from, and where can each be read" by reading the rows means walking through every
+    payload first. On a real workspace after sixteen runs that was 61,700 page reads and 250
+    megabytes on every results page, three quarters of everything the page read, growing by one
+    raw row per source per night. Two covering indexes answer the join without touching a row.
+
+    Asserted on the plan rather than on timing, because the plan is the guarantee and the time is
+    only its symptom. The store names both indexes in the query, so the plan cannot drift with the
+    size of the table; the cost of that is that a database without them cannot answer the query at
+    all, which is why the second half of this brings a file from the build before the indexes
+    forward and asks again: an index a migration forgot is a results page that stops answering.
+    """
+    from homescout.store.migrations import MIGRATIONS, _apply
+
+    def indexes(conn: sqlite3.Connection) -> set[str]:
+        held = conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        return {name for (name,) in held}
+
+    store.close()
+    with sqlite3.connect(db_path) as fresh:
+        assert indexes(fresh) >= set(LINK_INDEXES)
+        found = _plan(fresh)
+    for index in LINK_INDEXES:
+        assert f"USING COVERING INDEX {index}" in found, found
+
+    #: A file from the build before the indexes, brought forward.
+    older = tmp_path / "older.db"
+    with sqlite3.connect(older) as conn:
+        for target in range(1, SCHEMA_VERSION):
+            _apply(conn, MIGRATIONS[target - 1], target)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION - 1
+        assert not indexes(conn) & set(LINK_INDEXES), "the older schema already has them"
+        with pytest.raises(sqlite3.OperationalError):
+            _plan(conn)
+    with Store.open(older) as migrated:
+        assert migrated.schema_version == SCHEMA_VERSION
+    with sqlite3.connect(older) as conn:
+        assert indexes(conn) >= set(LINK_INDEXES)
+        found = _plan(conn)
+    for index in LINK_INDEXES:
+        assert f"USING COVERING INDEX {index}" in found, found
