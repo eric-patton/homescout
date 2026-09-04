@@ -588,9 +588,14 @@ function toolsPanel() {
 
     el("table", {class: "plain"},
       el("tbody", {},
+        /* Named rather than summarised, and it has drifted twice now: this said four things when
+         * there were six, and six when there were eight. A person deciding whether to press this
+         * is deciding whether the columns they are missing would be filled by it, and a list that
+         * quietly stops naming half of them cannot answer that. */
         tool("Attach public data",
-          "Flood zone, elevation, aquifer and wildfire hazard for every property with " +
-          "coordinates. Cached hard, so this is mostly a first-time thing.",
+          "Flood zone, elevation, principal aquifer, wildfire hazard, the wildland-urban " +
+          "interface, county, broadband where it is set up, and how close the data centres are, " +
+          "for every property with coordinates. Cached hard, so this is mostly a first-time thing.",
           [
             ["Run it", () => start("enrich", {search: searches.value.trim() || null}, where,
               "Enrichment")],
