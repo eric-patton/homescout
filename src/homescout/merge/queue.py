@@ -40,7 +40,9 @@ class StoreQueue:
     def __init__(self, store: Store) -> None:
         self._store = store
         self._waiting: dict[str, AmbiguousMatch] = {}
-        self._filled = False
+        #: What the store looked like when these questions were worked out, or None before they
+        #: have been. See `refresh`.
+        self._as_of: tuple[object, ...] | None = None
 
     # -- what the port requires ---------------------------------------------
 
@@ -104,21 +106,28 @@ class StoreQueue:
         return match
 
     def refresh(self) -> None:
-        """Work out the questions, without deciding or merging anything.
+        """Work out the questions, without deciding or merging anything, if anything has moved.
 
         Cheap because the comparison is bucketed: a county's worth of rows produces a few hundred
-        comparisons, not a few million.
+        comparisons, not a few million. Not free, though: about a second over a statewide store.
+
+        Worked out again whenever the store has moved since, rather than once per object. The
+        browser interface holds one of these for as long as the server is up, and runs write through
+        a connection of their own, so a queue that kept its first answer went on showing the list
+        from whenever the server started. Whether anything moved is one query.
         """
-        if self._filled:
+        if self._as_of is not None and self._as_of == self._store.comparison_mark():
             return
-        self._filled = True
         from .pass_ import run_pass
 
         run_pass(self._store, queue=self, merging=False)
 
     def filled(self) -> None:
-        """Told by the pass that it has just populated this, so nothing recomputes it."""
-        self._filled = True
+        """Told by the pass that it has just populated this.
+
+        Nothing recomputes it until the store moves again.
+        """
+        self._as_of = self._store.comparison_mark()
 
     def waiting(self) -> int:
         """How many pairs are waiting on a person, which the digest reports."""
@@ -132,4 +141,4 @@ class StoreQueue:
         database and are untouched by this.
         """
         self._waiting.clear()
-        self._filled = False
+        self._as_of = None

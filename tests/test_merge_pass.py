@@ -293,3 +293,46 @@ def test_the_queue_is_worked_out_again_in_a_fresh_process(tmp_path) -> None:
     assert waiting, "a later invocation found nothing to review"
     assert all(len(match.listing_ids) >= 2 for match in waiting)
     assert any(match.conflicted for match in waiting)
+
+
+def test_a_queue_already_read_sees_what_a_later_run_queued(tmp_path) -> None:
+    """feat-006/AC-9: every ambiguous pair reaches a person, including one found after they looked.
+
+    The browser interface holds one queue for as long as the server is up, and a run started from
+    it, or the scheduled one overnight, writes through a connection of its own. A queue that worked
+    its questions out once and kept them went on showing the list from whenever the server started:
+    on the real workspace on 2026-09-12, 246 pairs on the review page and 277 in the database.
+    """
+    path = tmp_path / "held.db"
+    with Store.open(path) as held:
+        queue = StoreQueue(held)
+        assert queue.pending() == ()
+
+        with Store.open(path) as beside:
+            load(beside, properties(corpus(), "701 N Ashcombe"))
+            run_pass(beside)
+
+        waiting = queue.pending()
+
+    assert waiting, "a queue read before the run never saw what the run queued"
+
+
+def test_a_queue_nothing_has_moved_under_is_not_worked_out_again(store: Store, monkeypatch) -> None:
+    """feat-006/AC-23: counted on every visit to the front page, so asking again costs a query.
+
+    The comparison is about a second over a statewide store, and the interface serves one request at
+    a time, so redoing it for every count would put that second in front of every page.
+    """
+    from homescout.merge import pass_
+
+    load(store, properties(corpus(), "701 N Ashcombe"))
+    queue = StoreQueue(store)
+    first = [match.id for match in queue.pending()]
+    assert first
+
+    def again(*args, **kwargs):
+        raise AssertionError("the comparison ran again with nothing changed")
+
+    monkeypatch.setattr(pass_, "run_pass", again)
+
+    assert [match.id for match in queue.pending()] == first

@@ -188,6 +188,10 @@ def run_pass(
             continue
         _offer(review, [found.one, found.other], decided, outcome)
 
+    # Told again now that this pass's own merges are in, so the next read does not mistake them for
+    # a change made somewhere else and work everything out a second time.
+    if callable(filled):
+        filled()
     return outcome
 
 

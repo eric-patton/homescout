@@ -118,3 +118,36 @@ that does not exist yet is not one of them.
 
 - [x] T-unit-3: measured end to end against a copy of the real workspace, before and after, through
       `run_pass` and the same `/api/matches` the review page reads.
+
+## Defect: the review page kept the first list it worked out
+
+- [x] T-queue-1: `merge/queue.py`, `store/core.py`, `merge/pass_.py`: a queue works its questions
+      out again whenever the store has moved since it last did (`feat-006/AC-9`, `feat-006/AC-23`).
+
+      The questions are derived rather than stored so that they can never be stale, and then the
+      queue derived them once per object and kept them. That is harmless for a command, which lives
+      for one invocation. The browser interface holds one queue for as long as the server is up,
+      and every run writes through a connection of its own: one started from the page goes through
+      `api.open_beside`, and the scheduled one is another process. Neither can reach the
+      interface's queue to clear it, so the review page went on showing the pairs from whenever the
+      server started.
+
+      Measured on the real workspace on 2026-09-12, with a server up since 2026-09-10: 246 pairs on
+      the review page, 277 worked out fresh from the same database.
+
+      `store.comparison_mark` is the newest snapshot, the newest run and when the last one finished,
+      and the newest listing event, which every merge and every undo of one writes. The queue
+      remembers it when a pass fills it and compares before each read. The pass tells the queue
+      again at the end, after its own merges, so a run's own merges do not read as somebody else's
+      change and cost the comparison a second time.
+
+- [x] T-queue-2: `tests/test_merge_pass.py`: a queue read before a run on another connection sees
+      what that run queued (`feat-006/AC-9`), checked against the unfixed queue, where it fails.
+      Beside it a guard for the other direction (`feat-006/AC-23`): with nothing moved, a second
+      read does not run the comparison again, because the front page counts the queue on every
+      visit and the interface serves one request at a time.
+
+- [x] T-queue-3: measured against a copy of the real workspace: 277 pairs on the first read, a
+      second read in about a millisecond (the check itself is a hundredth of one), and after a merge
+      made through a second connection the next read works the list out again and the merged pair
+      is gone (276). The slow merge suite is unchanged.

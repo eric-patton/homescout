@@ -1633,6 +1633,21 @@ class Store:
             )
         return standing
 
+    def comparison_mark(self) -> tuple[Any, ...]:
+        """Something that changes whenever what address matching compares could have changed.
+
+        The newest snapshot, the newest run and when the last one finished, and the newest listing
+        event, which every merge and every undo of one writes. Each is a primary key or a table of a
+        few rows, so asking costs nothing. The review queue asks before every read, because the
+        browser interface keeps one queue for as long as the server is up while runs write through
+        connections of their own.
+        """
+        row = self._conn.execute(
+            "SELECT (SELECT MAX(id) FROM listing_snapshots), (SELECT MAX(seq) FROM runs), "
+            "       (SELECT MAX(finished_at) FROM runs), (SELECT MAX(id) FROM listing_events)"
+        ).fetchone()
+        return tuple(row)
+
     def record_contradiction(
         self, listing_ids: Sequence[str], detail: str, *, run_id: str | None = None
     ) -> MergeContradiction | None:
