@@ -1227,8 +1227,13 @@ def review_queue(workspace: Workspace) -> tuple[dict[str, Any], ...]:
     """
     store = workspace.store
     with _translating():
-        snapshots = store.latest_snapshots()
         found = workspace.queue.pending()
+        #: Only the properties in a pair. The queue already knows which those are, and asking for
+        #: every property in the store to describe a few hundred of them was a second read of all of
+        #: it on every visit to the review page.
+        snapshots = store.latest_snapshots(
+            [listing_id for match in found for listing_id in match.listing_ids]
+        )
 
     made: list[dict[str, Any]] = []
     for match in found:

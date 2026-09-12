@@ -264,3 +264,26 @@ earlier.
       covering indexes, on a new database and on one brought forward from the version before them,
       because an index a migration forgot is a results page that stops answering
       (`feat-001/AC-13`, `feat-001/AC-27`).
+
+## Defect: finding the newest snapshot read all of them
+
+- [x] T22: `store/core.py`, `api.py`: the newest snapshot of each property is picked in the query,
+      through the index on a listing's snapshots, and the review page asks only for the properties
+      in its pairs (`feat-001/NFR-performance`, `feat-006/AC-23`, `feat-010/NFR-performance`).
+
+      Found while tracing a review page that took seconds to open. `latest_snapshots` read every
+      snapshot of every live property in run order and kept the last one per property in Python.
+      A run adds a snapshot per property, so the read grows by a run's worth every night: after
+      twenty-one runs on the real workspace it built 22,346 snapshots to keep 1,825. The review
+      page paid for that twice on a first visit, once to describe its pairs and once inside the
+      comparison that finds them, and once more on every visit after.
+
+      The same snapshots, measured on a copy of the real workspace: the query alone from 0.57
+      seconds to 0.10, and through a fresh server the review page from 1.9 seconds on a first visit
+      and 0.9 after to 0.75 and 0.23. The index is named, as the source-links query names its own,
+      so a database without it fails by name rather than slowing down.
+
+- [x] T22-test: `tests/test_merge_pass.py`: three runs over the same properties build one snapshot
+      per property rather than three and still return the newest (`feat-001/NFR-performance`), and
+      the review page's own read names the properties in its pairs rather than asking for all of
+      them (`feat-006/AC-23`). Both checked against the code before the change, where they fail.

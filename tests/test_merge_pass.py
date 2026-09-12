@@ -336,3 +336,66 @@ def test_a_queue_nothing_has_moved_under_is_not_worked_out_again(store: Store, m
     monkeypatch.setattr(pass_, "run_pass", again)
 
     assert [match.id for match in queue.pending()] == first
+
+
+def test_the_newest_snapshot_is_found_without_building_the_older_ones(
+    store: Store, monkeypatch
+) -> None:
+    """feat-001/NFR-performance: a year of nightly runs must not make the newest mean all of them.
+
+    Every run adds one snapshot per property. Building each of them to keep the last one meant the
+    review page read 22,346 snapshot rows to describe 1,825 properties after twenty-one runs, and
+    twice on a first visit. Counted rather than timed, so it says the same thing on any machine.
+    """
+    entries = properties(corpus(), "701 N Ashcombe")
+    load(store, entries)
+    load(store, entries)
+    newer = [
+        dict(entry, price=entry["price"] + 1000 if entry.get("price") else entry.get("price"))
+        for entry in entries
+    ]
+    load(store, newer)
+
+    built: list[str] = []
+    original = Store._snapshot_from
+
+    def counting(row):
+        built.append(row["listing_id"])
+        return original(row)
+
+    monkeypatch.setattr(Store, "_snapshot_from", staticmethod(counting))
+
+    latest = store.latest_snapshots()
+
+    assert len(built) == len(latest), f"built {len(built)} snapshots to keep {len(latest)}"
+    assert {s.fields.price for s in latest.values()} == {e.get("price") for e in newer}
+
+
+def test_the_review_page_reads_only_the_properties_it_shows(store: Store, monkeypatch) -> None:
+    """feat-006/AC-23: readable, without reading every property in the store to do it.
+
+    The queue already knows which properties are in it. Asking for every property's snapshot to
+    describe the few hundred in pairs was a second read of the whole store on every visit.
+    """
+    from cli_fakes import workspace
+    from homescout import api
+
+    load(store, properties(corpus(), "701 N Ashcombe"))
+    queue = StoreQueue(store)
+    assert queue.pending()
+
+    asked: list[object] = []
+    original = Store.latest_snapshots
+
+    def spy(self, listing_ids=None):
+        asked.append(listing_ids)
+        return original(self, listing_ids)
+
+    monkeypatch.setattr(Store, "latest_snapshots", spy)
+
+    made = api.review_queue(workspace(store, queue=queue, images=False))
+
+    assert made
+    assert all(side["address_line"] for match in made for side in match["properties"])
+    assert asked, "the review page did not ask for any snapshots"
+    assert None not in asked, "the review page asked for every property in the store"

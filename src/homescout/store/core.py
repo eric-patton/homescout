@@ -596,8 +596,14 @@ class Store:
         What address matching compares. One query rather than one per listing, because a county is
         several thousand of them and the merge pass runs after every run.
 
-        Ordered by insertion, so the last row seen for a listing is its newest: `seq` on the run is
-        the only ordering in this database that cannot tie, which is why comparisons use it too.
+        Only the newest row for each listing is read, picked in the query rather than by reading
+        them all and keeping the last. Every run adds a snapshot per property, so reading them all
+        grows by a run's worth every night: after twenty-one runs on the real workspace that was
+        22,346 rows built to keep 1,825, in 0.57 seconds against 0.10 for the newest alone. Newest
+        is by `seq` on the run, the only ordering in this database that cannot tie, which is why
+        comparisons use it too. The index is named rather than left to the planner, for the reason
+        the source-links query names its own: a test database is never large enough to show the
+        difference, and a missing index should fail by name rather than slow down.
 
         `listing_ids` narrows it to the properties a caller actually wants. Building every snapshot
         in the database to keep a handful of them is the shape of waste that does not show up until
@@ -609,22 +615,24 @@ class Store:
             return {}
         select = (
             f"SELECT s.run_id, s.listing_id, s.observed_at, {_SNAPSHOT_COLUMNS} "
-            f"FROM listing_snapshots s "
-            f"JOIN listings l ON l.id = s.listing_id "
-            f"JOIN runs r ON r.id = s.run_id "
+            f"FROM listings l "
+            f"JOIN listing_snapshots s ON s.id = ("
+            f"    SELECT newest.id FROM listing_snapshots newest INDEXED BY idx_snapshots_listing "
+            f"    JOIN runs r ON r.id = newest.run_id "
+            f"    WHERE newest.listing_id = l.id ORDER BY r.seq DESC LIMIT 1"
+            f") "
             f"WHERE l.retracted = 0 AND l.superseded_by IS NULL "
         )
         found: dict[str, Snapshot] = {}
         if wanted is None:
-            for row in self._conn.execute(select + "ORDER BY s.listing_id, r.seq").fetchall():
+            for row in self._conn.execute(select + "ORDER BY l.id").fetchall():
                 found[row["listing_id"]] = self._snapshot_from(row)
             return found
-        #: Chunked, and each listing falls in exactly one chunk, so ordering within a chunk is all
-        #: the ordering the answer needs.
+        #: Chunked, and each listing falls in exactly one chunk.
         for chunk in _in_chunks(wanted):
             marks = ",".join("?" for _ in chunk)
             rows = self._conn.execute(
-                select + f"AND s.listing_id IN ({marks}) ORDER BY s.listing_id, r.seq",  # noqa: S608
+                select + f"AND l.id IN ({marks}) ORDER BY l.id",  # noqa: S608
                 chunk,
             ).fetchall()
             for row in rows:
