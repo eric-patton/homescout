@@ -287,3 +287,26 @@ earlier.
       per property rather than three and still return the newest (`feat-001/NFR-performance`), and
       the review page's own read names the properties in its pairs rather than asking for all of
       them (`feat-006/AC-23`). Both checked against the code before the change, where they fail.
+
+## Defect: the review page asked for source links one property at a time
+
+- [x] T23: `api.py`: the review page asks for every side's source links in one question, through
+      the covering indexes T21 added, rather than once per property (`feat-001/AC-13`,
+      `feat-006/AC-23`, `feat-010/NFR-performance`).
+
+      Found by counting what a visit reads rather than how long it takes. The per-property question
+      is the one T21 kept for a single opened property, and it reaches the source name by reading
+      past each raw row's payload. The review page asked it for every side of every pair: 130 MB of
+      the real workspace on each visit, the largest single read on the page.
+
+      Whether that costs anything depends on whether Windows still holds the file in memory. Timed
+      on this machine, an uncached scattered 4 KB read costs 0.17 ms against 0.003 ms cached, so a
+      first visit reading about 240 MB, some 60,000 pages, took 8.6 seconds on the live server after
+      the file had sat unread and 0.74 seconds straight after it had been read.
+
+      Measured on a copy of the real workspace, with the same 277 pairs: a first visit from 245 MB
+      read to 169, and every visit after from 155 to 79.
+
+- [x] T23-test: `tests/test_merge_pass.py`: one source-link query for a whole review page rather
+      than one per property (`feat-006/AC-23`, `feat-001/AC-13`), checked against the code before
+      the change, where it asked six.

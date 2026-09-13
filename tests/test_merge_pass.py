@@ -399,3 +399,32 @@ def test_the_review_page_reads_only_the_properties_it_shows(store: Store, monkey
     assert all(side["address_line"] for match in made for side in match["properties"])
     assert asked, "the review page did not ask for any snapshots"
     assert None not in asked, "the review page asked for every property in the store"
+
+
+def test_the_review_page_asks_for_source_links_once_rather_than_per_property(
+    store: Store,
+) -> None:
+    """feat-006/AC-23, feat-001/AC-13: which sites each side was seen on, in one question.
+
+    Asked once per property, the source links read past each raw row's payload: 130 MB of the real
+    workspace on every visit to the review page, which is seconds whenever Windows no longer has
+    the file in memory. The all-at-once query answers from indexes, as the results page does.
+    """
+    from cli_fakes import workspace
+    from homescout import api
+
+    load(store, properties(corpus(), "701 N Ashcombe"))
+    queue = StoreQueue(store)
+    waiting = queue.pending()
+    assert sum(len(match.listing_ids) for match in waiting) >= 2
+
+    asked: list[str] = []
+    store.connection.set_trace_callback(asked.append)
+    try:
+        made = api.review_queue(workspace(store, queue=queue, images=False))
+    finally:
+        store.connection.set_trace_callback(None)
+
+    assert all(side["sources"] for match in made for side in match["properties"])
+    links = [query for query in asked if "listing_sources" in query]
+    assert len(links) == 1, f"{len(links)} source-link queries for one page"

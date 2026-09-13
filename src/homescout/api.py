@@ -1228,12 +1228,15 @@ def review_queue(workspace: Workspace) -> tuple[dict[str, Any], ...]:
     store = workspace.store
     with _translating():
         found = workspace.queue.pending()
+        wanted = [listing_id for match in found for listing_id in match.listing_ids]
         #: Only the properties in a pair. The queue already knows which those are, and asking for
         #: every property in the store to describe a few hundred of them was a second read of all of
         #: it on every visit to the review page.
-        snapshots = store.latest_snapshots(
-            [listing_id for match in found for listing_id in match.listing_ids]
-        )
+        snapshots = store.latest_snapshots(wanted)
+        #: Which sites each side was seen on, in one question answered from indexes. Asked once per
+        #: property, it read past every raw row's payload: 130 MB of the real workspace on every
+        #: visit, which is seconds whenever Windows no longer has the file in memory.
+        linked = store.source_links_for_many(wanted)
 
     made: list[dict[str, Any]] = []
     for match in found:
@@ -1241,7 +1244,7 @@ def review_queue(workspace: Workspace) -> tuple[dict[str, Any], ...]:
         for listing_id in match.listing_ids:
             snapshot = snapshots.get(listing_id)
             fields = snapshot.fields if snapshot is not None else None
-            sources = sorted({link.source for link in store.source_links(listing_id)})
+            sources = sorted({link.source for link in linked.get(listing_id, ())})
             properties.append(
                 {
                     "listing_id": listing_id,
