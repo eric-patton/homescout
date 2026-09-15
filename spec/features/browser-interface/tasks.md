@@ -1763,3 +1763,34 @@ is written in this file beside this function and the wrong pattern is the one cu
       state) fail because the data center provider is skipped in a fresh workspace and the
       test's list of providers allowed to skip was not widened when that provider arrived
       earlier today. Nothing in this change touches enrichment; noted for that feature.
+
+## Defect: every street map became a grid of "Access blocked" tiles
+
+- [x] T216: `web/static/common.js`, `search.js`, `listing.js`, `fire.js`: the street tile layer
+      on each of the three pages that draw one asks for its tiles with a referrer policy of
+      `origin`, defined once beside the reason, so the request carries the scheme and host of
+      this server and nothing after it (`feat-010/AC-25`, `feat-010/AC-68`).
+
+      Reported with a screenshot: every tile on the map page was OpenStreetMap's "Access blocked,
+      app is not following the tile usage policy" picture, with the hazard layer still drawn over
+      it because that layer is fetched by this server rather than by the browser.
+
+      Every page here is served with `Referrer-Policy: no-referrer`, since August, so the browser
+      asked for tiles without saying which site wanted them. OpenStreetMap's policy has always
+      required a tile request to be identifiable to a website or an application; in September
+      2026 they began enforcing it, and a browser request with no Referer is now answered with the
+      blocked picture. Confirmed from this machine against their server: the same tile with no
+      Referer is the blocked picture (with an `x-blocked` header), and with any Referer at all it
+      is the map. Nothing about this machine, the volume of requests or the browser was at fault.
+
+      `origin` rather than relaxing the page's own policy, because the privacy reason for that
+      policy is real and still stated: the tile server learns that a HomeScout install is asking
+      and not which page, which property or which search, and every other request stays as it
+      was. The satellite and hazard layers do not need it and are left alone.
+
+- [x] T216-test: `tests/test_web_browser.py`: the real server, with a listener on what every
+      request carried, and the three street maps opened in a real browser. Every tile request
+      carries exactly this server's origin and the page's own requests carry nothing
+      (`feat-010/AC-25`, `feat-010/AC-68`). Red against the code before the change, where the
+      server heard no Referer at all.
+- [x] T216-check: `uv run ruff check .` green; the browser suite, all sixty-two, green.

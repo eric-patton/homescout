@@ -424,7 +424,7 @@ function build() {
   held.backgrounds = {};
   if (map_.tiles) {
     held.backgrounds.street = L.tileLayer(map_.tiles, {
-      attribution: map_.attribution || "", maxZoom: 19,
+      attribution: map_.attribution || "", maxZoom: 19, referrerPolicy: TILE_REFERRER,
     });
   }
   if (map_.satellite) {

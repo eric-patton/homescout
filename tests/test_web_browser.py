@@ -3914,3 +3914,100 @@ def test_the_concerns_control_opens_a_dialog_and_gives_focus_back(served) -> Non
         process.terminate()
         process.wait(timeout=10)
 
+
+
+def test_a_street_tile_request_says_which_server_asked_and_nothing_else(
+    store: Store, db_path: Path, monkeypatch
+) -> None:
+    """feat-010/AC-25, feat-010/AC-68: the map background that was turned on has to be a map.
+
+    Every page is served with `Referrer-Policy: no-referrer`, so nothing the browser fetches says
+    which site asked for it. OpenStreetMap's tile servers stopped accepting that in September
+    2026: a browser request with no Referer is answered with an "Access blocked" picture in place
+    of the tile, and every map in this tool became a grid of them. Their usage policy has always
+    required a request to be identifiable to a website or an application; what changed is that
+    they now enforce it. Tested from this machine against their server: the same tile with no
+    Referer is the blocked picture, and with any Referer at all it is the map.
+
+    So the street tile layer, alone, sends the origin of this server: scheme and host, nothing
+    after it. The tile server learns that a HomeScout install is asking and not which page, which
+    property or which search. Both halves are pinned here, from what the server actually received
+    rather than from what the page meant to send: every tile request carries exactly the origin,
+    and the page's own requests carry nothing, as before. On all three pages that draw a street
+    map, because each one builds its own layer.
+
+    Red against the code before the change, where the tile requests carried no Referer at all.
+    """
+    import uvicorn
+
+    from homescout.web.app import build
+
+    load(store, [listing(f"p{index:05d}", price=90_000 + index * 37) for index in range(60)])
+    held = held_workspace(shared_store(db_path))
+    one = next(record.id for record in store.listings())
+    app = build(held)
+
+    heard: list[tuple[str, str | None]] = []
+
+    async def overhearing(scope, receive, send):
+        if scope["type"] == "http":
+            headers = {name.decode(): value.decode() for name, value in scope["headers"]}
+            heard.append((scope["path"], headers.get("referer")))
+        await app(scope, receive, send)
+
+    port = free_port()
+    base = f"http://127.0.0.1:{port}"
+    config = uvicorn.Config(
+        overhearing, host="127.0.0.1", port=port, log_level="error", access_log=False
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    for _ in range(200):
+        if server.started:
+            break
+        time.sleep(0.05)
+    assert server.started, "the server did not start"
+
+    # Tiles answered by this server, so the test never asks anybody else for one. 404 is what a
+    # tile server says for a tile it does not have, and the request is heard before it is answered.
+    monkeypatch.setenv("HOMESCOUT_MAP_TILES", f"{base}/static/drawn/{{z}}/{{x}}/{{y}}.png")
+    monkeypatch.setenv("HOMESCOUT_MAP_ATTRIBUTION", "Drawn by somebody")
+
+    def tiles_asked_by(where: str) -> int:
+        process, debug = chrome(f"{base}{where}")
+        try:
+            connection = talk(debug, where)
+            return evaluate(
+                connection,
+                """(async () => {
+                     const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                     const drawn = () => [...document.querySelectorAll(".leaflet-tile-pane img")]
+                       .filter((one) => one.src.includes("/drawn/")).length;
+                     for (let i = 0; i < 200 && !drawn(); i++) await wait(50);
+                     await wait(300);
+                     return drawn();
+                   })()""",
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
+
+    try:
+        for where in ("/map/portales", f"/listing/{one}", "/search/portales"):
+            assert tiles_asked_by(where) > 0, f"{where} drew no street tiles: nothing to test"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+    tiles = [referer for path, referer in heard if path.startswith("/static/drawn/")]
+    others = [(path, referer) for path, referer in heard if not path.startswith("/static/drawn/")]
+    assert len(tiles) >= 3, f"the server heard {len(tiles)} tile requests"
+    assert set(tiles) == {f"{base}/"}, (
+        "a street tile request has to say which server asked, and only that, or OpenStreetMap "
+        f"answers it with an 'Access blocked' picture; the server heard: {sorted(set(tiles))!r}"
+    )
+    assert others and all(referer is None for _path, referer in others), (
+        "something other than a street tile carried a Referer; the page's own policy is still "
+        f"no-referrer: {[(path, referer) for path, referer in others if referer][:5]!r}"
+    )

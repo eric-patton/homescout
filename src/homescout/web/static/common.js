@@ -103,6 +103,24 @@ async function ask(path, options) {
 const send = (path, body, method) => ask(path, {method: method || "POST", body: body});
 
 /* ------------------------------------------------------------------ */
+/* Map tiles                                                           */
+/* ------------------------------------------------------------------ */
+
+/* What a street tile request says about where it came from.
+ *
+ * Every page here is served with `Referrer-Policy: no-referrer`, so nothing the browser fetches
+ * says which site asked for it. OpenStreetMap's tile servers refuse that: their usage policy has
+ * always required a request to be identifiable to a website or an application, and since
+ * September 2026 a browser request with no Referer is answered with an "Access blocked" picture
+ * in place of the map. This is the one exception, set on the street layer alone. `origin` sends
+ * the scheme and host of this server and nothing after it, so the tile server learns that a
+ * HomeScout install is asking and not which page, which property or which search. Every other
+ * request keeps the page's policy; the satellite and hazard layers do not need it and are left
+ * as they are.
+ */
+const TILE_REFERRER = "origin";
+
+/* ------------------------------------------------------------------ */
 /* A hazard layer, drawn as map tiles                                  */
 /* ------------------------------------------------------------------ */
 

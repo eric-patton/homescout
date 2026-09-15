@@ -119,7 +119,9 @@ function drawWhereItIs(where, fields, settings) {
 
   const tiles = settings.map && settings.map.tiles;
   if (tiles) {
-    L.tileLayer(tiles, {attribution: settings.map.attribution || "", maxZoom: 19}).addTo(map);
+    L.tileLayer(tiles, {
+      attribution: settings.map.attribution || "", maxZoom: 19, referrerPolicy: TILE_REFERRER,
+    }).addTo(map);
   }
   if ((settings.hazards || {}).wildfire) {
     arcgisLayer("wildfire", {opacity: 0.55}).addTo(map);

@@ -1282,6 +1282,7 @@ function startMap() {
     L.tileLayer(tiles, {
       attribution: (held.settings.map && held.settings.map.attribution) || "",
       maxZoom: 19,
+      referrerPolicy: TILE_REFERRER,
     }).addTo(map);
     hint.replaceChildren(
       el("span", {},
