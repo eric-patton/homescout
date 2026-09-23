@@ -210,3 +210,18 @@ def test_an_empty_result_is_success_not_failure() -> None:
     assert result.outcome == "ok"
     assert result.rows == ()
     assert result.truncated is False
+
+
+def test_an_empty_later_page_is_incomplete_when_more_rows_were_promised() -> None:
+    """feat-002/AC-15: a vanished page cannot certify a complete market."""
+    from homescout.sources.ceiling import Page, collect
+
+    pages = iter((Page(rows=(listing("a"),), total=2), Page(rows=(), total=2)))
+    result = collect(
+        query(), fetch_page=lambda _query, _offset: next(pages),
+        split=lambda _query: None, ceiling=None, page_size=1,
+    )
+
+    assert len(result.rows) == 1
+    assert result.truncation is not None
+    assert "empty page" in result.truncation.reason

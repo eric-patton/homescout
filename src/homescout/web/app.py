@@ -589,14 +589,14 @@ def build(workspace: api.Workspace) -> FastAPI:
         rows, count = api.kept(held())
         return answer("kept", kept=list(rows), count=count)
 
-    @app.get("/api/export/{name}")
+    @app.post("/api/export/{name}")
     def download_export(
         name: str, format: str = "xlsx", include_dropped: bool = False
     ) -> FileResponse:
         """The spreadsheet, downloaded from the page the person is already reading.
 
-        Declared after `/api/export/templates` on purpose: that path would otherwise be
-        read as a saved search called `templates`.
+        A POST is required because this also replaces the workspace's saved copy. The request
+        therefore passes the same origin and custom-header guard as every other write.
 
         The same core operation the terminal calls, writing to the same place in the
         workspace, so a sheet taken from here and a sheet taken from `homescout export` are

@@ -162,6 +162,7 @@ def entry(
     other_changes: list[dict[str, Any]] = []
     gone: list[dict[str, Any]] = []
     returned: list[dict[str, Any]] = []
+    unverified: list[dict[str, Any]] = []
 
     for event in comparison.events:
         if event.kind == "new":
@@ -170,6 +171,8 @@ def entry(
             gone.append(summarize(event))
         elif event.kind == "returned":
             returned.append(summarize(event))
+        elif event.kind == "unverified":
+            unverified.append(summarize(event))
         elif event.kind == "changed":
             price = _price_change(event)
             status = _status_change(event)
@@ -181,7 +184,11 @@ def entry(
             if others:
                 other_changes.append({**summarize(event), "fields": others})
 
-    matched = counts["new"] + counts["changed"] + counts["unchanged"] + counts["returned"]
+    matched = comparison.observed_count
+    if matched is None:
+        matched = sum(counts.get(kind, 0) for kind in (
+            "new", "changed", "unchanged", "returned", "unverified"
+        ))
     flagged, excluded = _criteria(store, target, baseline)
     sources = [
         {
@@ -201,6 +208,8 @@ def entry(
         "name": search_name,
         "run_id": target,
         "baseline_run_id": baseline,
+        "baseline_reset": comparison.baseline_reset,
+        "identity_frozen": comparison.identity_frozen,
         "started_at": outcome.run.started_at if outcome else None,
         "finished_at": outcome.run.finished_at if outcome else None,
         "outcome": (("degraded" if outcome.degraded else "ok") if outcome else None),
@@ -211,6 +220,7 @@ def entry(
             "changed": counts["changed"],
             "gone": counts["gone"],
             "returned": counts["returned"],
+            "unverified": counts.get("unverified", 0),
             # Always present, and empty for a search that states no criteria, so the shape of this
             # document never depends on whether any are configured.
             "flagged": len(flagged),
@@ -225,6 +235,7 @@ def entry(
         "other_changes": other_changes,
         "gone": gone,
         "returned": returned,
+        "unverified": unverified,
         "flagged": flagged,
         # How many properties each criterion removed. Beside the counts rather than inside them,
         # because an empty result with no explanation reads as a market that emptied out.

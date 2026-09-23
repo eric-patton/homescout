@@ -143,6 +143,8 @@ class _Walk:
 
         rows = self._fresh(first)
         wanted = min(first.total, self._ceiling) if self._over_ceiling(first.total) else first.total
+        if wanted > 0 and not first.rows:
+            self._note_empty_page(0, wanted)
         offset = self._page_size
         while offset < wanted and first.rows:
             if self.requests >= self._budget:
@@ -154,10 +156,20 @@ class _Walk:
                 self._stop_here(exc)
                 break
             if not page.rows:
+                self._note_empty_page(offset, wanted)
                 break
             rows.extend(self._fresh(page))
             offset += self._page_size
         return rows
+
+    def _note_empty_page(self, offset: int, wanted: int) -> None:
+        if self.truncation is None:
+            self.truncation = Truncation(
+                reason=(
+                    f"the source promised {wanted} rows but returned an empty page at offset "
+                    f"{offset}; what was retrieved is kept"
+                )
+            )
 
     def _page(self, query: SearchQuery, offset: int) -> Page:
         self.requests += 1

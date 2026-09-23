@@ -59,6 +59,7 @@ from .schema import SNAPSHOT_FIELDS
 
 _SNAPSHOT_COLUMNS = ", ".join(SNAPSHOT_FIELDS)
 _SNAPSHOT_PLACEHOLDERS = ", ".join(f":{name}" for name in SNAPSHOT_FIELDS)
+_ANY_REVISION = object()
 
 
 #: How many progress lines one pass keeps. The same bound the in-memory tracker used, moved to
@@ -195,14 +196,15 @@ class Store:
 
     # -- runs --------------------------------------------------------------
 
-    def start_run(self, search_name: str) -> RunRecord:
+    def start_run(self, search_name: str, *, revision: str | None = None) -> RunRecord:
         run_id = _new_id()
         started_at = utc_now()
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             cursor = conn.execute(
-                "INSERT INTO runs (id, search_name, started_at, finished_at, status) "
-                "VALUES (?, ?, ?, NULL, 'running')",
-                (run_id, search_name, started_at),
+                "INSERT INTO runs "
+                "(id, search_name, search_revision, started_at, finished_at, status) "
+                "VALUES (?, ?, ?, ?, NULL, 'running')",
+                (run_id, search_name, revision, started_at),
             )
             seq = int(cursor.lastrowid)
         return RunRecord(
@@ -212,6 +214,7 @@ class Store:
             started_at=started_at,
             finished_at=None,
             status="running",
+            revision=revision,
         )
 
     def record_source_outcome(self, run_id: str, outcome: SourceOutcome) -> None:
@@ -293,11 +296,13 @@ class Store:
                 # listing in this run, the first one recorded stands and both raw rows are kept.
                 conn.execute(
                     f"INSERT OR IGNORE INTO listing_snapshots "
-                    f"(run_id, listing_id, observed_at, {_SNAPSHOT_COLUMNS}) "
-                    f"VALUES (:run_id, :listing_id, :observed_at, {_SNAPSHOT_PLACEHOLDERS})",
+                    f"(run_id, listing_id, source, observed_at, {_SNAPSHOT_COLUMNS}) "
+                    f"VALUES (:run_id, :listing_id, :source, :observed_at, "
+                    f"{_SNAPSHOT_PLACEHOLDERS})",
                     {
                         "run_id": run_id,
                         "listing_id": listing_id,
+                        "source": source,
                         "observed_at": observed_at,
                         **values,
                     },
@@ -308,7 +313,7 @@ class Store:
 
         return listing_ids
 
-    def complete_run(self, run_id: str) -> RunRecord:
+    def complete_run(self, run_id: str, *, freeze_identity: bool = True) -> RunRecord:
         """Close a run and settle what it means.
 
         This is where presence moves: a listing this run did not see becomes `disappeared`, but
@@ -333,8 +338,9 @@ class Store:
             for r in conn.execute(
                 "SELECT DISTINCT sn.listing_id FROM listing_snapshots sn "
                 "JOIN runs r ON r.id = sn.run_id "
-                "WHERE r.search_name = ? AND r.status = 'completed'",
-                (run.search_name,),
+                "WHERE r.search_name = ? AND r.search_revision IS ? "
+                "AND r.status = 'completed'",
+                (run.search_name, run.revision),
             ):
                 live = self._live_listing_id(conn, r["listing_id"])
                 if live in known:
@@ -367,8 +373,46 @@ class Store:
                 "UPDATE runs SET status = 'completed', finished_at = ? WHERE id = ?",
                 (finished_at, run_id),
             )
+            if freeze_identity:
+                self._freeze_run_identity(conn, run_id)
 
         return self.get_run(run_id)
+
+    @staticmethod
+    def _freeze_run_identity(conn: sqlite3.Connection, run_id: str) -> None:
+        conn.execute(
+            "INSERT INTO run_identity_freezes (run_id, recorded_at) VALUES (?, ?)",
+            (run_id, utc_now()),
+        )
+        conn.execute(
+            "WITH RECURSIVE live(id, live_id) AS ("
+            "SELECT id, id FROM listings WHERE superseded_by IS NULL "
+            "UNION ALL SELECT l.id, live.live_id FROM listings l "
+            "JOIN live ON l.superseded_by = live.id) "
+            "INSERT INTO run_identity (run_id, listing_id, canonical_id) "
+            "SELECT ?, id, live_id FROM live",
+            (run_id,),
+        )
+
+    def freeze_run_identity(self, run_id: str) -> None:
+        """Fix the canonical mapping after the run's automatic merge pass."""
+        if self.get_run(run_id).status != "completed":
+            raise RunNotCompletedError(f"Run {run_id} has not completed its observations.")
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            frozen = conn.execute(
+                "SELECT 1 FROM run_identity_freezes WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if frozen is None:
+                self._freeze_run_identity(conn, run_id)
+
+    def record_postprocess_failure(self, run_id: str, stage: str, detail: str) -> None:
+        """Keep a failure after observation completion separate from run status."""
+        with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
+            conn.execute(
+                "INSERT INTO run_postprocess_failures (run_id, stage, detail, recorded_at) "
+                "VALUES (?, ?, ?, ?)",
+                (run_id, stage, scrub(detail)[:PASS_LINE_LIMIT], utc_now()),
+            )
 
     def fail_run(self, run_id: str) -> RunRecord:
         """Mark a run as failed. It is never used as a comparison baseline."""
@@ -401,7 +445,8 @@ class Store:
         return [self._run_from(r) for r in self._conn.execute(sql, params)]
 
     def last_completed_run(
-        self, search_name: str, *, before_seq: int | None = None, since: str | None = None
+        self, search_name: str, *, before_seq: int | None = None, since: str | None = None,
+        revision: str | None | object = _ANY_REVISION,
     ) -> RunRecord | None:
         """The most recent completed run, optionally bounded.
 
@@ -411,6 +456,9 @@ class Store:
         """
         sql = "SELECT * FROM runs WHERE search_name = ? AND status = 'completed'"
         params: list[Any] = [search_name]
+        if revision is not _ANY_REVISION:
+            sql += " AND search_revision IS ?"
+            params.append(revision)
         if before_seq is not None:
             sql += " AND seq < ?"
             params.append(before_seq)
@@ -457,17 +505,33 @@ class Store:
                 raise RunNotCompletedError(
                     f"Run {baseline.id} is {baseline.status}, so it cannot be a baseline."
                 )
+            if baseline.revision != target.revision:
+                raise RunNotCompletedError(
+                    "Those runs used different saved-search definitions and cannot be compared "
+                    "as one market change."
+                )
         elif since is not None:
             baseline = self.last_completed_run(
-                search_name, before_seq=target.seq, since=since
+                search_name, before_seq=target.seq, since=since, revision=target.revision
             )
             if baseline is None:
                 raise NoBaselineError(search_name, before=since)
         else:
-            baseline = self.last_completed_run(search_name, before_seq=target.seq)
+            baseline = self.last_completed_run(
+                search_name, before_seq=target.seq, revision=target.revision
+            )
+
+        reset = baseline is None and self._conn.execute(
+            "SELECT 1 FROM runs WHERE search_name = ? AND status = 'completed' "
+            "AND seq < ? LIMIT 1", (search_name, target.seq),
+        ).fetchone() is not None
+        frozen = self._conn.execute(
+            "SELECT 1 FROM run_identity_freezes WHERE run_id = ?", (target.id,)
+        ).fetchone() is not None
 
         return _diff.compare_runs(
-            self._conn, search_name=search_name, target=target, baseline=baseline
+            self._conn, search_name=search_name, target=target, baseline=baseline,
+            baseline_reset=reset, identity_frozen=frozen,
         )
 
     # -- listings ----------------------------------------------------------
@@ -576,7 +640,7 @@ class Store:
 
     def snapshot_at(self, listing_id: str, run_id: str) -> Snapshot | None:
         row = self._conn.execute(
-            f"SELECT run_id, listing_id, observed_at, {_SNAPSHOT_COLUMNS} "
+            f"SELECT run_id, listing_id, source, observed_at, {_SNAPSHOT_COLUMNS} "
             f"FROM listing_snapshots WHERE listing_id = ? AND run_id = ?",
             (listing_id, run_id),
         ).fetchone()
@@ -584,7 +648,7 @@ class Store:
 
     def snapshots_for_run(self, run_id: str) -> list[Snapshot]:
         rows = self._conn.execute(
-            f"SELECT run_id, listing_id, observed_at, {_SNAPSHOT_COLUMNS} "
+            f"SELECT run_id, listing_id, source, observed_at, {_SNAPSHOT_COLUMNS} "
             f"FROM listing_snapshots WHERE run_id = ? ORDER BY listing_id",
             (run_id,),
         ).fetchall()
@@ -614,7 +678,7 @@ class Store:
         if wanted is not None and not wanted:
             return {}
         select = (
-            f"SELECT s.run_id, s.listing_id, s.observed_at, {_SNAPSHOT_COLUMNS} "
+            f"SELECT s.run_id, s.listing_id, s.source, s.observed_at, {_SNAPSHOT_COLUMNS} "
             f"FROM listings l "
             f"JOIN listing_snapshots s ON s.id = ("
             f"    SELECT newest.id FROM listing_snapshots newest INDEXED BY idx_snapshots_listing "
@@ -1784,7 +1848,7 @@ class Store:
         guessing at it here would be exactly the silent bad merge this project is organized
         against.
         """
-        if row.source_listing_id is not None:
+        if row.source_listing_id and row.source_listing_id.strip():
             found = conn.execute(
                 "SELECT ls.listing_id FROM listing_sources ls "
                 "JOIN raw_listings rl ON rl.id = ls.raw_listing_id "
@@ -1793,7 +1857,7 @@ class Store:
                 "ORDER BY rl.fetched_at DESC LIMIT 1",
                 (source, row.source_listing_id),
             ).fetchone()
-        else:
+        elif row.fields.address_line and row.fields.address_line.strip():
             fields = row.fields
             found = conn.execute(
                 "SELECT ls.listing_id FROM listing_sources ls "
@@ -1810,6 +1874,8 @@ class Store:
                     fields.postal_code or "",
                 ),
             ).fetchone()
+        else:
+            found = None
 
         if found is not None:
             return self._live_listing_id(conn, found["listing_id"]), False
@@ -1902,7 +1968,9 @@ class Store:
         at: str,
     ) -> None:
         """Note price and status transitions on the timeline as they happen."""
-        previous = self.last_completed_run(run.search_name, before_seq=run.seq)
+        previous = self.last_completed_run(
+            run.search_name, before_seq=run.seq, revision=run.revision
+        )
         if previous is None:
             return
         for listing_id in observed_here:
@@ -1910,23 +1978,39 @@ class Store:
             after = self.snapshot_at(listing_id, run.id)
             if before is None or after is None:
                 continue
-            if before.fields.price != after.fields.price:
+            before_price = before.fields.price
+            before_status = before.fields.listing_status
+            if before.source != after.source:
+                if after.source is None:
+                    continue
+                matching = conn.execute(
+                    "SELECT rl.price, rl.listing_status FROM raw_listings rl "
+                    "JOIN listing_sources ls ON ls.raw_listing_id = rl.id "
+                    "WHERE ls.listing_id = ? AND rl.run_id = ? AND rl.source = ? "
+                    "ORDER BY rl.rowid LIMIT 1",
+                    (listing_id, previous.id, after.source),
+                ).fetchone()
+                if matching is None:
+                    continue
+                before_price = matching["price"]
+                before_status = matching["listing_status"]
+            if before_price != after.fields.price:
                 self._add_event(
                     conn,
                     listing_id,
                     run.id,
                     at,
                     "price_change",
-                    {"from": before.fields.price, "to": after.fields.price},
+                    {"from": before_price, "to": after.fields.price},
                 )
-            if before.fields.listing_status != after.fields.listing_status:
+            if before_status != after.fields.listing_status:
                 self._add_event(
                     conn,
                     listing_id,
                     run.id,
                     at,
                     "status_change",
-                    {"from": before.fields.listing_status, "to": after.fields.listing_status},
+                    {"from": before_status, "to": after.fields.listing_status},
                 )
 
     @staticmethod
@@ -2292,6 +2376,14 @@ class Store:
             finished_at=row["finished_at"],
             status=row["status"],
             sources=sources,
+            revision=row["search_revision"],
+            postprocess_failures=tuple(
+                f"{failure['stage']}: {failure['detail']}"
+                for failure in self._conn.execute(
+                    "SELECT stage, detail FROM run_postprocess_failures "
+                    "WHERE run_id = ? ORDER BY id", (row["id"],)
+                )
+            ),
         )
 
     @staticmethod
@@ -2312,6 +2404,7 @@ class Store:
             listing_id=row["listing_id"],
             observed_at=row["observed_at"],
             fields=ListingFields.from_row({name: row[name] for name in SNAPSHOT_FIELDS}),
+            source=row["source"],
         )
 
     @staticmethod

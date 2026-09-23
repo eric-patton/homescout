@@ -351,6 +351,40 @@ def test_an_edit_that_would_break_the_file_is_refused_before_it_is_written(tmp_p
     assert (tmp_path / "searches" / "guard.yaml").read_text(encoding="utf-8") == before
 
 
+def test_a_refused_edit_does_not_change_the_cached_definition(tmp_path: Path) -> None:
+    """feat-004/AC-12: validation also protects the in-process copy."""
+    from homescout.search import InvalidSearch
+
+    directory = tmp_path / "searches"
+    write(directory, "guard")
+    catalogue = catalog(directory)
+    original = catalogue.load("guard")
+
+    with pytest.raises(InvalidSearch):
+        catalogue.edit("guard", {"sources": "[nowhere]"})
+
+    assert catalogue.load("guard").sources == original.sources
+    catalogue.edit("guard", {"filters.price.max": "800000"})
+    assert catalogue.load("guard").sources == original.sources
+
+
+def test_observation_revision_changes_only_with_search_scope(tmp_path: Path) -> None:
+    """feat-001/AC-32: prose and display preferences do not reset market history."""
+    directory = tmp_path / "searches"
+    path = write(directory, "scope")
+    catalogue = catalog(directory)
+    original = catalogue.load("scope").observation_revision
+
+    path.write_text(path.read_text(encoding="utf-8") + "\n# A note.\n", encoding="utf-8")
+    assert catalogue.load("scope").observation_revision == original
+    catalogue.edit("scope", {"description": "A clearer description"})
+    assert catalogue.load("scope").observation_revision == original
+    catalogue.edit("scope", {"filters.listed_within_days": "14"})
+    assert catalogue.load("scope").observation_revision == original
+    catalogue.edit("scope", {"filters.price.max": "400000"})
+    assert catalogue.load("scope").observation_revision != original
+
+
 def test_a_new_definition_explains_itself(tmp_path: Path) -> None:
     """feat-004/AC-1: what `searches create` writes is valid, and readable without documentation."""
     made = catalog(tmp_path / "searches").create("fresh")
@@ -467,3 +501,25 @@ def test_an_ordinary_restore_still_works(tmp_path: Path) -> None:
     back = (searches / "portales.yaml").read_text(encoding="utf-8")
     assert "comment nobody may throw away" in back, "comments survive the round trip"
     assert 'value: "Portales, NM"' in back, "and so do the areas"
+
+
+def test_deleted_search_names_match_exactly_including_dots(tmp_path: Path) -> None:
+    """feat-004/AC-12: one deleted name never selects its neighbor."""
+    searches = tmp_path / "searches"
+    for name in ("ab", "a.b"):
+        write(searches, name)
+    catalogue = FileCatalog(searches)
+    catalogue.delete("ab")
+    catalogue.delete("a.b")
+
+    with pytest.raises(UnknownSearch):
+        catalogue.restore("a")
+    write(searches, "a")
+    assert set(catalogue.deleted()) == {"ab", "a.b"}
+    assert {name for name, _, _ in catalogue.deleted_entries()} == {"ab", "a.b"}
+
+    catalogue.restore("a.b")
+    assert catalogue.names() == ("a", "a.b")
+    assert catalogue.deleted() == ("ab",)
+    catalogue.discard("ab")
+    assert catalogue.deleted() == ()

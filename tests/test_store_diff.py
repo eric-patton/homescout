@@ -8,6 +8,8 @@ wrong would mean the tool announcing that houses had sold when a website merely 
 from __future__ import annotations
 
 from conftest import do_run, kinds, prop
+from homescout import digest
+from homescout.cli import render
 from homescout.store import Store
 
 
@@ -18,6 +20,83 @@ def test_a_first_ever_run_is_all_new(store: Store) -> None:
 
     assert comparison.baseline_run_id is None
     assert kinds(comparison) == {"new": 3, "changed": 0, "unchanged": 0, "gone": 0, "returned": 0}
+
+
+def test_a_changed_search_starts_a_new_comparison_baseline(store: Store) -> None:
+    """feat-001/AC-32: a smaller search is not evidence that houses disappeared."""
+    do_run(store, sources={"realtor": [prop("a"), prop("b")]}, revision="scope-one")
+    second = do_run(store, sources={"realtor": [prop("a")]}, revision="scope-two")
+
+    compared = store.compare("test-search", target_run_id=second.id)
+    assert compared.baseline_reset
+    assert compared.baseline_run_id is None
+    assert compared.observed_count == 1
+    assert compared.events == ()
+    assert all(one.presence == "observed" for one in store.listings())
+    summary = digest.entry(store, search_name="test-search", comparison=compared)
+    assert summary["counts"]["matched"] == 1
+    assert summary["baseline_reset"]
+    assert "new comparison baseline" in render.digest(digest.build([summary], kind="comparison"))
+
+    third = do_run(store, sources={"realtor": [prop("a")]}, revision="scope-two")
+    assert kinds(store.compare("test-search", target_run_id=third.id))["unchanged"] == 1
+
+
+def test_later_merge_decisions_do_not_change_a_past_comparison(store: Store) -> None:
+    """feat-001/AC-20, feat-001/AC-33: target-run identity is fixed at completion."""
+    first = do_run(store, sources={"realtor": [prop("a")], "zillow": [prop("b")]})
+    original = store.compare("test-search", target_run_id=first.id)
+    left, right = (listing.id for listing in store.listings())
+
+    merged = store.supersede([left, right], join_signal="person", decided_by="human")
+    assert store.compare("test-search", target_run_id=first.id) == original
+    store.undo_merge(merged)
+    assert store.compare("test-search", target_run_id=first.id) == original
+
+
+def test_source_handoff_uses_the_same_sources_prior_observation(store: Store) -> None:
+    """feat-001/AC-5: two sites disagreeing is not a price increase."""
+    do_run(store, sources={
+        "realtor": [prop("a", price=400_000)],
+        "zillow": [prop("b", price=420_000)],
+    })
+    left, right = (listing.id for listing in store.listings())
+    store.supersede([left, right], join_signal="person")
+    do_run(store, sources={
+        "realtor": [prop("a", price=400_000)],
+        "zillow": [prop("b", price=420_000)],
+    })
+    third = do_run(store, sources={"zillow": [prop("b", price=420_000)]},
+                   outcomes={"realtor": "ok"})
+
+    comparison = store.compare("test-search", target_run_id=third.id)
+    assert comparison.counts["changed"] == 0
+    assert comparison.counts["unchanged"] == 1
+    assert not [event for event in store.events(comparison.events[0].listing_id)
+                if event.run_id == third.id and event.kind == "price_change"]
+
+
+def test_unverifiable_source_handoff_is_reported_separately(store: Store) -> None:
+    """feat-001/AC-34: no common source means no verified movement."""
+    do_run(store, sources={
+        "realtor": [prop("a", price=400_000)],
+        "zillow": [prop("b", price=420_000)],
+    })
+    left, right = (listing.id for listing in store.listings())
+    store.supersede([left, right], join_signal="person")
+    do_run(store, sources={"realtor": [prop("a", price=400_000)]},
+           outcomes={"zillow": "ok"})
+    third = do_run(store, sources={"zillow": [prop("b", price=420_000)]},
+                   outcomes={"realtor": "ok"})
+
+    comparison = store.compare("test-search", target_run_id=third.id)
+    assert comparison.counts["changed"] == 0
+    assert comparison.counts["unverified"] == 1
+    summary = digest.entry(store, search_name="test-search", comparison=comparison)
+    assert summary["counts"]["unverified"] == 1
+    assert summary["counts"]["matched"] == 1
+    assert len(summary["unverified"]) == 1
+    assert "source handoffs" in render.digest(digest.build([summary], kind="comparison"))
 
 
 def test_a_repeated_run_with_nothing_moving_reports_nothing_moving(store: Store) -> None:

@@ -5,6 +5,20 @@ Glyphs: `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` not applic
 
 Each task names the criteria it satisfies. Tests carry the trace token `feat-001/AC-N`.
 
+## Reliable comparisons after the review
+
+- [x] T24: Record an effective search revision on each run, migrate existing stores forward, and
+      reset the comparison baseline when that revision changes. Test edits to areas, filters, and
+      sources against unchanged market rows.
+- [x] T25: Capture canonical identity for each completed target run and use it for historical
+      comparisons. Test later merge and unmerge actions against a fixed comparison.
+- [x] T26: Compare property fields using source-consistent observations. Report an unverifiable
+      source handoff distinctly and test a handoff with and without overlapping source history.
+- [x] T27: Show baseline resets and unverified handoffs through the command line, digest, and
+      browser interface, with focused contract tests.
+- [x] T28: Rehearse the migration on a copy of the live database and audit legacy comparisons for
+      identities that cannot be established. Run the full suite and code-against-spec review.
+
 ## Group A — foundation
 
 - [x] **T1. Project scaffolding.** `pyproject.toml` with `uv`, `.python-version` pinned to 3.13,

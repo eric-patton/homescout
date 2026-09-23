@@ -123,9 +123,12 @@ class RunOutcome:
         the observability minimum broken. What it is not is a failure: the run recorded everything
         it observed and the deterministic values are all still there.
         """
-        if any(s.outcome != "ok" for s in self.sources):
+        if any(s.outcome != "ok" or s.truncated for s in self.sources):
             return True
-        return bool(getattr(self.extraction, "degraded", False))
+        return bool(
+            getattr(self.extraction, "degraded", False)
+            or getattr(self.assessment, "degraded", False)
+        )
 
 
 def _extension_for(preview: Preview) -> str:
@@ -133,15 +136,17 @@ def _extension_for(preview: Preview) -> str:
     return _IMAGE_EXTENSIONS.get(kind, "jpg")
 
 
-def _identity(row: SourceRow) -> tuple[object, ...]:
+def _identity(row: SourceRow) -> tuple[object, ...] | None:
     """What makes two rows the same property, for the purpose of our own overlapping asks.
 
     Deliberately the same shape the store matches on: a source's own identifier, or failing that its
     own address text. This is only ever used to drop a repeat *across* queries, never within one.
     """
-    if row.source_listing_id is not None:
+    if row.source_listing_id and row.source_listing_id.strip():
         return (row.source_listing_id,)
     fields = row.fields
+    if not fields.address_line or not fields.address_line.strip():
+        return None
     return (
         (fields.address_line or "").strip().casefold(),
         (fields.unit or "").strip().casefold(),
@@ -225,8 +230,13 @@ def _ask(
         results.append(result)
         # Within one result, every row stands: a source repeating an identifier in one response is
         # contradicting itself and both halves are evidence. Across results, a repeat is ours.
-        fresh = [row for row in result.rows if _identity(row) not in seen]
-        seen.update(_identity(row) for row in result.rows)
+        fresh = [
+            row for row in result.rows
+            if (identity := _identity(row)) is None or identity not in seen
+        ]
+        seen.update(
+            identity for row in result.rows if (identity := _identity(row)) is not None
+        )
         rows.extend(fresh)
     return rows, results
 
@@ -274,9 +284,8 @@ def run_search(
 ) -> RunOutcome:
     """Run one saved search across its configured sources.
 
-    Raises whatever it cannot handle, after marking the run failed. A failed run is never a
-    comparison baseline, so an unexpected error costs this run and leaves the last completed one
-    exactly as usable as it was.
+    Raises whatever it cannot handle. An error before observations complete marks the run failed.
+    An error afterward is recorded separately, preserving the completed observation history.
     """
     say = progress or (lambda _message: None)
     if not definition.areas:
@@ -284,12 +293,16 @@ def run_search(
             f"The saved search {definition.name!r} names no area, so there is nothing to ask a "
             f"source for. Checked before the run started, so nothing was recorded."
         )
-    run = store.start_run(definition.name)
-    if started is not None:
-        started(run)
+    run = store.start_run(
+        definition.name, revision=getattr(definition, "observation_revision", None)
+    )
     reports: list[SourceReport] = []
+    stage = "start"
 
     try:
+        if started is not None:
+            started(run)
+        stage = "sources"
         for name in definition.sources:
             source = sources[name]
             capabilities = source.capabilities()
@@ -361,12 +374,13 @@ def run_search(
             unplaced_text = f", {unplaced} not locatable" if unplaced else ""
             say(f"{name}: {outcome}, {len(kept)} listings{unplaced_text}")
 
-        completed = store.complete_run(run.id)
+        completed = store.complete_run(run.id, freeze_identity=False)
 
         # Before the criteria and after the run, in that order and for that reason. A rule naming
         # `sewer` has to see this run's extracted value rather than last night's, and extraction
         # cannot happen during the run because it reads the descriptions the run just recorded.
         # Off unless this saved search turned it on, in which case none of it is reached at all.
+        stage = "extraction"
         extraction = extraction_pass(
             store, definition, root=store.path.parent, progress=progress
         )
@@ -377,6 +391,7 @@ def run_search(
         # about what is recorded: a property a rule drops is still observed, still snapshotted, and
         # still comparable, or the store would read the exclusion as a disappearance.
         rules = getattr(definition, "rules", ())
+        stage = "rules"
         if rules:
             record_verdicts(store, rules, run.id)
 
@@ -385,7 +400,11 @@ def run_search(
         # this run's comparison is about the records this run actually observed. The next run's
         # comparison follows the merge, because the store resolves a superseded record to the one
         # that replaced it.
+        stage = "merge"
         merging = merge_pass(store, queue=queue, run_id=run.id, progress=progress)
+        stage = "identity"
+        store.freeze_run_identity(run.id)
+        stage = "comparison"
         comparison = store.compare(definition.name, target_run_id=run.id)
 
         # Last, and after the criteria rather than before them, because an assessment is handed
@@ -396,13 +415,20 @@ def run_search(
         # Its own switch rather than the extraction one, because the two send different things. A
         # description leaving the machine and an address, a photograph and a map leaving it are not
         # the same decision, and one switch over both would have taken the second one away.
+        stage = "assessment"
         assessment = assessment_pass(
             store, definition, root=store.path.parent, progress=progress
         )
         if assessment is not None and assessment.skipped:
             say(f"assess: {assessment.skipped}")
-    except Exception:
-        store.fail_run(run.id)
+    except Exception as exc:
+        try:
+            if store.get_run(run.id).status == "running":
+                store.fail_run(run.id)
+            else:
+                store.record_postprocess_failure(run.id, stage, str(exc))
+        except Exception as recording_error:
+            exc.add_note(f"Run failure could not be recorded: {recording_error}")
         raise
 
     return RunOutcome(

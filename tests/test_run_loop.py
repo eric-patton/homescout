@@ -15,7 +15,7 @@ from cli_fakes import FakeSource, row, search, workspace
 from homescout import api
 from homescout.errors import InvalidInput
 from homescout.runner import passes, run_search
-from homescout.sources import City, SearchQuery
+from homescout.sources import City, SearchQuery, SearchResult, Truncation
 from homescout.store import Store
 
 
@@ -194,6 +194,20 @@ def test_a_property_returned_by_two_areas_is_recorded_once(store: Store) -> None
     assert outcome.sources[0].rows == 3
 
 
+def test_unidentified_rows_from_different_areas_are_not_collapsed(store: Store) -> None:
+    """feat-003/AC-29: an empty identity cannot prove two source rows are the same."""
+    from dataclasses import replace
+
+    first = replace(row("a", address_line=None, postal_code=None), source_listing_id=None)
+    second = replace(row("b", address_line=None, postal_code=None), source_listing_id=None)
+    source = FakeSource(per_area=[[first], [second]])
+
+    outcome = run(store, search(areas=2), sources={"fake": source})
+
+    assert outcome.sources[0].rows == 2
+    assert len(store.snapshots_for_run(outcome.run.id)) == 2
+
+
 def test_a_property_returned_twice_in_one_response_is_recorded_twice(store: Store) -> None:
     """feat-003/AC-29: a source contradicting itself is evidence, and both halves are kept.
 
@@ -239,6 +253,68 @@ def test_a_degraded_run_still_records_everything_it_managed(store: Store) -> Non
     assert outcome.comparison is not None
     named = {s.source: (s.outcome, s.detail) for s in store.get_run(outcome.run.id).sources}
     assert named["bad"] == ("failed", "the site refused")
+
+
+def test_an_incomplete_source_cannot_mark_unseen_properties_gone(store: Store) -> None:
+    """feat-003/AC-6, feat-001/AC-9: partial coverage is not absence evidence."""
+    run(store, search(), sources={"fake": FakeSource(rows=[row("a"), row("b")])})
+
+    class Incomplete(FakeSource):
+        def run_search(self, query):
+            result = super().run_search(query)
+            return SearchResult(
+                source=result.source, rows=result.rows, applied=result.applied,
+                truncation=Truncation(reason="the site stopped after one page"),
+            )
+
+    outcome = run(store, search(), sources={"fake": Incomplete(rows=[row("a")])})
+
+    assert outcome.sources[0].truncated
+    assert outcome.degraded
+    assert not outcome.run.all_sources_succeeded
+    assert outcome.comparison.counts["gone"] == 0
+    assert all(listing.presence == "observed" for listing in store.listings())
+
+
+def test_a_failed_assessment_degrades_the_overall_outcome(store: Store) -> None:
+    """feat-013/AC-11: an optional assessment failure is visible at run level."""
+    from dataclasses import replace
+
+    from homescout.assess.pass_ import PassOutcome
+
+    outcome = run(store, search(), sources={"fake": FakeSource(rows=[row("a")])})
+    failed = replace(outcome, assessment=PassOutcome(failures=("property a failed",)))
+
+    assert failed.degraded
+
+
+def test_a_failure_after_observations_preserves_the_original_error(
+    store: Store, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """feat-003/AC-9: a completed observation cannot be changed into a failed run."""
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("assessment failed after observations")
+
+    monkeypatch.setattr("homescout.runner.assessment_pass", broken)
+
+    with pytest.raises(RuntimeError, match="assessment failed after observations"):
+        run(store, search(), sources={"fake": FakeSource(rows=[row("a")])})
+
+    assert store.runs("portales")[0].status == "completed"
+    assert store.runs("portales")[0].postprocess_failures == (
+        "assessment: assessment failed after observations",
+    )
+
+
+def test_a_start_callback_failure_closes_the_run(store: Store) -> None:
+    """feat-003/AC-9: a failed startup callback must not strand a running row."""
+    def broken(_run):
+        raise RuntimeError("start callback failed")
+
+    with pytest.raises(RuntimeError, match="start callback failed"):
+        run_search(store, search(), {"fake": FakeSource()}, started=broken)
+
+    assert store.runs("portales")[0].status == "failed"
 
 
 def test_a_run_where_every_source_failed_marks_nothing_as_gone(store: Store) -> None:

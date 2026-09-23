@@ -15,7 +15,7 @@ from ..records import ListingFields
 Presence = Literal["observed", "disappeared"]
 SourceOutcomeName = Literal["ok", "failed", "unavailable"]
 RunStatus = Literal["running", "completed", "failed"]
-DifferenceKind = Literal["new", "changed", "unchanged", "gone", "returned"]
+DifferenceKind = Literal["new", "changed", "unchanged", "gone", "returned", "unverified"]
 EventKind = Literal[
     "first_seen", "disappeared", "returned", "price_change", "status_change", "merged", "unmerged"
 ]
@@ -47,6 +47,8 @@ class RunRecord:
     finished_at: str | None
     status: RunStatus
     sources: tuple[SourceOutcome, ...] = ()
+    revision: str | None = None
+    postprocess_failures: tuple[str, ...] = ()
 
     @property
     def all_sources_succeeded(self) -> bool:
@@ -55,7 +57,9 @@ class RunRecord:
         This is the question that decides whether a listing's absence is evidence. If any source
         failed or was unavailable, absence means nothing.
         """
-        return bool(self.sources) and all(s.outcome == "ok" for s in self.sources)
+        return bool(self.sources) and all(
+            s.outcome == "ok" and not s.truncated for s in self.sources
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +97,7 @@ class Snapshot:
     listing_id: str
     observed_at: str
     fields: ListingFields
+    source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +131,9 @@ class Comparison:
     baseline_run_id: str | None
     target_run_id: str
     events: tuple[DifferenceEvent, ...] = ()
+    baseline_reset: bool = False
+    identity_frozen: bool = True
+    observed_count: int | None = None
 
     def of_kind(self, kind: DifferenceKind) -> tuple[DifferenceEvent, ...]:
         return tuple(e for e in self.events if e.kind == kind)
@@ -134,6 +142,8 @@ class Comparison:
     def counts(self) -> dict[str, int]:
         counts = {k: 0 for k in ("new", "changed", "unchanged", "gone", "returned")}
         for event in self.events:
+            if event.kind == "unverified" and "unverified" not in counts:
+                counts["unverified"] = 0
             counts[event.kind] += 1
         return counts
 

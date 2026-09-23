@@ -271,9 +271,9 @@ def test_source_links_are_answered_from_indexes_rather_than_raw_rows(
     #: A file from the build before the indexes, brought forward.
     older = tmp_path / "older.db"
     with sqlite3.connect(older) as conn:
-        for target in range(1, SCHEMA_VERSION):
+        for target in range(1, 14):
             _apply(conn, MIGRATIONS[target - 1], target)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION - 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 13
         assert not indexes(conn) & set(LINK_INDEXES), "the older schema already has them"
         with pytest.raises(sqlite3.OperationalError):
             _plan(conn)

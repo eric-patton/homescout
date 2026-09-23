@@ -142,7 +142,7 @@ def test_every_anchor_goes_through_the_checked_helper() -> None:
         text = script.read_text(encoding="utf-8")
         anchors = text.count('el("a"')
         if script.name == "common.js":
-            assert anchors == 2, "link() and skipLink(), and nothing else"
+            assert anchors == 3, "link(), skipLink(), and the local blob download"
         else:
             assert anchors == 0, f"{script.name} builds an anchor itself instead of link()"
 

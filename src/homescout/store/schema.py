@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from ..records import FIELD_NAMES
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 # The fields a difference event may name. Declared, never inferred from whatever a source happened
 # to return: otherwise every source schema change would look like a market event, and the promise
@@ -737,6 +737,56 @@ CREATE INDEX idx_raw_link_columns
 CREATE INDEX idx_listing_sources_link
     ON listing_sources (listing_id, raw_listing_id, join_signal, decided_by, linked_at);
 """
+
+
+# Version 15 fixes comparison identity and distinguishes a search's observation scope. The
+# mapping is frozen once per completed run. Older runs keep a null revision and no freeze marker,
+# which lets readers label their historical identity honestly.
+SCHEMA_V15 = """
+ALTER TABLE runs ADD COLUMN search_revision TEXT;
+ALTER TABLE listing_snapshots ADD COLUMN source TEXT;
+CREATE INDEX idx_runs_search_revision ON runs (search_name, search_revision, seq);
+
+DROP TRIGGER runs_forward_only;
+CREATE TRIGGER runs_forward_only BEFORE UPDATE ON runs
+BEGIN
+    SELECT CASE WHEN NOT (
+        OLD.status = 'running'
+        AND NEW.status IN ('completed', 'failed')
+        AND NEW.seq = OLD.seq
+        AND NEW.id = OLD.id
+        AND NEW.search_name = OLD.search_name
+        AND NEW.search_revision IS OLD.search_revision
+        AND NEW.started_at = OLD.started_at
+    ) THEN RAISE(ABORT, 'a run may only go from running to completed or failed, once')
+    END;
+END;
+
+CREATE TABLE run_identity_freezes (
+    run_id      TEXT PRIMARY KEY REFERENCES runs (id),
+    recorded_at TEXT NOT NULL
+);
+CREATE TABLE run_identity (
+    run_id       TEXT NOT NULL REFERENCES run_identity_freezes (run_id),
+    listing_id   TEXT NOT NULL REFERENCES listings (id),
+    canonical_id TEXT NOT NULL REFERENCES listings (id),
+    PRIMARY KEY (run_id, listing_id)
+);
+CREATE INDEX idx_run_identity_canonical ON run_identity (run_id, canonical_id);
+
+CREATE TABLE run_postprocess_failures (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id      TEXT NOT NULL REFERENCES runs (id),
+    stage       TEXT NOT NULL,
+    detail      TEXT NOT NULL,
+    recorded_at TEXT NOT NULL
+);
+CREATE INDEX idx_run_postprocess_failures ON run_postprocess_failures (run_id, id);
+"""
+
+RUN_COMPARISON_TABLES: tuple[str, ...] = (
+    "run_identity_freezes", "run_identity", "run_postprocess_failures",
+)
 
 #: Protected the moment it exists, by the same generated triggers every other recorded thing takes.
 ASSESSMENT_TABLES: tuple[str, ...] = ("assessments",)

@@ -363,6 +363,7 @@ def _counts_line(entry: Mapping[str, Any]) -> str:
         ("changed", "changed"),
         ("gone", "gone"),
         ("returned", "returned"),
+        ("unverified", "source handoffs to verify"),
         ("flagged", "newly flagged"),
     ):
         value = counts.get(key) or 0
@@ -418,6 +419,7 @@ def _sections_of(entry: Mapping[str, Any], max_new: int) -> tuple[list[tuple[str
         ("Other changes", "other_changes"),
         ("Gone", "gone"),
         ("Back on the market", "returned"),
+        ("Source handoffs to verify", "unverified"),
         ("Newly flagged", "flagged"),
     ):
         ordered.append((title, _badged(list(entry.get(key) or ()), marks)))
@@ -433,6 +435,10 @@ def _sections_of(entry: Mapping[str, Any], max_new: int) -> tuple[list[tuple[str
 
 def _entry_html(entry: Mapping[str, Any], pictures: _Pictures, max_new: int) -> str:
     ordered, more = _sections_of(entry, max_new)
+    baseline_note = (
+        "<p>Search scope changed. This run establishes a new comparison baseline.</p>"
+        if entry.get("baseline_reset") else ""
+    )
     sections = [
         _section(title, rows, pictures, more=more if title == "New" else 0)
         for title, rows in ordered
@@ -441,6 +447,7 @@ def _entry_html(entry: Mapping[str, Any], pictures: _Pictures, max_new: int) -> 
         f'<h1 style="font-size: 20px; color: {INK}; margin: 24px 0 4px 0;">'
         f"{text(entry.get('name'))}</h1>"
         f'<div style="font-size: {SMALL_PX}px; color: {QUIET};">{text(_counts_line(entry))}</div>'
+        f"{baseline_note}"
         f"{_trouble(entry)}"
         f"{''.join(sections)}"
     )
@@ -481,6 +488,8 @@ def _text_card(summary: Mapping[str, Any]) -> list[str]:
 def _entry_text(entry: Mapping[str, Any], max_new: int) -> list[str]:
     ordered, more = _sections_of(entry, max_new)
     lines = [str(entry.get("name") or ""), _counts_line(entry), ""]
+    if entry.get("baseline_reset"):
+        lines.extend(["Search scope changed. This run establishes a new comparison baseline.", ""])
 
     bad = [
         source
@@ -520,6 +529,7 @@ MOVED_KEYS: tuple[str, ...] = (
     "other_changes",
     "gone",
     "returned",
+    "unverified",
     "flagged",
 )
 
@@ -565,6 +575,8 @@ def subject(document: Mapping[str, Any]) -> str:
         parts.append(f"{tally['gone']} gone")
     if tally["returned"]:
         parts.append(f"{tally['returned']} back")
+    if tally["unverified"]:
+        parts.append(f"{tally['unverified']} source handoffs to verify")
     if tally["flagged"]:
         parts.append(f"{tally['flagged']} flagged")
 

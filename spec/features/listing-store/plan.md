@@ -5,6 +5,25 @@ expected to be revised as the code teaches us things the spec did not.
 
 ## Design decisions
 
+### D-13. Revised searches establish a new baseline
+
+Hash the effective observation scope, excluding comments, formatting, prose, rules, export
+settings, and display-only freshness. Store that digest on each run. A run only compares with
+completed runs carrying the same digest. The first run after a definition change reports a baseline
+reset and makes no market-change claim. Legacy runs retain a null revision and remain readable.
+
+### D-14. Preserve comparison identity at completion
+
+Capture the mapping from constituent listing IDs to their canonical IDs when a run completes. A
+comparison naming that target uses its saved mapping, even after later merge or unmerge actions.
+Older runs need a reconstruction audit; an uncertain legacy mapping is reported honestly.
+
+### D-15. Compare one source with itself
+
+Keep every raw source row. For a canonical property, choose comparable source observations from
+both sides of a comparison before reporting a field movement. A source handoff without such a pair
+is reported separately from verified market movement.
+
 ### D-1. Layout: one package, layers as subpackages, source outside `spec/`
 
 ```

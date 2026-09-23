@@ -48,7 +48,12 @@ function draw(name, entry, since) {
     el("p", {class: "lede"},
       `${counts.matched || 0} properties matched against the earlier run · ` +
       `${counts.new || 0} new · ${counts.changed || 0} changed · ` +
-      `${counts.gone || 0} gone · ${counts.returned || 0} back`),
+      `${counts.gone || 0} gone · ${counts.returned || 0} back · ` +
+      `${counts.unverified || 0} unverified`),
+    entry.baseline_reset ? el("p", {class: "notice"},
+      "The search scope changed. This run establishes a new comparison baseline.") : null,
+    entry.identity_frozen === false ? el("p", {class: "notice"},
+      "This legacy comparison may change after a merge decision.") : null,
     el("div", {class: "controls"},
       el("label", {for: "since"}, "Compare against "),
       picker,
@@ -60,6 +65,7 @@ function draw(name, entry, since) {
     section("Other changes", entry.other_changes, othered),
     section("Gone", entry.gone, plain),
     section("Back", entry.returned, plain),
+    section("Source handoffs, unverified", entry.unverified, plain),
     section("Newly flagged", entry.flagged, flagged),
   );
 }

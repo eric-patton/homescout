@@ -543,7 +543,7 @@ def test_the_table_controls_are_grouped_by_the_question_they_answer() -> None:
     assert 'class: "grouped"' in results, "and they are laid out as groups"
     # Grouping reorders and labels; it hides nothing.
     for control in ('id: "showgone"', 'id: "showphotos"', 'id: "wraptext"',
-                    "chooseColumns", "format=xlsx", "format=csv"):
+                    "chooseColumns", 'downloadExport("xlsx"', 'downloadExport("csv"'):
         assert control in results, f"{control} survived the regrouping"
 
 

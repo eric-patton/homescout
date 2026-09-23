@@ -61,6 +61,7 @@ def do_run(
     sources: Mapping[str, Sequence[SourceRow]] | None = None,
     outcomes: Mapping[str, str] | None = None,
     complete: bool = True,
+    revision: str | None = None,
 ) -> RunRecord:
     """Run one search end to end.
 
@@ -69,7 +70,7 @@ def do_run(
     """
     sources = sources or {}
     outcomes = outcomes or {}
-    run = store.start_run(search)
+    run = store.start_run(search, revision=revision)
     for source in sorted(set(sources) | set(outcomes)):
         rows = list(sources.get(source, ()))
         if rows:

@@ -82,6 +82,12 @@ def digest(document: dict[str, Any]) -> str:
         if search.get("outcome"):
             headline += f" [{search['outcome']}]"
         lines.append(headline)
+        if search.get("baseline_reset"):
+            lines.append("  Search scope changed. This run establishes a new comparison baseline.")
+        if search.get("identity_frozen") is False:
+            lines.append("  Legacy identity: later merge decisions may affect this comparison.")
+        if counts.get("unverified"):
+            lines.append(f"  {counts['unverified']} source handoffs could not be verified.")
         waiting = counts.get("waiting_for_review") or 0
         if waiting:
             lines.append(
@@ -104,6 +110,9 @@ def digest(document: dict[str, Any]) -> str:
         )
         lines.extend(f"  {line}" for line in _properties("Gone", search["gone"]))
         lines.extend(f"  {line}" for line in _properties("Returned", search["returned"]))
+        lines.extend(
+            f"  {line}" for line in _properties("Unverified", search.get("unverified", []))
+        )
         lines.append("")
     for skip in document.get("skipped", []):
         lines.append(f"{skip['name']}: skipped, {skip.get('reason', 'not valid')}")

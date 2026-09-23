@@ -483,7 +483,7 @@ def test_the_spreadsheet_can_be_downloaded_from_the_page(opened) -> None:
     """
     browser, held = opened
 
-    answered = browser.get("/api/export/portales?format=csv", headers=reading())
+    answered = browser.post("/api/export/portales?format=csv", headers=ours())
 
     assert answered.status_code == 200, answered.text
     assert answered.headers["content-type"].startswith("text/csv")
@@ -497,10 +497,22 @@ def test_a_sheet_can_only_be_asked_for_in_a_format_that_exists(opened) -> None:
     """feat-010/AC-50: and says so, rather than writing something nobody can open."""
     browser, _held = opened
 
-    answered = browser.get("/api/export/portales?format=pdf", headers=reading())
+    answered = browser.post("/api/export/portales?format=pdf", headers=ours())
 
     assert answered.status_code == 400
     assert "xlsx or csv" in answered.json()["error"]
+
+
+def test_a_get_cannot_overwrite_an_export(opened) -> None:
+    """feat-010/AC-50: writing the workspace copy needs the guarded write path."""
+    browser, held = opened
+    path = held.root / "exports" / "portales.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("keep this copy", encoding="utf-8")
+
+    assert browser.get("/api/export/portales?format=csv", headers=reading()).status_code == 405
+    assert browser.post("/api/export/portales?format=csv", headers=reading()).status_code == 403
+    assert path.read_text(encoding="utf-8") == "keep this copy"
 
 
 def test_asking_for_the_templates_is_not_asking_for_a_search_called_templates(opened) -> None:

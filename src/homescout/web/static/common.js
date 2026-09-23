@@ -57,6 +57,16 @@ function link(href, text, attributes) {
   return el("a", Object.assign({href: target}, attributes || {}), text);
 }
 
+/* Download bytes returned by this application's guarded export endpoint. */
+function downloadBlob(blob, filename) {
+  const address = URL.createObjectURL(blob);
+  const anchor = el("a", {href: address, download: filename});
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(address), 60_000);
+}
+
 /** http and https only. A listing URL is text a listing site chose. */
 function webAddress(href) {
   if (typeof href !== "string" || !href.trim()) return null;

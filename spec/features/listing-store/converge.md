@@ -97,3 +97,17 @@ implemented: AC-1 through AC-26
   the command line feature.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 3 - 2026-09-23
+
+baseline: spec sha256:c8872034365c · plan sha256:9782001dc298 · tasks sha256:613aea6e4ca5 · code n/a
+
+implemented: AC-1 through AC-34
+
+The new scope revision is stored with each run and limits baselines and disappearance evidence.
+Completed target runs freeze canonical identity; legacy targets disclose that their identity is
+unfrozen. Source handoffs without a shared observation are counted separately. The digest, email,
+command line, and browser surface those results. Tests cover these paths and the live schema 14
+backup migrated to schema 15 with its recorded runs and snapshots intact.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

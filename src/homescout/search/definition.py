@@ -17,12 +17,15 @@ an exception escaping from somewhere with no name attached.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from ..errors import InvalidInput
 from ..records import ListingFields
@@ -49,6 +52,42 @@ SUFFIXES = (".yaml", ".yml")
 #: ignores anything that is not a file directly in the searches folder, so moving one here takes it
 #: out of the catalogue completely while leaving it on disk to be brought back or read.
 DELETED = "deleted"
+
+
+def _deleted_name(path: Path) -> str:
+    """The search name in an archived file, including names containing dots.
+
+    New repeated deletions use a tilde, which a search name cannot contain. Older archives used
+    a dotted timestamp; their own `name` field disambiguates that suffix from a dotted name.
+    """
+    stem = path.stem
+    if "~" in stem:
+        return stem.split("~", 1)[0]
+    try:
+        data = Document.read(path).data
+        name = data.get("name") if isinstance(data, Mapping) else None
+        if isinstance(name, str) and NAME.fullmatch(name):
+            return name
+    except DocumentError:
+        pass
+    return re.sub(r"\.\d{8}T\d{6}$", "", stem)
+
+
+def _observation_revision(document: Document | None) -> str | None:
+    if document is None or not isinstance(document.data, Mapping):
+        return None
+    data = document.data
+    filters = data.get("filters")
+    if isinstance(filters, Mapping):
+        filters = {key: value for key, value in filters.items() if key != "listed_within_days"}
+    scope = {
+        "areas": data.get("areas") or [],
+        "exclude_areas": data.get("exclude_areas") or [],
+        "filters": filters or {},
+        "sources": data.get("sources") or [],
+    }
+    encoded = json.dumps(scope, sort_keys=True, default=str, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 TEMPLATE = """\
 name: {name}
@@ -120,6 +159,7 @@ class FileSearch:
 
     def __init__(self, document: Document | None, reading: Reading, path: Path) -> None:
         self.document = document
+        self.observation_revision = _observation_revision(document)
         self.reading = reading
         self.path = path
         self.name = reading.name or path.stem
@@ -375,8 +415,7 @@ class FileCatalog:
         target = where / source.name
         if target.exists():
             # Deleted, restored, deleted again. Keeping both is the point of keeping either.
-            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
-            target = where / f"{source.stem}.{stamp}{source.suffix}"
+            target = where / f"{source.stem}~{uuid4().hex}{source.suffix}"
 
         source.replace(target)
         # When it was set aside, recorded where a surface can read it. A rename carries the file's
@@ -415,7 +454,10 @@ class FileCatalog:
         target = safe_path(self.directory, name)
         where = self.directory / DELETED
         kept = sorted(
-            (path for path in where.glob(f"{name}*") if path.suffix in SUFFIXES and path.is_file()),
+            (
+                path for path in where.iterdir()
+                if path.suffix in SUFFIXES and path.is_file() and _deleted_name(path) == name
+            ) if where.is_dir() else (),
             key=lambda path: path.stat().st_mtime,
         )
         if not kept:
@@ -435,7 +477,7 @@ class FileCatalog:
         return tuple(
             sorted(
                 {
-                    path.stem.split(".")[0]
+                    _deleted_name(path)
                     for path in where.iterdir()
                     if path.suffix in SUFFIXES and path.is_file()
                 }
@@ -472,7 +514,7 @@ class FileCatalog:
                 for path in sorted(where.iterdir())
                 if path.suffix in SUFFIXES
                 and path.is_file()
-                and path.stem.split(".")[0] == name
+                and _deleted_name(path) == name
             ]
             if where.is_dir()
             else []
@@ -511,7 +553,7 @@ class FileCatalog:
         for path in sorted(where.iterdir()):
             if path.suffix not in SUFFIXES or not path.is_file():
                 continue
-            name = path.stem.split(".")[0]
+            name = _deleted_name(path)
             held = newest.get(name)
             if held is None or path.stat().st_mtime > held.stat().st_mtime:
                 newest[name] = path
@@ -534,11 +576,13 @@ class FileCatalog:
         up carrying two lines that say nothing in a file somebody reads.
         """
         definition = self.load(name)
-        document = definition.document
-        if document is None:
+        if definition.document is None:
             raise InvalidSearch(name, definition.problems())
         if not changes:
             return definition
+        # Validation may reject the edit. Work on a fresh document so the cached definition
+        # continues to describe the unchanged file if that happens.
+        document = Document.read(definition.path)
 
         for key, value in changes.items():
             path = _key_path(key)

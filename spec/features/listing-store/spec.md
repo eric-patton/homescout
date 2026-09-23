@@ -19,7 +19,9 @@ only these names:
   It is source data. This feature stores and compares it but never infers it.
 
 A **difference event** is what a comparison between two points in time reports about one canonical
-listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returned`.
+listing. There are six: `new`, `changed`, `unchanged`, `gone`, `returned`, and
+`unverified`. The last means two sources observed the same property but no source can be compared
+across the selected runs, so a field movement cannot be confirmed.
 
 ## User stories
 
@@ -155,8 +157,9 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       event with its before and after values. A field the tool does not compare never appears.
 - [ ] AC-7: A property absent from one source's results while at least one other configured source
       reported success and did return it keeps presence `observed` and produces no `gone` event.
-- [ ] AC-8: A property absent from all sources in a run where every configured source reported
-      success has presence `disappeared` and produces exactly one `gone` event.
+- [ ] AC-8: A property previously observed under the same search scope, absent from all sources
+      in a run where every configured source reported success, has presence `disappeared` and
+      produces exactly one `gone` event.
 - [ ] AC-9: A property absent from all sources in a run where any configured source reported a
       failure keeps presence `observed` and produces no `gone` event.
 - [ ] AC-10: A `disappeared` property observed again has presence `observed`, produces exactly one
@@ -183,7 +186,9 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
 - [ ] AC-19: A run interrupted before completion is not used as either side of a comparison, and
       the next comparison uses the last completed run instead.
 - [ ] AC-20: The same comparison request between two fixed points in time returns identical results
-      when repeated at any later date, regardless of how many runs happened in between.
+      when repeated at any later date, regardless of how many runs or merge and unmerge decisions
+      happened in between. The target run's recorded search revision and canonical identity govern
+      the comparison.
 - [ ] AC-21: Every canonical listing appears in a comparison result at most once, carrying exactly
       one difference event.
 - [ ] AC-22: The database records its schema version, and opening a database written by an earlier
@@ -279,6 +284,19 @@ listing. There are exactly five: `new`, `changed`, `unchanged`, `gone`, `returne
       **A search run is one operation, not two.** It has a row here and a row in `runs`, and the row
       here carries the run's id. `runs` stays the answer to what a run found; this is the answer to
       what is happening now.
+- [ ] AC-32: Each run records a digest of the search's observation scope: areas, exclusions,
+      result filters, and sources. A scope edit starts a new comparison series. The first run in
+      that series explicitly establishes a baseline, with its observed count but no `new` or `gone`
+      verdict against the old scope. Prose, rules, export settings, and a display-only freshness
+      window do not start a new series. Legacy runs without a revision remain readable and are not
+      silently treated as the same scope.
+- [ ] AC-33: A completed run records the canonical identity of its observed listings. A later
+      merge or unmerge does not alter a comparison targeting that run. When legacy identity cannot
+      be reconstructed, the answer explicitly says it is not frozen.
+- [ ] AC-34: Compared property fields come from the same source at both selected observations.
+      When a source handoff provides no common source, the property is reported as `unverified`,
+      never as a verified price, status, or unchanged event. Digests and the browser show this
+      count separately.
 
 ## Edge cases & errors
 

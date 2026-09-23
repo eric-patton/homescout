@@ -104,6 +104,28 @@ const TAGS = "Tags";
 /* What each site is called on a link back to it. */
 const SITES = {realtor: "Realtor", zillow: "Zillow", redfin: "Redfin"};
 
+async function downloadExport(format, button) {
+  const message = document.getElementById("export-error");
+  message.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(
+      `/api/export/${encodeURIComponent(state.search)}?format=${format}`,
+      {method: "POST", headers: GUARD},
+    );
+    if (!response.ok) {
+      let detail;
+      try { detail = (await response.json()).error; } catch (_) { /* Use the status below. */ }
+      throw new Error(detail || `${response.status} ${response.statusText}`);
+    }
+    downloadBlob(await response.blob(), `${state.search}.${format}`);
+  } catch (error) {
+    message.textContent = `Could not download the ${format.toUpperCase()} file: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 /* What an empty cell in a column means, for the heading's tooltip. A person looking at a blank
  * column wants to know which kind of blank it is before they go looking for a bug. */
 const ORIGINS = {
@@ -704,14 +726,14 @@ function draw() {
            "reset"),
       ),
       group("Elsewhere",
-        /* A plain link rather than a button that fetches: the browser's own download is what a
-         * person expects from something that hands them a file, and it survives the page being
-         * closed while a thousand rows are being written. */
-        link(`/api/export/${encodeURIComponent(state.search)}?format=xlsx`, "Spreadsheet",
-             {title: "Every column and every property in this run, as a spreadsheet",
-              download: ""}),
-        link(`/api/export/${encodeURIComponent(state.search)}?format=csv`, "CSV",
-             {title: "The same sheet, comma separated", download: ""}),
+        el("button", {type: "button", class: "quiet",
+                      title: "Every column and every property in this run, as a spreadsheet",
+                      onclick: (event) => downloadExport("xlsx", event.currentTarget)},
+           "Spreadsheet"),
+        el("button", {type: "button", class: "quiet",
+                      title: "The same sheet, comma separated",
+                      onclick: (event) => downloadExport("csv", event.currentTarget)}, "CSV"),
+        el("span", {id: "export-error", role: "alert"}),
       ),
     ),
     /* The totals, and only the totals. How many there are is a fact nobody can act on; why any are

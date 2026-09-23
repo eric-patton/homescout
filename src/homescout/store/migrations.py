@@ -15,6 +15,7 @@ from .schema import (
     ASSESSMENT_TABLES,
     DECISION_TABLES,
     DELIVERY_TABLES,
+    RUN_COMPARISON_TABLES,
     SCHEMA_V1,
     SCHEMA_V2,
     SCHEMA_V3,
@@ -29,6 +30,7 @@ from .schema import (
     SCHEMA_V12,
     SCHEMA_V13,
     SCHEMA_V14,
+    SCHEMA_V15,
     SCHEMA_VERSION,
     VERDICT_TABLES,
     append_only_triggers,
@@ -70,6 +72,7 @@ MIGRATIONS: tuple[str, ...] = (
     # Two indexes and nothing else. An index is not history and rewrites none: the rows they cover
     # are the same rows, read by a shorter road. See the note above `SCHEMA_V14`.
     SCHEMA_V14,
+    SCHEMA_V15 + "\n" + append_only_triggers(RUN_COMPARISON_TABLES),
 )
 
 

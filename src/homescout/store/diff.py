@@ -7,6 +7,7 @@ however many runs have happened since.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 from ..records import ListingFields
@@ -27,10 +28,16 @@ _PLAIN_SNAPSHOT_COLUMNS = ", ".join(SNAPSHOT_FIELDS)
 # constituents' ids. Without this, the run after a merge would report the merged listing as
 # new and both constituents as gone, which is a fiction: the house did not move.
 _LIVE_IDS = """
-WITH RECURSIVE live(id, live_id) AS (
+WITH RECURSIVE current_live(id, live_id) AS (
     SELECT id, id FROM listings WHERE superseded_by IS NULL
+    UNION ALL SELECT l.id, current_live.live_id FROM listings l
+    JOIN current_live ON l.superseded_by = current_live.id
+),
+live(id, live_id) AS (
+    SELECT listing_id, canonical_id FROM run_identity WHERE run_id = :run
     UNION ALL
-    SELECT l.id, live.live_id FROM listings l JOIN live ON l.superseded_by = live.id
+    SELECT id, live_id FROM current_live
+    WHERE NOT EXISTS (SELECT 1 FROM run_identity_freezes WHERE run_id = :run)
 )
 """
 
@@ -40,11 +47,13 @@ WITH RECURSIVE live(id, live_id) AS (
 _LATEST_SNAPSHOT_AT_OR_BEFORE = f"""
 {_LIVE_IDS},
 scoped AS (
-    SELECT live.live_id AS listing_id, sn.id AS snapshot_id, r.seq, {_SNAPSHOT_COLUMNS}
+    SELECT live.live_id AS listing_id, sn.id AS snapshot_id, sn.run_id AS observation_run,
+           r.seq, {_SNAPSHOT_COLUMNS}
     FROM listing_snapshots sn
     JOIN runs r ON r.id = sn.run_id
     JOIN live ON live.id = sn.listing_id
     WHERE r.search_name = :search
+      AND r.search_revision IS :revision
       AND r.status = 'completed'
       AND r.seq <= :cutoff
 ),
@@ -68,6 +77,7 @@ scoped AS (
     JOIN live ON live.id = e.listing_id
     WHERE e.kind IN ('first_seen', 'disappeared', 'returned')
       AND r.search_name = :search
+      AND r.search_revision IS :revision
       AND r.status = 'completed'
       AND r.seq <= :cutoff
 ),
@@ -87,7 +97,38 @@ SELECT live.live_id AS listing_id, {_PLAIN_SNAPSHOT_COLUMNS}
 FROM listing_snapshots sn
 JOIN live ON live.id = sn.listing_id
 WHERE sn.run_id = :run
+ORDER BY sn.id
 """
+
+
+def _source_observations(
+    conn: sqlite3.Connection, target_run_id: str, wanted: set[tuple[str, str]]
+) -> dict[tuple[str, str], dict[str, ListingFields]]:
+    """One source's first row per property and run, under the target's frozen identity."""
+    if not wanted:
+        return {}
+    columns = ", ".join(f"rl.{name}" for name in SNAPSHOT_FIELDS)
+    query = f"""
+{_LIVE_IDS},
+wanted AS (
+    SELECT json_extract(value, '$[0]') AS run_id,
+           json_extract(value, '$[1]') AS listing_id
+    FROM json_each(:wanted)
+)
+SELECT live.live_id AS listing_id, rl.run_id, rl.source, {columns}
+FROM raw_listings rl
+JOIN listing_sources ls ON ls.raw_listing_id = rl.id
+    AND ls.join_signal = 'single-source'
+JOIN live ON live.id = ls.listing_id
+JOIN wanted ON wanted.run_id = rl.run_id AND wanted.listing_id = live.live_id
+ORDER BY rl.rowid
+"""
+    parameters = {"run": target_run_id, "wanted": json.dumps(sorted(wanted))}
+    found: dict[tuple[str, str], dict[str, ListingFields]] = {}
+    for row in conn.execute(query, parameters):
+        by_source = found.setdefault((row["run_id"], row["listing_id"]), {})
+        by_source.setdefault(row["source"], _fields_from(row))
+    return found
 
 
 def _fields_from(row: sqlite3.Row) -> ListingFields:
@@ -130,6 +171,8 @@ def compare_runs(
     search_name: str,
     target: RunRecord,
     baseline: RunRecord | None,
+    baseline_reset: bool = False,
+    identity_frozen: bool = True,
 ) -> Comparison:
     """Produce exactly one difference event per listing.
 
@@ -139,6 +182,12 @@ def compare_runs(
     observed_now = {row["listing_id"]: _fields_from(row) for row in target_rows}
 
     if baseline is None:
+        if baseline_reset:
+            return Comparison(
+                search_name=search_name, baseline_run_id=None, target_run_id=target.id,
+                baseline_reset=True, identity_frozen=identity_frozen,
+                observed_count=len(observed_now),
+            )
         events = tuple(
             DifferenceEvent(kind="new", listing_id=listing_id)
             for listing_id in sorted(observed_now)
@@ -148,13 +197,25 @@ def compare_runs(
             baseline_run_id=None,
             target_run_id=target.id,
             events=events,
+            identity_frozen=identity_frozen,
+            observed_count=len(observed_now),
         )
 
-    params = {"search": search_name, "cutoff": baseline.seq}
-    previous = {
-        row["listing_id"]: _fields_from(row)
+    params = {
+        "search": search_name, "cutoff": baseline.seq,
+        "revision": target.revision, "run": target.id,
+    }
+    previous_rows = {
+        row["listing_id"]: row
         for row in conn.execute(_LATEST_SNAPSHOT_AT_OR_BEFORE, params).fetchall()
     }
+    previous = {listing_id: _fields_from(row) for listing_id, row in previous_rows.items()}
+    source_rows = _source_observations(
+        conn, target.id,
+        {(target.id, listing_id) for listing_id in observed_now}
+        | {(row["observation_run"], listing_id)
+           for listing_id, row in previous_rows.items()},
+    )
     presence_then = {
         row["listing_id"]: row["kind"]
         for row in conn.execute(_PRESENCE_AT_OR_BEFORE, params).fetchall()
@@ -171,6 +232,16 @@ def compare_runs(
         if presence_then.get(listing_id) == "disappeared":
             events.append(DifferenceEvent(kind="returned", listing_id=listing_id))
             continue
+        prior_run = previous_rows[listing_id]["observation_run"]
+        from_before = source_rows.get((prior_run, listing_id), {})
+        from_after = source_rows.get((target.id, listing_id), {})
+        shared_sources = sorted(from_before.keys() & from_after.keys())
+        if not shared_sources:
+            events.append(DifferenceEvent(kind="unverified", listing_id=listing_id))
+            continue
+        compared_source = shared_sources[0]
+        before = from_before[compared_source]
+        after = from_after[compared_source]
         changes = _compare_fields(before, after)
         if changes:
             events.append(
@@ -199,4 +270,6 @@ def compare_runs(
         baseline_run_id=baseline.id,
         target_run_id=target.id,
         events=tuple(events),
+        identity_frozen=identity_frozen,
+        observed_count=len(observed_now),
     )

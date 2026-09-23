@@ -268,6 +268,24 @@ def test_what_counts_as_something_to_say(store: Store) -> None:
     assert moved({"searches": []}) == 0
 
 
+def test_source_handoff_and_baseline_reset_are_visible_in_email(store: Store) -> None:
+    """feat-001/AC-34: unverified movement must reach the scheduled digest."""
+    first = run(store, rows=[row("a")])
+    doc = document(store, first)
+    entry = doc["searches"][0]
+    entry["unverified"] = entry.pop("new")
+    entry["counts"]["new"] = 0
+    entry["counts"]["unverified"] = 1
+    entry["baseline_reset"] = True
+
+    rendered = parts(message_of(store, doc))
+    assert moved(doc) == 1
+    assert "source handoffs to verify" in subject(doc)
+    assert "Source handoffs to verify" in rendered["text"]
+    assert "new comparison baseline" in rendered["text"]
+    assert "new comparison baseline" in rendered["html"]
+
+
 def test_a_run_over_a_county_makes_an_email_a_person_can_open(store: Store) -> None:
     """feat-012/AC-5: the size of the message is a function of what moved, not of what matched."""
     rows = [row(f"p{i:04d}") for i in range(1_500)]
