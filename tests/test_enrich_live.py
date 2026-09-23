@@ -14,6 +14,8 @@ rather than about the code, and remember that the address is configuration.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from homescout.enrich import settings
@@ -36,8 +38,16 @@ def paced():
     return default_session(config=settings.pacing(tuple(p.name for p in create())))
 
 
+@pytest.fixture(scope="module")
+def index_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Fetch the national data center indexes once for all live point checks."""
+    return tmp_path_factory.mktemp("enrich-live-indexes")
+
+
 @pytest.mark.parametrize("where", list(DISTANT), ids=list(DISTANT))
-def test_every_provider_answers_at_a_point_in_this_state(where: str, paced, tmp_path) -> None:
+def test_every_provider_answers_at_a_point_in_this_state(
+    where: str, paced, index_root: Path
+) -> None:
     """feat-007/AC-12: national coverage, checked where the country stops looking alike.
 
     A provider that cannot be run on this installation is skipped by name rather than passed over
@@ -50,7 +60,7 @@ def test_every_provider_answers_at_a_point_in_this_state(where: str, paced, tmp_
     not configured until something has told it where that is. This test built its providers bare,
     so the day that provider arrived it was skipped by name here and failed the list of providers
     allowed to skip, in all three states. A throwaway workspace is what a live check of it costs:
-    both of its indexes, about a megabyte and a half, fetched once into a temporary directory.
+    both of its indexes, about a megabyte and a half, fetched once into a shared directory.
     """
     from homescout.store import Store
 
@@ -59,7 +69,7 @@ def test_every_provider_answers_at_a_point_in_this_state(where: str, paced, tmp_
     answered: dict[str, object] = {}
 
     providers = create()
-    with Store.open(tmp_path / "homescout.db") as store:
+    with Store.open(index_root / "homescout.db") as store:
         for provider in providers:
             attach = getattr(provider, "attach", None)
             if attach is not None:
@@ -240,7 +250,9 @@ def test_the_trackers_status_vocabulary_is_still_the_one_this_build_knows(tmp_pa
     assert seen <= {"high", "medium", "low", ""}, f"unknown siting confidences: {seen}"
 
 
-def test_both_data_centre_sources_answer_and_the_second_closes_the_first_ones_gap(tmp_path) -> None:
+def test_both_data_centre_sources_answer_and_the_second_closes_the_first_ones_gap(
+    index_root: Path,
+) -> None:
     """feat-007/AC-12 and feat-007/AC-35: national, and the gap is a real one that is really closed.
 
     Los Lunas is the case this second source exists for. Meta's campus has been running there since
@@ -249,11 +261,11 @@ def test_both_data_centre_sources_answer_and_the_second_closes_the_first_ones_ga
     """
     from homescout.enrich import datacenters
 
-    built = datacenters.built(tmp_path, settings.endpoint("data_centers_built").url)
+    built = datacenters.built(index_root, settings.endpoint("data_centers_built").url)
     assert len(built) > 500, f"OpenStreetMap answered with only {len(built)} buildings"
 
     nearby = datacenters.Nearby(
-        datacenters.tracked(tmp_path, settings.endpoint("data_centers").url) + built
+        datacenters.tracked(index_root, settings.endpoint("data_centers").url) + built
     )
     got = nearby.nearest("operating", 34.8100, -106.7300)
     assert got is not None
