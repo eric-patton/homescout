@@ -474,3 +474,129 @@ Two notes on what these tests can and cannot reach:
 The regression surface is feat-003's suite, which must stay green through D-5 and D-6 unchanged
 except for the fakes that implement the seam. That is the real check on whether the seam change is
 as small as it claims to be.
+
+## Change: named addresses (`changes/named-addresses/`)
+
+A search can name specific houses beside its areas, or instead of them. The delta has the
+requirements (AC-15 to AC-22); these are the decisions behind them. Measured first, on the by-hand
+run of 2026-09-30 (eight Louisiana addresses, live workspace, search `la-one-offs`): the Census
+one-line geocoder placed all eight; a half-mile circle around each returned every house from every
+source that lists it; the geocoder's point was 0.02 to 0.07 miles from the sites' point on ordinary
+streets and up to 0.30 miles on numbered highways.
+
+### D-21: the file, and where a named address lives in the model
+
+A new top-level key, `addresses`, written after `areas`:
+
+```yaml
+addresses:
+  - 202 Marguerite St, Folsom, LA 70437
+  - address: 33063 Hwy 43, Independence, LA 70443
+    reason: Sent by the agent on 2026-09-30.
+  - address: 28931 Hwy 1070, Franklinton, LA 70438
+    at: [30.942891, -90.005185]
+```
+
+Parsed into `NamedAddress(text, reason, at)` in a new `search/addresses.py`, exposed as
+`definition.addresses`. Not a seventh area kind: an area admits everything inside it and answers the
+exact test by geometry, and a named address admits one property and answers by address. Folding it
+into `SearchArea` would give every area a second way to qualify and every geometry test a case that
+is not geometry. `validate.TOP_LEVEL` gains the key, so `searches edit --set addresses=[...]` works
+through the existing edit operation with no new command.
+
+A definition needs one area or one named address. The run loop's refusal ("names no area") becomes
+"names no area and no address", still before a run is recorded.
+
+### D-22: placing an address is one more question on the boundary port
+
+`BoundaryProvider` (D-10) gains `place_address(text) -> Placed | None`, where `Placed` carries the
+latitude, longitude, and the line the lookup matched (`202 MARGUERITE ST, FOLSOM, LA, 70437`), whose
+ZIP code AC-19 uses when the person left it out. The no-op default answers `None`, so a workspace
+with no provider reports every address as not placed rather than failing.
+
+feat-007's `CensusBoundaries` answers it from the Census one-line address endpoint
+(`geocoder/locations/onelineaddress`, benchmark `Public_AR_Current`), a new entry in
+`enrich/settings.py` with its own pacing. Cached under `address:<text, case and spacing folded>`: a
+match for a year, because addresses do not move; no match for thirty days, so new construction is
+tried again once the Census catches up.
+
+The provider is registered cache-only during a run (feat-007's note in this feature's manifest), for
+the reason that decision gives. So placing is a step of its own, as `enrich.boundaries.resolve` is
+for named places: `place_addresses(store, texts)` fetches what the cache lacks, and `api.run_search`
+calls it before handing the definition to the run loop. Both surfaces reach the run through that
+facade, so both place the same way (AC-7). An `at` in the file skips the lookup.
+
+### D-23: asking, per source, with no filters
+
+`definition.address_queries_for(capabilities)` turns each placed address into a half-mile
+`SearchArea(kind="radius")` and resolves it with the code D-7 already uses, so a source that takes a
+point radius gets one and a source that takes a box gets the box around the circle. Addresses whose
+circles overlap are asked for as one circle covering both (`geo.covering_circle`), which is Taylor
+Dr and Ditta Dr in the by-hand run, 0.14 miles apart.
+
+Each query carries no filters. It fans out over `for_sale`, `pending` and `contingent` as D-12 does,
+limited to the statuses the source declares it can push; a status it cannot is skipped and named in
+that source's detail. The by-hand run found that Realtor answers 400 to `pending` and `contingent`
+today (a source-adapter defect, reported separately), which this change inherits until it is fixed:
+Realtor's contribution degrades for those two statuses and for-sale still works.
+
+Why half a mile, and why fixed: the measured worst case is 0.30 miles, and the circle only decides
+what is asked for. AC-19 decides what is kept, so a wider circle costs a few discarded rows and never
+a wrong property. A person whose address is placed badly gives `at`, which is a better remedy than a
+radius setting nobody would know to change.
+
+### D-24: keeping only the named house, in the run loop
+
+The run loop already imports the address matcher for the merge pass, and `search/` does not, so the
+comparison lives in `runner.py`. For each row an address query returns, `merge.address.parse(line,
+unit=..., postal=...).key()` is compared with the named address's key; a row whose key matches is
+kept for that address, and every other row from that query is discarded unrecorded (AC-19).
+
+A kept row skips `passes()` (the filters) and `definition.place()` (the areas and exclusions), which
+is AC-20. Criteria are untouched: `record_verdicts` runs over everything the run observed, so a named
+house is judged with the rest. A row returned by both an area query and an address query of one
+source is one observation, by the overlap rule D-12 already relies on (feat-003's AC-29).
+
+A row with no key (no street, or unparseable) is never kept for an address. Taking the nearest row,
+or the row with the right house number, would be a guess about which house somebody meant, and the
+constitution's rule on merges (flag, never guess) is the right rule here too. It is reported as not
+found, and `at` plus a correct spelling is the remedy.
+
+This depends on the address matcher keying numbered highways, which it does not today (the defect in
+the proposal). That fix lands first, in feat-006's own lane.
+
+### D-25: the report, on both surfaces
+
+`RunOutcome` gains `addresses: tuple[AddressReport, ...]`, one per named address: its text, whether
+it was placed (and if not, why), and the sources that found it and did not. `api` serializes it with
+the rest of the outcome, so `run --json` and the browser's run status read the same structure. The
+command line prints one line per address after the per-source lines. Each source's recorded outcome
+detail says how many of the search's named addresses it found, so the stored run record carries the
+count even after the in-memory outcome is gone (the observability minimum).
+
+### D-26: the editor
+
+In the search editor (`web/static/search.js`), a section beside the areas: each named address with
+its reason (the reason window from `T-reason-4`) and a bin that asks first (`T-named-3`), and a box
+that takes one address or many pasted one per line. Saving writes the whole list through
+`POST /api/searches/{name}` with `{"set": {"addresses": [...]}}`, the same edit operation the command
+line uses. The known cost is the one `T-reason-3` recorded for areas: a list replaced wholesale loses
+comments attached to its items. The run status shows the per-address report.
+
+### Verification for this change
+
+A new file, `tests/test_searches_addresses.py`, with a counting boundary provider that places
+addresses and fake sources that return the named house, its neighbours, and the same house spelled
+differently. Browser checks join `tests/test_web_browser.py`.
+
+| criterion | seam the test enters through | trace token |
+|---|---|---|
+| AC-15 the list, text or mapping, round trip | `FileCatalog.load` then save; `searches edit --set addresses=[...]` | `feat-004/AC-15` |
+| AC-16 placed once, cached, `at` used as written | `api.run_search` twice with a counting provider | `feat-004/AC-16` |
+| AC-17 shape problems, located, nothing fetched | `api.validate_search` with a provider and a source that raise if touched | `feat-004/AC-17` |
+| AC-18 no filters, three statuses, overlap shares | `definition.address_queries_for(capabilities)` | `feat-004/AC-18` |
+| AC-19 only the named house; three spellings kept | `api.run_search` with a fake source returning neighbours and variants | `feat-004/AC-19` |
+| AC-20 exempt from filters and exclusions, still judged | `api.run_search` with a filter and an exclusion that would hide it and a drop rule | `feat-004/AC-20` |
+| AC-21 per-address report, not found, not placed | `api.run_search` outcome and `homescout run --json` | `feat-004/AC-21` |
+| AC-22 the editor adds, removes, saves through edit | `tests/test_web_browser.py` | `feat-004/AC-22` |
+| AC-3 as modified: a named address inside an exclusion | `api.run_search` | `feat-004/AC-3` |

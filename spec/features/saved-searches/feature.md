@@ -15,9 +15,9 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    ready
+  tasks:    draft
 gate:
-  analyze: pass
+  analyze: not-run
   product_global_hash: "sha256:869c75445341"
   constitution_hash: "sha256:7ed19648690b"
 converge:
