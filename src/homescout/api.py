@@ -1434,19 +1434,56 @@ def assess(
     Thin on purpose. The assembly lives in `assess.pass_` because a run performs the same pass when
     a saved search asks it to, and an assembly that lived here would have had to be reached across
     into or copied.
+
+    With no search named it covers what a run of everything covers, as one pass (`feat-013/AC-20`).
+    It used to read only the first search by name, so the browser's empty "all of them" box read
+    whichever file happened to sort first.
     """
-    from .assess.pass_ import PassOutcome, assess_search
+    from .assess.pass_ import PassOutcome, assess_searches
 
+    say = progress or (lambda _message: None)
     with _translating():
-        names = [search] if search else list(list_searches(workspace))
-    if not names:
-        return PassOutcome(skipped="there is no saved search to assess")
-
-    with _translating():
-        definition = workspace.catalog.load(names[0])
-        return assess_search(
-            workspace.store, definition, root=workspace.root, limit=limit, progress=progress
+        if search:
+            definitions = [workspace.catalog.load(search)]
+        else:
+            if not list_searches(workspace):
+                return PassOutcome(skipped="there is no saved search to assess")
+            definitions = _watched_for_assessment(workspace, say)
+    if not definitions:
+        return PassOutcome(
+            skipped="every saved search is paused, put away or not yet run; name one to assess it"
         )
+    if len(definitions) > 1:
+        say("assess: reading " + ", ".join(definition.name for definition in definitions))
+
+    with _translating():
+        return assess_searches(
+            workspace.store, definitions, root=workspace.root, limit=limit, progress=progress
+        )
+
+
+def _watched_for_assessment(workspace: Workspace, say: Any) -> list[SearchDefinition]:
+    """The searches an unnamed assessment pass covers, in name order.
+
+    Paused and archived are left out through the same check a run of everything uses, so the two
+    cannot come to mean different things. A search with nothing to read, because nobody has run it
+    yet or its file cannot be read, is said and passed over: it is not a reason to read none of the
+    others. Named, either one still ends the pass, because then it was the whole of what was asked.
+    """
+    found: list[SearchDefinition] = []
+    for name in list_searches(workspace):
+        if _standing_of(workspace, name) is not None:
+            continue
+        try:
+            definition = workspace.catalog.load(name)
+        except HomescoutError as exc:
+            say(f"assess: passing over {name}, which cannot be read: {exc}")
+            continue
+        if not workspace.store.runs(name, only_completed=True):
+            say(f"assess: passing over {name}, which has no completed run yet")
+            continue
+        found.append(definition)
+    return found
 
 
 def assessment_for(workspace: Workspace, listing_id: str) -> dict[str, Any]:

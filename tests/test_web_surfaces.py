@@ -1095,3 +1095,35 @@ def test_prose_never_takes_the_tables_row_height_as_a_line_height() -> None:
             break
     else:
         raise AssertionError("the assessment's own rule went away")
+
+
+def test_the_finished_line_of_an_assessment_says_what_it_read() -> None:
+    """feat-013/AC-1: the pass reports what it considered, assessed, found current and could not do.
+
+    The regression, from 2026-10-01. A pass over the Louisiana houses read seven of them, recorded
+    seven readings, and the browser's finished line said "Assessment: done", so it looked as though
+    nothing had happened. The line is built by a describer that looks for counts under the names
+    other passes use, and none of an assessment's counts has one of those names.
+    """
+    from homescout.assess.pass_ import PassOutcome
+    from homescout.web.runs import _describe
+
+    read = _describe(PassOutcome(considered=7, assessed=7))
+    assert read is not None
+    assert read["summary"] == "7 properties in play, 0 already current, 7 assessed"
+    assert read["degraded"] is False
+
+    partial = _describe(PassOutcome(
+        considered=259, assessed=6, current=250, left_over=1, failures=("a: timed out",)
+    ))
+    assert partial is not None
+    assert partial["summary"] == (
+        "259 properties in play, 250 already current, 6 assessed, "
+        "1 left for a later pass, 1 failures"
+    )
+    assert partial["degraded"] is True
+
+    # A pass that sent nothing says why, rather than "done" over a pass that did nothing at all.
+    skipped = _describe(PassOutcome(skipped="no model is configured"))
+    assert skipped is not None
+    assert skipped["summary"] == "nothing assessed: no model is configured"

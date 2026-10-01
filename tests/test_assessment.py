@@ -877,3 +877,166 @@ def test_a_reading_already_asked_the_question_is_not_asked_again() -> None:
             return a_reading()
 
     assert owed_a_section(FakeStore(), ["b"], "a-model") == {}
+
+# ---------------------------------------------------------------------------
+# A pass with no search named, added by changes/every-search
+# ---------------------------------------------------------------------------
+
+
+def _search_file(name: str, about: str, *, paused: bool = False) -> str:
+    return (
+        f"name: {name}\n"
+        f"description: {about}\n"
+        "areas:\n"
+        '  - {type: city, value: "Portales, NM"}\n'
+        "sources: [realtor]\n" + ("paused: true\n" if paused else "")
+    )
+
+
+@pytest.fixture
+def watched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Saved searches on disk, each with a finished run, and a model that only takes notes.
+
+    `alpha` and `beta` are watched and share one house; `gamma` is paused. Nothing reaches a
+    network: the account, the weather stations and the request itself are stood in for, and none of
+    these houses has coordinates, so no hazard picture is asked for either.
+    """
+    import homescout.assess.pass_ as pass_module
+    import homescout.extract.settings as model_settings
+    from conftest import do_run, prop
+    from homescout import api
+    from homescout.search.definition import FileCatalog
+
+    where = tmp_path / "searches"
+    where.mkdir()
+    for name, paused in (("alpha", False), ("beta", False), ("gamma", True)):
+        (where / f"{name}.yaml").write_text(
+            _search_file(name, f"the {name} household", paused=paused), encoding="utf-8"
+        )
+
+    workspace = api.open_workspace(tmp_path / "homescout.db", images=False)
+    workspace.catalog = FileCatalog(where)
+    do_run(workspace.store, "alpha", sources={"realtor": [prop("a1"), prop("shared")]})
+    do_run(workspace.store, "beta", sources={"realtor": [prop("b1"), prop("shared")]})
+    do_run(workspace.store, "gamma", sources={"realtor": [prop("g1")]})
+
+    #: Every progress line and every request, in the order they happened.
+    happened: list[str] = []
+
+    class Account:
+        model = "a-fake-model"
+
+    def ask(_session: Any, _account: Any, dossier: Any, criteria: Any, _pictures: Any) -> Any:
+        street = str(dossier.headline.get("address_line", "")).split()[0]
+        happened.append(f"asked {street} for {criteria.about}")
+        return model.Assessment(
+            listing_id=dossier.listing_id, account="", fit="A house.", model="a-fake-model"
+        )
+
+    monkeypatch.setattr(model_settings, "account", lambda *_a, **_k: Account())
+    monkeypatch.setattr(pass_module, "_stations_for", lambda _root, _rows: [])
+    monkeypatch.setattr(pass_module, "ask", ask)
+
+    class Held:
+        pass
+
+    held = Held()
+    held.workspace = workspace  # type: ignore[attr-defined]
+    held.happened = happened  # type: ignore[attr-defined]
+    held.where = where  # type: ignore[attr-defined]
+    yield held
+    workspace.close()
+
+
+def test_an_unnamed_pass_reads_every_watched_search_and_leaves_a_paused_one(watched: Any) -> None:
+    """feat-013/AC-20: no search named means what a run of everything covers.
+
+    The regression, from 2026-10-01. The browser's box for this says "all of them" when it is empty,
+    and the core read only the first saved search by name. Adding `la-one-offs` moved that first
+    place from New Mexico to Louisiana, so an empty box began reading eight houses and skipping two
+    hundred and fifty without a word.
+    """
+    from homescout import api
+
+    outcome = api.assess(watched.workspace, progress=watched.happened.append)
+    asked = sorted(line for line in watched.happened if line.startswith("asked"))
+
+    assert asked == [
+        "asked a1 for the alpha household",
+        "asked b1 for the beta household",
+        "asked shared for the alpha household",
+    ], "a paused search was read, a watched one was skipped, or a shared house was read twice"
+    assert (outcome.considered, outcome.assessed) == (3, 3)
+
+    # A paused search is still read when it is named, which is what pausing has always meant.
+    watched.happened.clear()
+    api.assess(watched.workspace, search="gamma", progress=watched.happened.append)
+    assert [line for line in watched.happened if line.startswith("asked")] == [
+        "asked g1 for the gamma household"
+    ]
+
+
+def test_an_unnamed_pass_says_its_whole_cost_before_it_asks_anything(watched: Any) -> None:
+    """feat-013/AC-20, and the cost requirement: one count, for every search, before any request.
+
+    Found by the pre-build check rather than by a failure. A pass per search would have said the
+    second search's count only after paying for the first.
+    """
+    from homescout import api
+
+    api.assess(watched.workspace, progress=watched.happened.append)
+    first_request = next(
+        i for i, line in enumerate(watched.happened) if line.startswith("asked")
+    )
+    counted = [line for line in watched.happened[:first_request] if "to ask about" in line]
+    assert len(counted) == 1, f"the cost was not said once, up front: {watched.happened}"
+    assert counted[0].startswith("assess: 3 properties to ask about")
+    assert not [line for line in watched.happened[first_request:] if "to ask about" in line]
+
+
+def test_a_bounded_unnamed_pass_is_bounded_as_a_whole(watched: Any) -> None:
+    """feat-013/AC-20, feat-013/AC-9: "just five" is five requests, not five per search."""
+    from homescout import api
+
+    outcome = api.assess(watched.workspace, limit=2, progress=watched.happened.append)
+
+    # Sorted, because two houses at the same price come out of one search in no particular order.
+    assert sorted(line for line in watched.happened if line.startswith("asked")) == [
+        "asked a1 for the alpha household",
+        "asked shared for the alpha household",
+    ]
+    assert (outcome.assessed, outcome.left_over) == (2, 1)
+
+    # And the next pass picks up exactly what was left, against the right search's criteria.
+    watched.happened.clear()
+    outcome = api.assess(watched.workspace, progress=watched.happened.append)
+    assert [line for line in watched.happened if line.startswith("asked")] == [
+        "asked b1 for the beta household"
+    ]
+    assert (outcome.assessed, outcome.current) == (1, 2)
+
+
+def test_an_unnamed_pass_passes_over_a_search_with_nothing_to_read(watched: Any) -> None:
+    """feat-013/AC-20: a search nobody has run yet is said and passed over, not a failed pass."""
+    from homescout import api
+
+    (watched.where / "delta.yaml").write_text(
+        _search_file("delta", "the delta household"), encoding="utf-8"
+    )
+    outcome = api.assess(watched.workspace, progress=watched.happened.append)
+
+    assert outcome.assessed == 3
+    assert any("delta" in line and "no completed run" in line for line in watched.happened)
+
+
+def test_an_unnamed_pass_with_nothing_watched_says_so(watched: Any) -> None:
+    """feat-013/AC-20: every search set aside is an answer, and it says how to get past it."""
+    from homescout import api
+
+    for name in ("alpha", "beta"):
+        api.set_standing(watched.workspace, name, paused=True)
+    outcome = api.assess(watched.workspace, progress=watched.happened.append)
+
+    assert outcome.assessed == 0
+    assert "paused" in (outcome.skipped or "") and "name one" in (outcome.skipped or "")
+    assert not [line for line in watched.happened if line.startswith("asked")]

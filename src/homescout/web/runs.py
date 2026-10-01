@@ -164,10 +164,15 @@ def _describe(outcome: Any) -> dict[str, Any] | None:
 
     degraded = bool(getattr(outcome, "degraded", False))
     said: list[str] = []
-    for name in ("properties", "descriptions", "asked", "recorded", "cached"):
-        value = getattr(outcome, name, None)
-        if value:
-            said.append(f"{value} {name.replace('_', ' ')}")
+    # An outcome that can say itself does, because its counts need not be under any name below.
+    own = getattr(outcome, "summary", None)
+    if isinstance(own, str) and own:
+        said.append(own)
+    else:
+        for name in ("properties", "descriptions", "asked", "recorded", "cached"):
+            value = getattr(outcome, name, None)
+            if value:
+                said.append(f"{value} {name.replace('_', ' ')}")
     for name in ("outcomes", "skipped", "failures"):
         value = getattr(outcome, name, None)
         if isinstance(value, tuple | list) and value:

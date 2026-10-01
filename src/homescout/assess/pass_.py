@@ -51,6 +51,28 @@ class PassOutcome:
     def degraded(self) -> bool:
         return bool(self.failures)
 
+    @property
+    def summary(self) -> str:
+        """What the pass did, in the one line a surface shows when it finishes.
+
+        Its own sentence rather than a generic one, because a generic describer looks for counts
+        under the names other passes use and none of these has one: the browser said "done" over a
+        pass that had read seven houses (`feat-013/AC-1`). Failures are not counted here; the
+        describer already counts those for every pass.
+        """
+        if self.skipped and not self.assessed:
+            return f"nothing assessed: {self.skipped}"
+        said = [
+            f"{self.considered} properties in play",
+            f"{self.current} already current",
+            f"{self.assessed} assessed",
+        ]
+        if self.topped_up:
+            said.append(f"{self.topped_up} given what is in their favour")
+        if self.left_over:
+            said.append(f"{self.left_over} left for a later pass")
+        return ", ".join(said)
+
 
 def fingerprint_of(dossier: Dossier, stated: Mapping[str, Any]) -> str:
     """A digest of everything this assessment would be made from.
@@ -106,6 +128,7 @@ def run_pass(
     account: Any,
     criteria: Any,
     session: Any,
+    criteria_of: Callable[[Any], Any] | None = None,
     already: Mapping[str, str] | None = None,
     owed: Mapping[str, Any] | None = None,
     pictures_for: Callable[[Any, Dossier], list[tuple[str, bytes]]] | None = None,
@@ -135,29 +158,38 @@ def run_pass(
     Everything that reaches outside is injected: what pictures to send, where the wind comes from,
     and what to do with an answer. That is what lets the whole of this be tested without a model,
     a network or a store, and it is the same shape `extract`'s own pass uses.
+
+    `criteria_of` is for a pass over several searches at once: it names the criteria each row is
+    read against, and `criteria` is every row's when it is absent. The fingerprint is taken with the
+    row's own, so a reading is current exactly while its own search's criteria still hold.
     """
     say = progress or (lambda _message: None)
     known = dict(already or {})
-    stated = criteria.stated()
+    against = criteria_of or (lambda _row: criteria)
+    #: Each search's criteria stated once, not once per property.
+    stated: dict[int, Any] = {}
 
     owing = dict(owed or {})
-    wanted: list[tuple[Any, Dossier, str]] = []
-    topping: list[tuple[Any, Dossier, str]] = []
+    wanted: list[tuple[Any, Dossier, str, Any]] = []
+    topping: list[tuple[Any, Dossier, str, Any]] = []
     current = 0
     for row in rows:
+        mine = against(row)
+        if id(mine) not in stated:
+            stated[id(mine)] = mine.stated()
         dossier = dossier_for(row)
         if wind_for is not None:
             wind = wind_for(dossier)
             if wind is not None:
                 dossier = _with_wind(dossier, wind)
-        mark = fingerprint_of(dossier, stated)
+        mark = fingerprint_of(dossier, stated[id(mine)])
         if known.get(row.listing_id) == mark:
             if row.listing_id in owing and add is not None:
-                topping.append((row, dossier, mark))
+                topping.append((row, dossier, mark, mine))
             else:
                 current += 1
             continue
-        wanted.append((row, dossier, mark))
+        wanted.append((row, dossier, mark, mine))
 
     # The narrow questions go first when a limit cuts the pass short. They are the cheaper half and
     # they finish something already begun, where a full assessment starts something new.
@@ -181,11 +213,11 @@ def run_pass(
 
     #: The fingerprint is not used here on purpose. A top-up is only ever offered to a reading
     #: whose fingerprint already matches, so the one to record is the one already recorded.
-    for row, dossier, _mark in topping:
+    for row, dossier, _mark, mine in topping:
         pictures = pictures_for(row, dossier) if pictures_for is not None else []
         try:
             points = ask_in_favour(
-                session, account, dossier, criteria, owing[row.listing_id], pictures
+                session, account, dossier, mine, owing[row.listing_id], pictures
             )
         except AssessmentFailed as exc:
             failures.append(f"{row.listing_id}: {exc}")
@@ -193,10 +225,10 @@ def run_pass(
         add(row.listing_id, points, owing[row.listing_id])
         topped_up += 1
 
-    for row, dossier, mark in wanted:
+    for row, dossier, mark, mine in wanted:
         pictures = pictures_for(row, dossier) if pictures_for is not None else []
         try:
-            found = ask(session, account, dossier, criteria, pictures)
+            found = ask(session, account, dossier, mine, pictures)
         except AssessmentFailed as exc:
             failures.append(f"{row.listing_id}: {exc}")
             continue
@@ -244,6 +276,31 @@ def assess_search(
     Everything it reaches for is below it. `store` for the rows and the photographs, `enrich` for
     the hazard picture and the wind, `extract` for the account and the pacing. Nothing above.
     """
+    return assess_searches(
+        store, [definition], root=root, limit=limit, session=session, progress=progress
+    )
+
+
+def assess_searches(
+    store: Any,
+    definitions: Sequence[Any],
+    *,
+    root: Any,
+    limit: int | None = None,
+    session: Any = None,
+    progress: Callable[[str], None] | None = None,
+) -> PassOutcome:
+    """Assess several saved searches' properties as one pass, each against its own criteria.
+
+    One pass rather than one per search, which is plan D-13 and `feat-013/AC-20`. A pass says how
+    many it will ask about before it asks anything, and a pass per search would say the second
+    search's count only after paying for the first. One pass also makes a limit a limit on the
+    whole and puts the narrow requests first across every search rather than within each.
+
+    A property two searches share is gathered once, from the first of them in the order given. A
+    reading belongs to the property and its fingerprint includes the criteria, so reading it against
+    each search would pay twice and leave each reading stale to the other.
+    """
     from ..enrich import settings as enrich_settings
     from ..enrich import wind as wind_module
     from ..enrich.hazard import dimensions, rectangle, tile
@@ -263,18 +320,28 @@ def assess_search(
         # configured is not broken, it simply does not have this.
         return PassOutcome(skipped=str(exc))
 
-    name = definition.name
-    rows = list(rows_of(store, latest_run(store, name), root=root))
-    in_play = [row for row in rows if _still_deciding(store, row)]
+    #: Every row any of these searches found, for the weather stations, and the ones still in play
+    #: with the criteria each is read against.
+    rows: list[Any] = []
+    in_play: list[Any] = []
+    read_against: dict[str, Any] = {}
+    for definition in definitions:
+        found = list(rows_of(store, latest_run(store, definition.name), root=root))
+        rows.extend(found)
 
-    kept, passed = criteria_module.examples_from(rows)
-    written = read_notes(root, definition)
-    criteria = criteria_module.criteria_for(
-        definition,
-        notes=[n for n in (written.everywhere, written.search) if n],
-        kept=kept,
-        passed=passed,
-    )
+        kept, passed = criteria_module.examples_from(found)
+        written = read_notes(root, definition)
+        criteria = criteria_module.criteria_for(
+            definition,
+            notes=[n for n in (written.everywhere, written.search) if n],
+            kept=kept,
+            passed=passed,
+        )
+        for row in found:
+            if row.listing_id in read_against or not _still_deciding(store, row):
+                continue
+            read_against[row.listing_id] = criteria
+            in_play.append(row)
 
     already = store.assessed_fingerprints([row.listing_id for row in in_play])
     #: The ones read before the favourable half of the question existed. `in_favour` is null for
@@ -389,7 +456,8 @@ def assess_search(
     return run_pass(
         in_play,
         account=account,
-        criteria=criteria,
+        criteria=None,
+        criteria_of=lambda row: read_against[row.listing_id],
         session=session or _session(),
         already=already,
         owed=owed,

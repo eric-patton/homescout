@@ -229,7 +229,10 @@ def build_parser() -> argparse.ArgumentParser:
         "assess",
         help="read the properties still in play against what you said you want",
     )
-    assess.add_argument("--search", metavar="NAME", help="which saved search")
+    assess.add_argument(
+        "--search", metavar="NAME",
+        help="only this saved search; without it, every one a run of everything covers",
+    )
     assess.add_argument(
         "--limit", type=int, metavar="N",
         help="assess at most this many, to see a first pass before paying for all of it",
