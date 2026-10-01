@@ -57,6 +57,7 @@ function markUnsaved() {
 function panels() {
   return {
     areas: document.querySelector("[data-panel='areas']"),
+    "named houses": document.querySelector("[data-panel='addresses']"),
     "what it looks for": document.querySelector("[data-panel='settings']"),
     criteria: document.querySelector("[data-panel='criteria']"),
     "place notes": document.querySelector("[data-panel='places']"),
@@ -86,6 +87,7 @@ async function load() {
   ]);
   held.search = search.search;
   held.named = null;  /* A fresh fetch: the draft below is seeded from it again. */
+  held.addresses = null;  /* And the named houses, for the same reason. */
   held.settings = settings;
   /* The places this store has properties in, and what is already written about them. Fetched here
    * rather than typed into a blank box: a note only reaches a property's row when it matches that
@@ -107,7 +109,7 @@ function draw() {
     el("div", {id: "unsaved", class: "notice notice-flag", role: "status", hidden: true}),
     problems(search),
     el("div", {class: "detail"},
-      el("div", {}, mapPanel(), areaList()),
+      el("div", {}, mapPanel(), areaList(), addressPanel()),
       el("div", {}, settingsPanel()),
     ),
     /* Full width, below the two columns. A criterion is four controls in a row and a place note is
@@ -191,8 +193,11 @@ async function saveAreas() {
     });
   }
 
-  if (!areas.length) {
-    say("A saved search needs at least one area to look in, so this was not saved.", "problem");
+  /* Named houses are a whole search on their own (feat-004/AC-15), so no areas is only a problem
+   * when there are none of those either. */
+  if (!areas.length && !(held.addresses || []).length) {
+    say("A saved search needs at least one area to look in or one named house, so this was not " +
+        "saved.", "problem");
     return;
   }
 
@@ -554,6 +559,7 @@ function confirmRemoval(called, kind, reason) {
     };
 
     const drawn = kind === "polygon" || kind === "radius";
+    const house = kind === "address";
     const yes = el("button", {type: "button", class: "danger",
                               onclick: () => done(true)}, "Remove it");
     const no = el("button", {type: "button", class: "primary",
@@ -566,16 +572,20 @@ function confirmRemoval(called, kind, reason) {
       oncancel: () => done(false),
       onclick: (event) => { if (event.target === dialog) done(false); },
     },
-      el("h2", {id: "askremove"}, "Take this area out of the search?"),
+      el("h2", {id: "askremove"},
+         house ? "Take this house out of the search?" : "Take this area out of the search?"),
       el("p", {}, el("strong", {}, called)),
       reason ? el("p", {class: "hint"}, "Why it is here now: ", reason) : null,
       el("p", {class: "hint"},
-        drawn
-          ? "This is a shape somebody drew on the map, so putting it back means drawing it again."
-          : "This is a named place, so putting it back means typing the name again."),
+        house
+          ? "This is an address, so putting it back means typing it again."
+          : drawn
+            ? "This is a shape somebody drew on the map, so putting it back means drawing it again."
+            : "This is a named place, so putting it back means typing the name again."),
       el("p", {class: "hint"},
         "Nothing is written yet either way. The file changes when you press “Save the "
-        + "areas”, and leaving this page without saving leaves the file as it was."),
+        + (house ? "named houses" : "areas")
+        + "”, and leaving this page without saving leaves the file as it was."),
       el("div", {class: "actions"}, no, yes),
     );
 
@@ -583,6 +593,180 @@ function confirmRemoval(called, kind, reason) {
     dialog.showModal();
     no.focus();  /* The safe one, so a stray Enter keeps the area. */
   });
+}
+
+/* Specific houses, beside the areas or instead of them (feat-004/AC-22).
+ *
+ * The same footing as the named places above: a draft seeded once from what the server said, kept
+ * through redraws, and written only by this panel's own button, through the same edit operation the
+ * command line's `searches edit --set addresses=[...]` uses. Nothing here writes the file.
+ *
+ * What it says before anything is added is the one thing that leaves the machine: each address goes
+ * to the Census once, to be placed. The listing sites are only ever asked about a circle around it.
+ */
+function addressesFrom(search) {
+  return (search.addresses || []).map((entry) => ({
+    address: entry.address,
+    reason: entry.reason || "",
+    at: entry.at || null,
+  }));
+}
+
+function addressPanel() {
+  const draft = held.addresses || addressesFrom(held.search);
+  held.addresses = draft;
+
+  const rows = draft.map((entry, index) => el("tr", {},
+    el("td", {},
+      entry.address,
+      entry.at
+        ? el("span", {class: "meta"}, ` placed by hand at ${entry.at[0]}, ${entry.at[1]}`)
+        : null),
+    el("td", {class: "whycell"}, addressWhy(entry, index + 1)),
+    el("td", {class: "bincell"}, el("button", {
+      type: "button",
+      class: "bin",
+      onclick: async () => {
+        if (await confirmRemoval(entry.address, "address", entry.reason)) {
+          draft.splice(draft.indexOf(entry), 1);
+          touched("named houses");
+          redrawAddresses();
+        }
+      },
+      title: `Remove house ${index + 1}`,
+      "aria-label": `Remove house ${index + 1}`,
+    }, binIcon())),
+  ));
+
+  const box = el("textarea", {
+    id: "newaddresses",
+    rows: "3",
+    placeholder: "52150 Taylor Dr, Loranger, LA 70446",
+    "aria-label": "Addresses to add, one per line",
+  });
+
+  return el("section", {id: "addresses", dataset: {panel: "addresses"}},
+    el("h2", {}, "Named houses"),
+    el("p", {class: "meta"},
+      "Specific houses, wanted whatever the filters and the areas left out say. Your criteria " +
+      "still judge them, so one can still be set aside, with its reason. Each address is sent once " +
+      "to the Census geocoder to be placed on the map; the listing sites are only ever asked about " +
+      "a half-mile circle around it, never the address."),
+    draft.length
+      ? el("table", {class: "plain"},
+          el("thead", {}, el("tr", {},
+            el("th", {scope: "col"}, "Address"),
+            el("th", {scope: "col"}, "Why"),
+            el("th", {scope: "col"}, el("span", {class: "visually-hidden"}, "Remove")),
+          )),
+          el("tbody", {}, rows))
+      : el("p", {class: "unknown"}, "this search names no houses."),
+    el("div", {class: "controls"},
+      el("label", {for: "newaddresses"}, "Add addresses, one per line "),
+      box,
+      el("button", {
+        type: "button",
+        onclick: () => {
+          const known = new Set(draft.map((entry) => folded(entry.address)));
+          const given = box.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+          const fresh = given.filter((line) => {
+            if (known.has(folded(line))) return false;
+            known.add(folded(line));
+            return true;
+          });
+          if (!given.length) { say("Type an address first.", "problem"); return; }
+          for (const line of fresh) draft.push({address: line, reason: "", at: null});
+          if (fresh.length) touched("named houses");
+          redrawAddresses();
+          say(
+            (fresh.length ? `Added ${count(fresh.length, "house")}. ` : "") +
+            (given.length > fresh.length
+              ? `${count(given.length - fresh.length, "address", "addresses")} already named. `
+              : "") +
+            "Save the named houses to write them into the file.",
+            fresh.length ? "good" : "plain");
+        },
+      }, "Add"),
+    ),
+    el("button", {type: "button", class: "primary", onclick: saveAddresses},
+       "Save the named houses"),
+  );
+}
+
+function folded(text) {
+  return text.toLowerCase().replace(/,/g, " ").split(/\s+/).filter(Boolean).join(" ");
+}
+
+/* What goes back into the file: a plain line when that is all there is, an entry when there is a
+ * reason or a place to keep. The shape a person would have written by hand. */
+function addressEntry(entry) {
+  if (!entry.reason && !entry.at) return entry.address;
+  const made = {address: entry.address};
+  if (entry.reason) made.reason = entry.reason;
+  if (entry.at) made.at = entry.at;
+  return made;
+}
+
+async function saveAddresses() {
+  const draft = held.addresses || [];
+  /* None at all removes the key rather than writing an empty list, which says nothing. */
+  await save({addresses: draft.length ? draft.map(addressEntry) : null}, "named houses");
+}
+
+/* Why a house is here, in the same window the areas use, and written only by the panel's save. */
+function addressWhy(entry, position) {
+  const button = el("button", {
+    type: "button",
+    class: "why",
+    "aria-label": `Why house ${position} is named`,
+    onclick: () => {
+      const box = el("textarea", {
+        rows: "6", class: "whytext",
+        placeholder: "why this house is in the search…",
+        "aria-label": `Why ${entry.address} is named`,
+      });
+      box.value = entry.reason || "";
+      const keep = () => {
+        const given = box.value.trim();
+        if (given !== (entry.reason || "")) touched("named houses");
+        entry.reason = given;
+        showWhy(button, given);
+        dialog.close();
+      };
+      const dialog = el("dialog", {
+        class: "ask whybox",
+        "aria-label": `Why ${entry.address} is named`,
+        onclose: () => { dialog.remove(); button.focus(); },
+        onclick: (event) => { if (event.target === dialog) dialog.close(); },
+        onkeydown: (event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            keep();
+          }
+        },
+      },
+        el("h2", {}, "Why ", el("strong", {}, entry.address), " is named"),
+        box,
+        el("div", {class: "actions"},
+          el("button", {type: "button", class: "primary", onclick: keep}, "Keep this"),
+          el("button", {type: "button", class: "quiet", onclick: () => dialog.close()}, "Cancel"),
+        ),
+      );
+      document.body.append(dialog);
+      dialog.showModal();
+      box.focus();
+    },
+  });
+  showWhy(button, entry.reason || "");
+  return button;
+}
+
+/* The section itself stays and only what is inside it is rebuilt. It is a panel: the page's edit
+ * listeners and its "changed, not saved" mark both live on the section, and replacing it would
+ * quietly drop both. */
+function redrawAddresses() {
+  const where = document.getElementById("addresses");
+  if (where) where.replaceChildren(...addressPanel().childNodes);
 }
 
 function redrawAreaList() {
@@ -1125,6 +1309,7 @@ async function save(changes, panel) {
     const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`, {set: changes});
     held.search = answered.search;
     held.named = null;  /* What was saved is now what the server says; re-seed from it. */
+    held.addresses = null;
     /* Cleared before the redraw, because the redraw rebuilds the panels and re-reads this. */
     if (panel) saved(panel);
     say("Saved. The file keeps its comments and everything you did not change.", "good");

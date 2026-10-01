@@ -31,10 +31,14 @@ from typing import Any
 from .assess.pass_ import for_run as assessment_pass
 from .errors import InvalidInput
 from .extract.pass_ import for_run as extraction_pass
+from .merge.address import Address
+from .merge.address import of as address_of
+from .merge.address import parse as parse_address
 from .merge.pass_ import run_pass as merge_pass
 from .records import ListingFields, SourceRow
 from .rules.verdicts import record as record_verdicts
 from .search import Placement, SearchDefinition
+from .search.addresses import AddressPlan, AddressQuery, NamedAddress
 from .sources.base import Preview, SearchQuery, SearchResult, Source
 from .store import Comparison, RunRecord, SourceOutcome, Store
 
@@ -101,10 +105,34 @@ class SourceReport:
 
 
 @dataclass(frozen=True, slots=True)
+class AddressReport:
+    """One named address after a run: whether it was placed, and which sources found it (AC-21).
+
+    Not finding a house is an ordinary answer. It is usually not for sale on that site, and the run
+    says so plainly rather than treating it as a failure or leaving it out.
+    """
+
+    address: str
+    #: False when nothing could say where it is, so no source was asked for it.
+    placed: bool
+    #: The address the lookup believes it found, so a match into the wrong town is visible.
+    matched: str | None = None
+    found_by: tuple[str, ...] = ()
+    missed_by: tuple[str, ...] = ()
+
+    @property
+    def found(self) -> bool:
+        return bool(self.found_by)
+
+
+@dataclass(frozen=True, slots=True)
 class RunOutcome:
     run: RunRecord
     comparison: Comparison
     sources: tuple[SourceReport, ...] = ()
+    #: One entry per named address, in the order the file names them. Empty for a search that names
+    #: none, which is every search written before they existed.
+    addresses: tuple[AddressReport, ...] = ()
     #: What address matching did after the run: what it joined, and what it wants a person to
     #: settle. `None` on a path that did not run it.
     merge: Any = None
@@ -241,6 +269,81 @@ def _ask(
     return rows, results
 
 
+def _wanted(address: NamedAddress, plan: AddressPlan) -> Address:
+    """The named address, read by the same parser every listing's address is read by.
+
+    Its ZIP code is the one the person wrote, else the one the lookup matched, else none at all
+    (an `at` with no ZIP), and with none it is simply not compared (AC-19).
+    """
+    placed = plan.where(address)
+    postal = address.postal() or (placed.postal if placed is not None else None)
+    return parse_address(address.street(), postal=postal)
+
+
+def _at_address(fields: ListingFields, wanted: Address) -> bool:
+    """Is this listing the named house? Three parts, from the address matcher's own rules.
+
+    The house number and the street name must agree, read by the address matcher so that
+    `Hwy 43 Hwy` and `Highway 43` are one road. The ZIP code must agree when both have one. The
+    unit must agree when both carry one: a lot or unit only one side mentions does not separate
+    them, which is feat-006's AC-24, while two different units are two homes.
+
+    A listing whose address has no number or no street can never be the named house. Taking the
+    nearest one, or the one with the right number, would be guessing which house somebody meant
+    (plan D-24).
+    """
+    if not wanted.number or not wanted.street:
+        return False
+    row = address_of(fields)
+    if not row.number or not row.street:
+        return False
+    if (row.number, row.street) != (wanted.number, wanted.street):
+        return False
+    if row.postal and wanted.postal and row.postal != wanted.postal:
+        return False
+    return not (row.unit and wanted.unit and row.unit != wanted.unit)
+
+
+def _ask_for_addresses(
+    source: Source,
+    asking: Sequence[AddressQuery],
+    wanted: Mapping[NamedAddress, Address],
+    already: Sequence[SourceRow],
+) -> tuple[list[SourceRow], list[SearchResult], set[NamedAddress]]:
+    """Every circle around this search's named addresses, keeping only the named houses.
+
+    Nothing the search filters on is applied to what is kept, and the exclusions are not consulted:
+    a named house is wanted whatever they say (AC-20). Everything else a circle returned is dropped
+    unrecorded, as a row outside a drawn area is (AC-19).
+
+    A named house the area queries already kept is one observation, not two, by the same rule that
+    drops a repeat across two areas; and within one response every row stands, as it does there.
+    """
+    seen = {identity for row in already if (identity := _identity(row)) is not None}
+    rows: list[SourceRow] = []
+    results: list[SearchResult] = []
+    hits: set[NamedAddress] = set()
+    for ask in asking:
+        result = source.search(ask.query)
+        results.append(result)
+        fresh: list[SourceRow] = []
+        for row in result.rows:
+            members = [
+                address for address in ask.circle.members
+                if _at_address(row.fields, wanted[address])
+            ]
+            if not members:
+                continue
+            hits.update(members)
+            identity = _identity(row)
+            if identity is not None and identity in seen:
+                continue
+            fresh.append(row)
+        seen.update(identity for row in fresh if (identity := _identity(row)) is not None)
+        rows.extend(fresh)
+    return rows, results, hits
+
+
 def _store_previews(
     store: Store,
     source: Source,
@@ -288,11 +391,17 @@ def run_search(
     An error afterward is recorded separately, preserving the completed observation history.
     """
     say = progress or (lambda _message: None)
-    if not definition.areas:
+    named: tuple[NamedAddress, ...] = tuple(getattr(definition, "addresses", ()) or ())
+    if not definition.areas and not named:
         raise InvalidInput(
-            f"The saved search {definition.name!r} names no area, so there is nothing to ask a "
-            f"source for. Checked before the run started, so nothing was recorded."
+            f"The saved search {definition.name!r} names no area and no address, so there is "
+            f"nothing to ask a source for. Checked before the run started, so nothing was recorded."
         )
+    # Placed once for the whole run, from what is already known: the looking up happened before
+    # the run started, so nothing in here can reach the network to place an address (plan D-22).
+    plan: AddressPlan = definition.address_plan() if named else AddressPlan()  # type: ignore[attr-defined]
+    wanted = {address: _wanted(address, plan) for address, _ in plan.placed}
+    found_by: dict[NamedAddress, list[str]] = {address: [] for address in named}
     run = store.start_run(
         definition.name, revision=getattr(definition, "observation_revision", None)
     )
@@ -307,7 +416,8 @@ def run_search(
             source = sources[name]
             capabilities = source.capabilities()
             queries = definition.queries_for(capabilities)
-            if not queries:
+            asking = plan.queries_for(capabilities)
+            if not queries and not asking:
                 reports.append(_cannot_cover(name, definition))
                 store.record_source_outcome(
                     run.id,
@@ -321,33 +431,61 @@ def run_search(
                 say(f"{name}: unavailable, no area it can express")
                 continue
 
-            application = capabilities.application(queries[0])
-            by_source = tuple(f for f, applied in application.items() if applied)
-            locally = tuple(
-                f
-                for f, applied in application.items()
-                if not applied and f not in NEVER_APPLIED_LOCALLY
-            )
-
-            rows, results = _ask(source, queries)
-            outcome = _worst([r.outcome for r in results])
+            by_source: tuple[str, ...] = ()
+            locally: tuple[str, ...] = ()
+            results: list[SearchResult] = []
             kept: list[SourceRow] = []
             unplaced = 0
-            for row in rows:
-                if not passes(row.fields, queries[0], locally):
-                    continue
-                where = definition.place(row.fields)
-                if where is Placement.outside:
-                    continue
-                if where is Placement.unlocatable:
-                    unplaced += 1
-                kept.append(row)
+            if queries:
+                application = capabilities.application(queries[0])
+                by_source = tuple(f for f, applied in application.items() if applied)
+                locally = tuple(
+                    f
+                    for f, applied in application.items()
+                    if not applied and f not in NEVER_APPLIED_LOCALLY
+                )
+                rows, results = _ask(source, queries)
+                for row in rows:
+                    if not passes(row.fields, queries[0], locally):
+                        continue
+                    where = definition.place(row.fields)
+                    if where is Placement.outside:
+                        continue
+                    if where is Placement.unlocatable:
+                        unplaced += 1
+                    kept.append(row)
+
+            # The named houses, asked for with no filters and kept by address alone (AC-18 to
+            # AC-20). Their queries count toward this source's outcome like any other: a status
+            # this source refuses is a failed query, and degrades it the ordinary way.
+            if asking:
+                named_rows, named_results, hits = _ask_for_addresses(
+                    source, asking, wanted, kept
+                )
+                kept.extend(named_rows)
+                results.extend(named_results)
+                for address in hits:
+                    found_by[address].append(name)
+            outcome = _worst([r.outcome for r in results])
 
             listing_ids = store.record_observations(run.id, name, kept) if kept else []
             if images and kept:
                 _store_previews(store, source, kept, listing_ids)
 
-            detail = "; ".join(r.detail for r in results if r.detail) or None
+            details = [r.detail for r in results if r.detail]
+            if asking:
+                # Recorded with the source's outcome, so the stored run says how many named houses
+                # each source found after the run's own report is gone (plan D-25).
+                hits_here = sum(1 for address, _ in plan.placed if name in found_by[address])
+                details.append(
+                    f"found {hits_here} of {len(plan.placed)} named "
+                    f"address{'es' if len(plan.placed) != 1 else ''}"
+                )
+                if "listing_status" not in capabilities.applies:
+                    details.append(
+                        f"{name} takes no listing status, so named addresses were asked for once"
+                    )
+            detail = "; ".join(details) or None
             truncated = any(r.truncated for r in results)
             store.record_source_outcome(
                 run.id,
@@ -435,6 +573,20 @@ def run_search(
         run=completed,
         comparison=comparison,
         sources=tuple(reports),
+        addresses=tuple(
+            AddressReport(
+                address=address.text,
+                placed=(placed := plan.where(address)) is not None,
+                matched=placed.matched if placed is not None else None,
+                found_by=tuple(found_by[address]),
+                missed_by=(
+                    tuple(n for n in definition.sources if n not in found_by[address])
+                    if placed is not None
+                    else ()
+                ),
+            )
+            for address in named
+        ),
         merge=merging,
         extraction=extraction,
         assessment=assessment,

@@ -16,7 +16,23 @@ from __future__ import annotations
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
+
+
+@dataclass(frozen=True, slots=True)
+class PlacedAddress:
+    """Where a street address is, as far as whatever placed it could say (plan D-22).
+
+    `matched` is the address the lookup believes it found, in its own spelling, so a person can see
+    a loose match into the wrong town rather than only a house that was never found. `postal` is
+    that match's ZIP code, which is what a named address written without one is compared by.
+    """
+
+    latitude: float
+    longitude: float
+    matched: str | None = None
+    postal: str | None = None
 
 
 @runtime_checkable
@@ -34,6 +50,16 @@ class BoundaryProvider(Protocol):
     def candidates(self, kind: str, value: str) -> tuple[str, ...]:
         """Every place this name could mean, for reporting an ambiguity rather than picking one."""
         ...
+
+    # Not part of the protocol's required surface, so a provider written before named addresses
+    # still satisfies it. A provider without it places nothing, and every named address is then
+    # reported as not looked for rather than failing the run:
+    #
+    #     def place_address(self, text: str) -> PlacedAddress | None: ...
+    #     def prepare_addresses(self, texts: Sequence[str]) -> None: ...
+    #
+    # The first answers from what is already known and is what a run asks. The second may go and
+    # ask, and is called once before a run so that the first never has to.
 
 
 _PROVIDER: BoundaryProvider | None = None

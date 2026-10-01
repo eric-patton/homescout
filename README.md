@@ -106,6 +106,37 @@ Two details worth knowing:
   Filtering a run by freshness would stop recording older properties, and a property that stops
   being recorded is one this tool can only later describe as having disappeared.
 
+### Specific houses
+
+A search can also name houses, any number of them, beside its areas or instead of them:
+
+```yaml
+addresses:
+  - 202 Marguerite St, Folsom, LA 70437
+  - address: 33063 Hwy 43, Independence, LA 70443
+    reason: Sent by the agent.
+  - address: 28931 Hwy 1070, Franklinton, LA 70438
+    at: [30.942891, -90.005185]
+```
+
+Each run places every address on the map, asks each source for a half-mile circle around it, and
+keeps only the listing at that address: the neighbours the circle also returns are discarded. A named
+house is in the run **whatever the search's filters and exclusions say**, because naming it is the
+decision that you want to see it. Your criteria still judge it, so a named house in a flood zone is
+still set aside, with its reason.
+
+- **Where an address goes.** Each one is sent once to the Census geocoder to be placed, and the
+  answer is kept for a year (thirty days if it found nothing, so new construction is tried again).
+  The listing sites are only ever asked about the circle, never the address.
+- **`at` places it by hand**, latitude first, for an address the Census cannot place or places in
+  the wrong spot. The run's report says which addresses could not be placed and what the Census
+  matched for the rest.
+- **"Not found" is an ordinary answer.** It usually means the house is not for sale on that site.
+  Every run says, for each named house, which sources found it.
+- **Matching is by address, not by distance.** `Hwy 43 Hwy` and `Highway 43` are the same road; a
+  different house number, or a different unit, is a different home. A listing with no usable street
+  address is never taken to be the named house.
+
 ## Sources
 
 Three, and they behave differently enough that the differences are worth knowing before you write a

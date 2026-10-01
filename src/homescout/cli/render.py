@@ -103,6 +103,7 @@ def digest(document: dict[str, Any]) -> str:
                 f"{' (incomplete)' if source['truncated'] else ''}{note}"
             )
             lines.append(f"    filtered by the source: {applied}; filtered here: {locally}")
+        lines.extend(f"  {line}" for line in _named_addresses(search.get("addresses") or []))
         lines.extend(f"  {line}" for line in _properties("New", search["new"]))
         lines.extend(f"  {line}" for line in _properties("Price changes", search["price_changes"]))
         lines.extend(
@@ -121,6 +122,24 @@ def digest(document: dict[str, Any]) -> str:
         if not skip["problems"] and skip.get("detail"):
             lines.append(f"  {skip['detail']}")
     return "\n".join(lines).rstrip() or "Nothing to report."
+
+
+def _named_addresses(reports: Sequence[dict[str, Any]]) -> list[str]:
+    """One line per named address: found by whom, not found, or never looked for (AC-21)."""
+    lines: list[str] = []
+    for report in reports:
+        if not report.get("placed"):
+            lines.append(
+                f"{report['address']}: not looked for, because nothing could place it. "
+                "Give it `at: [latitude, longitude]` in the search to place it by hand."
+            )
+            continue
+        where = f" (placed at {report['matched']})" if report.get("matched") else ""
+        if report.get("found_by"):
+            lines.append(f"{report['address']}: found by {', '.join(report['found_by'])}{where}")
+        else:
+            lines.append(f"{report['address']}: not found by any source{where}")
+    return lines
 
 
 def searches(names: Sequence[str]) -> str:

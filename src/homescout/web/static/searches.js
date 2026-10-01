@@ -329,17 +329,43 @@ function watch(name) {
       } else if (status.outcome) {
         const counts = status.outcome.counts || {};
         const failed = (status.outcome.sources || []).filter((s) => s.outcome !== "ok");
+        const houses = status.outcome.addresses || [];
+        const found = houses.filter((h) => (h.found_by || []).length);
         say(
           `${name}: ${counts.new || 0} new, ${counts.changed || 0} changed, ` +
           `${counts.gone || 0} gone` +
+          (houses.length ? `, ${found.length} of ${count(houses.length, "named house")} found` : "") +
           (failed.length ? `. ${failed.map((s) => `${s.source} ${s.outcome}`).join(", ")}` : ""),
           failed.length ? "problem" : "good");
+        if (houses.length) where.append(namedReport(houses));
       }
       load().catch(fail);
     }
   };
   tick();
   polling = setInterval(tick, 1500);
+}
+
+/* Each named house after a run: who found it, nobody, or never looked for (feat-004/AC-21).
+ *
+ * "Not found" is an ordinary answer, usually a house that is not for sale on that site, so it is
+ * said plainly rather than coloured as a failure. The address the Census matched is shown, because a
+ * loose match into the wrong town is otherwise invisible: the house is simply never found. */
+function namedReport(houses) {
+  return el("ul", {class: "plain namedreport", "aria-label": "Named houses in this run"},
+    houses.map((house) => {
+      const where = house.matched ? ` (placed at ${house.matched})` : "";
+      if (!house.placed) {
+        return el("li", {}, el("strong", {}, house.address),
+          ": not looked for, because nothing could place it. Give it ",
+          el("code", {}, "at: [latitude, longitude]"), " in the search to place it by hand.");
+      }
+      if ((house.found_by || []).length) {
+        return el("li", {}, el("strong", {}, house.address),
+          `: found by ${house.found_by.join(", ")}${where}`);
+      }
+      return el("li", {}, el("strong", {}, house.address), `: not found by any source${where}`);
+    }));
 }
 
 /* The same watching, for the things that are not one search: a run of everything, an enrichment

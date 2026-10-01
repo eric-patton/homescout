@@ -22,6 +22,8 @@ from ..rules.definition import Rule
 from ..rules.definition import read as read_rules
 from . import Severity
 from . import geometry as geo
+from .addresses import NamedAddress
+from .addresses import read as read_addresses
 from .areas import AreaError, SearchArea
 from .areas import build as build_area
 from .document import Document
@@ -32,6 +34,7 @@ TOP_LEVEL = (
     "name",
     "description",
     "areas",
+    "addresses",
     "exclude_areas",
     "filters",
     "sources",
@@ -76,6 +79,8 @@ class Reading:
     name: str = ""
     description: str | None = None
     areas: tuple[SearchArea, ...] = ()
+    #: Specific houses asked for by address, beside the areas or instead of them (AC-15).
+    addresses: tuple[NamedAddress, ...] = ()
     sources: tuple[str, ...] = ()
     filters: dict[str, Any] = field(default_factory=dict)
     statuses: tuple[str, ...] = ("for_sale",)
@@ -130,6 +135,7 @@ def examine(document: Document, *, known_sources: Sequence[str]) -> Reading:
 
     _name(document, reading)
     _description(document, reading)
+    _addresses(document, reading)
     _areas(document, reading)
     _filters(document, reading)
     _sources(document, reading, known_sources)
@@ -168,19 +174,28 @@ def _description(document: Document, reading: Reading) -> None:
     reading.description = value
 
 
+#: Said when a definition has nothing to look in and nothing to look for.
+NOTHING_TO_SEARCH = "a saved search needs at least one area to search or one named address"
+
+
 def _areas(document: Document, reading: Reading) -> None:
+    """The areas and the exclusions. Either areas or named addresses are enough on their own.
+
+    Read after the addresses, because whether an empty `areas` is a problem depends on them: a
+    search that names three houses and no area is a whole search (AC-15).
+    """
     made: list[SearchArea] = []
     for key, excluded in (("areas", False), ("exclude_areas", True)):
         entries = document.data.get(key)
         if entries is None:
-            if key == "areas":
-                reading.say(document.at(key), "a saved search needs at least one area to search")
+            if key == "areas" and not reading.addresses:
+                reading.say(document.at(key), NOTHING_TO_SEARCH)
             continue
         if isinstance(entries, str) or not isinstance(entries, Sequence):
             reading.say(document.at(key), f"{key} has to be a list of areas")
             continue
-        if key == "areas" and not entries:
-            reading.say(document.at(key), "a saved search needs at least one area to search")
+        if key == "areas" and not entries and not reading.addresses:
+            reading.say(document.at(key), NOTHING_TO_SEARCH)
         for index, entry in enumerate(entries):
             try:
                 made.append(build_area(entry, excluded=excluded))
@@ -188,6 +203,19 @@ def _areas(document: Document, reading: Reading) -> None:
                 reading.say(document.at(key, index), str(exc))
 
     reading.areas = tuple(made)
+
+
+def _addresses(document: Document, reading: Reading) -> None:
+    """Specific houses, each a line of text or an entry with a reason and a place (AC-15, AC-17).
+
+    Shape only. Whether the Census can place an address is found out when the search runs, and
+    reported then: validation never contacts anything, and an address nobody can place is a reason
+    to look at the run's report rather than a reason to refuse the file.
+    """
+    made, found = read_addresses(document.data.get("addresses"))
+    for where, message, severity in found:
+        reading.say(document.at("addresses", *where), message, severity)  # type: ignore[arg-type]
+    reading.addresses = made
 
 
 def _filters(document: Document, reading: Reading) -> None:

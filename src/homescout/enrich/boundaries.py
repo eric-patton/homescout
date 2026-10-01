@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
+from ..search.boundaries import PlacedAddress
 from ..store import Store
 from . import settings
 from .provider import ProviderFailed, ask_json
@@ -61,6 +63,12 @@ BY_NAME: dict[str, str] = {
 #: A boundary that has been fetched is kept under this provider name, in the same table as every
 #: other cached value.
 PROVIDER = "boundaries"
+
+#: How long a placed street address is believed (saved searches' plan D-22). A match for a year,
+#: because addresses do not move. No match for thirty days, because the usual reason is new
+#: construction the Census has not caught up with, and it should be asked again once it has.
+ADDRESS_DAYS = 365
+NO_ADDRESS_DAYS = 30
 
 
 def _split(value: str) -> tuple[str, str | None]:
@@ -108,6 +116,38 @@ class CensusBoundaries:
         if isinstance(found, list) and len(found) == 2:
             return (float(found[0]), float(found[1]))
         return None
+
+    def place_address(self, text: str) -> PlacedAddress | None:
+        """Where a street address is, from the Census one-line geocoder, cached (feat-004/AC-16).
+
+        Cache-only unless this instance may fetch, like everything else here. A run asks the
+        cache-only one; `prepare_addresses` is what goes and asks, once, before a run.
+        """
+        key = f"address:{_folded(text)}"
+        held = self._store.cached_values(PROVIDER, (key,)).get(key, {}).get("address")
+        if held is not None and not _expired(held.value, held.fetched_at):
+            return _placed(held.value)
+        if not self._fetch:
+            # A stale answer is still the best one a run has. Only a fetch replaces it.
+            return _placed(held.value) if held is not None else None
+        try:
+            found = self._address(text)
+        except ProviderFailed:
+            return _placed(held.value) if held is not None else None
+        self._store.cache_values(PROVIDER, key, {"address": found})
+        return _placed(found)
+
+    def prepare_addresses(self, texts: Sequence[str]) -> None:
+        """Place every address the cache cannot answer for, before a run needs them.
+
+        Done by a fetching twin over the same store and session, so the provider a run reads from
+        stays cache-only and the filtering loop can never reach the network through it.
+        """
+        fetching = self if self._fetch else CensusBoundaries(self._store, self._session)
+        for text in dict.fromkeys(texts):
+            fetching.place_address(text)
+        if fetching is not self:
+            self._session = fetching._session
 
     def candidates(self, kind: str, value: str) -> tuple[str, ...]:
         """Every place this name could mean, for reporting an ambiguity rather than picking one."""
@@ -202,6 +242,43 @@ class CensusBoundaries:
                         return [float(latitude), float(longitude)]
         return None
 
+    def _address(self, text: str) -> dict[str, Any] | None:
+        """The Census's first match for one line of address, or None when it has none.
+
+        Its first, because it returns them best first and a second guess is still a guess. What is
+        kept is the point, the line it matched and that line's ZIP code: the line so a person can
+        see a match into the wrong town, the ZIP so an address written without one can still be
+        compared by it.
+        """
+        answer = self._ask(
+            "address",
+            settings.endpoint("address").url,
+            {"address": text, "benchmark": "Public_AR_Current", "format": "json"},
+        )
+        result = answer.get("result")
+        if not isinstance(result, Mapping):
+            raise ProviderFailed("address: the response shape has changed")
+        matches = result.get("addressMatches")
+        if not isinstance(matches, list):
+            raise ProviderFailed("address: the response shape has changed")
+        for match in matches:
+            if not isinstance(match, Mapping):
+                continue
+            where = match.get("coordinates") or {}
+            try:
+                latitude, longitude = float(where["y"]), float(where["x"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            parts = match.get("addressComponents") or {}
+            postal = str(parts.get("zip") or "").strip()[:5] if isinstance(parts, Mapping) else ""
+            return {
+                "latitude": latitude,
+                "longitude": longitude,
+                "matched": str(match.get("matchedAddress") or "").strip() or None,
+                "postal": postal or None,
+            }
+        return None
+
     def _query(self, layer: int, where: str, *, geometry: bool) -> list[Mapping[str, Any]]:
         url = f"{settings.endpoint('boundaries').url}/{layer}/query"
         answer = self._ask(
@@ -227,7 +304,9 @@ class CensusBoundaries:
         if self._session is None:
             from ..sources import default_session
 
-            self._session = default_session(config=settings.pacing((PROVIDER, "geocode")))
+            self._session = default_session(
+                config=settings.pacing((PROVIDER, "geocode", "address"))
+            )
         return self._session
 
     def _cached(self, key: str, name: str, ask) -> Any | None:
@@ -247,6 +326,37 @@ class CensusBoundaries:
             return None
         self._store.cache_values(PROVIDER, key, {name: found})
         return found
+
+
+def _folded(text: str) -> str:
+    """One cache entry per address however it was spaced or capitalised."""
+    return " ".join(text.casefold().replace(",", " ").split())
+
+
+def _placed(value: Any) -> PlacedAddress | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return PlacedAddress(
+            latitude=float(value["latitude"]),
+            longitude=float(value["longitude"]),
+            matched=value.get("matched"),
+            postal=value.get("postal"),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _expired(value: Any, fetched_at: str, *, now: datetime | None = None) -> bool:
+    """Past its lifetime: a year for a match, thirty days for no match."""
+    try:
+        moment = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return True
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    days = ((now or datetime.now(UTC)) - moment).total_seconds() / 86_400
+    return days > (ADDRESS_DAYS if value is not None else NO_ADDRESS_DAYS)
 
 
 def _middle(shape: Mapping[str, Any]) -> tuple[float, float] | None:

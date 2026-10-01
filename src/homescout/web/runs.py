@@ -189,4 +189,14 @@ def _describe(outcome: Any) -> dict[str, Any] | None:
             }
             for report in getattr(outcome, "sources", ()) or ()
         ]
+        found["addresses"] = [
+            {
+                "address": report.address,
+                "placed": report.placed,
+                "matched": report.matched,
+                "found_by": list(report.found_by),
+                "missed_by": list(report.missed_by),
+            }
+            for report in getattr(outcome, "addresses", ()) or ()
+        ]
     return found

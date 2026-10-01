@@ -227,33 +227,58 @@ filters and exclusions, and the criteria still judge it.
       none: `_street_name` stripped the type word, was left with only digits, and returned no name,
       so the same house from three sites stayed three records and was never queued. Fixed as
       feat-006's T-highway-1 and T-highway-2 (`hwy 445` for all three spellings).
-- [ ] T-address-1: `search/addresses.py`, `search/definition.py`, `search/validate.py`: the
+- [x] T-address-1: `search/addresses.py` (new), `search/definition.py`, `search/validate.py`: the
       `addresses` key, `NamedAddress(text, reason, at)`, `definition.addresses`, and the shape checks
       of AC-17 (including the 200-character limit and the notice above 50), located and fetching
       nothing (D-21). Validation's "needs at least one area" and the run loop's "names no area" both
-      allow a search with addresses and no areas.
-- [ ] T-address-2: `search/boundaries.py`, `enrich/boundaries.py`, `enrich/settings.py`: the port's
-      `place_address`, the no-op default, the Census one-line endpoint behind it with a year for a
-      match and thirty days for no match, and `place_addresses(store, texts)` called from
-      `api.run_search` before the run (D-22). Recorded in feat-007's manifest.
-- [ ] T-address-3: `search/definition.py`, `runner.py`: `address_queries_for` (half a mile,
-      overlapping circles shared, three statuses for a source that pushes a status and one query for
-      a source that does not), the per-source step reshaped so a source is unavailable only with
-      neither area nor address queries, and the run loop keeping only rows that agree under D-24's
-      three parts, exempt from filters and exclusions (D-23, D-24). `fresh_enough` never hides a
-      named house (AC-20).
-- [ ] T-address-4: `runner.py`, `api.py`, `cli/render.py`: the per-address report on the outcome, in
-      `--json`, as lines on the command line, and as a count in each source's recorded detail
-      (D-25).
-- [ ] T-address-5: `tests/test_searches_addresses.py`: every row of the verification table except
-      AC-22, including the three spellings of one highway address and an address nobody lists.
-- [ ] T-address-6: `web/static/search.js`, `app.css`, the run status: the editor section and the
-      report on screen (D-26), with `tests/test_web_browser.py` covering add, paste many, remove
-      (asked first), a reason, and the line saying addresses go to the Census (`feat-004/AC-22`,
-      feat-010). Recorded in feat-010's manifest.
-- [ ] T-address-7: README, saved-search section: `addresses`, `at`, that a named house skips
-      filters and exclusions but not criteria, and that each address is sent once to the Census
-      geocoder while the listing sites only see a circle.
+      allow a search with addresses and no areas. The scope fingerprint behind revision-aware
+      comparisons takes the addresses in only when there are some, so adding a house starts a new
+      baseline and no existing search's baseline moves. The `searches create` template shows the key,
+      commented out.
+- [x] T-address-2: `search/boundaries.py`, `enrich/boundaries.py`, `enrich/settings.py`, `api.py`:
+      `PlacedAddress` and the port's optional `place_address` and `prepare_addresses`; the Census
+      one-line endpoint (`address`) behind them, a year for a match and thirty days for no match,
+      keyed by the address with case, spacing and commas folded. `prepare_addresses` fetches through
+      a fetching twin over the same store and session, so the provider a run reads stays cache-only;
+      `api.run_search` calls it inside the run claim, skipping addresses that carry `at` (D-22). A
+      provider without the method places nothing, and those addresses are reported as not looked
+      for. Recorded in feat-007's manifest.
+- [x] T-address-3: `search/addresses.py`, `search/definition.py`, `runner.py`: `AddressPlan`,
+      `address_plan()` and `address_queries_for` (half a mile, overlapping circles grouped and asked
+      for as one circle containing every member's own, three statuses for a source that pushes a
+      status and one query for a source that does not). The per-source step is reshaped so a source
+      is unavailable only with neither area nor address queries and the area half keeps its
+      application exactly as before. Rows are kept for an address by D-24's three parts, exempt
+      from filters and exclusions, and a named house the area half already kept is one observation.
+      `fresh_enough(named=True)` is always fresh (AC-20).
+- [x] T-address-4: `runner.py`, `digest.py`, `web/runs.py`, `cli/render.py`: `AddressReport` on the
+      outcome (placed, the matched line, found by, missed by), always present in `run --json` and the
+      run status, one line per address on the command line, and "found N of M named addresses" in
+      each source's recorded detail (D-25).
+- [x] T-address-5: `tests/test_searches_addresses.py`, nineteen tests over every row of the
+      verification table except AC-22: text and entry forms, round trip and the command line's edit,
+      every shape problem located with nothing asked, the notice above fifty, looked up once over
+      the real Census provider and a counting transport, the cache lifetimes, the status fan-out and
+      shared circles, an addresses-only search, a house under contract, neighbours discarded, the
+      three real spellings of one highway house from two sources, units on one side, a missing and a
+      wrong ZIP, the lookup's ZIP, exempt from filters, an exclusion and freshness while a drop rule
+      still fires, the three report answers, both command-line forms, and a refused status.
+      Checked against three broken versions of the run loop (keep every row, compare units always,
+      filter named rows), each of which turns the matching tests red.
+- [x] T-address-6: `web/api.py` document, `web/static/search.js`, `web/static/searches.js`: a "Named
+      houses" panel beside the areas, with its own save, the reason window, the bin that asks first,
+      and a box that takes one address or many pasted one per line, a repeated one named once; the
+      panel says before anything is added that each address goes to the Census once and the sites
+      only see a circle (D-26). "Save the areas" no longer refuses a search whose only content is
+      named houses. The run status page says how many named houses were found and lists each one.
+      `tests/test_web_browser.py`: add, paste with a repeat, a reason, the bin with "Keep it" then
+      "Remove it", and the saved file (`feat-004/AC-22`). It found a real fault on its first run:
+      redrawing the panel replaced the section, which dropped its "changed, not saved" mark and the
+      page's edit listeners with it; the panel now rebuilds only its contents. Recorded in feat-010's
+      manifest.
+- [x] T-address-7: README, "Specific houses" under saved searches: `addresses`, `at`, that a named
+      house skips filters and exclusions but not criteria, where an address goes (the Census once,
+      the sites only a circle), and that "not found" is an ordinary answer.
 - [ ] T-address-8: `uv run ruff check .` and the full suite green. Then, with the person's OK, the
       live `la-one-offs` search rewritten from eight circles to eight `addresses` and run: eight
       properties, one record each, no neighbours.

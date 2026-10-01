@@ -130,3 +130,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   built its providers bare, and this one is not configured until it has been told where its indexes
   live; a pass attaches the store, the test never had. It attaches a throwaway workspace now, so the
   provider is checked live like the rest. Recorded as `T-dc-14`.
+
+- **2026-09-30, saved searches' named addresses (feat-004, `changes/named-addresses/`).** The
+  boundary provider answers one more question for saved searches: where is this street address.
+  `CensusBoundaries.place_address` asks the Census one-line geocoder (a new `address` endpoint in
+  `settings.py`, overridable like the rest, paced under its own key) and keeps the point, the line
+  it matched and that line's ZIP code in the same cache as the boundaries. A match is believed for a
+  year and no match for thirty days, so new construction is asked about again once the Census has
+  it. Cache-only like everything else the provider answers during a run; `prepare_addresses` is the
+  one call that may fetch, and saved searches makes it before a run starts, never inside the
+  filtering loop. Free, national and keyless, which is the constitution's rule for external data.

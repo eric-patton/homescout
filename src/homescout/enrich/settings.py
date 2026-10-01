@@ -61,6 +61,10 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://geocoding.geo.census.gov/geocoder/geographies/coordinates",
         "Census geocoder, what contains a point",
     ),
+    "address": Endpoint(
+        "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+        "Census geocoder, where a street address is",
+    ),
     "broadband": Endpoint(
         "https://broadbandmap.fcc.gov/api/public/map/location",
         "FCC National Broadband Map, which needs a token",

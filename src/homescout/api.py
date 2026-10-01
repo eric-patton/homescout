@@ -381,6 +381,7 @@ def run_search(
     sources = workspace.sources_for(definition)
 
     with _translating(), claim_run(workspace.root, name) as claim:
+        _place_named_addresses(definition)
         return _run_search(
             workspace.store,
             definition,
@@ -390,6 +391,29 @@ def run_search(
             started=lambda run: claim.announce(run_id=run.id, started_at=run.started_at),
             queue=workspace.queue,
         )
+
+
+def _place_named_addresses(definition: Any) -> None:
+    """Look up every named address the cache cannot already place, before the run starts.
+
+    Here rather than in the run loop because this is the one step allowed to go and ask: the loop
+    reads geography from a provider that only answers from its cache, so nothing inside it can put
+    a paced request between two properties (feat-004 plan D-22). Inside the run claim, so two
+    processes starting one search do not ask about the same address twice. Every run passes through
+    here: the command line, the nightly run of everything, and the browser's run task.
+
+    A provider that cannot place addresses, or a lookup that fails, places nothing. The run goes
+    ahead and reports those addresses as not looked for (AC-21); a public geocoder being down is not
+    a reason to skip the areas.
+    """
+    from .search.boundaries import boundaries
+
+    named = [a for a in getattr(definition, "addresses", ()) or () if a.at is None]
+    provider = boundaries()
+    prepare = getattr(provider, "prepare_addresses", None) if provider is not None else None
+    if not named or prepare is None:
+        return
+    prepare([address.text for address in named])
 
 
 @dataclass(frozen=True, slots=True)
@@ -1969,6 +1993,14 @@ def search_document(workspace: Workspace, name: str) -> dict[str, Any]:
         "sources": list(getattr(definition, "sources", ())),
         "areas": [_area_document(area) for area in getattr(definition, "areas", ())],
         "exclusions": [_area_document(area) for area in getattr(definition, "exclusions", ())],
+        "addresses": [
+            {
+                "address": address.text,
+                "reason": address.reason,
+                "at": list(address.at) if address.at is not None else None,
+            }
+            for address in getattr(definition, "addresses", ()) or ()
+        ],
         "filters": filters,
         "rules": [_rule_document(rule) for rule in getattr(definition, "rules", ())],
         "model_extraction": bool(getattr(definition, "model_extraction", False)),

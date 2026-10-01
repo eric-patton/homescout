@@ -37,6 +37,8 @@ from . import (
     UnknownSearch,
     blocking,
 )
+from .addresses import AddressPlan, AddressQuery, NamedAddress
+from .addresses import plan as plan_addresses
 from .areas import SearchArea
 from .document import Document, DocumentError
 from .validate import Reading, examine
@@ -86,6 +88,11 @@ def _observation_revision(document: Document | None) -> str | None:
         "filters": filters or {},
         "sources": data.get("sources") or [],
     }
+    # Only when there are some. Named addresses change what a run observes, so adding one starts a
+    # new comparison baseline; a search that names none keeps the revision it had before they
+    # existed, rather than every saved search on the machine resetting at once.
+    if data.get("addresses"):
+        scope["addresses"] = data.get("addresses")
     encoded = json.dumps(scope, sort_keys=True, default=str, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
@@ -97,6 +104,12 @@ description: What this search is for, in your own words
 # Types: polygon (GeoJSON), city, county, zip, state, radius.
 areas:
   - {{type: county, value: "Roosevelt County, NM"}}
+
+# Specific houses, beside the areas or instead of them. Each is placed once by the Census and
+# looked for on every source, whatever the filters and exclusions say; the rules still judge it.
+# addresses:
+#   - 202 Marguerite St, Folsom, LA 70437
+#   - {{address: "33063 Hwy 43, Independence, LA 70443", reason: "Sent by the agent"}}
 
 # A drawn shape is GeoJSON, longitude first, and keeps whatever name you gave it:
 # exclude_areas:
@@ -167,6 +180,8 @@ class FileSearch:
         self.description = reading.description
         self.areas: tuple[SearchArea, ...] = tuple(a for a in reading.areas if not a.excluded)
         self.exclusions: tuple[SearchArea, ...] = tuple(a for a in reading.areas if a.excluded)
+        #: Specific houses, wanted whatever the filters and exclusions say (AC-15, AC-20).
+        self.addresses: tuple[NamedAddress, ...] = reading.addresses
         self.freshness_days = reading.freshness_days
         self.export_template = reading.export_template
         #: Parsed once, when the file is read, so a run never re-reads the grammar per property.
@@ -208,6 +223,18 @@ class FileSearch:
                     )
         return tuple(made)
 
+    def address_plan(self) -> AddressPlan:
+        """Where each named address is, from what is already known, and the circles to ask for.
+
+        Not remembered on the definition. A definition is held across runs by the catalog, and an
+        address that could not be placed before one run may have been placed by the next.
+        """
+        return plan_addresses(self.addresses)
+
+    def address_queries_for(self, capabilities: Capabilities) -> tuple[AddressQuery, ...]:
+        """The queries one source is sent for this search's named addresses (AC-18)."""
+        return self.address_plan().queries_for(capabilities)
+
     def place(self, fields: ListingFields) -> Placement:
         """Inside any area, inside no exclusion, and honest when it cannot tell.
 
@@ -234,13 +261,24 @@ class FileSearch:
 
     # -- freshness -----------------------------------------------------------
 
-    def fresh_enough(self, first_observed_at: str | None, *, now: datetime | None = None) -> bool:
+    def fresh_enough(
+        self,
+        first_observed_at: str | None,
+        *,
+        now: datetime | None = None,
+        named: bool = False,
+    ) -> bool:
         """Is this property new enough for this search, by this tool's own reckoning?
 
         Asked when results are read, never during a run. A run that dropped a property for being old
         would stop recording it, and the store reads a property that stopped being recorded as one
         that may have sold. Freshness narrows what you are shown; it never narrows history.
+
+        A house the search names is always fresh enough. Freshness is a filter, and a named house is
+        wanted whatever the filters say (AC-20); the caller knows which rows it kept by name.
         """
+        if named:
+            return True
         if self.freshness_days is None:
             return True
         if not first_observed_at:

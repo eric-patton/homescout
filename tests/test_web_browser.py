@@ -4011,3 +4011,112 @@ def test_a_street_tile_request_says_which_server_asked_and_nothing_else(
         "something other than a street tile carried a Referer; the page's own policy is still "
         f"no-referrer: {[(path, referer) for path, referer in others if referer][:5]!r}"
     )
+
+
+def test_named_houses_are_added_explained_removed_and_saved(served) -> None:
+    """feat-004/AC-22, feat-010: the editor's named houses, end to end in a real page.
+
+    Pasted one per line, with a line repeated, because that is how a list of houses arrives: copied
+    out of a message. The repeat is named once. Before anything is added the panel says where an
+    address goes, which is the Census and nowhere else. A reason opens in the same window the areas
+    use, the bin asks first and honours a change of mind, and nothing reaches the file until the
+    panel's own button, which writes through the same edit operation the command line uses.
+    """
+    from contextlib import ExitStack
+
+    from homescout.search.definition import FileCatalog
+    from searches_fakes import sourced
+
+    base, held, store = served
+    # This page writes through the catalog, so it needs a real file behind it rather than the
+    # in-memory search the other tests read.
+    directory = store.path.parent / "searches"
+    directory.mkdir(exist_ok=True)
+    (directory / "portales.yaml").write_text(
+        'name: portales\nareas:\n  - {type: city, value: "Portales, NM"}\nsources: [fake]\n',
+        encoding="utf-8",
+    )
+    held.catalog = FileCatalog(directory)
+    registry = ExitStack()
+    registry.enter_context(sourced("fake"))
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const until = async (ready) => {
+                   for (let i = 0; i < 100; i++) {
+                     const got = ready();
+                     if (got) return got;
+                     await new Promise(r => setTimeout(r, 50));
+                   }
+                   return null;
+                 };
+                 const panel = () => document.getElementById("addresses");
+                 const rows = () => panel().querySelectorAll("tbody tr").length;
+                 const press = (within, words) => [...within.querySelectorAll("button")]
+                   .find((b) => b.textContent.trim() === words).click();
+                 const answer = async (words) => {
+                   const box = await until(() => document.querySelector("dialog.ask[open]"));
+                   if (!box) return null;
+                   const title = box.querySelector("h2").textContent;
+                   press(box, words);
+                   await until(() => !document.querySelector("dialog.ask[open]"));
+                   return title;
+                 };
+
+                 await until(() => document.getElementById("newaddresses"));
+                 const says = panel().querySelector(".meta").textContent;
+
+                 document.getElementById("newaddresses").value =
+                   "52150 Taylor Dr, Loranger, LA 70446\\n" +
+                   "52149 Ditta Dr, Loranger, LA 70446\\n" +
+                   "52150 TAYLOR DR, Loranger, LA 70446\\n";
+                 press(panel(), "Add");
+                 await until(() => rows() === 2);
+                 const added = rows();
+                 const unsaved = panel().classList.contains("unsaved");
+
+                 /* A reason, in a window. */
+                 panel().querySelector("button.why").click();
+                 const why = await until(() => document.querySelector("dialog.whybox[open]"));
+                 why.querySelector("textarea").value = "Sent by the agent.";
+                 press(why, "Keep this");
+                 await until(() => !document.querySelector("dialog.whybox[open]"));
+                 const reasonShown = panel().querySelector("button.why").textContent.trim();
+
+                 /* The bin asks, and keeping it keeps it. */
+                 const bins = () => panel().querySelectorAll("button.bin");
+                 bins()[1].click();
+                 const asked = await answer("Keep it");
+                 const afterKeeping = rows();
+                 bins()[1].click();
+                 await answer("Remove it");
+                 await until(() => rows() === 1);
+
+                 press(panel(), "Save the named houses");
+                 await until(() => !panel() || !panel().classList.contains("unsaved"));
+                 await until(() => panel() && panel().querySelector("tbody tr"));
+                 return {says, added, unsaved, reasonShown, asked, afterKeeping,
+                         afterRemoving: rows()};
+               })()""",
+        )
+    finally:
+        process.terminate()
+        registry.close()
+
+    assert found is not None, "the page never finished"
+    assert "Census" in found["says"] and "never the address" in found["says"], found["says"]
+    assert found["added"] == 2, "the repeated line was named twice, or a line was lost"
+    assert found["unsaved"], "adding houses did not mark the panel as changed"
+    assert found["reasonShown"] == "Sent by the agent."
+    assert found["asked"] == "Take this house out of the search?"
+    assert found["afterKeeping"] == 2, "\"Keep it\" removed the house anyway"
+    assert found["afterRemoving"] == 1
+
+    saved = api.show_search(held, "portales").addresses
+    assert [(a.text, a.reason, a.at) for a in saved] == [
+        ("52150 Taylor Dr, Loranger, LA 70446", "Sent by the agent.", None)
+    ]

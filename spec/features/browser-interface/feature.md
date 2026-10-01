@@ -268,3 +268,15 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   best effort and Windows only, with a test that reads the state back through `serve()` itself.
   The interface's own three-second requirement had been missed in practice for a reason no
   requirement named; AC-96 names it.
+
+- **2026-09-30, named houses on the search page (feat-004, `changes/named-addresses/`,
+  `feat-004/AC-22`).** Owned by saved searches, as the reason editor was. The search page gains a
+  "Named houses" panel beside the areas: each house with its reason in the same window the areas
+  use, a bin that asks first, and a box that takes one address or many pasted one per line. It saves
+  through the same edit operation as everything else on the page, under its own button, and says
+  before anything is added that each address goes to the Census once while the listing sites only
+  ever see a circle. "Save the areas" no longer refuses a search whose only content is named houses.
+  The run status on the searches page now says how many named houses a run found and lists each
+  one: found by which sources, not found, or not looked for. A browser test found a fault on its
+  first run: redrawing the panel replaced the section, losing its unsaved mark and the page's edit
+  listeners, so the panel rebuilds only its contents.

@@ -203,6 +203,18 @@ def entry(
         }
         for report in (outcome.sources if outcome else ())
     ]
+    # Always present, and empty for a search that names no address, so the shape of this document
+    # never depends on whether any are named (feat-004/AC-21).
+    addresses = [
+        {
+            "address": report.address,
+            "placed": report.placed,
+            "matched": report.matched,
+            "found_by": list(report.found_by),
+            "missed_by": list(report.missed_by),
+        }
+        for report in (getattr(outcome, "addresses", ()) if outcome else ())
+    ]
 
     return {
         "name": search_name,
@@ -214,6 +226,7 @@ def entry(
         "finished_at": outcome.run.finished_at if outcome else None,
         "outcome": (("degraded" if outcome.degraded else "ok") if outcome else None),
         "sources": sources,
+        "addresses": addresses,
         "counts": {
             "matched": matched,
             "new": counts["new"],
