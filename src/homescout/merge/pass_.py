@@ -69,7 +69,15 @@ class PassOutcome:
 
 
 def candidates_from(store: Store) -> list[Candidate]:
-    """Every live canonical listing, as the comparison sees it."""
+    """Every live canonical listing, as the comparison sees it.
+
+    Including one a merge has just written, read through the newest snapshot of what was merged
+    into it, because it has none of its own until a run observes it. Without that, a question the
+    merge left open waited for a run that might never come (feat-006/AC-9).
+    """
+    snapshots = store.latest_snapshots()
+    for listing_id, snapshot in store.merged_stand_ins().items():
+        snapshots.setdefault(listing_id, snapshot)
     return [
         Candidate(
             listing_id=listing_id,
@@ -78,7 +86,7 @@ def candidates_from(store: Store) -> list[Candidate]:
             longitude=snapshot.fields.longitude,
             parcel=snapshot.fields.parcel_number or "",
         )
-        for listing_id, snapshot in sorted(store.latest_snapshots().items())
+        for listing_id, snapshot in sorted(snapshots.items())
     ]
 
 

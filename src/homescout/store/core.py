@@ -554,6 +554,54 @@ class Store:
         sql += " ORDER BY first_observed_at, id"
         return [self._listing_from(r) for r in self._conn.execute(sql)]
 
+    def merged_stand_ins(self) -> dict[str, Snapshot]:
+        """For each live listing a merge wrote and no run has observed yet, its newest constituent.
+
+        A merge writes a new listing and no snapshot: snapshots are what runs observe, and nothing
+        has observed the merged record yet. So until the next run it is absent from
+        `latest_snapshots`, and address matching, which reads that, cannot see it. The question its
+        merge left open (a third row too far away to join) then reached nobody until a search that
+        might never run again ran again.
+
+        This answers for those records with the newest snapshot of any listing merged into them,
+        followed through merges of merges. Keyed by the live listing; the snapshot itself still
+        names the listing it was taken of, because it is that listing's history, not the merged
+        one's. Nothing is written.
+        """
+        fresh = [
+            row["id"]
+            for row in self._conn.execute(
+                "SELECT l.id FROM listings l "
+                "WHERE l.retracted = 0 AND l.superseded_by IS NULL AND NOT EXISTS ("
+                "  SELECT 1 FROM listing_snapshots s INDEXED BY idx_snapshots_listing "
+                "  WHERE s.listing_id = l.id)"
+            )
+        ]
+        found: dict[str, Snapshot] = {}
+        for live in fresh:
+            members: list[str] = []
+            frontier = [live]
+            while frontier:
+                current = frontier.pop()
+                for row in self._conn.execute(
+                    "SELECT id FROM listings WHERE superseded_by = ?", (current,)
+                ):
+                    if row["id"] not in members:
+                        members.append(row["id"])
+                        frontier.append(row["id"])
+            if not members:
+                continue
+            marks = ",".join("?" for _ in members)
+            newest = self._conn.execute(
+                f"SELECT s.run_id, s.listing_id, s.source, s.observed_at, {_SNAPSHOT_COLUMNS} "
+                f"FROM listing_snapshots s JOIN runs r ON r.id = s.run_id "
+                f"WHERE s.listing_id IN ({marks}) ORDER BY r.seq DESC, s.id DESC LIMIT 1",  # noqa: S608
+                members,
+            ).fetchone()
+            if newest is not None:
+                found[live] = self._snapshot_from(newest)
+        return found
+
     def seen_by_search(self, search_name: str) -> set[str]:
         """Every live listing a completed run of this search has observed, whatever its revision.
 

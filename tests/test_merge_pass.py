@@ -428,3 +428,40 @@ def test_the_review_page_asks_for_source_links_once_rather_than_per_property(
     assert all(side["sources"] for match in made for side in match["properties"])
     links = [query for query in asked if "listing_sources" in query]
     assert len(links) == 1, f"{len(links)} source-link queries for one page"
+
+
+def test_a_pair_with_a_record_merged_this_run_is_queued_this_run(store: Store) -> None:
+    """feat-006/AC-9: every ambiguous pair reaches the queue, including one a merge just made.
+
+    The regression, from a live run on 2026-09-30. Realtor and Zillow put 51131 Highway 445 at the
+    same spot and merged; Redfin put it 316 metres away, past the 50-metre tolerance, which is an
+    ambiguous pair and a question for a person. The question never appeared. Matching reads each
+    property's newest snapshot, and a record a merge has just written has no snapshot of its own
+    until the next run, so the merged record was invisible to the queue and the Redfin row had
+    nothing to be compared with. For a search that is never run again, it never would have.
+    """
+    entry = {
+        "address_line": "51131 Highway 445",
+        "unit": None,
+        "city": "Loranger",
+        "state": "LA",
+        "postal_code": "70446",
+        "parcel_number": None,
+        "price": 560_000,
+    }
+    load(store, [
+        {**entry, "source": "realtor", "latitude": 30.595723, "longitude": -90.316874},
+        {**entry, "source": "zillow", "latitude": 30.595716, "longitude": -90.316895},
+        {**entry, "source": "redfin", "latitude": 30.5957865, "longitude": -90.3135692},
+    ])
+
+    run_pass(store)
+    live = store.listings()
+    merged = [record.id for record in live if len(store.source_links(record.id)) == 2]
+    redfin = [record.id for record in live if len(store.source_links(record.id)) == 1]
+    assert len(merged) == 1 and len(redfin) == 1, "realtor and zillow merge; redfin stays apart"
+
+    waiting = StoreQueue(store).pending()
+    assert [set(match.listing_ids) for match in waiting] == [{merged[0], redfin[0]}], (
+        "the merged record had no snapshot yet, so its question to a person never appeared"
+    )

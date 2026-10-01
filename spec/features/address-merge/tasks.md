@@ -177,3 +177,26 @@ that does not exist yet is not one of them.
       Not covered and not changed: the parser reads `12 Road 4250` with `4250` as a unit, so
       `Road 4250` and `Rd 4250` still key apart. That is the parser's reading rather than this rule,
       it was so before, and no source in the corpus writes a road that way.
+
+## Defect: a record merged this run was invisible to the review queue
+
+- [x] T-standin-1: `store/core.py` `merged_stand_ins`, `merge/pass_.py` `candidates_from`: a live
+      record a merge has written, and no run has observed yet, is compared through the newest
+      snapshot of what was merged into it (`feat-006/AC-9`).
+
+      Found on a live run on 2026-09-30. Realtor and Zillow put 51131 Highway 445 at one spot and
+      merged; Redfin put it 316 metres away, an ambiguous pair, and the pair never reached the
+      queue. Matching reads each property's newest snapshot, and a merge writes a record with no
+      snapshot, because snapshots are what runs observe. So until the next run that record was
+      not a candidate at all, and any question its merge left open waited for a run that, for a
+      paused search, might never come. On a copy of the workspace the same day, 16 merged records
+      were in that state; finding them costs 8 ms.
+
+      A stand-in, not a snapshot: nothing is written, and the snapshot used still names the record
+      it was taken of. The next run gives the merged record its own and the stand-in stops being
+      read.
+
+- [x] T-standin-2: `tests/test_merge_pass.py`: the three real rows for 51131 Highway 445, two that
+      merge and one too far away, and the queue holding the pair between the merged record and the
+      third straight after the pass (`feat-006/AC-9`). Checked against the unfixed pass, where the
+      queue is empty.
