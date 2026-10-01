@@ -58,37 +58,47 @@
 
 - AC-17: Validation checks the list's shape and fetches nothing (AC-9 unchanged). It reports, each at
   its location in the file: an entry that is neither text nor a mapping carrying `address`; an empty
-  address; an `at` that is not two numbers, is out of range, or has latitude and longitude swapped
-  (the check a radius centre already gets); and, as a notice, the same address named twice, which is
-  then looked for once.
+  address; an address longer than 200 characters; an `at` that is not two numbers, is out of range,
+  or has latitude and longitude swapped (the check a radius centre already gets). It gives a notice,
+  which never stops a run, for the same address named twice (then looked for once), and for a list
+  of more than 50, saying how many queries per run they add.
 
 - AC-18: For each source in the search, every placed address is asked for with a coarse query that
   contains a circle of half a mile around its point, in whatever form that source accepts (AC-4's
-  resolution, unchanged). None of the search's filters are sent with it. It asks for listings for
-  sale, pending and contingent, whatever the search's own listing types are, so a named house that
-  goes under contract is still seen; a status a source cannot be asked for is skipped for that source
-  and reported. Addresses whose circles overlap may share one query.
+  resolution, unchanged). None of the search's filters are sent with it. A source that takes a
+  listing status is asked once each for sale, pending and contingent, whatever the search's own
+  listing types are, so a named house that goes under contract is still seen; a source that takes no
+  status is asked once without one, and its report says so. A status a source rejects degrades that
+  source's contribution as any failed query does. Addresses whose circles overlap may share one
+  query. A source is unavailable for the search only when it can express neither an area nor a
+  named address.
 
 - AC-19: Of the rows an address's query returns, the only ones kept for it are those whose address
-  matches the named one under the address matcher's own comparison (feat-006: house number, street
-  name, unit and ZIP code, after normalization), so `Hwy 43 Hwy` and `Highway 43` are one address.
-  When the person left the ZIP code out, the one the lookup answered with is used. Every other row
-  that query returned is discarded unrecorded, as a row outside a drawn area is (AC-5).
+  matches the named one under the address matcher's normalized key (feat-006: house number, street
+  name, unit and ZIP code), so `Hwy 43 Hwy` and `Highway 43` are one address. Two exceptions, both
+  taken from the address matcher's own rules: a unit or lot that only one side carries does not
+  separate them (feat-006's AC-24), while two different units do; and when the person left the ZIP
+  code out, the one the lookup answered with is used, or with no lookup (an `at` was given) the ZIP
+  is left out of the comparison. Every other row that query returned is discarded unrecorded, as a
+  row outside a drawn area is (AC-5).
 
 - AC-20: A property kept under AC-19 is in the run whatever the search's filters and exclude areas
-  say. The search's criteria judge it exactly as they judge every other property, and a criterion
-  that drops it sets it aside with its reason, where a person can see it. A property that is both at
-  a named address and inside an area is one property, recorded once.
+  say, including the freshness filter of AC-11. The search's criteria judge it exactly as they judge
+  every other property, and a criterion that drops it sets it aside with its reason, where a person
+  can see it. A property that is both at a named address and inside an area is one property,
+  recorded once.
 
-- AC-21: Every run reports each named address: whether it could be placed, and which sources found
-  it and which did not. A named address no source lists is reported as not found. That is an
+- AC-21: Every run reports each named address: whether it could be placed and the address the lookup
+  matched (so a placement in the wrong town is visible), and which sources found it and which did
+  not. A named address no source lists is reported as not found. That is an
   ordinary answer: it never fails the run and is never silent. An address that could not be placed
   (the lookup had no match, or could not be reached) is reported as not looked for, with `at` named
   as the way to place it by hand, and the rest of the search runs.
 
 - AC-22: The browser interface's search editor shows a search's named addresses with their reasons,
   and can add them (one, or many pasted one per line) and remove them, writing through the same edit
-  operation `homescout searches edit --set addresses=[...]` uses (AC-7, AC-8). The run status on
+  operation `homescout searches edit --set addresses=[...]` uses (AC-7, AC-8). Before an address is
+  added, the editor says it will be sent once to the Census geocoder to be placed. The run status on
   screen carries the per-address report of AC-21. (Shared with feat-010, as AC-14 was.)
 
 ### Edge cases
@@ -97,9 +107,11 @@
   reports it as not looked for and names `at` as the remedy (AC-21); it is not a validation failure,
   because validation fetches nothing.
 - The lookup places an address more than half a mile from where the sites put the house. No source
-  finds it, and the report says not found near where it was placed, which is the cue to give `at`.
+  finds it, and the report shows the address the lookup matched, which is the cue to give `at`.
 - A named address with a unit (`12 Main St Apt 4`). The unit is part of the comparison, so the other
-  units in the building are not kept.
+  units in the building are not kept; a listing of the same building with no unit at all still is.
+- An `at` pair places the query only. It is never written onto a listing as that listing's
+  coordinates.
 - A named house is sold or withdrawn. It stops being found and follows the store's ordinary rules:
   disappeared on the ordinary evidence, never marked sold without a positive observation.
 - Two sources spell the named house differently, or give it different coordinates. Each row is
@@ -109,7 +121,10 @@
 ### Non-functional
 
 - Politeness: a named address costs at most one query per source per listing status per run, and
-  addresses whose circles overlap share one. Placing costs one lookup per address, ever, cached.
+  addresses whose circles overlap share one. Placing costs one lookup per address per cache
+  lifetime.
+- Privacy: a named address leaves the machine once per cache lifetime, as text, to the Census
+  geocoder, and nowhere else. The listing sites are sent the circle around it, never the address.
 
 ## MODIFIED
 

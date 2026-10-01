@@ -222,22 +222,26 @@ addresses to any search, if the various tools will allow for that." Asked after 
 houses were run by hand as a throwaway search. The person chose: a named house skips the search's
 filters and exclusions, and the criteria still judge it.
 
-- [ ] T-address-0: Prerequisite, in feat-006's defect lane rather than here: a numbered highway with
-      no state in front of it (`51131 Highway 445`, `33063 Hwy 43 Hwy`) gets an address key. Today
-      `_street_name` strips the type word, is left with only digits, and returns no name, so the same
-      house from three sites stays three records and is never queued. Regression test traced to
-      `feat-006/AC-1` and `feat-006/AC-2`.
+- [x] T-address-0: Prerequisite, in feat-006's defect lane rather than here: a numbered highway with
+      no state in front of it (`51131 Highway 445`, `33063 Hwy 43 Hwy`) gets an address key. It had
+      none: `_street_name` stripped the type word, was left with only digits, and returned no name,
+      so the same house from three sites stayed three records and was never queued. Fixed as
+      feat-006's T-highway-1 and T-highway-2 (`hwy 445` for all three spellings).
 - [ ] T-address-1: `search/addresses.py`, `search/definition.py`, `search/validate.py`: the
       `addresses` key, `NamedAddress(text, reason, at)`, `definition.addresses`, and the shape checks
-      of AC-17, located and fetching nothing (D-21). The run loop's "names no area" refusal allows a
-      search with addresses and no areas.
+      of AC-17 (including the 200-character limit and the notice above 50), located and fetching
+      nothing (D-21). Validation's "needs at least one area" and the run loop's "names no area" both
+      allow a search with addresses and no areas.
 - [ ] T-address-2: `search/boundaries.py`, `enrich/boundaries.py`, `enrich/settings.py`: the port's
       `place_address`, the no-op default, the Census one-line endpoint behind it with a year for a
       match and thirty days for no match, and `place_addresses(store, texts)` called from
       `api.run_search` before the run (D-22). Recorded in feat-007's manifest.
 - [ ] T-address-3: `search/definition.py`, `runner.py`: `address_queries_for` (half a mile,
-      overlapping circles shared, three statuses limited to what the source can push), and the run
-      loop keeping only rows whose key matches, exempt from filters and exclusions (D-23, D-24).
+      overlapping circles shared, three statuses for a source that pushes a status and one query for
+      a source that does not), the per-source step reshaped so a source is unavailable only with
+      neither area nor address queries, and the run loop keeping only rows that agree under D-24's
+      three parts, exempt from filters and exclusions (D-23, D-24). `fresh_enough` never hides a
+      named house (AC-20).
 - [ ] T-address-4: `runner.py`, `api.py`, `cli/render.py`: the per-address report on the outcome, in
       `--json`, as lines on the command line, and as a count in each source's recorded detail
       (D-25).
@@ -245,9 +249,11 @@ filters and exclusions, and the criteria still judge it.
       AC-22, including the three spellings of one highway address and an address nobody lists.
 - [ ] T-address-6: `web/static/search.js`, `app.css`, the run status: the editor section and the
       report on screen (D-26), with `tests/test_web_browser.py` covering add, paste many, remove
-      (asked first), and a reason (`feat-004/AC-22`, feat-010). Recorded in feat-010's manifest.
-- [ ] T-address-7: README, saved-search section: `addresses`, `at`, and that a named house skips
-      filters and exclusions but not criteria.
+      (asked first), a reason, and the line saying addresses go to the Census (`feat-004/AC-22`,
+      feat-010). Recorded in feat-010's manifest.
+- [ ] T-address-7: README, saved-search section: `addresses`, `at`, that a named house skips
+      filters and exclusions but not criteria, and that each address is sent once to the Census
+      geocoder while the listing sites only see a circle.
 - [ ] T-address-8: `uv run ruff check .` and the full suite green. Then, with the person's OK, the
       live `la-one-offs` search rewritten from eight circles to eight `addresses` and run: eight
       properties, one record each, no neighbours.

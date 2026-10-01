@@ -74,6 +74,6 @@ disappeared properties (444 New Mexico houses in the Louisiana search's table, h
 disappeared filter).
 
 ## Status
-- [ ] delta reviewed (analyze)
+- [x] delta reviewed (analyze, 2026-09-30: two runs, every finding closed)
 - [ ] implemented & verified
 - [ ] folded into the feature's spec.md (product.md regenerates; never edit it by hand)
