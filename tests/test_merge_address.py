@@ -59,6 +59,30 @@ def test_the_formatting_differences_the_sources_actually_produce(
     assert key(one) == key(other) is not None, why
 
 
+@pytest.mark.parametrize(
+    ("spellings", "name"),
+    [
+        (("51131 Highway 445", "51131 Hwy 445 Hwy", "51131 Hwy 445"), "hwy 445"),
+        (("33063 Highway 43", "33063 Hwy 43 Hwy"), "hwy 43"),
+        (("28931 Highway 1070", "28931 Hwy 1070 Hwy"), "hwy 1070"),
+        (("50614 Highway 445 N", "50614 Hwy 445"), "hwy 445"),
+    ],
+)
+def test_a_road_whose_name_is_a_number_still_has_a_name(
+    spellings: tuple[str, ...], name: str
+) -> None:
+    """feat-006/AC-1, feat-006/AC-2: a numbered highway with no state in front of it is keyed.
+
+    The regression, from a real run over eight Louisiana houses on 2026-09-30. Realtor and Zillow
+    wrote `51131 Highway 445` and Redfin wrote `51131 Hwy 445 Hwy`. Stripping the type left only the
+    number, and a name made only of numbers read as no name, so all three rows had no key: one house
+    stayed three records and was never even offered for review. Three of the eight were highways.
+    """
+    keys = {key(line) for line in spellings}
+
+    assert keys == {f"{ZIP}|{spellings[0].split()[0]}|{name}|"}, keys
+
+
 def test_a_unit_is_read_however_it_is_decorated() -> None:
     """feat-006/AC-3: `Unit B`, `# B`, `Apt B` and `B` are one unit, and the corpus has all four."""
     assert parse("2128 Verity", unit="Unit B").unit == "b"

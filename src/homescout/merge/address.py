@@ -201,7 +201,10 @@ def _street_name(line: str, number: str, unit: str) -> str:
       types;
     - `NM Highway 236` and `NM 236` both become `nm 236`;
     - `Ave N` stays `ave n`, because removing the type would leave a bare compass point, and the
-      street really is called Avenue N.
+      street really is called Avenue N;
+    - `Highway 445`, `Hwy 445 Hwy` and `Highway 445 N` all become `hwy 445`, because a road whose
+      whole name is a number keeps its type, once, in front. Without it nothing would be left but
+      the number, which reads below as no name at all.
 
     A name made only of subdivision words is no name, which is what keeps land out of the key.
     """
@@ -221,11 +224,16 @@ def _street_name(line: str, number: str, unit: str) -> str:
         words.pop()
 
     folded = [STREET_TYPES.get(word, word) for word in words]
+    road = next((word for word in folded if word in STREET_TYPES.values()), "")
     trimmed = [word for word in folded if word not in STREET_TYPES.values()]
     if _substantial(trimmed):
         folded = trimmed
     while len(folded) > 1 and folded[-1] in DIRECTIONS and _substantial(folded[:-1]):
         folded = folded[:-1]
+    # Only once the type is gone and a trailing direction with it, so `Highway 445 N` is caught too.
+    # A parcel never gets here with a type: `Block 2 Lot 3` has none, and keeps no name.
+    if road and len(folded) == 1 and folded[0].isdigit():
+        folded = [road, folded[0]]
 
     if not folded or all(word in NOT_A_STREET or word.isdigit() for word in folded):
         return ""

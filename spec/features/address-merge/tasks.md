@@ -151,3 +151,29 @@ that does not exist yet is not one of them.
       second read in about a millisecond (the check itself is a hundredth of one), and after a merge
       made through a second connection the next read works the list out again and the merged pair
       is gone (276). The slow merge suite is unchanged.
+
+## Defect: a numbered highway had no street name
+
+- [x] T-highway-1: `merge/address.py`: a road whose whole name is a number keeps its type, once, in
+      front (`feat-006/AC-1`, `feat-006/AC-2`). `Highway 445`, `Hwy 445 Hwy` and `Highway 445 N`
+      all read as `hwy 445`.
+
+      Found on a real run over eight Louisiana houses on 2026-09-30. Realtor and Zillow wrote
+      `51131 Highway 445` and Redfin wrote `51131 Hwy 445 Hwy`. The name rule strips every street
+      type unless that leaves nothing, and here it left `445`; then the land rule ("a name made only
+      of subdivision words or numbers is no name") read a bare number as no name. So all three rows
+      had no key, one house stayed three records, and nothing was queued, because a row with no key
+      is never matched on coordinates alone (AC-8). Three of the eight houses were on highways.
+      New Mexico rarely showed it because its listings write `NM Highway 236`, and the `nm` keeps a
+      name standing.
+
+      The type goes back only when the name would otherwise be one bare number, and only when the
+      line carried a type at all, so a parcel description (`Block 2 Lot 3`) still has no name.
+
+- [x] T-highway-2: `tests/test_merge_address.py`: the three real spellings of three highway houses,
+      and a trailing direction, each one key (`feat-006/AC-1`, `feat-006/AC-2`). Checked against the
+      unfixed code, where all four cases fail. The corpus and land tests are unchanged and green.
+
+      Not covered and not changed: the parser reads `12 Road 4250` with `4250` as a unit, so
+      `Road 4250` and `Rd 4250` still key apart. That is the parser's reading rather than this rule,
+      it was so before, and no source in the corpus writes a road that way.
