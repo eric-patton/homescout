@@ -373,3 +373,61 @@ def test_a_state_resolves_written_out_as_well_as_abbreviated(tmp_path) -> None:
         assert any("STATE%3D%2735%27" in url or "STATE='35'" in url for url in asked), (
             f"{value!r} did not ask the Census about state 35: {asked}"
         )
+
+
+def test_the_centre_of_a_radius_around_a_named_place_is_looked_up_and_kept(tmp_path) -> None:
+    """feat-004/AC-5, feat-004/AC-13: a circle around "Portales, NM" becomes a circle here too.
+
+    Closes gap-001 of feat-004's drift ledger. The enrichment pass put the shapes of named places
+    in the cache, and never the point a radius around a name needs, so such a circle stayed the
+    source's to apply and anything another area's query returned was never tested against it.
+    Looked up once by the pass, then read cache-only by the search like every other boundary.
+    """
+    from homescout.enrich.boundaries import CensusBoundaries, resolve
+    from homescout.store import Store
+
+    transport = CountingTransport({"tigerweb": {"features": [
+        {"attributes": {"INTPTLAT": "+34.1862", "INTPTLON": "-103.3344"}},
+    ]}})
+    with Store.open(tmp_path / "w.db") as store:
+        looked_up = resolve(store, [("locate", "Portales, NM")], session(transport))
+        asked = transport.count
+        resolve(store, [("locate", "Portales, NM")], session(transport))
+
+        assert CensusBoundaries(store, fetch=False).locate("Portales, NM") == (34.1862, -103.3344)
+    assert looked_up == 1 and asked >= 1
+    assert transport.count == asked, "a cached centre was asked for again"
+
+
+def test_the_enrichment_pass_asks_for_the_centre_of_every_radius_around_a_name(
+    tmp_path, monkeypatch
+) -> None:
+    """feat-004/AC-5: the pass is what fills the cache the search reads, so it has to ask."""
+    from homescout import api
+    from homescout.enrich import boundaries as census
+    from homescout.search.definition import FileCatalog
+    from homescout.store import Store
+    from searches_fakes import sourced, workspace, write
+
+    write(tmp_path / "searches", "round", text=(
+        "name: round\nareas:\n"
+        '  - {type: radius, center: "Portales, NM", miles: 5}\n'
+        "  - {type: radius, center: [34.2, -103.3], miles: 2}\n"
+        '  - {type: county, value: "Roosevelt County, NM"}\n'
+        "sources: [fake]\n"
+    ))
+    asked: list[tuple[str, str]] = []
+    def capture(_store, wanted, *_args, **_kwargs) -> int:
+        asked.extend(wanted)
+        return 0
+
+    monkeypatch.setattr(census, "resolve", capture)
+
+    with sourced("fake"), Store.open(tmp_path / "homescout.db") as store:
+        space = workspace(store)
+        space.catalog = FileCatalog(tmp_path / "searches")
+        api._resolve_boundaries(space, search="round")
+
+    assert ("locate", "Portales, NM") in asked
+    assert ("county", "Roosevelt County, NM") in asked
+    assert not any(kind == "locate" and "34.2" in value for kind, value in asked)

@@ -412,8 +412,13 @@ def resolve(store: Store, areas: Sequence[tuple[str, str]], session: Any = None)
     provider = CensusBoundaries(store, session, fetch=True)
     found = 0
     for kind, value in areas:
+        # `locate` is the centre of a radius around a named place, which is a point rather than a
+        # shape and is cached under its own key (feat-004 gap-001).
         before = store.cached_values(PROVIDER, (f"{kind}:{value}",))
-        provider.boundary(kind, value)
+        if kind == "locate":
+            provider.locate(value)
+        else:
+            provider.boundary(kind, value)
         if not before:
             found += 1
     return found

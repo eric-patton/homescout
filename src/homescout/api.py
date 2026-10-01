@@ -1372,6 +1372,10 @@ def _resolve_boundaries(workspace: Workspace, *, search: str | None, progress: A
             value = getattr(area, "value", None)
             if kind in ("city", "county", "zip", "state") and value:
                 wanted.append((kind, value))
+            elif kind == "radius" and value and getattr(area, "centre", None) is None:
+                # A circle around a named place needs that place's centre, or it stays the source's
+                # to apply and nothing here can test a property against it.
+                wanted.append(("locate", value))
 
     if wanted:
         found = resolve(workspace.store, tuple(dict.fromkeys(wanted)))

@@ -526,8 +526,9 @@ def _notices(document: Document, reading: Reading) -> None:
             reading.say(
                 document.at("exclude_areas" if area.excluded else "areas", index),
                 f"the radius around {area.value!r} is applied by each source and cannot be "
-                "re-checked here, because nothing is registered that can turn a place name into a "
-                "point. Properties that came back from it are kept as the source sent them.",
+                "re-checked here until its centre has been looked up, which the enrichment pass "
+                "does (`homescout enrich`). Until then, properties that came back from it are kept "
+                "as the source sent them.",
                 severity="notice",
             )
 

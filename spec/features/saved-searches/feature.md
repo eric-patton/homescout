@@ -22,7 +22,7 @@ gate:
   constitution_hash: "sha256:d73230560d0f"
 converge:
   last_run: 2026-09-30
-  open: 4
+  open: 1
   contradicts: 0
 human_signoff: []
 open_decisions: []

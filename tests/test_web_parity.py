@@ -913,3 +913,78 @@ def test_a_judgment_that_is_not_one_is_refused(store: Store, db_path: Path) -> N
                              headers=ours())
         assert empty.status_code == 400
         assert "nothing to judge" in empty.json()["error"]
+
+
+def test_one_definition_gives_the_same_results_from_both_surfaces(tmp_path: Path) -> None:
+    """feat-004/AC-7: the test the criterion asks for by name, with a real second surface.
+
+    One definition file, run from the command line into one fresh database and from the browser's
+    run button into another, with the same source behind both. It has a drawn shape, a filter, and
+    a named house the filter would hide and the shape does not contain, so the geometry, the local
+    filter and the named-address path are all on the line. The two databases must record the same
+    properties from the same queries.
+
+    Added for gap-002 of feat-004's drift ledger, which stayed open until a test drove both
+    entry points: the browser interface did not exist when the criterion was written.
+    """
+    import time
+
+    from cli_fakes import FakeSource, invoke, row
+    from homescout.sources import register, unregister
+    from searches_fakes import INSIDE, OUTSIDE, SQUARE
+
+    shape = str(SQUARE).replace(chr(39), chr(34))
+    text = (
+        "name: both\n"
+        f"areas:\n  - {{type: polygon, name: shape, geometry: {shape}}}\n"
+        "addresses:\n"
+        f"  - {{address: '1 Example Lane, Portales, NM 88130', at: [{OUTSIDE[0]}, {OUTSIDE[1]}]}}\n"
+        "filters:\n  price: {max: 500000}\n"
+        "sources: [fake]\n"
+    )
+
+    def rows():
+        return [
+            row("in", latitude=INSIDE[0], longitude=INSIDE[1]),
+            row("out", latitude=OUTSIDE[0], longitude=OUTSIDE[1]),
+            row("dear", latitude=INSIDE[0], longitude=INSIDE[1], price=900_000),
+            row("named", address_line="1 Example Lane", latitude=OUTSIDE[0],
+                longitude=OUTSIDE[1], price=900_000),
+        ]
+
+    def kept(db: Path) -> list[str]:
+        with Store.open(db) as store:
+            run = store.runs("both")[-1]
+            return sorted(s.fields.address_line or "" for s in store.snapshots_for_run(run.id))
+
+    terminal, browser_side = tmp_path / "terminal", tmp_path / "browser"
+    for where in (terminal, browser_side):
+        (where / "searches").mkdir(parents=True)
+        (where / "searches" / "both.yaml").write_text(text, encoding="utf-8")
+
+    by_terminal = FakeSource(rows=rows())
+    register("fake", lambda _session: by_terminal, replace=True)
+    try:
+        code, _out, err = invoke(["run", "both", "--json"], db=terminal / "homescout.db")
+        assert code == 0, err
+
+        by_browser = FakeSource(rows=rows())
+        Store.open(browser_side / "homescout.db").close()
+        held = held_workspace(shared_store(browser_side / "homescout.db"))
+        held.catalog = FileCatalog(browser_side / "searches")
+        held.sources = {"fake": by_browser}
+        with client(held) as page:
+            started = page.post("/api/searches/both/run", headers=ours())
+            assert started.status_code == 200, started.text
+            for _ in range(200):
+                status = page.get("/api/runs/both/status", headers=reading()).json()
+                if status.get("finished"):
+                    break
+                time.sleep(0.05)
+            assert status.get("status") == "completed", status
+    finally:
+        unregister("fake")
+
+    assert kept(terminal / "homescout.db") == ["1 Example Lane", "in Example Road"]
+    assert kept(browser_side / "homescout.db") == kept(terminal / "homescout.db")
+    assert by_browser.queries == by_terminal.queries, "the two surfaces asked different questions"

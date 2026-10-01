@@ -262,7 +262,11 @@ def test_a_named_area_reads_the_place_the_source_reported(tmp_path: Path) -> Non
 
 
 def test_a_state_written_either_way_is_the_same_state(tmp_path: Path) -> None:
-    """feat-004/AC-5: "New Mexico" and "NM" are one place, and treating them as two loses houses."""
+    """feat-004/AC-2, feat-004/AC-5: "New Mexico" and "NM" are one state, read either way.
+
+    A state is one of AC-2's area forms since `changes/state-areas/`, which closed gap-004.
+    Treating the two spellings as two places loses houses.
+    """
     definition = load(
         tmp_path, "state", 'name: state\nareas:\n  - {type: state, value: "New Mexico"}\n'
         "sources: [fake]\n"

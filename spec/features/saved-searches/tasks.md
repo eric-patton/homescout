@@ -312,3 +312,23 @@ filters and exclusions, and the criteria still judge it.
       folding: named addresses are part of the observation scope of feat-001's AC-32, which the code
       already did and that criterion's list did not say; recorded in feat-001's manifest and pinned
       by `test_naming_a_house_changes_the_scope_and_naming_none_changes_nothing`.
+
+## Closing the drift ledger's open gaps (2026-09-30)
+
+The person asked for every recommendation to be carried out, so the gaps the 2026-09-30 audit left
+open were worked rather than reported.
+
+- [x] T-gap-001: `api._resolve_boundaries`, `enrich/boundaries.resolve`: the enrichment pass looks
+      up the centre of every radius around a named place, and caches it where the search's
+      cache-only provider reads it, so such a circle is tested here like any other area
+      (`feat-004/AC-5`, gap-001). The validation notice now says the circle is the source's to apply
+      until that lookup has run, rather than that nothing can do it.
+      `tests/test_enrich_providers.py`: the centre looked up once and read back cache-only, and
+      the pass asking for a named centre and not for a centre given as coordinates; both checked
+      against the unfixed code, where they fail.
+- [x] T-gap-002: `tests/test_web_parity.py`: one definition with a drawn shape, a filter and a named
+      house, run from the command line into one fresh database and from the browser's run button
+      into another, recording the same properties from the same questions (`feat-004/AC-7`,
+      gap-002).
+- [x] T-state-1: `changes/state-areas/`: a state is one of AC-2's area forms, folded into `spec.md`;
+      the existing state test cites AC-2 (`feat-004/AC-2`, gap-004). No code changed.

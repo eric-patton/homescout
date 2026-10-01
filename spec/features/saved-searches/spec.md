@@ -8,8 +8,8 @@ source query plus an exact local test. The problem brief is in `research.md`.
 
 ## Vocabulary used in this feature
 
-- An **area** is one geographic component of a search: a polygon, a city, a county, a ZIP code, or
-  a radius around a point. An **exclude area** is one that subtracts.
+- An **area** is one geographic component of a search: a polygon, a city, a county, a ZIP code, a
+  state, or a radius around a point. An **exclude area** is one that subtracts.
 - **Coarse resolution** is turning the search's areas into whatever form a source will accept.
   **Exact filtering** is testing each returned property against the search's real geometry
   afterwards.
@@ -106,8 +106,9 @@ source query plus an exact local test. The problem brief is in `research.md`.
 - [ ] AC-1: A definition is a hand-editable text file supporting a name, a description, areas,
       named addresses (AC-15), exclude areas, filters, a source list, rules, and export settings,
       matching the shape given in the brief plus the named addresses.
-- [ ] AC-2: Areas support polygon, city, county, ZIP code, and radius forms, and a named polygon
-      keeps its name.
+- [ ] AC-2: Areas support polygon, city, county, ZIP code, state, and radius forms, and a named
+      polygon keeps its name. A state may be written by its name or its two-letter code, and the
+      two are one state.
 - [ ] AC-14: Every area carries an optional reason: why it is searched, or why it is left out, in
       the person's own words. It survives a load and a save exactly as a name does, and every
       surface that can show an area can show it.

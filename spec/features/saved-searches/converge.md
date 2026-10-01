@@ -221,3 +221,47 @@ Found during this audit and fixed before this block was written (so not a gap): 
 houses, none of which could be placed, reported each source as having "no way to express any of this
 search's areas ()". `runner._cannot_cover` now says no named address could be placed; pinned by
 `test_a_search_of_only_houses_none_of_them_placed_says_so`.
+
+## run 3 - 2026-09-30
+
+baseline: spec sha256:1e7eaf51f292 · plan sha256:618846e997f4 · tasks sha256:70dff275a581 · code n/a
+(no declared code surface; this repository's linter predates code fingerprints)
+
+Scope: the gaps run 2 left open, after the person asked for every recommendation to be carried out.
+Inline, as before.
+
+implemented: AC-2, AC-5, AC-7
+
+- closed gap-001 spec:"AC-5 Exact filtering removes every returned property whose location falls
+  outside the search's geometry"
+
+  The enrichment pass now looks up the centre of every radius around a named place
+  (`api._resolve_boundaries` asks for `("locate", place)`, `enrich/boundaries.resolve` fetches it),
+  and the search's cache-only provider reads it, so `_inside_circle` measures rather than deferring
+  once the pass has run. Until it has, the validation notice says so. Citation: T-gap-001;
+  `test_the_centre_of_a_radius_around_a_named_place_is_looked_up_and_kept` and
+  `test_the_enrichment_pass_asks_for_the_centre_of_every_radius_around_a_name`, both of which fail
+  against the code as it stood.
+
+- closed gap-002 spec:"AC-7 ... A test asserts identical results from both entry points for one
+  definition."
+
+  `test_one_definition_gives_the_same_results_from_both_surfaces` runs one definition (a drawn
+  shape, a filter and a named house) from the command line and from the browser's run button into
+  two fresh databases and asserts the same recorded properties and the same source queries.
+  Citation: T-gap-002.
+
+- closed gap-004 code:"a state is an area type a definition may use"
+
+  Legitimized rather than removed, through `changes/state-areas/`: AC-2 lists a state, written by
+  name or by code. The person's nightly search is a single state area, which is what decided it.
+  Citation: T-state-1; `test_a_state_written_either_way_is_the_same_state` cites AC-2.
+
+- confirmed gap-003 [partial] spec:"AC-8 A definition loaded and re-saved without modification is
+  unchanged"
+
+  Unchanged since run 1, and routed then: the round-trip library keeps comments, key order and
+  values but not line breaks inside a list, and no Python YAML library does. Reopen the remedy if
+  one appears.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
