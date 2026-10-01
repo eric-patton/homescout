@@ -279,8 +279,36 @@ filters and exclusions, and the criteria still judge it.
 - [x] T-address-7: README, "Specific houses" under saved searches: `addresses`, `at`, that a named
       house skips filters and exclusions but not criteria, where an address goes (the Census once,
       the sites only a circle), and that "not found" is an ordinary answer.
-- [ ] T-address-8: `uv run ruff check .` and the full suite green. Then, with the person's OK, the
-      live `la-one-offs` search rewritten from eight circles to eight `addresses` and run: eight
-      properties, one record each, no neighbours.
-- [ ] T-address-9: `/spec-flow:converge`, then fold the delta into `spec.md` (AC-15 to AC-22, AC-1
-      and AC-3 as modified).
+- [x] T-address-8: `uv run ruff check .` and the full suite green (1,459 default, 63 slow browser
+      tests). Then, with the person's OK, the live `la-one-offs` search rewritten from eight
+      circles to the eight addresses as they were pasted, the server restarted onto this code, and
+      the search run twice on 2026-09-30.
+
+      First run: every address placed by the Census, all eight found by all three sources, and each
+      source kept exactly eight listings, where the by-hand circles had kept twenty-six. The three
+      highway houses merged into one record each, which the highway fix made possible. Realtor
+      reported failed only because it refuses `pending` and `contingent` (the known source defect);
+      its for-sale queries found all eight. The scope change started a new comparison series, so no
+      old neighbour was read as gone. Second run: eight of eight found, nine records unchanged,
+      nothing new or gone.
+
+      Nine records rather than eight: Redfin pins 51131 Highway 445 316 metres from where the other
+      two do, past the address matcher's 50-metre tolerance, so that pair is ambiguous and goes to a
+      person, which is the address matcher working as specified. It reached the review queue only
+      after the second run: a record merged during a run has no snapshot of its own until the next
+      one, so the queue has nothing to compare it with. Reported to the person as an address-merge
+      behaviour, not changed here.
+
+      Found by the code-against-spec audit before the run block was written, and fixed in this
+      change: a search naming only houses, none of which could be placed, reported every source as
+      having "no way to express any of this search's areas ()". It now says that no named address
+      could be placed (`runner._cannot_cover`, pinned by
+      `test_a_search_of_only_houses_none_of_them_placed_says_so`).
+- [x] T-address-9: the delta folded into `spec.md` (AC-15 to AC-22 added; AC-1, AC-3 and the
+      definition's vocabulary modified; the named-address vocabulary, story, four scenarios, six
+      edge cases and two non-functional lines added), then `/spec-flow:converge` run 2 over the
+      folded spec. Folded first rather than after, because an audit against the unfolded spec would
+      have read the whole change as unrequested behaviour. One sentence was added to AC-15 before
+      folding: named addresses are part of the observation scope of feat-001's AC-32, which the code
+      already did and that criterion's list did not say; recorded in feat-001's manifest and pinned
+      by `test_naming_a_house_changes_the_scope_and_naming_none_changes_nothing`.

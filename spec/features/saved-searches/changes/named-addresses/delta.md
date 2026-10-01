@@ -48,7 +48,9 @@
   optional `reason` under AC-14's rules, and an optional `at: [latitude, longitude]` that places the
   address when the lookup cannot. A definition needs at least one area or one named address, and
   either alone is enough. The list survives a load and a save under AC-8 and changes as a readable
-  difference under AC-12.
+  difference under AC-12. Named addresses are part of what a run observes, so they belong to the
+  search's observation scope (feat-001's AC-32): changing the list starts a new comparison series,
+  as changing an area does, while a search that names none keeps the scope it had before.
 
 - AC-16: Each named address without an `at` is placed by the boundary provider this feature already
   delegates to (AC-13), through one more question on the same port: where is this street address.

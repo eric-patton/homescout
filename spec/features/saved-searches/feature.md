@@ -15,13 +15,13 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-23
+  last_run: 2026-09-30
   open: 4
   contradicts: 0
 human_signoff: []

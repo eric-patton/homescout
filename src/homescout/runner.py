@@ -218,12 +218,25 @@ def _worst(outcomes: Sequence[str]) -> str:
 
 
 def _cannot_cover(name: str, definition: SearchDefinition) -> SourceReport:
-    """A source that can express none of this search's areas.
+    """A source that can express none of this search's areas, and none of its named addresses.
 
     Reported as unavailable rather than as a source that found nothing, because the two mean
     opposite things to the store: nothing found is evidence about a market, and nothing asked is
     evidence about nothing at all.
+
+    A search that names only houses gets here when none of them could be placed, and saying it had
+    no way to express "any of this search's areas ()" would point at areas the search does not have.
     """
+    if not definition.areas:
+        return SourceReport(
+            source=name,
+            outcome="unavailable",
+            rows=0,
+            detail=(
+                f"{name} was not asked: this search names no areas, and none of its named "
+                "addresses could be placed, so there was nowhere to ask about."
+            ),
+        )
     named = ", ".join(_name_of(area) for area in definition.areas)
     return SourceReport(
         source=name,

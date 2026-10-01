@@ -132,3 +132,92 @@ before it:
   radius query now sorts explicitly by listing date, newest first, which the site accepts and which
   paging by offset needs anyway. Pinned offline by an assertion on the document shape, and covered
   live by `test_a_drawn_shape_in_a_file_runs_against_the_real_site`.
+
+## run 2 - 2026-09-30
+
+baseline: spec sha256:d958c90ed32b · plan sha256:618846e997f4 · tasks sha256:bcd8f4bd2603 · code n/a
+(this feature declares no code surface, and this repository's linter predates code fingerprints)
+
+Scope: the named-addresses change (`changes/named-addresses/`), folded into `spec.md` before this
+run, plus every gap left open by run 1. Audit performed inline in the main session at the operator's
+standing instruction that other agents are brought in only on request.
+
+implemented: AC-1, AC-3, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-22
+
+Evidence for the new criteria, each with tests citing its token in `tests/test_searches_addresses.py`
+(twenty-one) and `tests/test_web_browser.py` (AC-22):
+
+- AC-15: `search/addresses.py` `read` and `_entry`; `search/validate.py` `_addresses` and
+  `NOTHING_TO_SEARCH`; `search/definition.py` `FileSearch.addresses`; the scope digest takes the list
+  only when there is one (`_observation_revision`), pinned against a literal the earlier code
+  computed. `searches edit --set addresses=[...]` reaches it through `catalog.edit`.
+- AC-16: `enrich/boundaries.py` `place_address` (cache, a year for a match, thirty days for none,
+  `_expired`) and `prepare_addresses` (a fetching twin, so the run's provider stays cache-only);
+  `api._place_named_addresses` inside the run claim, skipping `at`. Proved over the real provider and
+  a counting transport: one request across two runs.
+- AC-17: `search/addresses.py` `_text` (empty, over 200), `_at` (pair, numbers, range), unknown
+  keys, the repeat notice and the notice above 50; nothing contacted (a placer that records every
+  question records none).
+- AC-18: `AddressPlan.queries_for` (no filter ever set, three statuses or one by
+  `capabilities.applies`); `_circles` groups overlapping circles into one that contains each
+  member's own; `runner.run_search` asks a source unless it has neither area nor address queries.
+- AC-19: `runner._at_address` (number and street, ZIP when both have one, unit when both carry
+  one) and `_wanted` (the person's ZIP, else the lookup's, else none); `_ask_for_addresses` drops
+  every other row unrecorded.
+- AC-20: named rows bypass `passes` and `definition.place`; `record_verdicts` still runs over the
+  run; `fresh_enough(named=True)`.
+- AC-21: `runner.AddressReport` on `RunOutcome`; `digest.py` (`run --json`), `web/runs.py` (run
+  status), `cli/render._named_addresses`; "found N of M named addresses" in each source's recorded
+  detail.
+- AC-22: `web/static/search.js` `addressPanel`, `saveAddresses`, `addressWhy`, the house branch of
+  `confirmRemoval`; `web/static/searches.js` `namedReport`; `api.search_document` carries the list.
+
+Live: two runs of the real `la-one-offs` search on 2026-09-30 (tasks T-address-8). Eight of eight
+found by all three sources, eight listings kept per source, no neighbours.
+
+Constitution and product-global, checked against the new code: every new request goes through a
+paced session (the Census lookup under its own `address` key at the provider floor); no guess about
+which house was meant (a row with no usable address is never kept for one); an `at` places the query
+and is never written onto a listing; both surfaces render one core report and decide nothing; the
+only new outbound traffic is to a free, public, national endpoint. No violation found.
+
+Unrequested sweep over the change's surface: nothing found. The run-status summary line and list,
+the commented example in the `searches create` template, and "Save the areas" accepting a search of
+only named houses are each the stated behaviour of AC-22, AC-15 or both.
+
+- confirmed gap-001 [partial] spec:"AC-5 Exact filtering removes every returned property whose
+  location falls outside the search's geometry"
+
+  Unchanged in substance. The provider is registered now, but the enrichment pass resolves only the
+  shapes of cities, counties, ZIP codes and states (`api._resolve_boundaries`), never the point a
+  radius around a place name needs, so `_inside_circle` still answers `inside` for such an area
+  unless something else cached that point. Still the source's word rather than a local test, and
+  still reported to the person as a notice on the definition.
+
+- confirmed gap-002 [partial] spec:"AC-7 The command line and the browser interface pass identical
+  geometry into the same resolution and filtering code. A test asserts identical results from both
+  entry points for one definition."
+
+  Evidence moved, class did not. The browser interface exists, and its runs go through
+  `api.run_search` exactly as the command line's do (`web/runs.py`), which is the structural half
+  of the criterion and now covers named addresses too. No test drives one definition through both
+  entry points and compares the results, which is the half the criterion names.
+
+- confirmed gap-003 [partial] spec:"AC-8 A definition loaded and re-saved without modification is
+  unchanged"
+
+  `search/document.py` unchanged since run 1; intra-list layout still is not kept.
+
+- confirmed gap-004 [unrequested] code:"a state is an area type a definition may use"
+
+  Still in `KINDS` and still not in AC-2. Worth knowing for the human decision this was routed to:
+  the person's own main search, `nm-statewide`, is a single `type: state` area, so removing the kind
+  would break the search they run every night. Legitimizing it through `/spec-flow:change` is the
+  likely answer, but it remains theirs to give.
+
+verdict: open 4 (missing 0, partial 3, contradicts 0, unrequested 1)
+
+Found during this audit and fixed before this block was written (so not a gap): a search naming only
+houses, none of which could be placed, reported each source as having "no way to express any of this
+search's areas ()". `runner._cannot_cover` now says no named address could be placed; pinned by
+`test_a_search_of_only_houses_none_of_them_placed_says_so`.

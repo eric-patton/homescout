@@ -171,3 +171,11 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   every results page was reading through every payload of every raw row each property was ever
   built from, 250 megabytes a load and growing nightly. The join is answered from the indexes now
   and never touches a row; nothing is rewritten. Recorded as `T21`.
+
+- **2026-09-30, saved searches' named addresses (feat-004, `changes/named-addresses/`).** AC-32's
+  observation scope (areas, exclusions, result filters and sources) gains a fifth part: the houses
+  a search names by address, because they are part of what a run observes. Changing the list starts
+  a new comparison series, as changing an area does. The digest takes them in only when a search
+  names at least one, so every search written before named addresses existed keeps the revision it
+  already had and none of them starts a new series because of this. Pinned against a literal the
+  earlier code computed (`test_naming_a_house_changes_the_scope_and_naming_none_changes_nothing`).

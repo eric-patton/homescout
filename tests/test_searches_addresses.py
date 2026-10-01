@@ -229,6 +229,30 @@ def test_the_list_survives_a_load_and_a_save_and_an_edit_from_the_command_line(
     assert [a.text for a in catalog(directory).load("named").addresses] == [TAYLOR, DITTA]
 
 
+def test_naming_a_house_changes_the_scope_and_naming_none_changes_nothing(tmp_path: Path) -> None:
+    """feat-004/AC-15, feat-001/AC-32: named houses are part of what a run observes.
+
+    So adding one starts a new comparison series, as adding an area does. What must not happen is
+    every existing search on the machine starting a new series the day this shipped: a search that
+    names no house keeps the fingerprint it had before named houses existed. The literal below was
+    computed by the code as it stood before this change, over this exact file.
+    """
+    plain = (
+        "name: plain\nareas:\n  - {type: city, value: \"Portales, NM\"}\n"
+        "filters:\n  price: {max: 500000}\nsources: [fake]\n"
+    )
+    write(tmp_path, "plain", text=plain)
+    write(tmp_path, "empty", text=plain.replace("name: plain", "name: empty") + "addresses: []\n")
+    write(tmp_path, "named", text=plain.replace("name: plain", "name: named")
+          + f"addresses:\n  - {TAYLOR}\n")
+    found = catalog(tmp_path)
+
+    before = "sha256:a2c9234922bf4f039654245cfdabff61826443f6578ab2f30615f15f0120a3fa"
+    assert found.load("plain").observation_revision == before
+    assert found.load("empty").observation_revision == before
+    assert found.load("named").observation_revision != before
+
+
 def test_validation_reports_every_bad_entry_where_it_is_and_asks_nobody(tmp_path: Path) -> None:
     """feat-004/AC-17: located, collected in one pass, and nothing contacted.
 
@@ -599,6 +623,27 @@ def test_every_named_address_is_reported_found_not_found_or_not_looked_for(
     lost = reports["99999 Unplaceable Rd, Loranger, LA 70446"]
     assert not lost.placed and lost.missed_by == ()
     assert "found 1 of 2 named addresses" in (outcome.sources[0].detail or "")
+
+
+def test_a_search_of_only_houses_none_of_them_placed_says_so(tmp_path: Path) -> None:
+    """feat-004/AC-21, feat-004/AC-18: nothing to ask is said as that, not as an area problem.
+
+    Found by the code-against-spec audit: each source used to be reported as having "no way to
+    express any of this search's areas ()", which names areas the search does not have.
+    """
+    write(tmp_path / "searches", "named", text=searching(
+        "named", addresses="  - 99999 Unplaceable Rd, Loranger, LA 70446\n",
+    ))
+    source = Around(rows=[house("taylor", "52150 Taylor Dr", TAYLOR_AT)])
+
+    with boundaries(Placing()):
+        outcome = run(tmp_path, "named", {"fake": source})
+
+    assert outcome.sources[0].outcome == "unavailable"
+    assert "none of its named addresses could be placed" in (outcome.sources[0].detail or "")
+    assert "areas ()" not in (outcome.sources[0].detail or "")
+    assert not outcome.addresses[0].placed
+    assert source.queries == []
 
 
 def test_the_command_line_reports_each_address_in_both_forms(tmp_path: Path) -> None:
