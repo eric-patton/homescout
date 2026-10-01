@@ -93,6 +93,16 @@ _FILTER_FRAGMENTS: dict[str, tuple[str, str]] = {
     "year_built_max": ("year_built", "max"),
 }
 
+#: The two listing types this tool knows that Realtor has no status for. A house under contract is,
+#: to this site, a for-sale listing carrying a flag: `status: pending` is answered 400 with `Value
+#: "pending" does not exist in "HomeStatus" enum`, and `status: for_sale` with `pending: true` is
+#: answered with exactly the pending houses (both checked live on 2026-09-30). Every other status is
+#: one of the site's own and is sent as it is.
+_STATUS_FRAGMENTS: dict[str, str] = {
+    "pending": "status: for_sale pending: true",
+    "contingent": "status: for_sale contingent: true",
+}
+
 _ACCEPTED_AREAS = (PostalCode, City, County, State, AddressRadius, PointRadius)
 
 
@@ -232,7 +242,9 @@ class RealtorSource(BaseSource):
 
         status = ""
         if "listing_status" in applies and query.listing_status:
-            status = f"status: {query.listing_status}"
+            status = _STATUS_FRAGMENTS.get(
+                query.listing_status, f"status: {query.listing_status}"
+            )
 
         dates = _date_fragment(query) if "listed_since" in applies else ""
 

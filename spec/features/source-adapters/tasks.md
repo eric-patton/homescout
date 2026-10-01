@@ -160,3 +160,32 @@ T5 and T6 touch disjoint files and neither needs the other.
       `src/homescout/sources/realtor/normalize.py`, `tests/test_sources_realtor.py`,
       `tests/test_sources_live.py`, `tests/fixtures/realtor/search_bathrooms.json`,
       `tests/fixtures/realtor/search_city.json`, `tests/fixtures/realtor/README.md`.
+
+## Defect: Realtor refused every pending and contingent query
+
+- [x] T-status-1: `sources/realtor/__init__.py`: `pending` and `contingent` are sent as the site's own
+      flags on a for-sale search, `status: for_sale pending: true` and `status: for_sale
+      contingent: true`; every other status is sent as it is (`feat-002/AC-18`).
+
+      Found on a live run on 2026-09-30, when saved searches' named addresses began asking every
+      source for pending and contingent houses. Realtor answered all sixteen such queries 400. The
+      adapter's transport raises on the status before reading the body, so the reason was never
+      shown; asked directly, the site said `Value "pending" does not exist in "HomeStatus" enum`.
+      It has no pending status: a house under contract is a for-sale listing carrying
+      `flags.is_pending`. Checked live the same day: `pending: true` returned exactly the four
+      pending houses near Loranger, `contingent: true` was accepted, and the adapter now returns
+      both with outcome `ok`.
+
+      The declaration was the defect: `listing_status` is declared as pushed, and two of the five
+      values the saved-search format allows were never accepted by the site.
+
+- [x] T-status-2: `tests/test_sources_realtor.py`: pending, contingent and sold, each asked for in the
+      form the site takes (`feat-002/AC-18`). Checked against the unfixed adapter, where the pending
+      and contingent cases fail.
+
+      Not changed, and worth knowing: a plain for-sale search on this site already includes houses
+      under contract, and the site reports their `status` as `for_sale` with the pending flag
+      beside it. This adapter stores the status field, so a Realtor row for a pending house reads
+      `for_sale`. Reading the flag into the status would be more faithful, and would also make the
+      first nightly run after it report every house already under contract as a status change it
+      did not just undergo. Left for a deliberate change rather than slipped in under a defect.

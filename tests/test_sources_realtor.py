@@ -270,6 +270,34 @@ def test_property_types_and_status_are_pushed_too() -> None:
     assert "status: for_sale" in query
 
 
+@pytest.mark.parametrize(
+    ("asked", "sent", "flag"),
+    [
+        ("pending", "status: for_sale", "pending: true"),
+        ("contingent", "status: for_sale", "contingent: true"),
+        ("sold", "status: sold", None),
+    ],
+)
+def test_a_status_realtor_does_not_have_is_asked_for_as_its_flag(asked, sent, flag) -> None:
+    """feat-002/AC-18: every status this adapter declares it pushes has to be one the site takes.
+
+    The regression, from a live run on 2026-09-30: `status: pending` was answered 400 with `Value
+    "pending" does not exist in "HomeStatus" enum`. Realtor has no pending or contingent status. A
+    house under contract is a for-sale listing carrying a flag, and asking for `status: for_sale`
+    with `pending: true` was answered with exactly those houses, checked live the same day. So every
+    run asking for pending or contingent reported Realtor as failed and got nothing back from it.
+    """
+    transport = responder()
+
+    source(transport).search(SearchQuery(area=City("Portales", "NM"), listing_status=asked))
+
+    query = json.loads(transport.bodies[1])["query"]
+    assert sent in query
+    assert f"status: {asked}" not in query or asked == "sold"
+    if flag is not None:
+        assert flag in query
+
+
 def test_a_field_the_adapter_does_not_declare_never_reaches_the_request() -> None:
     """feat-002/AC-2: the declaration is the only door, so an undeclared field has none."""
     transport = responder()
