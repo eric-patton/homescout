@@ -180,3 +180,37 @@ sent, the storage before the pass writes to it, and the surfaces last.
 - [x] T34: `tests/test_assessment.py`: the three answers, the dropped point, the narrow question's
       shape, and that a top-up replaces nothing and never touches a stale reading (`feat-013/AC-18`,
       `feat-013/AC-19`).
+
+## changes/every-search
+
+- [ ] T35: `assess/pass_.py`: `assess_searches` gathers several searches' properties in play into
+      one pass, each with its own criteria, and a property once, from the first search by name;
+      `assess_search` is it over one search, and `run_pass` reads each row against its own criteria
+      (`feat-013/AC-20`). One pass, so the count for the whole is said before anything is asked, which
+      is the cost requirement, and a limit bounds the whole.
+
+- [ ] T36: `api.py`, `cli/main.py`: with no search named, every search a run of everything covers,
+      through the same standing check (`feat-013/AC-20`). A search with no completed run or a file
+      that cannot be read is said and passed over. The `--search` help says what leaving it out does.
+
+- [ ] T37: `tests/test_assessment.py`: an unnamed pass reads every watched search and skips a paused
+      one, reads a shared property once, spends one limit across searches, and passes over a search
+      with no run (`feat-013/AC-20`). Checked against the unfixed `api.assess`, which reads only the
+      first search.
+
+## Defect: the browser said "done" and never what a pass read
+
+- [ ] T-said-1: `assess/pass_.py`, `web/runs.py`: the outcome says itself in one sentence, and the
+      browser's finished line uses it (`feat-013/AC-1`).
+
+      Found on 2026-10-01, when a pass over the eight Louisiana houses read seven of them, recorded
+      seven readings, and finished with "Assessment: done", so it looked as though nothing had
+      happened. AC-1 already says the pass reports what it considered, assessed, skipped as current
+      and failed; the command line did, and the browser did not. The finished line is built by a
+      generic describer that looks for counts under the names other passes use (`properties`,
+      `descriptions`, `asked`), and an assessment's counts have none of those names, so it fell
+      through to "done" every time.
+
+- [ ] T-said-2: `tests/test_web_surfaces.py`: the finished line for an assessment pass names its
+      counts and a skipped pass says why (`feat-013/AC-1`). Checked against the unfixed describer,
+      where it reads "done".

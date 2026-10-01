@@ -177,6 +177,30 @@ gone.
 - **The digest.** Whether an assessment reaches the nightly email is feat-012's question, and worth
   asking only once this has run over a real set.
 
+### D-13: an unnamed pass is one pass over every watched search's properties
+
+From `changes/every-search` (AC-20). With no search named, `api.assess` picks the searches the way a
+run of everything does, through the same standing check (`_standing_of`), so paused and archived
+mean the same thing to both. A search with no completed run, or a file that cannot be read, is said
+in the progress and passed over. With one search named, both still end the pass as they did, because
+then that search was the whole of what was asked.
+
+The searches are then read as one pass, not one pass each. `assess_searches` gathers every search's
+properties in play, in name order and each with its own criteria, and a property already gathered
+from an earlier search is not gathered again. `assess_search` is that function over one definition,
+so the pass a run performs and the pass a person asks for stay the same code.
+
+One pass rather than a loop because of the cost requirement: a pass says how many it will ask about
+before it asks anything, and a loop of passes would say the second search's count only after paying
+for the first. One pass also makes the limit a limit on the whole with no arithmetic between calls,
+puts the narrow requests first across every search rather than within each, and yields one outcome
+with nothing to total.
+
+`run_pass` learns that a row can carry its own criteria: a function from a row to its criteria, which
+defaults to the one `criteria` for every row. The fingerprint is taken with each row's own, so a
+reading is current exactly while its own search's criteria still hold. A missing model is checked
+once, before any search is gathered.
+
 ## Verification approach
 
 - **Unit, against recorded answers.** The dossier assembly, the fingerprint, the staleness rule and
