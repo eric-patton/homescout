@@ -1630,7 +1630,7 @@ def results(
         rows = list(
             rows_of(workspace.store, wanted, include_dropped=include_dropped, root=workspace.root)
         )
-        rows.extend(_disappeared(workspace, wanted, {row.listing_id for row in rows}))
+        rows.extend(_disappeared(workspace, name, {row.listing_id for row in rows}))
 
     columns = [
         {"name": column.name, "kind": column.kind, "origin": column.origin, "links": column.links}
@@ -1716,8 +1716,8 @@ def _assessment_summary(row: Any, stated: Mapping[str, Any] | None) -> dict[str,
     }
 
 
-def _disappeared(workspace: Workspace, run_id: str, already: set[str]) -> list[Any]:
-    """The properties this run did not see and nobody has seen sold.
+def _disappeared(workspace: Workspace, name: str, already: set[str]) -> list[Any]:
+    """The properties this search was watching, that this run did not see and nobody saw sold.
 
     The spreadsheet leaves these out, because a sheet is what a run found. A table does not, because
     a person catching up wants to know a house they were watching has stopped appearing, and
@@ -1729,10 +1729,13 @@ def _disappeared(workspace: Workspace, run_id: str, already: set[str]) -> list[A
     store = workspace.store
     #: Which records have stopped appearing, read once. `listings` is already the live, unretracted
     #: set, which is two of the three conditions this used to ask the database about per snapshot.
+    #: Only this search's own: presence is kept on the property, so on its own it would list every
+    #: property any search has lost (feat-010/AC-20).
+    watched = store.seen_by_search(name)
     gone = sorted(
         record.id
         for record in store.listings()
-        if record.presence == "disappeared" and record.id not in already
+        if record.presence == "disappeared" and record.id not in already and record.id in watched
     )
     #: Their snapshots and nobody else's. Sorted, because the answer used to come out of a query
     #: ordered by listing id and the rows it makes are still in that order.

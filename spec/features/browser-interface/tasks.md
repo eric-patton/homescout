@@ -1794,3 +1794,22 @@ is written in this file beside this function and the wrong pattern is the one cu
       (`feat-010/AC-25`, `feat-010/AC-68`). Red against the code before the change, where the
       server heard no Referer at all.
 - [x] T216-check: `uv run ruff check .` green; the browser suite, all sixty-two, green.
+
+## Defect: a search listed every other search's disappeared properties
+
+- [x] T-gone-1: `store/core.py` `seen_by_search`, `api.py` `_disappeared`: the disappeared rows a
+      search's results carry are the ones that search itself observed in a completed run, followed
+      through merges (`feat-010/AC-20`).
+
+      Found on the live workspace on 2026-09-30: a new search over eight Louisiana houses showed
+      444 New Mexico houses behind its disappeared filter. Presence is worked out per search when a
+      run completes but kept on the property, and the table read it for the whole store, so every
+      search carried every property any search had lost. It had been invisible while one search was
+      live: on a copy of the workspace the same day, 419 of the 454 disappeared properties were
+      `nm-statewide`'s own and the other 35 belonged to the deleted `portales` search, so the main
+      table had been showing 35 that were not its business either. The new query costs 55 ms on that
+      search's 1,598 properties.
+
+- [x] T-gone-2: `tests/test_web_surfaces.py`: a property lost by one search is not listed by
+      another, and is still listed by the one that lost it (`feat-010/AC-20`). Checked against the
+      unfixed table, where it fails.

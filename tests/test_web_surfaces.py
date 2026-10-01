@@ -112,6 +112,28 @@ def test_a_property_that_disappeared_is_hidden_and_counted(store: Store, db_path
     assert "heldBack(offMarket" in results, "which the table asks for rather than restating"
 
 
+def test_a_search_lists_only_its_own_disappeared_properties(store: Store, db_path: Path) -> None:
+    """feat-010/AC-20: "disappeared" is about a property this search was watching.
+
+    The regression, from the live workspace on 2026-09-30: a new search over eight Louisiana houses
+    showed 444 New Mexico houses behind its disappeared filter, every property any other search had
+    lost. Presence is worked out per search but kept on the property, and the table read it for the
+    whole store. A house this search never saw cannot have stopped appearing in it.
+    """
+    load(store, [listing("a"), listing("b")])
+    load(store, [listing("a")])  # b stopped appearing in portales
+    load(store, [listing("c")], name="elsewhere")
+    held = held_workspace(shared_store(db_path))
+    with client(held) as browser:
+        mine = browser.get("/api/results/portales", headers=reading()).json()["rows"]
+        theirs = browser.get("/api/results/elsewhere", headers=reading()).json()["rows"]
+
+    assert [r["presence"] for r in mine].count("disappeared") == 1, "portales lost b"
+    assert [r["presence"] for r in theirs] == ["observed"], (
+        "a search that never saw b listed it as one of its own disappeared properties"
+    )
+
+
 def test_an_annotation_survives_a_later_run_that_changes_the_price(
     store: Store, db_path: Path
 ) -> None:

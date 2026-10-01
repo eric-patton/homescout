@@ -554,6 +554,22 @@ class Store:
         sql += " ORDER BY first_observed_at, id"
         return [self._listing_from(r) for r in self._conn.execute(sql)]
 
+    def seen_by_search(self, search_name: str) -> set[str]:
+        """Every live listing a completed run of this search has observed, whatever its revision.
+
+        Presence is worked out per search and kept on the listing, so "disappeared" on its own says
+        that some search lost a property, not that this one did. This is what scopes it: a house a
+        search never saw cannot have stopped appearing in it. Followed through merges, so a property
+        observed before it was merged is found under the record that represents it now.
+        """
+        rows = self._conn.execute(
+            "SELECT DISTINCT sn.listing_id FROM listing_snapshots sn "
+            "JOIN runs r ON r.id = sn.run_id "
+            "WHERE r.search_name = ? AND r.status = 'completed'",
+            (search_name,),
+        ).fetchall()
+        return {self._live_listing_id(self._conn, row["listing_id"]) for row in rows}
+
     def listing_count(self, *, include_disappeared: bool = True) -> int:
         """How many live canonical listings there are, without building any of them.
 
