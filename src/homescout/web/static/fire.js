@@ -1303,22 +1303,29 @@ function worthDrawingCenter(site) {
 
 /* Everything on screen, drawn again.
  *
- * Cleared and rebuilt on every move, like the county lines and unlike the wind. A bubble open when
- * the map moves is closed by this, which is the same trade the names make and is worth it here:
- * the alternative is three thousand shapes in the page at once. */
+ * Cleared and rebuilt on every move, like the county lines and unlike the wind, because the
+ * alternative is three thousand shapes in the page at once. Except the site whose bubble is open:
+ * this used to clear that too, on the reasoning that a bubble open when the map moves is fair to
+ * close. But opening a bubble near the edge is itself a move, the pan the map makes to fit it, so
+ * a bubble opened anywhere but the middle opened and vanished (feat-010/AC-105). */
 function drawCenters() {
   if (!centers.layer) return;
-  centers.layer.clearLayers();
   if (!centers.on) {
+    centers.layer.clearLayers();
     held.map.removeLayer(centers.layer);
     centerCount();
     return;
+  }
+  const open = new Set(
+    centers.layer.getLayers().filter((one) => one.isPopupOpen()).map((one) => one.site));
+  for (const one of centers.layer.getLayers()) {
+    if (!open.has(one.site)) centers.layer.removeLayer(one);
   }
   centers.layer.addTo(held.map);
 
   const bounds = held.map.getBounds();
   for (const site of centers.sites) {
-    if (!worthDrawingCenter(site)) continue;
+    if (open.has(site) || !worthDrawingCenter(site)) continue;
     const known = CENTER_SIZE[site.confidence];
     if (known === undefined) {
       /* Known no better than a county, so it is drawn as that county or not at all. Never as a
@@ -1371,6 +1378,7 @@ function drawOutline(site) {
     return;
   }
   shape.bindPopup(() => centerPopup(site), {maxWidth: 320});
+  shape.site = site;
   centers.layer.addLayer(shape);
 }
 
@@ -1378,10 +1386,13 @@ function drawOutline(site) {
  * somebody is looking hardest. Two circles rather than one, because a path has only one stroke. */
 function drawMark(site, size) {
   const approximate = size === CENTER_SIZE.medium;
-  centers.layer.addLayer(L.circleMarker([site.latitude, site.longitude], {
+  const casing = L.circleMarker([site.latitude, site.longitude], {
     pane: "centers", renderer: centers.renderer, interactive: false,
     radius: size + 1.5, color: "#ffffff", weight: 3, opacity: 0.85, fill: false,
-  }));
+  });
+  /* Which site a shape was drawn for, so a redraw can keep the one whose bubble is open. */
+  casing.site = site;
+  centers.layer.addLayer(casing);
   const shape = L.circleMarker([site.latitude, site.longitude], {
     pane: "centers", renderer: centers.renderer, className: "dc-mark", color: CENTER_INK, weight: 2,
     radius: size, fillColor: CENTER_INK, fillOpacity: CENTER_FILL[site.kind] ?? 0.2,
@@ -1389,6 +1400,7 @@ function drawMark(site, size) {
     dashArray: approximate ? "3 3" : null,
   });
   shape.bindPopup(() => centerPopup(site), {maxWidth: 320});
+  shape.site = site;
   centers.layer.addLayer(shape);
 }
 
@@ -1404,6 +1416,7 @@ function drawCoarse(site, county) {
     dashArray: "6 5", fillColor: CENTER_INK, fillOpacity: 0.07,
   });
   shape.bindPopup(() => centerPopup(site, county), {maxWidth: 320});
+  shape.site = site;
   centers.layer.addLayer(shape);
 }
 

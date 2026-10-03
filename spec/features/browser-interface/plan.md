@@ -623,3 +623,26 @@ The warnings draw on one SVG renderer in their own pane with the pointer off at 
 on for strokes only, exactly as the data centres do (AC-93's answer). Reports and dams are markers:
 reports as small circles on that renderer, dams as `divIcon` triangles whose look is entirely class
 names and CSS, with no content, so no text from any source is ever placed in an icon.
+
+### Easier to open, lighter to draw (`changes/easier-to-open-lighter-to-draw/`)
+
+Superseding the paragraph above where they differ. A warning's polygon is not interactive at all.
+The map's own `click`, which Leaflet fires only when nothing with a bubble took the press (a pin,
+a report, a dam, a data centre each stop it), runs `warningsHere`: every drawn warning whose
+projected rings contain the point, or pass within six pixels of it, by even-odd over all rings, in
+one `L.popup` owned by the map. It needs no Leaflet internals and no second hit area over the
+houses.
+
+A report is a `Drop` and a dam a `Triangle`: each a `CircleMarker` with `_updateBounds` and
+`_updatePath` replaced, so it is a path on a shared renderer. That leans on `_setPath` and those two
+methods of the pinned Leaflet 1.9.4, said where they are defined. The dams get `L.svg({pane:
+"dams"})`, made once in `waterPanes`; their colours are options on the path, and the legend's
+swatches keep CSS of their own in the same colours. A path is not focusable, so a dam's path is
+given `tabindex`, `role="button"`, an `aria-label` set as an attribute, and an Enter handler, when
+it is added.
+
+Both water layers keep `drawn`, a map from the record to its shapes. `keepInView` removes what left
+the view unless one of its shapes has its bubble open, and adds what came in; after an addition the
+flood layer brings emergencies and then reports back to the front, since what was added went on
+top. The data centre layer keeps its clear-and-rebuild, which is a few hundred shapes, except for
+the site whose bubble is open, found by a `site` tag on each shape.

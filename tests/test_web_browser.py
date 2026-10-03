@@ -2077,7 +2077,10 @@ def on_the_map(served, script):
                    }
                    return null;
                  };
-                 await until(() => held.markers && held.rows.length);
+                 /* `held` itself may not exist yet: the page's scripts can still be loading
+                  * when this arrives, and a bare `held` would throw rather than wait. */
+                 await until(() => typeof held !== "undefined" && held.markers
+                   && held.rows.length);
                  """ + script + """
                })()""",
         )
@@ -4164,9 +4167,10 @@ def _hold_a_storm_over_the_fixture(root: Path) -> None:
 def test_a_property_inside_a_flash_flood_warning_still_opens(served) -> None:
     """feat-010/AC-101, feat-010/AC-60: a warning is a polygon over the houses it warned.
 
-    It answers on its outline and never on its fill, exactly as a data centre's outline does, so
-    what the browser says is under the pointer at a pin inside a Flash Flood Emergency is still
-    the thing the pins are drawn on, and the warning itself can still be opened at its line.
+    It takes no pointer at all, so what the browser says is under the pointer at a pin inside a
+    Flash Flood Emergency is still the thing the pins are drawn on, and the warning itself is
+    opened by a press on the map beside the pin, or by Enter on the map (feat-010/AC-99,
+    feat-010/AC-17).
     """
     _base, held, _store = served
     _hold_a_storm_over_the_fixture(held.root)
@@ -4193,12 +4197,41 @@ def test_a_property_inside_a_flash_flood_warning_still_opens(served) -> None:
         const shape = water.floods.layer.getLayers().find((one) => one.getBounds && one._path
           && (one._path.getAttribute("class") || "").includes("ff-emergency"));
         const drawn = shape ? shape._path.getBoundingClientRect() : null;
-        const onShape = drawn
+        const onLine = drawn
           ? document.elementFromPoint(drawn.left + drawn.width / 2, drawn.top + 1) : null;
+
+        /* A real press, where the page would get one: on whatever is under that point. */
+        const press = (x, y) => document.elementFromPoint(x, y).dispatchEvent(
+          new MouseEvent("click", {bubbles: true, cancelable: true, clientX: x, clientY: y}));
+        const beside = map.latLngToContainerPoint([34.17, -103.38]);
+        press(box.left + beside.x, box.top + beside.y);
+        const bubble = await until(() => document.querySelector(".ffpopup"));
+        const listed = bubble ? bubble.textContent : "";
+        map.closePopup();
+        await wait(400);
+        /* Opening the bubble may have panned the map to fit it, so the pin is found again. */
+        const now = map.latLngToContainerPoint(pin.getLatLng());
+        press(box.left + now.x, box.top + now.y);
+        await wait(300);
+        /* Every fixture property shares one address, so it is whichever is on top that opens. */
+        const pinOpened = Object.values(held.pins).some((one) => one.pin.isPopupOpen())
+          && !document.querySelector(".ffpopup");
+
+        /* And from the keyboard: Enter on the map asks about its middle. */
+        map.closePopup();
+        map.setView([34.17, -103.38], 12, {animate: false});
+        await wait(300);
+        map.getContainer().focus();
+        map.getContainer().dispatchEvent(
+          new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const byKeyboard = await until(() => document.querySelector(".ffpopup"));
         return {
           withFloods,
           coversThePin: shape ? shape.getBounds().contains(pin.getLatLng()) : false,
-          shapeTakesThePointer: !!(onShape && onShape.tagName.toLowerCase() === "path"),
+          lineTakesThePointer: !!(onLine && onLine.tagName.toLowerCase() === "path"),
+          listed,
+          pinOpensItsOwn: pinOpened,
+          byKeyboard: byKeyboard ? byKeyboard.textContent : "",
           said: document.getElementById("floodcount").textContent,
           from: document.getElementById("floodfrom").value,
           to: document.getElementById("floodto").value,
@@ -4209,7 +4242,13 @@ def test_a_property_inside_a_flash_flood_warning_still_opens(served) -> None:
     assert found["withFloods"]["itself"], (
         f"with flash floods on, the property answers to {found['withFloods']['what']}"
     )
-    assert found["shapeTakesThePointer"], "the warning itself can no longer be opened"
+    assert not found["lineTakesThePointer"], "the warning's outline still takes the pointer"
+    assert "Flash Flood Emergency" in found["listed"], (
+        f"a press inside the warning opened {found['listed']!r}"
+    )
+    assert "number 200" in found["listed"] and "catastrophic" in found["listed"].lower()
+    assert found["pinOpensItsOwn"], "a press on the property opened the warning instead"
+    assert "number 200" in found["byKeyboard"], "Enter on the map did not open the warning there"
     assert "1 emergency" in found["said"], found["said"]
     assert (found["from"], found["to"]) == ("2026-09-16", "2026-09-29"), (
         "the window opens on the fortnight ending with the latest emergency"
@@ -4282,7 +4321,10 @@ def test_fema_zones_are_a_choice_of_what_is_drawn_under_the_properties(served) -
 
 
 def test_the_flood_layers_keep_one_surface_as_the_map_moves(served) -> None:
-    """feat-010/AC-101: one renderer made once, as the data centres learned to their cost."""
+    """feat-010/AC-101: one renderer each, made once, as the data centres learned to their cost,
+    and what is still in view is kept across a move rather than built again. Reported as "if you
+    zoom out with the dams enabled, it gets REAL laggy REAL quick": every dam on screen was thrown
+    away and made again after every pan."""
     _base, held, _store = served
     _hold_a_storm_over_the_fixture(held.root)
 
@@ -4297,16 +4339,24 @@ def test_the_flood_layers_keep_one_surface_as_the_map_moves(served) -> None:
         const count = () => ({
           surfaces: document.querySelectorAll(".leaflet-container svg").length,
           inTheirPane: document.querySelectorAll(".leaflet-floods-pane svg path").length,
-          dams: document.querySelectorAll(".leaflet-dams-pane .dam").length,
+          dams: document.querySelectorAll(".leaflet-dams-pane svg path.dam-mark").length,
         });
         const first = count();
+        const dam = document.querySelector(".leaflet-dams-pane path.dam-mark");
+        const report = document.querySelector(".leaflet-floods-pane path.ff-report");
         for (let i = 0; i < 6; i++) {
           held.map.panBy([i % 2 ? 40 : -40, 20], {animate: false});
           await wait(120);
         }
+        const kept = {
+          dam: dam.isConnected
+            && document.querySelector(".leaflet-dams-pane path.dam-mark") === dam,
+          report: report.isConnected,
+        };
         held.map.setZoom(11, {animate: false});
         await wait(300);
-        return {first, later: count(), damSays: document.getElementById("damcount").textContent};
+        return {first, kept, later: count(),
+                damSays: document.getElementById("damcount").textContent};
     """)
 
     first, later = found["first"], found["later"]
@@ -4314,12 +4364,16 @@ def test_the_flood_layers_keep_one_surface_as_the_map_moves(served) -> None:
     assert later["surfaces"] == first["surfaces"], (
         f"moving the map grew the page from {first['surfaces']} to {later['surfaces']} surfaces"
     )
+    assert found["kept"] == {"dam": True, "report": True}, (
+        f"panning built again what was still on screen: {found['kept']}"
+    )
     assert "1 rated poor or unsatisfactory" in found["damSays"], found["damSays"]
 
 
 def test_a_dam_takes_the_pointer_on_its_triangle_and_not_its_corners(served) -> None:
-    """feat-010/AC-101, feat-010/AC-60: the icon's box is larger than the triangle drawn in it, and
-    its empty corners lie over the properties. Only the triangle answers."""
+    """feat-010/AC-100, feat-010/AC-101, feat-010/AC-60: the box around a triangle is larger than
+    the triangle, and its empty corners lie over the properties. Only the triangle answers, and
+    the keyboard reaches it and opens it (feat-010/AC-17)."""
     _base, held, _store = served
     _hold_a_storm_over_the_fixture(held.root)
 
@@ -4327,19 +4381,24 @@ def test_a_dam_takes_the_pointer_on_its_triangle_and_not_its_corners(served) -> 
         held.map.setView([34.20, -103.36], 13);
         await until(() => true);
         document.getElementById("dams").click();
-        await until(() => document.querySelector(".leaflet-dams-pane .dam"), 400);
-        /* The layer is drawn again whenever the map settles, so the marker is found afresh once
-         * it has, rather than held from before. */
+        await until(() => document.querySelector(".leaflet-dams-pane path.dam-mark"), 400);
         await wait(400);
-        const icon = document.querySelector(".leaflet-dams-pane .dam");
+        const icon = document.querySelector(".leaflet-dams-pane path.dam-mark");
         const box = icon.getBoundingClientRect();
         const corner = document.elementFromPoint(box.left + 1, box.top + 1);
         const inside = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
-        return {corner: corner === icon, inside: inside === icon};
+        icon.focus();
+        icon.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+        const bubble = await until(() => document.querySelector(".dampopup"));
+        return {corner: corner === icon, inside: inside === icon,
+                name: icon.getAttribute("aria-label"),
+                opened: bubble ? bubble.textContent : ""};
     """)
 
     assert not found["corner"], "the empty corner of a dam's box still takes the pointer"
     assert found["inside"], "the triangle itself can no longer be opened"
+    assert found["name"] == "A dam above the town, condition poor", found["name"]
+    assert "A dam above the town" in found["opened"], "Enter on a dam did not open it"
 
 
 def test_every_dam_is_drawn_where_it_stands_as_the_map_moves(served) -> None:
@@ -4384,6 +4443,38 @@ def test_every_dam_is_drawn_where_it_stands_as_the_map_moves(served) -> None:
     for when in ("first", "later"):
         worst = max(found[when])
         assert worst < 2, f"{when}: a dam is drawn {worst:.0f}px from where it stands"
+
+
+def test_a_bubble_stays_open_through_the_pan_that_shows_it(served) -> None:
+    """feat-010/AC-105: reported as "the popups sometimes go away quickly". A report near the top
+    of the map is opened; its bubble opens upwards, the map pans to fit it, the pan redrew the
+    layer, and the redraw took the report away with its bubble. Opened there, it is still open
+    after the pan."""
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        const map = held.map;
+        map.setView([34.19, -103.35], 12, {animate: false});
+        await until(() => true);
+        document.getElementById("floods").click();
+        await until(() => water.floods.layer && water.floods.layer.getLayers().length, 400);
+        /* The report twenty pixels below the map's top, where its bubble cannot fit. */
+        map.panBy([0, map.getSize().y / 2 - 20], {animate: false});
+        await wait(300);
+        const report = water.floods.layer.getLayers().find((one) =>
+          one._path && (one._path.getAttribute("class") || "").includes("ff-report"));
+        const before = map.getCenter();
+        report.openPopup();
+        await wait(900);
+        return {
+          panned: !map.getCenter().equals(before),
+          open: !!document.querySelector(".ffpopup"),
+        };
+    """)
+
+    assert found["panned"], "the map did not pan to fit the bubble, so this asks nothing"
+    assert found["open"], "the bubble closed when the map panned to show it"
 
 
 def test_a_storm_report_is_a_drop_of_water_and_not_a_dot(served) -> None:

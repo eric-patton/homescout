@@ -1110,9 +1110,14 @@ in five years. The problem brief is in `research.md`.
       changed. A window longer than a year is refused with a sentence, because three thousand polygons
       at once is not a map anybody can read. A warning raised to an emergency is drawn heavier and
       labelled as an emergency.
-- [ ] AC-99: Opening a warning gives the issuing office and its number, the date and time it was
-      issued in the place's local standard time, whether it became an emergency, and the damage
-      threat the Weather Service attached, with a link to the warning's own text in the archive,
+- [ ] AC-99: A press on the map that lands on no property, report or dam, with the flash floods on,
+      opens one bubble listing every drawn warning that covers the spot or passes within a few
+      pixels of it, emergencies first and then newest first, and saying how many there were; a
+      press inside no warning opens nothing. Enter on the map itself asks the same about the
+      middle of what is on screen, so the keyboard reaches it (AC-17). Each warning in it gives
+      the issuing office and its number, the date and time it was issued in the place's local
+      standard time, whether it became an emergency, and the damage threat the Weather Service
+      attached, with a link to the warning's own text in the archive,
       which is where a cause such as a dam failure is stated; the link is one the person presses and
       the page says it leaves this tool. The link is built by the core from the warning's identity
       (its office, year and number, each checked), never taken from the archive (`feat-007/AC-49`),
@@ -1124,18 +1129,26 @@ in five years. The problem brief is in `research.md`.
       rather than where water went, and that reports are positioned to about a kilometre.
 - [ ] AC-100: The map can draw dams, off by default: the high-hazard dams in the inventory held for
       the states the run's properties are in and their neighbours, those within the view, drawn as a
-      triangle shaded by condition (unsatisfactory, poor, fair, satisfactory, and an empty triangle
-      for not rated). Opening one gives its name and inventory id, the year it was built, its
+      triangle shaded by condition (unsatisfactory, poor, fair, satisfactory, and a white triangle
+      with a dark edge for not rated), cased in white by its own outline so it reads over red or
+      cyan. Opening one gives its name and inventory id, the year it was built, its
       condition and when that was assessed, its emergency action plan, its primary purpose, and its
       owner. How many of the dams drawn are rated poor or unsatisfactory is counted by the core and
-      said beside the map, and the triangle, not the box it is drawn in, is what answers the
-      pointer. The page says "near" and never "downstream": the inventory places a dam as one point
-      and does not say which way it drains.
-- [ ] AC-101: The flash-flood and dam layers obey AC-60. A warning's polygon answers the pointer on
-      its outline and never on its fill, so a property inside a warning still opens, and a test
-      asserts it. The warnings and the reports share one renderer made once, not one per shape; the
-      dams are markers whose look is class names and nothing else. Both layers draw only what falls
-      within the current view, and draw it again when the map moves.
+      said beside the map, and the triangle, not the box around it, is what answers the pointer.
+      Each drawn dam can be reached from the keyboard and opened with Enter, and names itself and
+      its condition to a screen reader. The page says "near" and never "downstream": the inventory
+      places a dam as one point and does not say which way it drains.
+- [ ] AC-101: The flash-flood and dam layers obey AC-60. A warning's polygon takes no pointer at
+      all, so a property inside a warning still opens, and a test asserts it; the warning is opened
+      by a press on the map as AC-99 says. The warnings and the reports share one renderer made
+      once, and the dams have one of their own, made once, in their own pane; no shape gets a
+      renderer or an element of its own beyond its path, and text from a source reaches the
+      drawing only as an attribute's value, never as markup. Both layers draw only what falls
+      within the current view. When the map moves they add what came into view and take away what
+      left it, and leave what is still in view alone, so a move costs what changed rather than
+      everything on screen; with the dams on and the map zoomed out to the region, moving it stays
+      about as smooth as with them off, and a browser test asserts that the shapes still in view
+      are kept rather than built again across a pan.
 - [ ] AC-102: The sources are credited on the map, and the page states what turning each layer on
       asks for: the zones ask FEMA's map service for the part of the map on screen, by this machine; the
       flash-flood and dam layers ask nothing at all, because they read records the enrichment pass
@@ -1151,6 +1164,12 @@ in five years. The problem brief is in `research.md`.
       asks `flood_hazard_area == true`, so a floodway is caught by it. A pin's bubble on the map
       carries the same values in one line: the FEMA zone, how many Flash Flood Emergencies have
       covered the spot, the nearest stream or arroyo, and a recorded water table.
+- [ ] AC-105: A bubble opened on a layer that is drawn again as the map moves (the flash floods,
+      the dams, the data centres) stays open when the map moves, and in particular through the pan
+      the map makes to fit a newly opened bubble on screen: a redraw never takes away the shape
+      whose bubble is open, and it goes when the bubble has closed and the map next moves. A
+      browser test opens a report's bubble where the map has to pan to show it and finds it still
+      open after the pan.
 
 ## Edge cases & errors
 

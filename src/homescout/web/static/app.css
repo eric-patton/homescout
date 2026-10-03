@@ -1350,45 +1350,49 @@ table.grid tr.kept td.property .what { font-weight: 600; }
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'%3E%3Cpath d='M6 1.44C7.44 4.32 10.8 7.68 10.8 12A4.8 4.8 0 0 1 1.2 12C1.2 7.68 4.56 4.32 6 1.44Z' fill='%2338bdf8' stroke='%231e3a8a' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-/* The same pointer rule as the data centres, for the same reason, written as long for the same
- * reason: a warning's polygon lies over the houses it warned, and its fill must not take their
- * clicks (feat-010/AC-101). It answers on its outline; a report answers on all of its small self. */
-.leaflet-pane > svg path.ff-warning.leaflet-interactive { pointer-events: stroke; }
+/* A report answers on all of its small self, by the same long selector the data centres need
+ * (AC-93): a shorter one loses to Leaflet's own. A warning takes no pointer at all, so the houses it
+ * lies over keep theirs, and a press on the map opens the warnings at that spot (feat-010/AC-101). */
 .leaflet-pane > svg path.ff-report.leaflet-interactive { pointer-events: auto; }
 
-/* A dam is a triangle, darker the worse its condition, cased in white to read over red or cyan.
- * The marker holds no content at all: the triangle is a pseudo-element clipped to shape, so nothing
- * a source wrote can reach the page through an icon. No green, because "nothing wrong found" is
- * not a colour, and an unrated dam is hollow rather than reassuring. */
-/* The box a dam's icon sits in is larger than the triangle, and its empty corners lie over the
- * properties. So the box itself is clipped to a triangle a little larger than the one drawn, which
- * leaves room for the white casing: a clip limits where an element can be pressed as well as where
- * it paints, so the corners pass the click to the house underneath (feat-010/AC-101). */
-/* Never `position` on `.dam` itself. Leaflet places a marker by making it absolute and moving it,
- * and a rule here would win over Leaflet's, as this sheet loads after it: once it read `relative`,
- * every dam sat a box lower than the one before it, so the triangles wandered whenever the map
- * moved and a different set was drawn. The marker is absolute already, which is all `::before`
- * needs; only the legend's swatch has to ask for it. */
-.leaflet-dams-pane .leaflet-marker-icon.dam { pointer-events: auto; }
-.leaflet-marker-icon.dam { clip-path: polygon(50% -14%, 114% 108%, -14% 108%); }
-.dam {
-  background: none;
+/* One warning or several, in one bubble, each ruled off from the next. */
+.ffpopup .ffwarning + .ffwarning { border-top: 1px solid #d6d9e0; margin-top: 6px; padding-top: 6px; }
+
+/* A dam on the map is a triangle path drawn by flood.js, cased by its own white outline, so these
+ * are the legend's swatches only: the same triangle, clipped from a box, in the same colours as
+ * `DAM_INK` there. No green, because "nothing wrong found" is not a colour, and an unrated dam is
+ * white rather than reassuring.
+ *
+ * The map's triangles used to be built from these rules, as marker elements carrying two
+ * drop-shadow filters each, and zoomed out over three thousand of them made every frame a third of
+ * a second. Do not put a filter on anything the map draws by the thousand. */
+.legend .swatch.dam {
+  position: relative;
+  width: 14px;
+  height: 12px;
   border: none;
+  border-radius: 0;
+  background: none;
   filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff);
 }
-.dam::before {
+.legend .swatch.dam::before {
   content: "";
   position: absolute;
   inset: 0;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   background: var(--dam, #6b7280);
 }
-.dam-unsatisfactory { --dam: #3f0a0a; }
-.dam-poor { --dam: #b91c1c; }
-.dam-fair { --dam: #d97706; }
-.dam-satisfactory { --dam: #6b7280; }
-.dam-not-rated { --dam: #ffffff; filter: drop-shadow(0 0 1px #111111) drop-shadow(0 0 1px #111111); }
-.legend .swatch.dam { position: relative; width: 14px; height: 12px; border: none; border-radius: 0; }
+.swatch.dam-unsatisfactory { --dam: #3f0a0a; }
+.swatch.dam-poor { --dam: #b91c1c; }
+.swatch.dam-fair { --dam: #d97706; }
+.swatch.dam-satisfactory { --dam: #6b7280; }
+.legend .swatch.dam-not-rated {
+  --dam: #ffffff;
+  filter: drop-shadow(0 0 1px #111111) drop-shadow(0 0 1px #111111);
+}
+
+/* A dam reached from the keyboard shows where the keyboard is. */
+.leaflet-dams-pane path.dam-mark:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
 
 .ffpopup strong, .dampopup strong { display: block; font-size: 1.02rem; line-height: 1.25; }
 .ffpopup ul, .dampopup ul { margin: 6px 0; padding-left: 18px; }

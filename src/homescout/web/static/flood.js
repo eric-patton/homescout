@@ -17,8 +17,8 @@
  * "warned", and never "flooded".
  *
  * A warning is a large polygon over the houses. That is the case the pointer rule exists for: it
- * answers on its outline and never on its fill, exactly as a data centre's outline does, so a
- * house inside a warning still opens (feat-010/AC-101).
+ * takes no pointer at all, so a house inside a warning still opens, and a press on the map that no
+ * house, report or dam took lists every warning at that spot (feat-010/AC-101).
  *
  * Every word in a storm report was written by a spotter or a member of the public. It goes into
  * the page through `el` as text and nowhere else, and the one link on a warning is built by the
@@ -30,9 +30,10 @@ const water = {
   under: "wildfire",
   zones: null,
   floods: {on: false, asked: false, asking: false, from: "", to: "", latest: null,
-           warnings: [], reports: [], missing: [], stale: false, layer: null, renderer: null},
+           warnings: [], reports: [], missing: [], stale: false, layer: null, renderer: null,
+           drawn: new Map(), bubble: null},
   dams: {on: false, asked: false, asking: false, dams: [], poor: 0, missing: [], stale: false,
-         layer: null},
+         layer: null, renderer: null, drawn: new Map()},
 };
 
 /* FEMA's map service draws its zones from about this zoom in, and sends an empty picture further
@@ -83,6 +84,35 @@ const Drop = L.CircleMarker.extend({
   },
 });
 const REPORT_FILL = "#38bdf8";
+
+/* A dam is a triangle standing on its point's place, the same shape and size the marker it replaced
+ * drew: sixteen pixels across and fourteen high at a radius of seven. The same two names inside
+ * Leaflet as the drop. */
+const DAM_WIDTH = 8 / 7;
+const Triangle = L.CircleMarker.extend({
+  _updateBounds() {
+    const r = this._radius;
+    const w = this._clickTolerance();
+    this._pxBounds = L.bounds(this._point.subtract([DAM_WIDTH * r + w, r + w]),
+                              this._point.add([DAM_WIDTH * r + w, r + w]));
+  },
+  _updatePath() {
+    const {x, y} = this._point;
+    const r = this._radius;
+    this._renderer._setPath(this, this._empty() ? "M0 0" :
+      `M${x} ${y - r}L${x + DAM_WIDTH * r} ${y + r}L${x - DAM_WIDTH * r} ${y + r}Z`);
+  },
+});
+
+/* Darker the worse the condition, and an unrated dam white rather than reassuring. The legend's
+ * swatches carry the same colours in app.css; change them together. */
+const DAM_INK = {
+  "unsatisfactory": "#3f0a0a",
+  "poor": "#b91c1c",
+  "fair": "#d97706",
+  "satisfactory": "#6b7280",
+  "not rated": "#ffffff",
+};
 
 /* ------------------------------------------------------------------ */
 /* Controls                                                            */
@@ -254,63 +284,150 @@ function floodCount() {
   where.replaceChildren(document.createTextNode(said));
 }
 
-/* Everything in the window that touches the screen, drawn again. Emergencies last, so they sit on
- * top of the ordinary warnings they usually lie inside. */
+/* Everything in the window that touches the screen. Emergencies after ordinary warnings, so they
+ * sit on top of the ones they usually lie inside, and the reports over both.
+ *
+ * A warning takes no pointer at all. It used to answer on its outline, which is a dashed line a
+ * pixel and a half wide, and it was reported as hard to press. A press on the map that nothing else
+ * took opens every warning at that spot instead (`warningsHere`), which a house inside a warning
+ * never loses to, because the house takes the press first (feat-010/AC-101, feat-010/AC-60). */
 function drawFloods() {
   const state = water.floods;
   if (!state.layer) return;
-  state.layer.clearLayers();
   if (!state.on) {
+    forget(state);
+    if (state.bubble) held.map.closePopup(state.bubble);
     held.map.removeLayer(state.layer);
     floodCount();
     return;
   }
   state.layer.addTo(held.map);
-  const bounds = held.map.getBounds();
-
-  const ordered = [...state.warnings].sort((a, b) => Number(a.emergency) - Number(b.emergency));
-  for (const one of ordered) {
-    const shape = L.polygon(one.polygons, {
-      pane: "floods", renderer: state.renderer,
-      className: one.emergency ? "ff-warning ff-emergency" : "ff-warning",
-      color: one.emergency ? EMERGENCY_INK : WARNING_INK,
-      weight: one.emergency ? 3.5 : 1.5,
-      opacity: 0.9,
-      dashArray: one.emergency ? null : "5 4",
-      fillColor: one.emergency ? EMERGENCY_INK : WARNING_INK,
-      fillOpacity: one.emergency ? 0.12 : 0.04,
-    });
-    if (!bounds.intersects(shape.getBounds())) continue;
-    shape.bindPopup(() => warningPopup(one), {maxWidth: 320});
-    state.layer.addLayer(shape);
-  }
-  for (const report of state.reports) {
-    if (!bounds.contains([report.latitude, report.longitude])) continue;
-    state.layer.addLayer(new Drop([report.latitude, report.longitude], {
-      pane: "floods", renderer: state.renderer, interactive: false,
-      radius: 5.5, color: "#ffffff", weight: 5, opacity: 0.9, fill: false,
-    }));
-    const mark = new Drop([report.latitude, report.longitude], {
-      pane: "floods", renderer: state.renderer, className: "ff-report",
-      radius: 5.5, color: WARNING_INK, weight: 1.5, fillColor: REPORT_FILL, fillOpacity: 0.95,
-    });
-    mark.bindPopup(() => reportPopup(report), {maxWidth: 320});
-    state.layer.addLayer(mark);
+  const view = held.map.getBounds().pad(0.1);
+  const shown = (one) => view.intersects(boxOf(one));
+  const wanted = new Set([
+    ...state.warnings.filter((one) => !one.emergency && shown(one)),
+    ...state.warnings.filter((one) => one.emergency && shown(one)),
+    ...state.reports.filter((one) => view.contains([one.latitude, one.longitude])),
+  ]);
+  if (keepInView(state, wanted, drawFlood)) {
+    /* What was added went on top of what was kept, so the order is put back: emergencies over
+     * ordinary warnings, then the reports over everything. */
+    for (const [record, layers] of state.drawn) {
+      if (record.emergency) for (const one of layers) one.bringToFront();
+    }
+    for (const [record, layers] of state.drawn) {
+      if (!record.polygons) for (const one of layers) one.bringToFront();
+    }
   }
   floodCount();
 }
 
-function warningPopup(one) {
-  const threat = one.damage ? `damage threat: ${one.damage}` : null;
+/* The shapes for one record: a warning's polygon, or a report's drop with its white casing. */
+function drawFlood(record) {
+  const renderer = water.floods.renderer;
+  if (record.polygons) {
+    const shape = L.polygon(record.polygons, {
+      pane: "floods", renderer, interactive: false,
+      className: record.emergency ? "ff-warning ff-emergency" : "ff-warning",
+      color: record.emergency ? EMERGENCY_INK : WARNING_INK,
+      weight: record.emergency ? 3.5 : 1.5,
+      opacity: 0.9,
+      dashArray: record.emergency ? null : "5 4",
+      fillColor: record.emergency ? EMERGENCY_INK : WARNING_INK,
+      fillOpacity: record.emergency ? 0.12 : 0.04,
+    });
+    return [shape];
+  }
+  const at = [record.latitude, record.longitude];
+  const casing = new Drop(at, {
+    pane: "floods", renderer, interactive: false,
+    radius: 5.5, color: "#ffffff", weight: 5, opacity: 0.9, fill: false,
+  });
+  const mark = new Drop(at, {
+    pane: "floods", renderer, className: "ff-report",
+    radius: 5.5, color: WARNING_INK, weight: 1.5, fillColor: REPORT_FILL, fillOpacity: 0.95,
+  });
+  mark.bindPopup(() => reportPopup(record), {maxWidth: 320});
+  return [casing, mark];
+}
+
+/* A warning's extent, worked out once rather than on every move. */
+const BOXES = new WeakMap();
+function boxOf(one) {
+  if (!BOXES.has(one)) BOXES.set(one, L.latLngBounds(one.polygons.flat(2)));
+  return BOXES.get(one);
+}
+
+/* How close to a warning's edge, in pixels, a press still counts as on it. */
+const NEAR_AN_EDGE = 6;
+
+/** A press on the map that no property, report or dam took: every drawn warning at that spot.
+ *
+ * The statewide view is warnings over warnings, so what a press here is asking is "what was this
+ * spot warned for", and the answer is a list. It is one bubble belonging to the map rather than to
+ * a shape, so no redraw can take it away. */
+function warningsHere(event) {
+  const state = water.floods;
+  if (!state.on || !state.layer) return;
+  const here = [];
+  for (const [record, layers] of state.drawn) {
+    if (record.polygons && covers(layers[0], event.layerPoint)) here.push(record);
+  }
+  if (!here.length) return;
+  here.sort((a, b) =>
+    Number(b.emergency) - Number(a.emergency) || String(b.issued).localeCompare(String(a.issued)));
+  state.bubble = L.popup({maxWidth: 340, maxHeight: 360})
+    .setLatLng(event.latlng)
+    .setContent(warningsPopup(here))
+    .openOn(held.map);
+}
+
+/* Whether a drawn warning covers a point, or passes within a few pixels of it. Every ring of every
+ * part is counted, so a hole in a warning is not inside it. */
+function covers(shape, point) {
+  let inside = false;
+  for (const ring of ringsOf(shape.getLatLngs())) {
+    const drawn = ring.map((one) => held.map.latLngToLayerPoint(one));
+    for (let i = 0, j = drawn.length - 1; i < drawn.length; j = i++) {
+      const a = drawn[i];
+      const b = drawn[j];
+      if (L.LineUtil.pointToSegmentDistance(point, a, b) <= NEAR_AN_EDGE) return true;
+      if ((a.y > point.y) !== (b.y > point.y)
+          && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function ringsOf(latlngs) {
+  return latlngs.length && latlngs[0] instanceof L.LatLng ? [latlngs] : latlngs.flatMap(ringsOf);
+}
+
+function warningsPopup(list) {
+  const emergencies = list.filter((one) => one.emergency).length;
   return el("div", {class: "ffpopup"},
+    list.length > 1
+      ? el("p", {class: "meta"},
+        `${count(list.length, "flash-flood warning")} issued for this spot` +
+        (emergencies
+          ? `, ${emergencies} of them ${emergencies === 1 ? "an emergency" : "emergencies"}`
+          : "") + ".")
+      : null,
+    list.map(warningEntry),
+    el("p", {class: "meta"},
+      "Where flash flooding was expected, drawn wide. A warning does not say where water went."),
+  );
+}
+
+function warningEntry(one) {
+  const threat = one.damage ? `damage threat: ${one.damage}` : null;
+  return el("div", {class: "ffwarning"},
     el("strong", {}, one.emergency ? "Flash Flood Emergency" : "Flash-flood warning"),
     el("p", {class: "meta"},
       `Issued ${one.date}${one.time ? " at " + one.time : ""} (local standard time) by the ` +
       `${one.office} Weather Service office, ` +
       `number ${one.event}.`),
     threat ? el("p", {}, threat) : null,
-    el("p", {class: "meta"},
-      "Where flash flooding was expected, drawn wide. It does not say where water went."),
     el("p", {class: "meta"},
       link(one.link, "Read the warning itself at Iowa State"), " (leaves this page). " +
       "A cause such as a dam failure is stated there."),
@@ -375,32 +492,56 @@ function damCount() {
   where.replaceChildren(document.createTextNode(said));
 }
 
+/* The dams on screen, as triangles on the layer's one renderer.
+ *
+ * They were markers: an element each, with two drop-shadow filters and two clip paths, every one of
+ * them built again after every move and moved separately through every frame of a zoom. Zoomed out
+ * over the region that is 3,274 of them, and it was measured as frames of a third of a second and
+ * more, against a thirtieth with the dams off. As paths on one renderer a zoom scales one drawing,
+ * and a move only adds what came into view. */
 function drawDams() {
   const state = water.dams;
   if (!state.layer) return;
-  state.layer.clearLayers();
   if (!state.on) {
+    forget(state);
     held.map.removeLayer(state.layer);
     damCount();
     return;
   }
   state.layer.addTo(held.map);
-  const bounds = held.map.getBounds();
-  for (const dam of state.dams) {
-    if (!bounds.contains([dam.latitude, dam.longitude])) continue;
-    const condition = DAM_CONDITIONS.includes(dam.condition) ? dam.condition : "not rated";
-    /* The icon is nothing but class names: its look is in the stylesheet and it holds no text,
-     * so nothing any source wrote can reach the page through it. */
-    const mark = L.marker([dam.latitude, dam.longitude], {
-      pane: "dams",
-      icon: L.divIcon({className: `dam dam-${condition.replace(" ", "-")}`, iconSize: [16, 14]}),
-      title: `${dam.name}, condition ${condition}`,
-      keyboard: true,
-    });
-    mark.bindPopup(() => damPopup(dam), {maxWidth: 320});
-    state.layer.addLayer(mark);
-  }
+  const view = held.map.getBounds().pad(0.1);
+  keepInView(state,
+    new Set(state.dams.filter((dam) => view.contains([dam.latitude, dam.longitude]))), drawDam);
   damCount();
+}
+
+function drawDam(dam) {
+  const condition = DAM_CONDITIONS.includes(dam.condition) ? dam.condition : "not rated";
+  const rated = condition !== "not rated";
+  const mark = new Triangle([dam.latitude, dam.longitude], {
+    pane: "dams", renderer: water.dams.renderer, className: "dam-mark",
+    radius: 7, color: rated ? "#ffffff" : "#111111", weight: rated ? 2 : 1.5, opacity: 1,
+    fillColor: DAM_INK[condition], fillOpacity: 1,
+  });
+  reachable(mark, `${dam.name}, condition ${condition}`);
+  mark.bindPopup(() => damPopup(dam), {maxWidth: 320});
+  return [mark];
+}
+
+/* A path is not a marker, so the keyboard reaches it only by being told to. The name goes in as an
+ * attribute's value and nowhere else, so nothing a source wrote is ever read as markup. */
+function reachable(mark, name) {
+  mark.on("add", () => {
+    const path = mark.getElement();
+    path.setAttribute("tabindex", "0");
+    path.setAttribute("role", "button");
+    path.setAttribute("aria-label", name);
+    L.DomEvent.on(path, "keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      L.DomEvent.preventDefault(event);
+      mark.openPopup();
+    });
+  });
 }
 
 function damPopup(dam) {
@@ -428,8 +569,8 @@ function damPopup(dam) {
 /** The panes and renderers, made once when the map is built. */
 function waterPanes(map) {
   /* Warnings over the data centres and under the wind. The pane takes no pointer; the stylesheet
-   * gives it back to a warning's outline and a report's mark and nothing else, which is the answer
-   * AC-93 found for the data centres and AC-101 asks of this layer. */
+   * gives it back to a report's mark and nothing else. A warning is opened by a press on the map
+   * (`warningsHere`), so a house inside one keeps its own press (feat-010/AC-101). */
   map.createPane("floods");
   map.getPane("floods").style.zIndex = "446";
   map.getPane("floods").style.pointerEvents = "none";
@@ -438,12 +579,55 @@ function waterPanes(map) {
   water.floods.renderer = L.svg({pane: "floods"});
   water.floods.layer = L.layerGroup();
 
+  /* The dams the same way, on a renderer of their own so they sit over the warnings. A triangle
+   * takes the pointer on itself (Leaflet's own rule for an interactive path) and nowhere else. */
   map.createPane("dams");
   map.getPane("dams").style.zIndex = "447";
   map.getPane("dams").style.pointerEvents = "none";
+  water.dams.renderer = L.svg({pane: "dams"});
   water.dams.layer = L.layerGroup();
 
   map.on("zoomend", zonesNote);
+  map.on("click", warningsHere);
+  /* The keyboard's way to the same bubble: Enter on the map itself, which the arrow keys already
+   * move, asks about the middle of what is on screen (AC-17). Only on the map, so Enter on a
+   * focused dam or a link in a bubble keeps meaning what it meant. */
+  L.DomEvent.on(map.getContainer(), "keydown", (event) => {
+    if (event.key !== "Enter" || event.target !== map.getContainer()) return;
+    const middle = map.getCenter();
+    warningsHere({latlng: middle, layerPoint: map.latLngToLayerPoint(middle)});
+  });
+}
+
+/** Bring a layer's drawing into line with the view: add what came into it, take away what left
+ * it, and leave alone what is still there. Says whether anything was added.
+ *
+ * Both water layers used to be emptied and built again at the end of every move, which zoomed out
+ * over the region was three thousand dams built from nothing after every pan. It also closed
+ * bubbles: opening one near the edge pans the map to fit it, the pan redrew the layer, and the
+ * shape that owned the bubble went with everything else. So a shape whose bubble is open is never
+ * taken away here; it goes on a later move, once the bubble has closed (feat-010/AC-105). */
+function keepInView(state, wanted, draw) {
+  for (const [record, layers] of state.drawn) {
+    if (wanted.has(record) || layers.some((one) => one.isPopupOpen())) continue;
+    for (const one of layers) state.layer.removeLayer(one);
+    state.drawn.delete(record);
+  }
+  let added = false;
+  for (const record of wanted) {
+    if (state.drawn.has(record)) continue;
+    const layers = draw(record);
+    for (const one of layers) state.layer.addLayer(one);
+    state.drawn.set(record, layers);
+    added = true;
+  }
+  return added;
+}
+
+/** Everything off a layer, for when it is turned off. */
+function forget(state) {
+  state.layer.clearLayers();
+  state.drawn.clear();
 }
 
 /** Called by fire.js whenever the map has moved. */
@@ -467,8 +651,9 @@ function waterLegend() {
     ),
     el("p", {class: "meta"},
       "Where the Weather Service warned, drawn wide, and where somebody reported flooding. A " +
-      "warning does not say where water went. The dates open on the fortnight ending with the " +
-      "latest Flash Flood Emergency on record."),
+      "warning does not say where water went. Press anywhere inside one for every warning issued " +
+      "for that spot, or press Enter on the map for the middle of it. The dates open on the " +
+      "fortnight ending with the latest Flash Flood Emergency on record."),
     el("h2", {}, "High-hazard dams"),
     el("ul", {},
       DAM_CONDITIONS.map((condition) =>

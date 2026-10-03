@@ -1873,3 +1873,27 @@ is written in this file beside this function and the wrong pattern is the one cu
 - [x] T-fm-14-test: `tests/test_web_browser.py`: the report is taller than it is wide, its place
       is in the round part, it is on the flood layer's renderer, and the legend's swatch is the
       drop.
+
+## Change: easier to open, lighter to draw (`changes/easier-to-open-lighter-to-draw/`)
+
+- [x] T-eo-1: `web/static/flood.js`: a warning takes no pointer; the map's click lists every drawn
+      warning at the spot, or within six pixels of its edge, emergencies then newest, in one bubble
+      owned by the map (`feat-010/AC-99`, `feat-010/AC-101`).
+- [x] T-eo-2: `web/static/flood.js`, `app.css`: a dam is a triangle path on a renderer of the dams'
+      own, cased by its own stroke; the marker rules and their filters are gone and the legend
+      keeps its swatches; each dam is reachable by keyboard and opens on Enter (`feat-010/AC-100`,
+      `feat-010/AC-101`, `feat-010/AC-17`).
+- [x] T-eo-3: `web/static/flood.js`: both water layers keep what is still in view and add or remove
+      only what changed, never removing a shape whose bubble is open (`feat-010/AC-101`,
+      `feat-010/AC-105`).
+- [x] T-eo-4: `web/static/fire.js`: the data centre redraw keeps the site whose bubble is open
+      (`feat-010/AC-105`).
+- [x] T-eo-5: `tests/test_web_browser.py`: a press beside a property inside a warning opens the
+      warning and a press on the property opens the property; the warning's outline takes no
+      pointer; a report's bubble opened where the map must pan stays open (red against the old
+      layer: "the bubble closed when the map panned to show it"); the dam and report shapes still
+      in view are the same elements after six pans; a dam's corner passes the pointer, its triangle
+      takes it, and Enter opens it.
+- [x] T-eo-6: measured on the live statewide map, zoomed out to the region with all 3,274 dams in
+      view: the worst frames of a zoom or pan went from 300 to 650 milliseconds to 17 to 50, with
+      one frame of 83 on the zoom that brings two thousand dams into view at once.

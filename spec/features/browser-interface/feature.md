@@ -289,3 +289,14 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   their outline only, as data centres do; a browser test holds that a house inside an emergency
   still opens, and that a storm report carrying an image tag shows as the characters it is.
 
+
+- **2026-10-03, easier to open, lighter to draw (`changes/easier-to-open-lighter-to-draw/`).** Three
+  reports from the first afternoon of using the flood layers. A warning answered only on its
+  outline, a dashed line a pixel and a half wide; it takes no pointer now, and a press anywhere on
+  the map that nothing else took lists every warning at that spot, emergencies first, with Enter on
+  the map doing the same for its middle. Bubbles vanished because opening one near the edge pans the
+  map, and every pan emptied and redrew the flood, dam and data centre layers, taking the bubble's
+  shape with it; the shape whose bubble is open is kept now. And the dams were 3,274 marker
+  elements with drop-shadow filters, all rebuilt after every move: frames of 300 to 650
+  milliseconds zoomed out, now 17 to 50, as triangle paths on one renderer that only add and remove
+  what crossed the edge of the view.

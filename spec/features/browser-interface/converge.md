@@ -468,3 +468,28 @@ state them now. The page stored a caveat and credits from the routes and never s
 longer stores them.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 8 - 2026-10-03
+
+baseline: spec sha256:f5cde65f4035 · plan sha256:9e641d38b59f · tasks sha256:2359c06fccde · code n/a (no `code_surface` declared, and this workspace's validator has no code fingerprint)
+
+Scoped to `changes/easier-to-open-lighter-to-draw/` (the amended AC-99, AC-100 and AC-101, and
+AC-105), read inline against `web/static/flood.js`, `web/static/fire.js` and `web/static/app.css`.
+The rest of the feature was not re-read: nothing in this change touches it, and the four open gaps
+below are about other surfaces.
+
+implemented: AC-99, AC-100, AC-101, AC-105
+
+- confirmed gap-004 [unrequested] unchanged.
+- confirmed gap-005 [unrequested] unchanged.
+- confirmed gap-006 [unrequested] unchanged.
+- confirmed gap-007 [unrequested] unchanged.
+
+note: two things in this change were found by its own tests rather than by reading, and neither is
+a gap. A bubble opens upwards, so the pan that closed bubbles happens for a shape near the top or
+the sides of the map, not the foot; the regression test first asked the wrong edge and found no
+pan. And the map tests' helper read `held` before the page's scripts had always defined it, which
+threw rather than waited: one test in a full run failed on it, a different one each time. It waits
+for the name now.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
