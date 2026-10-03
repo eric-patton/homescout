@@ -440,3 +440,31 @@ anticipated when the tasks were written. A capability added to one surface canno
 other, and that is machinery rather than discipline.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 7 - 2026-10-03
+
+baseline: spec sha256:2b5f04a4cf62 · plan sha256:0fbe29860dfd · tasks sha256:08f4bdcf269d · code n/a (no `code_surface` declared, and this workspace's validator has no code fingerprint)
+
+Scoped to `changes/floods-on-the-map/` (AC-97 to AC-104, and the amended AC-55, AC-56 and AC-71).
+The rest of the feature was not re-read: nothing in this change touches it, and the four open gaps
+below are about other surfaces.
+
+implemented: AC-55, AC-56, AC-71, AC-97, AC-98, AC-99, AC-100, AC-101, AC-102, AC-103, AC-104
+
+- confirmed gap-004 [unrequested] unchanged.
+- confirmed gap-005 [unrequested] unchanged.
+- confirmed gap-006 [unrequested] unchanged.
+- confirmed gap-007 [unrequested] unchanged.
+
+note: the audit found seven things in the new layers and all seven were settled before its findings
+were taken, so none is a gap; recorded because two of them are the faults this page has had before.
+A dam's icon box took the pointer over its empty corners, which sit over the properties: the AC-60
+fault in a new shape, now clipped to the triangle, with a browser test that fails without the clip.
+The page decided which dam conditions were worth counting, which is AC-14's line: the core counts
+them now. A warning gave its date and not its time; it gives both. The legend carried a count of
+New Mexico's unmapped counties that would have gone stale; removed. The dam owner, the legend's
+FEMA caveat and the pin's one-line water summary were built and not stated; AC-97, AC-100 and AC-104
+state them now. The page stored a caveat and credits from the routes and never showed them; it no
+longer stores them.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

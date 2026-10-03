@@ -73,3 +73,22 @@ T28, drawing an assessment beside a person's own notes, is deliberately not buil
 this has run over a real set, because what is worth showing is a question somebody answers after
 reading twenty of these. That is a decision on the record rather than an omission, and the next
 converge run should not open a gap for it.
+
+## run 2 - 2026-10-03
+
+baseline: spec sha256:7a301ed5b159 · plan sha256:a1a2df255c3d · tasks sha256:af13a2c957ad · code n/a (no `code_surface` declared, and this workspace's validator has no code fingerprint)
+
+Scoped to `changes/what-the-water-did/` (AC-21, AC-22). AC-1 to AC-20 were not re-read: nothing in
+this change touches them, and AC-18 to AC-20 still await a full run.
+
+implemented: AC-21, AC-22
+
+note: the dossier now keeps a stored empty water value whose empty is an answer (no water table
+recorded, no stream within a mile, not decided by FEMA), said in words, from the enrichment feature's
+AC-43 and D-21. It is traced there rather than unrequested here. Its one consequence for this feature
+is that a property holding one of those values has a new fingerprint once, so its reading is read
+again on the next pass somebody starts (AC-19), which is the right outcome and is said in
+`feature.md`. A test now also pins that a stored-empty soil, stream, flash-flood or dam value with
+no meaning of its own is named among the unknowns.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

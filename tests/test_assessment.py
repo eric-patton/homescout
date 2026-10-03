@@ -1040,3 +1040,63 @@ def test_an_unnamed_pass_with_nothing_watched_says_so(watched: Any) -> None:
     assert outcome.assessed == 0
     assert "paused" in (outcome.skipped or "") and "name one" in (outcome.skipped or "")
     assert not [line for line in watched.happened if line.startswith("asked")]
+
+
+def test_nothing_about_water_is_offered_as_an_all_clear() -> None:
+    """feat-013/AC-21: FEMA's X, its unmapped and unstudied, the soil's none, and zero warnings.
+
+    Rincon, which FEMA maps as minimal hazard, stayed under water a day after the Hurricane Polo
+    storm, and the soil survey read "none" at every town it flooded. A model left to itself would
+    write any of those up in a property's favour.
+    """
+    said = instruction(some_criteria())
+
+    assert "Nothing about water is an all-clear" in said
+    for word in ("Zone X", "not mapped", "Zone D", "soil_flooding", "flash_flood_warnings",
+                 "flood_reports_nearby", "none mapped within a mile", "none within 10 miles"):
+        assert word in said, word
+
+
+def test_the_water_values_are_named_when_nobody_looked_them_up() -> None:
+    """feat-013/AC-22: absent is said out loud, as a missing flood zone already is."""
+    held = dossier_for(FakeRow())
+    looked = dossier_for(FakeRow(enriched={
+        "flood_zone": "X", "wildfire_hazard": "moderate", "wildland_urban_interface": "interface",
+        "elevation_ft": 4000, "soil_flooding": "none",
+        "stream_nearest": "none mapped within a mile", "flash_flood_warnings": 0,
+        "dam_worst_nearby": "none within 10 miles",
+    }))
+
+    for name in ("soil_flooding", "stream_nearest", "flash_flood_warnings", "dam_worst_nearby"):
+        assert name in held.unknown
+        assert name not in looked.unknown
+
+
+def test_the_model_reads_a_recorded_empty_as_the_answer_it_is() -> None:
+    """feat-007/AC-43, feat-013/AC-22. gap-008: the dossier handed the model the bare word None
+    where the soil survey had answered that it records no water table."""
+    from homescout.assess.model import _as_text
+
+    held = dossier_for(FakeRow(enriched={
+        "flood_zone": "X", "wildfire_hazard": "moderate", "wildland_urban_interface": "interface",
+        "elevation_ft": 4000, "water_table_cm": None, "soil_flooding": "none",
+    }))
+
+    said = _as_text(held)
+
+    assert "water_table_cm: no water table recorded in the soil survey" in said
+    assert "water_table_cm: None" not in said
+
+
+def test_a_water_value_stored_empty_is_still_named_as_not_looked_up() -> None:
+    """feat-013/AC-22: an empty soil, stream, flash-flood or dam value with no meaning of its own is
+    dropped from the dossier and named among the unknowns, never sent as a bare None."""
+    held = dossier_for(FakeRow(enriched={
+        "flood_zone": "X", "wildfire_hazard": "moderate", "wildland_urban_interface": "interface",
+        "elevation_ft": 4000, "soil_flooding": None, "stream_nearest": None,
+        "flash_flood_warnings": None, "dam_worst_nearby": None,
+    }))
+
+    for name in ("soil_flooding", "stream_nearest", "flash_flood_warnings", "dam_worst_nearby"):
+        assert name in held.unknown
+        assert name not in held.enrichment

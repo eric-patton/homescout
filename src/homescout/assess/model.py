@@ -206,6 +206,13 @@ def instruction(criteria: Any) -> str:
         "    it is not a concern; put it in could_not_tell instead.",
         "  - A value nobody holds is not a negative. 'No flood zone was determined' does",
         "    not mean the property is not in one, and must never be reported as though it did.",
+        "  - Nothing about water is an all-clear. FEMA's Zone X 'minimal hazard', its",
+        "    'not mapped', its Zone D, a soil_flooding of 'none', flash_flood_warnings of 0,",
+        "    flood_reports_nearby of 0, a stream_nearest of 'none mapped within a mile' and a",
+        "    dam_worst_nearby of 'none within 10 miles' are not evidence that water cannot",
+        "    reach the house: FEMA maps rivers rather than most arroyos, the soil class is",
+        "    river flooding of the soil, and an unmapped wash can be closer than any mapped",
+        "    one. Never put any of them in in_favour as freedom from flooding.",
         "  - No concern about price, value or whether it is a good investment. Not your job here.",
         "  - Empty lists are correct answers. A property with nothing wrong with it gets no",
         "    concerns.",
@@ -335,8 +342,12 @@ def _as_text(dossier: Any) -> str:
     if dossier.enrichment:
         said.append("")
         said.append("Public data measured at this address:")
+        from ..rules.namespace import empty_means
+
         for name, value in sorted(dossier.enrichment.items()):
-            said.append(f"  {name}: {value}")
+            # A stored empty that is an answer is said as the answer, never as a bare "None".
+            meant = empty_means(name, dict(dossier.enrichment)) if value is None else None
+            said.append(f"  {name}: {meant or value}")
 
     if dossier.recovered:
         said.append("")

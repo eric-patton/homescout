@@ -321,6 +321,14 @@ thinks beside what the person thinks, never into it, and it decides nothing.
       search in turn would pay twice and leave each reading stale to the other, and the next pass
       would pay twice again. The first by name is a stable order, so the same search owns it every
       time.
+- [ ] AC-21: The instruction text names, as not evidence that water cannot reach a house and never
+      to be offered in a property's favour as freedom from flooding: FEMA's minimal-hazard Zone X,
+      its `not mapped`, its Zone D, a soil survey's `none`, zero flash-flood warnings, zero flood
+      reports nearby, a stream value of `none mapped within a mile`, and a dam value of
+      `none within 10 miles`. Verified by the instruction carrying each of them; what the model then
+      writes is the model's.
+- [ ] AC-22: When the soil, stream, flash-flood or dam values are absent from a dossier, the dossier
+      names them among what was not looked up, as it already names a missing flood zone.
 
 ## Edge cases & errors
 

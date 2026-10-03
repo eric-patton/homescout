@@ -1325,6 +1325,64 @@ table.grid tr.kept td.property .what { font-weight: 600; }
 .leaflet-pane > svg path.dc-outline.leaflet-interactive { pointer-events: stroke; }
 .leaflet-pane > svg path.dc-mark.leaflet-interactive { pointer-events: auto; }
 
+/* Water on the map (flood.js, feat-010 `floods-on-the-map`).
+ *
+ * FEMA's zones in FEMA's own colours, read from its map service's renderer, so the legend matches
+ * what the tiles draw. */
+.swatch.fema-sfha { background: #00e6ff; }
+.swatch.fema-floodway {
+  background: repeating-linear-gradient(135deg, #ff0000 0 2px, transparent 2px 5px);
+}
+.swatch.fema-shaded { background: #ff8000; }
+.swatch.fema-d { background: #f2e673; }
+
+/* A warning is a dashed outline, an emergency a heavy one, a report a filled dot. Navy and a
+ * near-black wine, because the scale underneath is green to red or cyan and orange, and the pins on
+ * top are gold, blue and pink. */
+.swatch.ff-warning { background: rgba(30, 58, 138, 0.08); border: 2px dashed #1e3a8a; }
+.swatch.ff-emergency { background: rgba(76, 5, 25, 0.15); border: 3px solid #4c0519; }
+.swatch.round.ff-report { background: #60a5fa; border: 2px solid #1e3a8a; }
+
+/* The same pointer rule as the data centres, for the same reason, written as long for the same
+ * reason: a warning's polygon lies over the houses it warned, and its fill must not take their
+ * clicks (feat-010/AC-101). It answers on its outline; a report answers on all of its small self. */
+.leaflet-pane > svg path.ff-warning.leaflet-interactive { pointer-events: stroke; }
+.leaflet-pane > svg path.ff-report.leaflet-interactive { pointer-events: auto; }
+
+/* A dam is a triangle, darker the worse its condition, cased in white to read over red or cyan.
+ * The marker holds no content at all: the triangle is a pseudo-element clipped to shape, so nothing
+ * a source wrote can reach the page through an icon. No green, because "nothing wrong found" is
+ * not a colour, and an unrated dam is hollow rather than reassuring. */
+/* The box a dam's icon sits in is larger than the triangle, and its empty corners lie over the
+ * properties. So the box itself is clipped to a triangle a little larger than the one drawn, which
+ * leaves room for the white casing: a clip limits where an element can be pressed as well as where
+ * it paints, so the corners pass the click to the house underneath (feat-010/AC-101). */
+.leaflet-dams-pane .leaflet-marker-icon.dam { pointer-events: auto; }
+.leaflet-marker-icon.dam { clip-path: polygon(50% -14%, 114% 108%, -14% 108%); }
+.dam {
+  position: relative;
+  background: none;
+  border: none;
+  filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff);
+}
+.dam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: var(--dam, #6b7280);
+}
+.dam-unsatisfactory { --dam: #3f0a0a; }
+.dam-poor { --dam: #b91c1c; }
+.dam-fair { --dam: #d97706; }
+.dam-satisfactory { --dam: #6b7280; }
+.dam-not-rated { --dam: #ffffff; filter: drop-shadow(0 0 1px #111111) drop-shadow(0 0 1px #111111); }
+.legend .swatch.dam { width: 14px; height: 12px; border: none; border-radius: 0; }
+
+.ffpopup strong, .dampopup strong { display: block; font-size: 1.02rem; line-height: 1.25; }
+.ffpopup ul, .dampopup ul { margin: 6px 0; padding-left: 18px; }
+#floodfrom, #floodto { font: inherit; padding: 1px 4px; }
+
 /* One data centre, in a bubble. Same shape as a property's, smaller, because there is less to
  * say and none of it is a photograph. */
 .dcpopup strong { display: block; font-size: 1.02rem; line-height: 1.25; }

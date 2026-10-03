@@ -99,8 +99,16 @@ def dossier_for(row: Any, *, wind: Mapping[str, Any] | None = None) -> Dossier:
             "evidence": getattr(found, "evidence", None),
         }
 
+    from ..rules.namespace import empty_means
+
+    held = dict(row.enriched or {})
+    # Empty is left out, except where empty is the answer: the soil survey recording no water table
+    # is a finding about this ground, and leaving it out would read to the model as nobody having
+    # looked (feat-007/AC-43). The text names it in words rather than as a bare None.
     enrichment = {
-        name: value for name, value in dict(row.enriched or {}).items() if value not in (None, "")
+        name: value
+        for name, value in held.items()
+        if value not in (None, "") or (value is None and empty_means(name, held))
     }
 
     latitude = getattr(fields, "latitude", None)
@@ -152,7 +160,8 @@ def _unknown(
     if getattr(fields, "latitude", None) is None or getattr(fields, "longitude", None) is None:
         # The one absence that causes the others: every layer here is sampled at a point.
         missing.append("coordinates, so no hazard rating, elevation, aquifer answer or wind")
-    for name in ("flood_zone", "wildfire_hazard", "wildland_urban_interface", "elevation_ft"):
+    for name in ("flood_zone", "wildfire_hazard", "wildland_urban_interface", "elevation_ft",
+                 "soil_flooding", "stream_nearest", "flash_flood_warnings", "dam_worst_nearby"):
         if name not in enrichment:
             missing.append(name)
     for name in RECOVERED:

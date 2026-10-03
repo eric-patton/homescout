@@ -194,3 +194,151 @@ They are recorded here because they are exactly the failure this feature is buil
 survived until the code was read against the spec, which is what this run is for.
 
 verdict: open 4 (missing 0, partial 3, contradicts 0, unrequested 1)
+
+## run 4 - 2026-10-03
+
+baseline: spec sha256:623658f4944c · plan sha256:9407ceaaae32 · tasks sha256:d3fc054fed5e · code n/a (no `code_surface` declared, and this workspace's validator has no code fingerprint)
+
+Run after `changes/where-fema-has-no-map/` and `changes/where-the-water-goes/` were built: FEMA read
+properly, and soils, flash-flood history, streams and arroyos, and high-hazard dams. The first run
+since 2026-08-25, so the data center change (AC-28 to AC-37) is read here for the first time too.
+
+implemented: AC-1 to AC-7, AC-9, AC-10, AC-12, AC-15 to AC-21, AC-23 to AC-34, AC-37, AC-38, AC-40,
+AC-42, AC-44, AC-45, AC-46, AC-49, AC-51, AC-52, AC-53
+
+- confirmed gap-001 [partial] `--stale` still means aged values only (`enrich/pass_.py`,
+  `_keys_to_ask`). Unchanged.
+
+- confirmed gap-002 [partial] no surface can enable one provider: `homescout enrich` has no
+  `--provider` (`cli/main.py`, the enrich parser) and `/api/enrich` passes no list (`web/app.py`).
+  Twelve providers now, five of them added since this gap opened.
+
+- confirmed gap-005 [partial] the same, anchored on AC-22. Unchanged.
+
+- confirmed gap-004 [unrequested] the `attach(store)` hook, now used by four providers (broadband,
+  data centers, flash floods, dams), with `ready()` and `why_not()` beside it. Still awaiting the
+  human decision recorded in run 2.
+
+- opened gap-006 [partial] spec:"AC-47 A refresh that fails leaves the held records in use and
+  labelled stale"
+
+  Evidence: `enrich/floods.py` and `enrich/dams.py` keep `stale` on the record and nothing reads it;
+  `enrich/pass_.py` stores each point's answer through `cache_values`, which stamps it fresh, so a
+  failed refresh yields values labelled fresh for another full lifetime. The data center provider
+  (AC-30) has the same shape. Route: defect, T-cv4-1.
+
+- opened gap-007 [partial] spec:"AC-5 the pass completes and reports per-provider outcomes"
+
+  Evidence: a state whose warnings, reports or inventory fail is kept in `failures` on the record
+  and never reported; the pass says ok unless every state fails. Route: T-cv4-11, left open.
+
+- opened gap-008 [partial] spec:"AC-43 every surface that shows it says no water table recorded"
+
+  Evidence: `cli/render.py` drops empty values, so `homescout show` omits a recorded-empty water
+  table; the assessment dossier hands the model the bare text None. Route: defect, T-cv4-2.
+
+- opened gap-009 [partial] spec:"AC-48 What these values are is said wherever they are read" and
+  spec:"AC-54 The inventory is credited where its data is shown"
+
+  Evidence: the listing page's water sentence leaves out that emergency areas are drawn over towns
+  and that reports are placed to about a kilometre, and appears only for some values; a dam value
+  shown alone carries no credit and no "near". Route: defect, T-cv4-3.
+
+- opened gap-010 [partial] spec:"AC-36 Both sources are credited where their data is shown" and
+  spec:"AC-35 a nearest known one"
+
+  Evidence: the listing page shows data center values with no credit and no "nearest known".
+  Predates this change. Route: T-cv4-12, left open.
+
+- opened gap-011 [partial] spec:"AC-13 Outbound requests are paced per provider with backoff"
+
+  Evidence: `enrich/kept.py` `fetch` bypasses the paced session D-5 names: a fixed one-second pause
+  shared across hosts, no jitter, one twenty-second retry. Route: T-cv4-4.
+
+- opened gap-012 [partial] spec:"AC-55 A test asserts the time for each of the two"
+
+  Evidence: `tests/test_enrich_performance.py` times both records together through a stub that
+  says every point is in New Mexico, so the real outline lookup is never timed. Route: T-cv4-5.
+
+- opened gap-013 [partial] spec:"AC-50 whether it is perennial, intermittent or ephemeral"
+
+  Evidence: `enrich/providers.py` `CHANNELS` and `_channel` also say `stream` and `river`, which
+  the data cannot refine, and `stream_nearest` carries the distance. Route: T-cv4-6.
+
+- opened gap-014 [partial] spec:"AC-14 Endpoint addresses are configuration"
+
+  Evidence: `api.py` `_drawn_warning` builds the archive's warning page address from a constant.
+  Route: T-cv4-7.
+
+- opened gap-015 [partial] spec:"AC-41 each checked to be a number"
+
+  Evidence: `enrich/providers.py` `Soils.fetch` calls `float()`, which passes NaN and infinity.
+  Route: T-cv4-8.
+
+- opened gap-016 [partial] spec:"AC-7 a missing value is never rendered as a negative answer"
+
+  Evidence: in the sheet a stored-empty `flood_zone`, `dam_miles` or `dam_nearest` is blank, which
+  the sheet's own note reads as "not run". Plan D-21 chose it. Route: T-cv4-13, left open.
+
+- opened gap-017 [unrequested] code:"`enrich/providers.py` `SHADED_X` ranks FEMA's 1 PCT and
+  non-accredited levee qualifiers with the 0.2 percent X"
+
+  AC-39 names only the 0.2 percent X. FEMA's own renderer draws these in the same colour. Route:
+  legitimise, T-cv4-9.
+
+- opened gap-018 [unrequested] code:"`enrich/dams.py` keeps a dam's purpose and owner, `floods.py`
+  keeps a warning's damage threat, and `dam_nearest` ends with the distance"
+
+  None of AC-46 or AC-52 states them; the map's AC-99 and AC-100 use the first three. Route:
+  legitimise, T-cv4-10.
+
+note: before this audit ran, the live install's first pass showed the flash-flood and dam providers
+reporting ok and storing nothing (the states query called the store's connection as a function and
+a catch-all hid it). Fixed before the audit, with a test over a real store; recorded here because it
+is the failure this ledger exists to catch and it got past every test that faked the store.
+
+verdict: open 17 (missing 0, partial 14, contradicts 0, unrequested 3)
+
+## run 5 - 2026-10-03
+
+baseline: spec sha256:9a459a5b1e4c · plan sha256:543715372d75 · tasks sha256:c4974b6198c1 · code n/a (no `code_surface` declared, and this workspace's validator has no code fingerprint)
+
+Run after the run 4 remediation, T-cv4-1 to T-cv4-10, and the spec amendments to AC-39, AC-43,
+AC-46, AC-50, AC-52 and plan D-18.
+
+implemented: AC-1 to AC-7, AC-9, AC-10, AC-12 to AC-21, AC-23 to AC-29, AC-31 to AC-34, AC-37 to
+AC-55
+
+- closed gap-006 `_fresh_or_fail` in `enrich/providers.py` makes a record whose refresh failed a
+  failure for the pass, so cached values age into stale instead of being stamped fresh. Test:
+  `test_a_record_that_could_not_be_refreshed_is_not_stored_as_fresh`.
+- closed gap-008 one table of what a stored empty says (`rules/namespace.py` `EMPTY_MEANS`), read by
+  `cli/render.py` and the assessment dossier and text. Tests: `test_the_terminal_says_what_a_
+  recorded_empty_means`, `test_the_model_reads_a_recorded_empty_as_the_answer_it_is`.
+- closed gap-009 the listing page's water sentence carries every caveat AC-48 names, and any dam
+  value brings the inventory's credit and "near, not downstream". Test: `test_the_listing_page_and_
+  the_core_say_the_same_thing_about_an_empty`.
+- closed gap-011 the record fetch's pacing is written into D-18 as a decision, with jitter added.
+- closed gap-012 flash floods and dams are timed separately, through real outlines.
+- closed gap-013 AC-50 amended to the words the data supports and the distance in words.
+- closed gap-014 the warning page address is the `flash_flood_page` setting.
+- closed gap-015 a non-finite coordinate fails before the soil query is built.
+- closed gap-017 AC-39 amended to name FEMA's other shaded-X qualifiers.
+- closed gap-018 AC-46 and AC-52 amended to state the damage threat, purpose, owner and distance.
+
+- confirmed gap-001 [partial] unchanged.
+- confirmed gap-002 [partial] unchanged.
+- confirmed gap-004 [unrequested] unchanged.
+- confirmed gap-005 [partial] unchanged.
+- confirmed gap-007 [partial] unchanged.
+- confirmed gap-010 [partial] unchanged.
+- confirmed gap-016 [partial] unchanged.
+
+- opened gap-019 [partial] spec:"AC-30 A stale index is still used and still labelled stale"
+
+  Evidence: `enrich/datacenters.py` `tracked` returns the stale index when a refresh fails, and the
+  pass stores the answers worked out from it as fresh. The shape gap-006 fixed for flash floods and
+  dams, in the provider that came before them. Not copied across, because AC-30 asks for a stale
+  index to keep being used, so the fix is a decision about that feature. Route: T-cv5-1, left open.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)

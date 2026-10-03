@@ -19,15 +19,21 @@ from .providers import (
     Aquifer,
     Broadband,
     County,
+    Dams,
     DataCenters,
     Elevation,
+    FlashFloods,
     Flood,
+    Soils,
+    Streams,
     Wildfire,
     WildlandUrbanInterface,
 )
 
 #: In the order a pass asks them, which is cheapest and most permanent first, so that a slow or
-#: flaky service never delays the answers that almost never change.
+#: flaky service never delays the answers that almost never change. The records held on this machine
+#: (data centres, dams, flash floods) come before soils and streams, which ask a service a question
+#: per point and take a second or more each time.
 SHIPPED: tuple[Callable[[], Provider], ...] = (
     Elevation,
     County,
@@ -36,6 +42,10 @@ SHIPPED: tuple[Callable[[], Provider], ...] = (
     Wildfire,
     WildlandUrbanInterface,
     DataCenters,
+    Dams,
+    FlashFloods,
+    Soils,
+    Streams,
     Broadband,
 )
 

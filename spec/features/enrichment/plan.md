@@ -115,6 +115,12 @@ eleven metres) and elevation three (about a hundred).
 | elevation | 3 | 110 m |
 | boundaries | 3 | 110 m |
 | data centers | 4 | 11 m |
+| wui | 4 | 11 m |
+| county | 3 | 110 m |
+| soils | 4 | 11 m |
+| streams | 5 | 1.1 m |
+| flash floods | 4 | 11 m |
+| dams | 4 | 11 m |
 
 ### D-4: a provider is a plugin, and the pass never names one
 
@@ -236,7 +242,7 @@ Every other provider here is a function of a point: `configured()`, then `fetch(
 with nothing behind it. Broadband cannot be, because no service will answer that question (M-7). So
 this provider gets state.
 
-It was the only one that did, and it is now one of two: D-15 gives the data center provider an index
+It was the only one that did, and it is now one of four: D-15 gives the data center provider an index
 as well, for a different reason and on a different footing. What stays true of broadband alone is
 the rest of this decision, which is that *a person builds the index*. That is the boundary, and D-15
 says why it does not reach the other case.
@@ -368,7 +374,7 @@ Walking roughly 3,400 points and outlines for every distinct cache key is on the
 comparisons over an area the size of the one that requirement names, which Python does in tens of
 seconds rather than in the five it allows. `shapely` is already a dependency and its own spatial
 index answers this exact query, so the fix costs a constructor rather than a design. The requirement's
-sentence is amended alongside, because it remains the right expectation for the other eight providers
+sentence is amended alongside, because it remains the right expectation for the providers
 and a reader who cannot tell which kind they are looking at is the reader it was written for.
 
 ### D-16: the precision of the number is the caveat
@@ -396,6 +402,97 @@ That last one is not a rounding rule, it is the reason the fifth value exists. D
 site and a house beside a seven-thousand-megawatt proposal reads as an empty cell, and an empty cell
 in this feature means nobody asked (AC-7, D-7). This change would have manufactured the exact
 confusion this feature was built to prevent, so the coarse answer is carried rather than discarded.
+
+### D-17: where FEMA has no map, the availability layer says so
+
+The flood provider's empty answer was read as a known negative because the spec believed the
+National Flood Hazard Layer maps the whole country. It maps about three quarters of New Mexico. The
+same service publishes an availability layer (layer 0 of the NFHL map service) whose polygons are the
+studies that exist, and a point outside every one of them has no digital map. So an empty zone answer
+asks that layer once, and only then: a point inside a zone, which is most of them, still costs one
+request. The answer is `not mapped`, a determined value on the model of D-14's `outside coverage`.
+
+`flood_hazard_area` reads FEMA's `SFHA_TF` rather than parsing `FLD_ZONE`, because FEMA's flag is
+FEMA's decision and a list of zone letters in a criterion is a decision somebody makes once and
+forgets to update. Zone `D` is the exception that proves the point: FEMA flags it `F`, and the flag
+there means nobody looked, so it is read as empty. Several features at one point are ranked rather
+than taken in server order, worst first, by a fixed table in the provider.
+
+### D-18: a national record held a state at a time, in one shared module
+
+Two providers in this change hold records rather than asking per point, for the reason D-15 gave:
+the question is about a set (which warnings cover here, which dams are nearest), not about a point.
+Both are national and both are published a state at a time, so `enrich/kept.py` holds what they
+share and nothing else: which states the store's properties are in, writing a file whole and then
+moving it into place (so a reader never sees half of one, and a failed move keeps the old file), a
+stale file used and labelled when a refresh fails, the honest user agent and a polite pace between
+fetches, and which loaded state a point falls in, answered from the county outlines `ground.py`
+already keeps. `datacenters.py`, `ground.py` and `wind.py` are not refactored onto it in this change.
+
+Flash floods are held per state per year. A closed year is fetched once, ever, because its warnings
+are final, so the 35 megabytes New Mexico's history costs is paid once and the weekly refresh is one
+year and one reports file. Dams are one file per state, held ninety days, and the states fetched are
+the store's states and their neighbours (a table in `states.py`).
+
+The fetch is not the paced session of D-5, on purpose, as the data center indexes' is not: it asks for a whole
+record a few times a week rather than a question per point. It keeps the same floor, one second,
+with up to half again at random so two passes never fall into step, one patient retry of twenty
+seconds when a server answers busy, a 64 megabyte ceiling on any answer, and redirects followed
+only to the same host over https. A refresh that fails is a failure for the pass, so a value
+worked out from an older copy is never stored as fresh (AC-47).
+
+A point outside every loaded state returns an empty mapping from `fetch` rather than raising,
+because a raise ends that provider for the rest of the pass (D-6), and one property over a state line
+should cost that property's values rather than everybody's.
+
+### D-19: an event is a window on the map and a year in a rule
+
+The rule engine cannot order text, so a date cannot be compared in a criterion, and adding a date
+type to the rule engine is not this change. The first proposal was a rolling count of warnings in the
+past year. It was rejected on two grounds: it changes with the calendar while the cache calls it
+fresh, and it would silently forget this storm next October. `flash_flood_latest_year` is a number
+that changes only when new weather arrives, and `flash_flood_latest` carries the date for reading.
+"This event", meaning a particular week, is a window on the map, where the person chooses the dates.
+
+Dates are local standard time from the point's longitude (one hour per fifteen degrees), because
+Windows ships no time-zone database and adding a dependency to say "the evening of the 29th" rather
+than "the small hours of the 30th" is not worth one; the half hour after midnight in summer is the
+only time this dates a warning to the previous day.
+
+### D-20: soils and streams ask per point, and say what their numbers are about
+
+Soil Data Access is a SQL service that takes a POST. The query is a constant with two numbers
+formatted into it, each checked as a float and formatted to six places, so nothing a person types
+reaches it. Every number comes back as a string and is parsed here. `{}` with no table, or a map unit
+whose symbol is `NOTCOM`, is an unsurveyed place.
+
+The stream query asks for channel lines within a mile with their geometry, generalised on the server
+to about five metres, and measures to the nearest line locally in metres on an equirectangular
+projection about the point, which over a mile is accurate to well under the ten feet reported. Which
+lines are channels is read from the dataset's own feature codes: stream or river (460xx) and the
+artificial path a river is drawn along through a lake (558xx).
+
+Times to live: soils a year, because the survey is refreshed every October; streams three years,
+because the national hydrography is being replaced rather than revised. Streams round to five
+places rather than four, because ten feet is about three metres and a four-place key moves a
+point by up to eleven: the key must be finer than the number it keys (AC-32, AC-51).
+
+### D-21: what an empty value is, per value, and how each surface says it
+
+D-4's rule stands: a value absent from the mapping was never asked, and `None` in it is an answer.
+What that answer is depends on the value, and it is fixed here so no surface guesses.
+
+| value | stored `None` means | the listing page | the table and sheet |
+|---|---|---|---|
+| `flood_zone` | FEMA's map has a hole here | not known | empty |
+| `flood_hazard_area` | FEMA has not decided | not decided by FEMA | not decided by FEMA |
+| `water_table_cm` | the survey records no water table (or, with `not surveyed`, no survey) | no water table recorded / not surveyed | none recorded / not surveyed |
+| `stream_feet` | no channel within a mile (`stream_nearest` says so in words) | no stream or arroyo mapped within a mile | empty, beside `stream_nearest` |
+| `dam_miles` | no high-hazard dam held at all | not known | empty |
+
+A missing value (no row) reads "not known" on every surface and is never rendered as any of
+the above, which is AC-7 unchanged. `flood_reports_nearby` is left out of a mapping, not set to
+`None`, when that state's reports could not be had, so it stays missing rather than reading 0.
 
 ### D-10: endpoints are configuration, because they move
 
@@ -425,7 +522,7 @@ therefore left blank rather than filled from a source covering part of the count
 | AC-8 stale only, and one search | `api.enrich` | `feat-007/AC-8` |
 | AC-9 invocable on its own | `homescout enrich --json` | `feat-007/AC-9` |
 | AC-10 no coordinates is not a failure | a property with none | `feat-007/AC-10` |
-| AC-11 the six providers exist | `enrich.registry.registered()` | `feat-007/AC-11` |
+| AC-11 the providers exist | `enrich.registry.registered()` | `feat-007/AC-11` |
 | AC-12 national coverage | a live lookup at three distant states, for every provider that can run, marked slow | `feat-007/AC-12` |
 | AC-13 paced per provider | the shared politeness session, asserting the delay is applied per provider | `feat-007/AC-13` |
 | AC-14 endpoints are configuration | an environment override, asserting the request goes elsewhere | `feat-007/AC-14` |
@@ -446,6 +543,28 @@ therefore left blank rather than filled from a source covering part of the count
 | AC-34 both sources feed it, measured to an outline | a fake index holding the same site twice and one polygon | `feat-007/AC-34` |
 | AC-35 completeness is not coverage | `homescout enrich --json`, and the README | `feat-007/AC-35` |
 | AC-36 both sources are credited | the surfaces that show the values | `feat-007/AC-36` |
+
+| AC-38 no digital map is `not mapped` | a fake transport answering nothing from the zone layer and nothing from the availability layer | `feat-007/AC-38` |
+| AC-39 FEMA's own flag, every feature, worst first | a fake transport answering a plain X before a floodway | `feat-007/AC-39` |
+| AC-40 unstudied is never a no | Zone D, AREA NOT INCLUDED, and a mapped point with no zone | `feat-007/AC-40` |
+| AC-41 the soils provider exists and asks only with numbers | `enrich.registry.registered()`, and the recorded request body | `feat-007/AC-41` |
+| AC-42 the soil classes are read, unknown fails | a fake answer carrying each class, `Common`, and a class this build does not know | `feat-007/AC-42` |
+| AC-43 unsurveyed, no water table, never asked | three fake answers read together | `feat-007/AC-43` |
+| AC-44 the flash-flood provider exists | `enrich.registry.registered()`, and a pass over held records | `feat-007/AC-44` |
+| AC-45 held a state at a time, closed years never refetched | a fake fetcher counting what it was asked across two passes and a moved clock | `feat-007/AC-45` |
+| AC-46 a warning counted once, emergencies by their maximum | a fake record holding one warning twice and one upgraded later | `feat-007/AC-46` |
+| AC-47 unloaded is missing, a failed refresh is stale | a point outside every loaded state, and a fetch that fails over a held file | `feat-007/AC-47` |
+| AC-48 local standard dates | a warning issued at 01:30 UTC dated the previous day at -106 longitude | `feat-007/AC-48` |
+| AC-49 words are data | the record kept on disk carries no HTML field | `feat-007/AC-49` |
+| AC-50 the streams provider exists, channels only | a fake answer holding a canal nearer than a wash | `feat-007/AC-50` |
+| AC-51 measured to the line, to ten feet | a fake line at a known offset | `feat-007/AC-51` |
+| AC-52 the dams provider exists | `enrich.registry.registered()`, and a pass over a held inventory | `feat-007/AC-52` |
+| AC-53 codes by a written table, neighbours fetched | a fake inventory carrying every code and one unknown, and the states asked for | `feat-007/AC-53` |
+| AC-54 near, never downstream, and credited | the namespace meanings and the README | `feat-007/AC-54` |
+| AC-55 five thousand cached properties stay fast | five thousand points over held records, marked slow | `feat-007/AC-55` |
+| AC-43, AC-48, AC-51 caveats travel with the values | the namespace meanings, and the listing page's water sentence | `feat-007/AC-43` |
+| AC-49 words are text, never markup | a report remark carrying an image tag opened on the map, in a real browser | `feat-010/AC-99` |
+| AC-45 a year fetched before it closed | a file fetched in July read again after New Year | `feat-007/AC-45` |
 
 Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_enrich_pass.py`,
 `tests/test_enrich_providers.py`, `tests/test_enrich_live.py` (slow).

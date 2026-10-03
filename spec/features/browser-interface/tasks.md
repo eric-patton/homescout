@@ -1813,3 +1813,38 @@ is written in this file beside this function and the wrong pattern is the one cu
 - [x] T-gone-2: `tests/test_web_surfaces.py`: a property lost by one search is not listed by
       another, and is still listed by the one that lost it (`feat-010/AC-20`). Checked against the
       unfixed table, where it fails.
+
+## Change: floods on the map (`changes/floods-on-the-map/`)
+
+- [x] T-fm-1: `enrich/settings.py` `picture_of` and `enrich/hazard.py`: a map service's export address
+      with the layer named, and a tile query joined onto it (`feat-010/AC-97`).
+- [x] T-fm-2: `api.py`: `flood` in the hazard layers; `flash_floods(name, from, to)` and
+      `dams(name)` over held records, dates checked, window capped, default window from the record
+      (`feat-010/AC-98`, `feat-010/AC-103`).
+- [x] T-fm-3: `web/app.py`: the two routes, thin (`feat-010/AC-14`).
+- [x] T-fm-4: `fire.js`: the choice of what is drawn under the properties, with FEMA's zones at zoom
+      14 and closer and the legend following the choice (`feat-010/AC-97`).
+- [x] T-fm-5: `flood.js`: warnings, emergencies and reports in the window, and dams, each on one
+      renderer, dams as content-free markers, only what is on screen, pointer on outlines and marks
+      only, popups as text, the warning's link built by the core (`feat-010/AC-98`,
+      `feat-010/AC-99`, `feat-010/AC-100`, `feat-010/AC-101`).
+- [x] T-fm-6: the page's words: credits, what each layer asks for, "warned" not "flooded", "near"
+      not "downstream", and the empty-record sentence (`feat-010/AC-97`, `feat-010/AC-99`,
+      `feat-010/AC-100`, `feat-010/AC-102`).
+- [x] T-fm-7: `results.js` Hazards view and `search.js` flood suggestion (`feat-010/AC-104`).
+- [x] T-fm-8: Tests: endpoints, the hazard address, the browser (a property inside a warning opens,
+      one renderer per layer), and the safety scan over `flood.js`.
+
+## Found by the code-vs-spec audit of 2026-10-03 and fixed before it was recorded
+
+- [x] T-fm-9: a dam's icon is clipped to its triangle, so the box's empty corners pass the pointer to
+      the property underneath; a browser test checks a corner and the triangle, and fails without
+      the clip (`feat-010/AC-101`, `feat-010/AC-60`).
+- [x] T-fm-10: how many dams are poor or unsatisfactory is counted by the core, not the page
+      (`feat-010/AC-14`, `feat-010/AC-100`).
+- [x] T-fm-11: a warning gives its time as well as its date, in local standard time
+      (`feat-010/AC-99`).
+- [x] T-fm-12: the FEMA legend no longer carries a count of New Mexico's unmapped counties, which
+      would go stale; the dam owner, the legend's FEMA caveat and the pin's water line are written
+      into AC-97, AC-100 and AC-104.
+

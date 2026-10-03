@@ -214,3 +214,13 @@ sent, the storage before the pass writes to it, and the surfaces last.
 - [x] T-said-2: `tests/test_web_surfaces.py`: the finished line for an assessment pass names its
       counts and a skipped pass says why (`feat-013/AC-1`). Checked against the unfixed describer,
       where it reads "done".
+
+## Change: what the water did (`changes/what-the-water-did/`)
+
+- [x] T-ww-a1: `assess/model.py`: the instruction says nothing about water is an all-clear, naming
+      Zone X, `not mapped`, Zone D, a soil `none`, zero warnings and reports, no stream within a
+      mile and no dam within ten (`feat-013/AC-21`).
+- [x] T-ww-a2: `assess/dossier.py`: the soil, stream, flash-flood and dam values are named among what
+      was not looked up when they are absent (`feat-013/AC-22`).
+- [x] T-ww-a3: `tests/test_assessment.py`: both, each citing its token.
+

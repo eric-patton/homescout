@@ -195,6 +195,35 @@ def _aquifer(row: Row) -> str | None:
     return "over a principal aquifer" if over else "not over a principal aquifer"
 
 
+def _flood_area(row: Row) -> str | None:
+    """FEMA's yes or no, and the third reading said in words where FEMA has not decided.
+
+    Read by key, like the interface column below: an empty value that is present is FEMA's own
+    "not decided" (Zone D, no digital map, a hole in the map), which is an answer about FEMA and
+    must not print as the blank that means the pass has not run (feat-007/AC-40).
+    """
+    if "flood_hazard_area" not in row.enriched:
+        return None
+    found = row.enriched.get("flood_hazard_area")
+    if found is None:
+        return "not decided by FEMA"
+    return "yes" if found else "no"
+
+
+def _water_table(row: Row) -> str | None:
+    """Centimetres where the survey records a water table, and "none recorded" where it does not.
+
+    Words rather than a bare number, because the survey's empty here is an answer and a blank cell
+    would read as nobody having asked (feat-007/AC-43).
+    """
+    if "water_table_cm" not in row.enriched:
+        return None
+    if row.enriched.get("soil_flooding") == "not surveyed":
+        return "not surveyed"
+    found = row.enriched.get("water_table_cm")
+    return "none recorded" if found is None else f"{found} cm"
+
+
 def _wui(row: Row) -> str | None:
     """The three readings of the interface value, told apart in a cell.
 
@@ -369,6 +398,24 @@ COLUMNS: tuple[Column, ...] = (
            _enriched("data_center_proposed_miles")),
     Column("Nearest Data Centre", "text", "enriched", _enriched("data_center_nearest")),
     Column("Data Centre In County", "text", "enriched", _enriched("data_center_in_county")),
+    # Where water goes (feat-007 `where-fema-has-no-map`, `where-the-water-goes`). Outside the
+    # default sheet like the rest of this block, and in the results table's Hazards view.
+    Column("In FEMA Hazard Area", "text", "enriched", _flood_area),
+    Column("Soil Flooding", "text", "enriched", _enriched("soil_flooding")),
+    Column("Water Table", "text", "enriched", _water_table),
+    Column("Soil Drainage", "text", "enriched", _enriched("soil_drainage")),
+    Column("Wetland Soil (%)", "number", "enriched", _enriched("hydric_percent")),
+    Column("Ponding Soil (%)", "number", "enriched", _enriched("soil_ponding_percent")),
+    Column("Flash-Flood Warnings", "number", "enriched", _enriched("flash_flood_warnings")),
+    Column("Flash-Flood Emergencies", "number", "enriched", _enriched("flash_flood_emergencies")),
+    Column("Latest Flash-Flood Warning", "text", "enriched", _enriched("flash_flood_latest")),
+    Column("Flood Reports (1 mi)", "number", "enriched", _enriched("flood_reports_nearby")),
+    Column("Stream or Arroyo (ft)", "number", "enriched", _enriched("stream_feet")),
+    Column("Nearest Stream or Arroyo", "text", "enriched", _enriched("stream_nearest")),
+    Column("High-Hazard Dam (mi)", "number", "enriched", _enriched("dam_miles")),
+    Column("Nearest High-Hazard Dam", "text", "enriched", _enriched("dam_nearest")),
+    Column("High-Hazard Dams (10 mi)", "number", "enriched", _enriched("dams_nearby")),
+    Column("Worst Dam (10 mi)", "text", "enriched", _enriched("dam_worst_nearby")),
     Column("Notes", "text", "annotation", _annotated("notes")),
     Column("Flags", "text", "derived", _flags),
     Column("Sources", "text", "derived", _sources),

@@ -39,6 +39,10 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
         "FEMA National Flood Hazard Layer, flood hazard zones",
     ),
+    "flood_availability": Endpoint(
+        "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/0/query",
+        "FEMA National Flood Hazard Layer, where a digital flood map exists at all",
+    ),
     "elevation": Endpoint(
         "https://epqs.nationalmap.gov/v1/json",
         "USGS National Map elevation point query",
@@ -99,6 +103,32 @@ DEFAULTS: dict[str, Endpoint] = {
         "https://overpass-api.de/api/interpreter",
         "OpenStreetMap's own query service, for data centers that exist as mapped buildings",
     ),
+    # Verified on 2026-10-03, the week after the remnants of Hurricane Polo, at Hatch, Rincon,
+    # Garfield, Salem, Mesilla, Corrales, Ruidoso and a playa east of Albuquerque.
+    "soils": Endpoint(
+        "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest",
+        "USDA NRCS Soil Data Access, the national soil survey's own query service",
+    ),
+    "flash_flood_warnings": Endpoint(
+        "https://mesonet.agron.iastate.edu/geojson/sbw.geojson",
+        "Iowa State's archive of National Weather Service storm-based warnings, by state and year",
+    ),
+    "flash_flood_page": Endpoint(
+        "https://mesonet.agron.iastate.edu/vtec/",
+        "Iowa State's page for one warning, which the map links to and never fetches",
+    ),
+    "flood_reports": Endpoint(
+        "https://mesonet.agron.iastate.edu/cgi-bin/request/gis/lsr.py",
+        "Iowa State's archive of National Weather Service local storm reports",
+    ),
+    "streams": Endpoint(
+        "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query",
+        "USGS National Hydrography Dataset, stream and river lines",
+    ),
+    "dams": Endpoint(
+        "https://nid.sec.usace.army.mil/api/query",
+        "USACE National Inventory of Dams, a state at a time",
+    ),
 }
 
 def picture_of(name: str) -> str | None:
@@ -110,10 +140,19 @@ def picture_of(name: str) -> str | None:
     already configured, asked a different question. Returns nothing for a service whose address does
     not follow that shape, which is a map with no overlay rather than a broken request.
     """
+    import re
+
     where = endpoint(name).url
-    for asking, drawing in (("/identify", "/exportImage"), ("/query", "/export")):
-        if where.endswith(asking):
-            return where[: -len(asking)] + drawing
+    if where.endswith("/identify"):
+        return where[: -len("/identify")] + "/exportImage"
+    # A map service draws once for the whole service, at `.../MapServer/export`, and is told which
+    # of its layers to draw. `.../MapServer/28/export` is not an address it serves, which is what
+    # this used to build, unnoticed because nothing drew a map-service layer until FEMA's zones.
+    layered = re.match(r"^(.*/MapServer)/(\d+)/query$", where)
+    if layered:
+        return f"{layered.group(1)}/export?layers=show:{layered.group(2)}"
+    if where.endswith("/query"):
+        return where[: -len("/query")] + "/export"
     return None
 
 

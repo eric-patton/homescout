@@ -753,3 +753,141 @@ def test_one_data_centre_source_failing_costs_that_source_and_not_the_layer(
     assert [site["name"] for site in answer["sites"]] == ["One"]
     assert len(answer["unreachable"]) == 1
     assert "504" in answer["unreachable"][0]
+
+
+# -- floods on the map (changes/floods-on-the-map/) --------------------------
+
+
+def _hold_flash_floods(root: Path, monkeypatch) -> None:
+    """Put a record of the McLeod Dam emergency where the enrichment pass would have."""
+    import json as _json
+
+    from homescout.enrich import floods
+
+    ring = [[-107.2, 32.62], [-107.1, 32.62], [-107.1, 32.72], [-107.2, 32.72], [-107.2, 32.62]]
+    feature = {
+        "properties": {"phenomena": "FF", "significance": "W", "wfo": "EPZ", "eventid": 204,
+                       "year": 2026, "status": "NEW", "issue": "2026-09-29T19:47:00Z",
+                       "is_emergency": True, "max_is_emergency": True,
+                       "max_floodtag_damage": "CATASTROPHIC",
+                       "link": "<a href='https://example.invalid'>x</a>"},
+        "geometry": {"type": "Polygon", "coordinates": [ring]},
+    }
+    reports = (
+        "VALID,LAT,LON,TYPETEXT,CITY,COUNTY,SOURCE,REMARK\n"
+        "202609292000,32.67,-107.16,FLASH FLOOD,1 NW Hatch,Dona Ana,Emergency Mngr,"
+        "<script>alert(1)</script> McLeod dam was damaged\n"
+    )
+
+    def recorded(url: str, what: str) -> bytes:
+        if "lsr" in url:
+            return reports.encode()
+        return _json.dumps({"features": [feature] if "sts=2026" in url else []}).encode()
+
+    floods.warnings(root, "https://archive.example/sbw", "NM", fetch=recorded)
+    floods.reports(root, "https://archive.example/lsr", "NM", fetch=recorded)
+
+
+def test_the_flash_flood_layer_reads_what_is_held_and_fetches_nothing(opened, monkeypatch) -> None:
+    """feat-010/AC-98, feat-010/AC-103: the latest storm, from the record, asking no host."""
+    from homescout.enrich import kept
+
+    browser, held = opened
+    _hold_flash_floods(held.root, monkeypatch)
+
+    def tripwire(url: str, what: str) -> bytes:
+        raise AssertionError(f"the map's route fetched {url}")
+
+    monkeypatch.setattr(kept, "fetch", tripwire)
+
+    answer = browser.get("/api/flash-floods/portales", headers=ours()).json()
+
+    assert answer["missing"] == []
+    assert answer["latest_emergency"] == "2026-09-29"
+    assert (answer["from"], answer["to"]) == ("2026-09-16", "2026-09-29"), "a fortnight to there"
+    [warned] = answer["warnings"]
+    assert warned["emergency"] is True and warned["damage"] == "catastrophic"
+    assert warned["polygons"][0][0][0] == [32.62, -107.2], "turned to latitude first for the map"
+    assert warned["link"] == (
+        "https://mesonet.agron.iastate.edu/vtec/?year=2026&wfo=KEPZ&phenomena=FF&significance=W"
+        "&eventid=0204"
+    ), "built here from checked numbers, never the archive's own markup"
+    [report] = answer["reports"]
+    assert report["remark"].startswith("<script>"), "sent as the text it is; the page shows text"
+    assert "warned" not in answer["caveat"] or "not where water went" in answer["caveat"]
+    assert "Iowa" in answer["credits"][0]
+
+
+def test_a_flash_flood_window_is_checked_in_the_core(opened, monkeypatch) -> None:
+    """feat-010/AC-98, feat-010/AC-103: dates are dates, in order, and no longer than a year."""
+    browser, held = opened
+    _hold_flash_floods(held.root, monkeypatch)
+
+    too_long = browser.get("/api/flash-floods/portales?from=2024-01-01&to=2026-09-29",
+                           headers=ours())
+    backwards = browser.get("/api/flash-floods/portales?from=2026-09-29&to=2026-09-01",
+                            headers=ours())
+    nonsense = browser.get("/api/flash-floods/portales?from=yesterday", headers=ours())
+    chosen = browser.get("/api/flash-floods/portales?from=2026-09-29&to=2026-09-29",
+                         headers=ours())
+
+    assert too_long.status_code == backwards.status_code == nonsense.status_code == 400
+    assert "366" in too_long.json()["error"]
+    assert len(chosen.json()["warnings"]) == 1
+
+
+def test_a_state_not_yet_held_is_named_rather_than_drawn_as_dry(opened) -> None:
+    """feat-010/AC-102: an empty map must not read as "no floods" when nothing is held."""
+    browser, _held = opened
+
+    answer = browser.get("/api/flash-floods/portales", headers=ours()).json()
+    dams = browser.get("/api/dams/portales", headers=ours()).json()
+
+    assert answer["missing"] == ["NM"] and answer["warnings"] == []
+    assert "NM" in dams["missing"] and dams["dams"] == []
+
+
+def test_the_dam_layer_reads_the_held_inventory_with_its_words(opened, monkeypatch) -> None:
+    """feat-010/AC-100, feat-010/AC-103: condition in words, near and never downstream."""
+    from homescout.enrich import dams, kept
+
+    browser, held = opened
+    for state in dams.states_for(["NM"]):
+        kept.write(dams._file(held.root, state), [] if state != "NM" else [{
+            "id": "NM00343", "name": "Mclead Flood Control Dam", "latitude": 32.7384,
+            "longitude": -107.2571, "condition": "poor", "assessed": "2023-03-14",
+            "plan": "no emergency action plan", "built": 1951, "purpose": "flood control",
+            "owner": "MCLEAD WATERSHED BOARD",
+        }])
+    monkeypatch.setattr(kept, "fetch", lambda url, what: (_ for _ in ()).throw(AssertionError(url)))
+
+    answer = browser.get("/api/dams/portales", headers=ours()).json()
+
+    assert answer["missing"] == []
+    [dam] = answer["dams"]
+    assert dam["condition"] == "poor"
+    assert dam["described"].startswith("Mclead Flood Control Dam (NM00343), built 1951")
+    assert answer["caveat"].startswith("Near, not downstream")
+    assert "Army Corps" in answer["credits"][0]
+
+
+def test_a_warning_says_its_time_and_the_core_counts_the_poor_dams(opened, monkeypatch) -> None:
+    """feat-010/AC-99, feat-010/AC-14: the time of day in local standard time, and which dams are
+    the worrying ones decided by the core rather than the page."""
+    from homescout.enrich import dams, kept
+
+    browser, held = opened
+    _hold_flash_floods(held.root, monkeypatch)
+    for state in dams.states_for(["NM"]):
+        kept.write(dams._file(held.root, state), [] if state != "NM" else [
+            {"id": f"NM0000{n}", "name": "A dam", "latitude": 32.7, "longitude": -107.2,
+             "condition": condition, "assessed": None, "plan": None, "built": 1960,
+             "purpose": None, "owner": ""}
+            for n, condition in enumerate(("poor", "unsatisfactory", "fair", "not rated"))
+        ])
+
+    warned = browser.get("/api/flash-floods/portales", headers=ours()).json()["warnings"][0]
+    counted = browser.get("/api/dams/portales", headers=ours()).json()
+
+    assert warned["time"] == "12:47", "19:47 in Greenwich is 12:47 at Hatch's longitude"
+    assert counted["poor"] == 2

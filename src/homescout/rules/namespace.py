@@ -111,6 +111,7 @@ _DERIVED: tuple[Field, ...] = (
 #: what `unconfigured` below is for.
 _ENRICHED: tuple[Field, ...] = (
     Field("flood_zone", TEXT, "enriched", populated=True),
+    Field("flood_hazard_area", BOOLEAN, "enriched", populated=True),
     Field("upload_mbps", NUMBER, "enriched", populated=True),
     Field("download_mbps", NUMBER, "enriched", populated=True),
     Field("broadband_provider", TEXT, "enriched", populated=True),
@@ -124,6 +125,22 @@ _ENRICHED: tuple[Field, ...] = (
     Field("data_center_proposed_miles", NUMBER, "enriched", populated=True),
     Field("data_center_nearest", TEXT, "enriched", populated=True),
     Field("data_center_in_county", TEXT, "enriched", populated=True),
+    Field("soil_flooding", TEXT, "enriched", populated=True),
+    Field("soil_ponding_percent", NUMBER, "enriched", populated=True),
+    Field("water_table_cm", NUMBER, "enriched", populated=True),
+    Field("soil_drainage", TEXT, "enriched", populated=True),
+    Field("hydric_percent", NUMBER, "enriched", populated=True),
+    Field("flash_flood_warnings", NUMBER, "enriched", populated=True),
+    Field("flash_flood_emergencies", NUMBER, "enriched", populated=True),
+    Field("flash_flood_latest", TEXT, "enriched", populated=True),
+    Field("flash_flood_latest_year", NUMBER, "enriched", populated=True),
+    Field("flood_reports_nearby", NUMBER, "enriched", populated=True),
+    Field("stream_feet", NUMBER, "enriched", populated=True),
+    Field("stream_nearest", TEXT, "enriched", populated=True),
+    Field("dam_miles", NUMBER, "enriched", populated=True),
+    Field("dam_nearest", TEXT, "enriched", populated=True),
+    Field("dams_nearby", NUMBER, "enriched", populated=True),
+    Field("dam_worst_nearby", TEXT, "enriched", populated=True),
 )
 
 #: Recovered from a listing's prose by description field extraction (feat-009).
@@ -187,7 +204,7 @@ assert {f.name for f in _LISTING} | WITHHELD == set(FIELD_NAMES), (
 #: set, which is why these are examples rather than values.
 _EXAMPLES: dict[str, tuple[str, ...]] = {
     "flood_zone": ("X (AREA OF MINIMAL FLOOD HAZARD)", "X (0.2 PCT ANNUAL CHANCE FLOOD HAZARD)",
-                   "A", "AE"),
+                   "A", "AE", "AE (FLOODWAY)", "D", "not mapped"),
     "property_type": ("single_family", "land", "mobile", "farm"),
     "broadband_provider": ("CenturyLink, Xfinity, Yucca Telecom",),
     "state": ("NM", "TX"),
@@ -223,6 +240,23 @@ _LABELS: dict[str, str] = {
     "price_cut": "Price has come down",
     "price_raised_after_days": "Days before the price went up",
     "flood_zone": "FEMA flood zone",
+    "flood_hazard_area": "In a FEMA flood hazard area",
+    "soil_flooding": "Soil flooding (survey)",
+    "soil_ponding_percent": "Soil that ponds (%)",
+    "water_table_cm": "Water table depth (cm)",
+    "soil_drainage": "Soil drainage",
+    "hydric_percent": "Wetland soil (%)",
+    "flash_flood_warnings": "Flash-flood warnings since 2008",
+    "flash_flood_emergencies": "Flash Flood Emergencies since 2008",
+    "flash_flood_latest": "Latest flash-flood warning",
+    "flash_flood_latest_year": "Year of the latest flash-flood warning",
+    "flood_reports_nearby": "Flood reports within a mile",
+    "stream_feet": "Nearest stream or arroyo (ft)",
+    "stream_nearest": "Nearest stream or arroyo",
+    "dam_miles": "Nearest high-hazard dam (mi)",
+    "dam_nearest": "Nearest high-hazard dam",
+    "dams_nearby": "High-hazard dams within 10 miles",
+    "dam_worst_nearby": "Worst dam condition within 10 miles",
     "upload_mbps": "Upload speed (Mbps)",
     "download_mbps": "Download speed (Mbps)",
     "broadband_provider": "Internet providers",
@@ -265,14 +299,90 @@ _MEANS: dict[str, str] = {
     "download_mbps": "best advertised residential download in this property's census block",
     "broadband_provider": "who offers it in that block, comma separated",
     "over_principal_aquifer": "the point is over a USGS principal aquifer",
+    "flood_zone": (
+        "FEMA's zone letter with its qualifier, so `AE (FLOODWAY)` is not `AE`. `D` means FEMA "
+        "never studied the spot and `not mapped` means it has no digital map there at all: "
+        "neither is a no. To ask whether a house is in the hazard area, use `flood_hazard_area`"
+    ),
+    "flood_hazard_area": (
+        "FEMA's own yes or no for its special flood hazard area (the A and V zones, floodways "
+        "included). Empty, never false, where FEMA has not studied the spot (Zone D, or not mapped)"
+    ),
     "wildland_urban_interface": (
         "whether houses here stand in the wildland vegetation, which is a different question from "
         "wildfire hazard. New Mexico only: anywhere else reads `outside coverage`, so compare "
         "positively rather than negatively"
     ),
+    "soil_flooding": (
+        "the USDA soil survey's flooding class for the soil map unit, its worst major part. It "
+        "is overbank river flooding of the soil and says nothing about flash floods down a wash, "
+        "and a map unit can be hundreds of acres. `not surveyed` means no survey covers the spot"
+    ),
+    "soil_ponding_percent": "the share of the soil map unit where water stands after rain",
+    "water_table_cm": (
+        "the shallowest seasonal water table in the soil survey, in centimetres (100 is about 3 "
+        "feet). Empty means the survey records no water table here, which is not the same as "
+        "nobody asked"
+    ),
+    "soil_drainage": "the wettest drainage class in the soil map unit",
+    "hydric_percent": "the share of the soil map unit that is hydric (wetland) soil",
+    "flash_flood_warnings": (
+        "how many National Weather Service flash-flood warnings have covered this spot since 2008. "
+        "A warning says where flooding was expected, drawn wide, not where water went"
+    ),
+    "flash_flood_emergencies": (
+        "how many of those were raised to a Flash Flood Emergency (dam failures, catastrophic "
+        "flooding). Emergency areas are drawn over whole towns"
+    ),
+    "flash_flood_latest": (
+        "the local date of the most recent flash-flood warning covering this spot"
+    ),
+    "flash_flood_latest_year": (
+        "the year of that warning, as a number, so `flash_flood_latest_year >= 2026` asks about "
+        "this year's storms"
+    ),
+    "flood_reports_nearby": (
+        "flood, flash-flood and debris-flow reports filed within a mile since 2005. Reports are "
+        "placed to about a kilometre, often on roads"
+    ),
+    "stream_feet": (
+        "feet to the nearest mapped stream, river or arroyo, wet or dry, within a mile. Empty "
+        "means none is mapped within a mile; an unmapped wash can be closer"
+    ),
+    "stream_nearest": (
+        "which channel that is, and whether it runs all year, some of it, or only after rain"
+    ),
+    "dam_miles": (
+        "miles to the nearest high-hazard dam, one whose failure would probably cost a life. Near, "
+        "not downstream: nothing public says which way a dam drains"
+    ),
+    "dam_nearest": "that dam: its name, when it was built, its condition, and its emergency plan",
+    "dams_nearby": "how many high-hazard dams are within ten miles",
+    "dam_worst_nearby": (
+        "the worst condition among the high-hazard dams within ten miles. `not rated` is unknown, "
+        "never good"
+    ),
     "photo_urls": "a list, so use `is null` rather than comparing it",
     "description": "the listing's prose, which is what the extracted fields below were read from",
 }
+
+
+#: What a stored empty says, for the values whose empty is an answer rather than "nobody asked"
+#: (feat-007 D-21, AC-43). One table, read by the command line and the assessment dossier; the
+#: listing page carries the same words and a test holds the two together. A value with no stored row
+#: at all is still "not known" everywhere, because nobody asked.
+EMPTY_MEANS: dict[str, str] = {
+    "water_table_cm": "no water table recorded in the soil survey",
+    "stream_feet": "no stream or arroyo mapped within a mile",
+    "flood_hazard_area": "not decided by FEMA (never studied, or not mapped)",
+}
+
+
+def empty_means(name: str, values: dict[str, object] | None = None) -> str | None:
+    """What a stored empty `name` says, or None when its empty is not one of these answers."""
+    if name == "water_table_cm" and (values or {}).get("soil_flooding") == "not surveyed":
+        return "not surveyed"
+    return EMPTY_MEANS.get(name)
 
 
 def closed_values(name: str) -> tuple[str, ...]:
@@ -298,6 +408,18 @@ def closed_values(name: str) -> tuple[str, ...]:
         # somebody building a criterion needs to see that it is a value this field can hold. Leaving
         # it out is how a person writes a rule that quietly matches every property in Colorado.
         return (*WUI_CLASSES.values(), OUTSIDE_COVERAGE)
+    if name == "soil_flooding":
+        from ..enrich.providers import NOT_SURVEYED, SOIL_FLOODING
+
+        return (*dict.fromkeys(SOIL_FLOODING.values()), NOT_SURVEYED)
+    if name == "soil_drainage":
+        from ..enrich.providers import SOIL_DRAINAGE
+
+        return SOIL_DRAINAGE
+    if name == "dam_worst_nearby":
+        from ..enrich.dams import NONE_NEARBY, WORST_FIRST
+
+        return (*WORST_FIRST, NONE_NEARBY)
     if name == "listing_status":
         from ..search.validate import LISTING_TYPES
 

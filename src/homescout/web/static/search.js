@@ -1190,8 +1190,16 @@ const SUGGESTIONS = [
    "Point out the ones on septic"],
   ["swamp-cooler", "demote", [["cooling", "==", "evaporative"]],
    "Push down the ones with only an evaporative cooler"],
-  ["in-a-flood-zone", "flag", [["flood_zone", "in", ["A", "AE"]]],
+  /* FEMA's own yes or no rather than a list of zone letters, which missed a floodway: it reads
+   * "AE (FLOODWAY)", and that is not "AE". */
+  ["in-a-flood-zone", "flag", [["flood_hazard_area", "==", true]],
    "Point out the ones in a real FEMA flood zone"],
+  ["fema-never-looked", "flag", [["flood_zone", "in", ["D", "not mapped"]]],
+   "Point out the ones FEMA has never studied for flooding"],
+  ["by-a-wash", "flag", [["stream_feet", "<", 500]],
+   "Point out the ones within 500 feet of a stream or arroyo"],
+  ["groundwater", "flag", [["water_table_cm", "<", 100]],
+   "Point out the ones with groundwater within about three feet"],
   ["fire-risk", "demote", [["wildfire_hazard", "in", ["high", "very high"]]],
    "Push down the ones the Forest Service rates high for wildfire"],
   ["slow-internet", "flag", [["download_mbps", "<", 25]],

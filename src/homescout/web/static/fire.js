@@ -152,12 +152,14 @@ function draw() {
     onchange: (event) => { held.showGone = event.target.checked; plot(); },
   });
 
+  /* One slider for whichever layer is drawn under the properties, wildfire or FEMA's zones. */
   const fade = el("input", {
     type: "range", id: "fade", min: "0", max: "100", value: String(held.opacity * 100),
-    "aria-label": "How strongly the fire layer is drawn",
+    "aria-label": "How strongly the layer under the properties is drawn",
     oninput: (event) => {
       held.opacity = Number(event.target.value) / 100;
-      if (held.hazard) held.hazard.setOpacity(held.opacity);
+      const layer = underneath();
+      if (layer) layer.setOpacity(held.opacity);
     },
   });
 
@@ -256,12 +258,15 @@ function draw() {
         el("span", {class: "name"}, "What is under them"),
         el("div", {class: "items"},
           photo ? el("label", {for: "satellite"}, photo, " satellite") : null,
-          el("label", {for: "fade"}, "wildfire hazard ", fade),
+          el("label", {for: "under"}, "drawn under them: "), underChoice(), fade,
           el("label", {for: "wind"}, blowing, " which way the wind pushes ", season),
           el("label", {for: "names"}, named, " counties and towns"),
           el("label", {for: "rain"}, wet, " rain and snow a year"),
           el("label", {for: "centers"}, centred, " data centres"),
           el("label", {for: "dropped"}, dropped, " including dropped ones"),
+          /* Water: flash-flood warnings over a window of dates, and the high-hazard dams. In
+           * flood.js, which this page loads after this file. */
+          floodControls(),
           el("label", {for: "ruler"}, ruler, " a ruler"),
         ),
       ),
@@ -275,6 +280,9 @@ function draw() {
       el("span", {id: "windcount"}, ""),
       el("span", {id: "landcount"}, ""),
       el("span", {id: "centercount"}, ""),
+      el("span", {id: "zonesnote"}, ""),
+      el("span", {id: "floodcount"}, ""),
+      el("span", {id: "damcount"}, ""),
     ),
     el("div", {class: "firemap"},
       el("div", {id: "map", role: "application", "aria-label": "Properties on the map"}),
@@ -295,6 +303,7 @@ function draw() {
       "The fire layer is the same one the enrichment pass reads, fetched by this machine rather " +
       "than by your browser and kept once fetched, so looking at the same part of the state twice " +
       "costs nothing and nothing new talks to the outside world."),
+    waterCredits(),
     el("p", {class: "meta"},
       "The data centres come from two public records, both fetched by this machine rather than " +
       "by your browser and kept. ",
@@ -325,10 +334,13 @@ function pickJudgment(wanted) {
 
 function legend() {
   return el("div", {class: "legend"},
-    el("h2", {}, "Wildfire hazard potential"),
-    el("ul", {},
-      HAZARD.map(([word, colour]) =>
-        el("li", {}, el("span", {class: "swatch", style: `background:${colour}`}), word))),
+    /* Whichever of the two is drawn under the properties; the other is hidden. */
+    el("div", {id: "legend-wildfire"},
+      el("h2", {}, "Wildfire hazard potential"),
+      el("ul", {},
+        HAZARD.map(([word, colour]) =>
+          el("li", {}, el("span", {class: "swatch", style: `background:${colour}`}), word)))),
+    zonesLegend(),
     el("h2", {}, "Your judgment"),
     el("ul", {},
       el("li", {}, el("span", {class: "swatch round kept"}), "kept"),
@@ -366,6 +378,7 @@ function legend() {
       el("li", {}, el("span", {class: "swatch square dc-approved"}), "approved or being built"),
       el("li", {}, el("span", {class: "swatch square dc-proposed"}), "proposed, awaiting approval"),
     ),
+    waterLegend(),
     el("p", {class: "meta"},
       "How filled a shape is says how real the thing is, because every colour on this map is " +
       "already carrying a meaning. A shape drawn at its real size is a building somebody " +
@@ -538,6 +551,9 @@ function build() {
    * either way, because how filled a shape is is the whole legend. */
   map.getPane("centers").style.pointerEvents = "none";
 
+  /* Flash floods and dams, on panes of their own just above the data centres. */
+  waterPanes(map);
+
   /* ONE drawing surface for the whole layer, made once, and every shape is told to use it.
    *
    * A renderer is a layer on the map in its own right: the first shape handed to it adds it, and
@@ -568,6 +584,7 @@ function build() {
     /* Only what is on screen is drawn, so the number of shapes stays a property of the screen
      * rather than of the country. Three thousand outlines in the page at once is a slow map. */
     if (centers.on) drawCenters();
+    waterMoved();
   });
   plot();
   const bounds = held.rows.map((row) => [row.latitude, row.longitude]);
@@ -841,6 +858,7 @@ function popup(row, pin) {
     facts ? el("p", {class: "facts"}, facts) : null,
     el("p", {class: "facts"},
       "hazard here: ", el("strong", {}, values["Wildfire Hazard"] || "not known")),
+    waterHere(values),
     values["Wildland-Urban Interface"]
       ? el("p", {class: "facts"}, values["Wildland-Urban Interface"]) : null,
     el("p", {class: "elsewhere"},
@@ -1889,4 +1907,20 @@ const POINTS = [
 
 function compassOf(degrees) {
   return POINTS[Math.round(degrees / 22.5) % 16];
+}
+
+/* The water values a pin is opened for, in one line, or nothing when none has been looked up. */
+function waterHere(values) {
+  const parts = [];
+  if (values["FEMA Flood Zone"]) parts.push(`FEMA ${values["FEMA Flood Zone"]}`);
+  const emergencies = values["Flash-Flood Emergencies"];
+  if (emergencies) {
+    parts.push(`${count(emergencies, "flash-flood emergency", "flash-flood emergencies")} ` +
+               "here since 2008");
+  }
+  if (values["Nearest Stream or Arroyo"]) parts.push(values["Nearest Stream or Arroyo"]);
+  if (values["Water Table"] && values["Water Table"] !== "none recorded") {
+    parts.push(`water table ${values["Water Table"]}`);
+  }
+  return parts.length ? el("p", {class: "facts"}, "water: ", parts.join("; ")) : null;
 }

@@ -115,3 +115,70 @@ def test_the_nearest_data_centre_is_found_by_index_rather_than_by_walking_the_se
         f"{BUDGET}s this feature allows. A walk over the set rather than a spatial index is the "
         "first thing to check."
     )
+
+
+def _new_mexico_records():
+    """Records the size of New Mexico's, over an outline that is a real shapely polygon, so the
+    point-in-state lookup is timed along with everything else."""
+    import random
+
+    from shapely.geometry import box
+
+    from homescout.enrich import dams, floods, kept
+
+    rng = random.Random(7)
+
+    def anywhere() -> tuple[float, float]:
+        return 31.5 + rng.random() * 5.4, -109.0 + rng.random() * 6.0
+
+    outlines = kept.Outlines({"NM": box(-109.05, 31.33, -103.0, 37.0),
+                              "TX": box(-103.0, 25.8, -93.5, 36.5)})
+    warned = []
+    for event in range(3_500):
+        lat, lon = anywhere()
+        half = 0.05 + rng.random() * 0.2
+        ring = [[lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half],
+                [lon - half, lat + half], [lon - half, lat - half]]
+        warned.append({"office": "ABQ", "event": event, "year": 2008 + event % 19,
+                       "issued": "2026-09-29T19:47:00Z", "emergency": event % 70 == 0,
+                       "damage": None, "polygon": [[ring]]})
+    reports = []
+    for _ in range(2_000):
+        lat, lon = anywhere()
+        reports.append({"at": "2026-09-29T20:00:00Z", "latitude": lat, "longitude": lon,
+                        "kind": "flash flood", "place": "", "county": "", "source": "",
+                        "remark": ""})
+    held = []
+    for number in range(2_000):
+        lat, lon = anywhere()
+        held.append({"id": f"NM{number:05d}", "name": "a dam", "latitude": lat, "longitude": lon,
+                     "condition": "poor", "assessed": None, "plan": None, "built": 1960,
+                     "purpose": None, "owner": ""})
+    places = [anywhere() for _ in range(PROPERTIES)]
+    return (floods.Record(warned, reports, outlines), dams.Inventory(held, outlines), places)
+
+
+def test_flash_floods_are_answered_by_index_for_five_thousand_properties() -> None:
+    """feat-007/AC-55, feat-007/NFR-performance: three and a half thousand warning polygons and two
+    thousand reports, asked about five thousand properties, through the real state lookup."""
+    record, _inventory, places = _new_mexico_records()
+
+    started = time.perf_counter()
+    for place in places:
+        record.answer(*place)
+    took = time.perf_counter() - started
+
+    assert took < BUDGET, f"{PROPERTIES} properties took {took:.2f}s against the warnings"
+
+
+def test_dams_are_answered_by_index_for_five_thousand_properties() -> None:
+    """feat-007/AC-55, feat-007/NFR-performance: two thousand dams, the nearest of them and the
+    worst within ten miles, for five thousand properties, through the real state lookup."""
+    _record, inventory, places = _new_mexico_records()
+
+    started = time.perf_counter()
+    for place in places:
+        inventory.answer(*place)
+    took = time.perf_counter() - started
+
+    assert took < BUDGET, f"{PROPERTIES} properties took {took:.2f}s against the dams"

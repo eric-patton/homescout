@@ -1,4 +1,4 @@
-"""The eight public services, one small class each.
+"""The public services, one small class each.
 
 Every one of them answers the same shape of question (what is true at this point) and every one
 answers it differently, which is why they are plugins rather than branches in a pass.
@@ -19,12 +19,20 @@ outage.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from typing import Any
 
 from ..sources.politeness import PacedSession
 from . import datacenters, settings
-from .provider import ProviderFailed, ask_json, attributes_of, features_of, point_query
+from .provider import (
+    ProviderFailed,
+    ask_json,
+    ask_json_post,
+    attributes_of,
+    features_of,
+    point_query,
+)
 
 #: The classified wildfire hazard raster answers with a number. These are its classes, from the
 #: layer's own legend, mapped to words a criterion can compare against.
@@ -39,6 +47,18 @@ WILDFIRE_CLASSES = {
 }
 
 
+#: What `flood_zone` reads where FEMA has no digital flood map at all. A determined value rather
+#: than an absence, on the same reasoning as the interface provider's `outside coverage`: `None`
+#: here would mean "in no flood zone", and saying that about a place nobody studied is false good
+#: news.
+#: Ten of New Mexico's thirty-three counties are like this (feat-007/AC-38).
+NOT_MAPPED = "not mapped"
+
+#: Zones FEMA assigns without having decided anything. `D` is "possible but undetermined", which
+#: FEMA marks as outside the hazard area; `AREA NOT INCLUDED` is a hole in a study. Neither is a no.
+UNDETERMINED_ZONES = ("D", "AREA NOT INCLUDED")
+
+
 class Flood:
     """FEMA's National Flood Hazard Layer, at a point.
 
@@ -46,12 +66,19 @@ class Flood:
     flood hazard areas that carry an insurance requirement, `X` is outside them. `ZONE_SUBTY` is the
     qualifier that distinguishes a 0.2 percent annual chance area from ordinary `X`, which is the
     difference between "not in a flood zone" and "not in a flood zone, but".
+
+    Three readings that used to be one (feat-007/AC-38 to AC-40). A point inside FEMA's hazard area
+    is `flood_hazard_area = true`, whatever qualifier its zone carries, so a floodway is caught by
+    the same test as the zone around it. A point FEMA studied and placed outside it is `false`. And
+    a point FEMA never studied, Zone `D` or no digital map at all, is neither: the zone says which,
+    and the yes-or-no stays empty, because "unstudied" is not "safe". Before this, a place with no
+    map read exactly like a place mapped as dry, and in New Mexico that was one property in eight.
     """
 
     name = "flood"
 
     def values(self) -> tuple[str, ...]:
-        return ("flood_zone",)
+        return ("flood_zone", "flood_hazard_area")
 
     def precision(self) -> int:
         return 4
@@ -66,19 +93,78 @@ class Flood:
         where = settings.endpoint(self.name)
         answer = ask_json(
             session, self.name, where.url, point_query(where.url, latitude, longitude,
-                                                       "FLD_ZONE,ZONE_SUBTY")
+                                                       "FLD_ZONE,ZONE_SUBTY,SFHA_TF")
         )
-        found = features_of(answer, self.name)
+        found = [attributes_of(feature) for feature in features_of(answer, self.name)]
         if not found:
-            # Not a gap. The National Flood Hazard Layer maps the whole country, and a point in no
-            # mapped zone is a point in no mapped zone.
-            return {"flood_zone": None}
-        attributes = attributes_of(found[0])
-        zone = attributes.get("FLD_ZONE")
-        subtype = attributes.get("ZONE_SUBTY")
-        if not zone:
-            raise ProviderFailed("flood: a feature came back with no FLD_ZONE")
-        return {"flood_zone": f"{zone} ({subtype})" if subtype else str(zone)}
+            # Two different places give this same empty answer, and the availability layer tells
+            # them apart. It is asked only here, so a point inside a zone costs no second request.
+            if not self._mapped(session, latitude, longitude):
+                return {"flood_zone": NOT_MAPPED, "flood_hazard_area": None}
+            # Mapped, and still no zone. Where FEMA has a digital map it covers the ground with
+            # zones edge to edge, plain X included, so this is a hole in FEMA's data rather than an
+            # answer from it, and it reads as one: empty in both values rather than as a no
+            # (feat-007/AC-40).
+            return {"flood_zone": None, "flood_hazard_area": None}
+
+        for attributes in found:
+            if not attributes.get("FLD_ZONE"):
+                raise ProviderFailed("flood: a feature came back with no FLD_ZONE")
+        # Every feature, worst first. A point where two studies meet, or on a floodway inside its
+        # zone, comes back as more than one, and the first one the server happened to list is not
+        # the answer (feat-007/AC-39).
+        worst = min(found, key=_severity)
+        zone = str(worst["FLD_ZONE"]).strip()
+        subtype = worst.get("ZONE_SUBTY")
+        return {
+            "flood_zone": f"{zone} ({subtype})" if subtype else zone,
+            "flood_hazard_area": _in_hazard_area(worst),
+        }
+
+    def _mapped(self, session: PacedSession, latitude: float, longitude: float) -> bool:
+        """Does FEMA have a digital flood map here at all? The one question this layer is asked."""
+        where = settings.endpoint("flood_availability")
+        answer = ask_json(
+            session, self.name, where.url, point_query(where.url, latitude, longitude, "STUDY_ID")
+        )
+        return bool(features_of(answer, self.name))
+
+
+def _in_hazard_area(attributes: Mapping[str, Any]) -> bool | None:
+    """FEMA's own yes or no, except where FEMA's no means "nobody looked"."""
+    zone = str(attributes.get("FLD_ZONE") or "").strip().upper()
+    if zone in UNDETERMINED_ZONES:
+        return None
+    flag = str(attributes.get("SFHA_TF") or "").strip().upper()
+    if flag in ("T", "F"):
+        return flag == "T"
+    if flag:
+        raise ProviderFailed(
+            f"flood: SFHA_TF {flag!r} is neither T nor F. The layer has probably changed, and "
+            "guessing whether a house is in a flood hazard area is worse than not saying."
+        )
+    # An older feature without the flag. The zone letter is FEMA's own definition of it.
+    return zone.startswith(("A", "V"))
+
+
+#: Qualifiers FEMA draws in its 0.2 percent colour: the shaded `X`. Read from the layer's own
+#: renderer on 2026-10-03, which files the two "1 PCT" ones under the same legend entry.
+SHADED_X = ("0.2 P", "1 PCT", "1 PERCENT", "NON-ACCREDITED LEVEE")
+
+
+def _severity(attributes: Mapping[str, Any]) -> int:
+    """Lower is worse: the hazard area, then the unstudied, then the shaded X, then plain X."""
+    zone = str(attributes.get("FLD_ZONE") or "").strip().upper()
+    subtype = str(attributes.get("ZONE_SUBTY") or "").upper()
+    if _in_hazard_area(attributes):
+        return 0 if "FLOODWAY" in subtype else 1
+    if zone in UNDETERMINED_ZONES:
+        return 2
+    if any(mark in subtype for mark in SHADED_X):
+        return 3
+    if "LEVEE" in subtype:
+        return 4
+    return 5
 
 
 class Elevation:
@@ -610,3 +696,427 @@ def _as_polygon(rings: Any) -> dict[str, Any]:
         "type": "MultiPolygon",
         "coordinates": [[[[point[1], point[0]] for point in ring]] for ring in rings],
     }
+
+
+# -- water: soils, flash floods, streams and dams (changes/where-the-water-goes/) ----------------
+
+#: The survey's flooding frequency classes, as the words a criterion compares against. `Common` is
+#: the legacy name for occasional-to-frequent that a few older surveys still carry, and it reads
+#: high, because reading it low costs somebody a damp house (feat-007/AC-42).
+SOIL_FLOODING = {
+    "none": "none",
+    "very rare": "very rare",
+    "rare": "rare",
+    "occasional": "occasional",
+    "frequent": "frequent",
+    "very frequent": "very frequent",
+    "common": "frequent",
+}
+
+#: The survey's drainage classes, driest first.
+SOIL_DRAINAGE = (
+    "excessively drained",
+    "somewhat excessively drained",
+    "well drained",
+    "moderately well drained",
+    "somewhat poorly drained",
+    "poorly drained",
+    "very poorly drained",
+)
+
+#: What `soil_flooding` reads where there is no soil survey at all. A determined answer, in the
+#: shape of the interface provider's `outside coverage` (feat-007/AC-43).
+NOT_SURVEYED = "not surveyed"
+
+#: The one query sent to the soil survey. Two numbers are formatted into it and nothing else is.
+SOIL_QUERY = (
+    "SELECT TOP 1 mu.musym, mu.muname, ma.flodfreqmax, ma.wtdepannmin, ma.drclasswettest, "
+    "ma.hydclprs, ma.pondfreqprs "
+    "FROM SDA_Get_Mukey_from_intersection_with_WktWgs84('point({longitude:.6f} {latitude:.6f})') k "
+    "JOIN mapunit mu ON mu.mukey = k.mukey LEFT JOIN muaggatt ma ON ma.mukey = mu.mukey"
+)
+
+
+class Soils:
+    """The national soil survey's own summary of the ground under a point.
+
+    The strongest mold signal there is that has nothing to do with a storm. A seasonal water table
+    half a metre down wicks into a slab or a crawlspace every irrigation season, and a hydric soil
+    is a wetland soil whether or not anybody calls it one. This is how the valley floors around
+    Mesilla, Hatch and the middle Rio Grande show up, where the farm drains exist because the
+    groundwater is shallow.
+
+    What it is not is a flash-flood signal. Its flooding class is overbank flooding of the soil by a
+    river, and at all five towns the Hurricane Polo storm flooded it reads "none". It also describes
+    a soil map unit, which can be hundreds of acres, rather than the parcel. Both are said wherever
+    these values are shown (feat-007/AC-43).
+    """
+
+    name = "soils"
+
+    def values(self) -> tuple[str, ...]:
+        return (
+            "soil_flooding",
+            "soil_ponding_percent",
+            "water_table_cm",
+            "soil_drainage",
+            "hydric_percent",
+        )
+
+    def precision(self) -> int:
+        return 4  # a map unit's line can run down one side of a lot
+
+    def ttl_days(self) -> int | None:
+        return 365  # the survey is refreshed every October
+
+    def configured(self) -> bool:
+        return True
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        if not (math.isfinite(float(latitude)) and math.isfinite(float(longitude))):
+            raise ProviderFailed("soils: a coordinate here is not a number, so nothing was asked")
+        query = SOIL_QUERY.format(latitude=float(latitude), longitude=float(longitude))
+        where = settings.endpoint(self.name)
+        answer = ask_json_post(
+            session, self.name, where.url, {"query": query, "format": "JSON+COLUMNNAME"}
+        )
+        table = answer.get("Table")
+        if table is None:
+            # The service's answer for a point in no survey area at all: an empty object.
+            return _unsurveyed()
+        if not isinstance(table, list) or not table or not isinstance(table[0], list):
+            raise ProviderFailed("soils: the answer's table has changed shape")
+        if len(table) < 2 or not isinstance(table[1], list):
+            return _unsurveyed()
+        row = dict(zip(table[0], table[1], strict=False))
+        if str(row.get("musym") or "").strip().upper() == "NOTCOM":
+            return _unsurveyed()
+
+        return {
+            "soil_flooding": _soil_word(row.get("flodfreqmax"), SOIL_FLOODING, "flooding class"),
+            "soil_ponding_percent": _whole(row.get("pondfreqprs")),
+            "water_table_cm": _whole(row.get("wtdepannmin")),
+            "soil_drainage": _soil_word(
+                row.get("drclasswettest"), {word: word for word in SOIL_DRAINAGE}, "drainage class"
+            ),
+            "hydric_percent": _whole(row.get("hydclprs")),
+        }
+
+
+def _unsurveyed() -> Mapping[str, Any]:
+    return {
+        "soil_flooding": NOT_SURVEYED,
+        "soil_ponding_percent": None,
+        "water_table_cm": None,
+        "soil_drainage": None,
+        "hydric_percent": None,
+    }
+
+
+def _soil_word(raw: Any, table: Mapping[str, str], what: str) -> str | None:
+    if raw is None or str(raw).strip() == "":
+        return None  # water, rock, a map unit the survey gives no class: not known
+    word = table.get(str(raw).strip().lower())
+    if word is None:
+        raise ProviderFailed(
+            f"soils: {raw!r} is not a {what} this build knows. The survey's vocabulary has "
+            "probably changed, and guessing how wet a soil is is worse than not saying."
+        )
+    return word
+
+
+def _whole(raw: Any) -> int | None:
+    """The survey sends every number as a string."""
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        found = float(str(raw).strip())
+    except ValueError:
+        raise ProviderFailed(f"soils: {raw!r} is not a number") from None
+    return round(found) if math.isfinite(found) else None
+
+
+#: Which hydrography feature codes are natural channels, and what to call each one. A canal, ditch,
+#: pipeline or underground conduit is not: water does not leave one of those the way it leaves an
+#: arroyo (feat-007/AC-50).
+CHANNELS = {
+    46000: "stream",
+    46003: "intermittent",
+    46006: "perennial",
+    46007: "ephemeral",
+}
+
+#: The line a river is drawn along through a lake or a wide channel, which is still the river.
+RIVER_PATHS = 558
+
+NO_CHANNEL = "none mapped within a mile"
+MILE_METRES = 1609.344
+
+
+class Streams:
+    """How far to the nearest mapped stream, river or wash, and which one.
+
+    In New Mexico the water that floods a house usually arrives down an arroyo that is dry three
+    hundred days a year. Rincon, which FEMA maps as minimal hazard and which stayed under water a
+    day after the Hurricane Polo storm, is six hundred feet from the Rincon Arroyo. No other value
+    here sees that.
+
+    A mapped channel is a channel somebody mapped. An unmapped wash can be closer, and is said to be
+    possible wherever this is shown (feat-007/AC-51).
+    """
+
+    name = "streams"
+
+    def values(self) -> tuple[str, ...]:
+        return ("stream_feet", "stream_nearest")
+
+    def precision(self) -> int:
+        # Five places is about a metre, finer than the ten feet reported, for the reason AC-32
+        # gives: a cache key coarser than the number it keys would quietly undo the number.
+        return 5
+
+    def ttl_days(self) -> int | None:
+        return 1_095  # the national hydrography changes slowly and is being replaced, not revised
+
+    def configured(self) -> bool:
+        return True
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        where = settings.endpoint(self.name)
+        asked = point_query(where.url, latitude, longitude, "gnis_name,fcode")
+        asked.update(
+            {
+                "distance": str(MILE_METRES),
+                "units": "esriSRUnit_Meter",
+                "returnGeometry": "true",
+                "outSR": "4326",
+                # About five metres, on the server, which is finer than the ten feet reported.
+                "maxAllowableOffset": "0.00005",
+                "geometryPrecision": "6",
+            }
+        )
+        answer = ask_json(session, self.name, where.url, asked)
+        best: tuple[float, str] | None = None
+        for feature in features_of(answer, self.name):
+            attributes = attributes_of(feature)
+            try:
+                code = int(attributes.get("fcode"))  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                continue
+            if code in CHANNELS:
+                kind = CHANNELS[code]
+            elif code // 100 == RIVER_PATHS:
+                kind = "river"
+            else:
+                continue
+            metres = _to_line(feature.get("geometry"), latitude, longitude)
+            if metres is None:
+                continue
+            if best is None or metres < best[0]:
+                best = (metres, _channel(attributes.get("gnis_name"), kind))
+        if best is None or best[0] > MILE_METRES:
+            return {"stream_feet": None, "stream_nearest": NO_CHANNEL}
+        feet = int(round(best[0] * 3.28084 / 10.0) * 10)
+        return {"stream_feet": feet, "stream_nearest": f"{best[1]}, {feet:,} ft"}
+
+
+def _channel(name: Any, kind: str) -> str:
+    from .kept import plain
+
+    called = plain(name, 80)
+    if called:
+        return f"{called} ({kind})"
+    if kind == "ephemeral":
+        return "an unnamed wash (ephemeral)"
+    if kind == "river":
+        return "an unnamed river channel"
+    if kind == "stream":
+        return "an unnamed stream"
+    return f"an unnamed stream ({kind})"
+
+
+def _to_line(geometry: Any, latitude: float, longitude: float) -> float | None:
+    """Metres from a point to an ArcGIS polyline, on a flat projection about the point.
+
+    Over a mile the flattening is accurate to well under the ten feet reported, and the distance is
+    to the line itself rather than to any vertex on it (feat-007/AC-51).
+    """
+    from shapely.geometry import LineString, Point
+
+    if not isinstance(geometry, Mapping):
+        return None
+    paths = geometry.get("paths")
+    if not isinstance(paths, list):
+        return None
+    across = 111_320.0 * math.cos(math.radians(latitude))
+    up = 110_540.0
+    best: float | None = None
+    for path in paths:
+        points = []
+        for vertex in path if isinstance(path, list) else []:
+            try:
+                x, y = float(vertex[0]), float(vertex[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            points.append(((x - longitude) * across, (y - latitude) * up))
+        if len(points) == 1:
+            points.append(points[0])
+        if not points:
+            continue
+        found = LineString(points).distance(Point(0.0, 0.0))
+        if best is None or found < best:
+            best = found
+    return best
+
+
+class FlashFloods:
+    """How often the Weather Service has warned of flash flooding here, and what was reported.
+
+    Answered from records held beside the database, a state at a time, the way the data center
+    provider answers from its own (feat-007 D-18). `fetch` makes no request: the records are built
+    once per pass in `ready`, which is the only place anything is fetched.
+    """
+
+    name = "flash_floods"
+
+    def __init__(self) -> None:
+        self._store: Any = None
+        self._root: Any = None
+        self._record: Any = None
+
+    def attach(self, store: Any) -> None:
+        self._store = store
+        self._root = store.path.parent
+
+    def values(self) -> tuple[str, ...]:
+        return (
+            "flash_flood_warnings",
+            "flash_flood_emergencies",
+            "flash_flood_latest",
+            "flash_flood_latest_year",
+            "flood_reports_nearby",
+        )
+
+    def precision(self) -> int:
+        return 4  # finer than the mile reports are counted within
+
+    def ttl_days(self) -> int | None:
+        from . import floods
+
+        return floods.CURRENT_DAYS
+
+    def configured(self) -> bool:
+        return self._root is not None
+
+    def why_not(self) -> str:
+        return "nothing has told it where the records live"
+
+    def ready(self) -> Any:
+        """The records, built once per pass rather than once per location (feat-007/AC-45)."""
+        from . import floods
+
+        if self._record is None:
+            self._record = floods.build(
+                self._root,
+                _states_or_fail(self._store, self.name),
+                warnings_service=settings.endpoint("flash_flood_warnings").url,
+                reports_service=settings.endpoint("flood_reports").url,
+                boundaries_service=settings.endpoint("boundaries").url,
+            )
+        return _fresh_or_fail(self._record, self.name)
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        found = self.ready().answer(latitude, longitude)
+        # Outside every state whose record is held: nothing, which leaves the values missing rather
+        # than calling this place never warned (feat-007/AC-47). Not a failure, because a failure
+        # would end this provider for every other property in the pass.
+        return found if found is not None else {}
+
+
+def _fresh_or_fail(record: Any, name: str) -> Any:
+    """The record, unless its refresh failed and it is being read from an older copy.
+
+    An answer worked out from last week's copy and stored now would be stamped fresh and believed
+    for another full lifetime, which is the one thing a stale value must not become (AC-47). So a
+    record that could not be refreshed is a failure for this pass: what was cached stays exactly
+    where it was and ages into stale on its own, and the next pass that can refresh it answers.
+    """
+    if getattr(record, "stale", False):
+        failures = "; ".join(getattr(record, "failures", []) or [])
+        raise ProviderFailed(
+            f"{name}: the record could not be refreshed"
+            + (f" ({failures})" if failures else "")
+            + ". What was cached stays, and reads as stale once it ages."
+        )
+    return record
+
+
+def _states_or_fail(store: Any, name: str) -> tuple[str, ...]:
+    """The states to hold records for, or a failure that says why there are none.
+
+    Asked only when there are properties to answer for, so no states at all is not an empty store:
+    it is properties whose sources named no state this tool knows. Answering every one of them with
+    nothing while reporting "ok" is the silent failure this exists to make loud, and it happened
+    once, on the day these providers shipped.
+    """
+    from . import kept
+
+    found = kept.store_states(store)
+    if not found:
+        raise ProviderFailed(
+            f"{name}: none of the properties carries a state this tool knows, so there is no "
+            "state's record to hold"
+        )
+    return found
+
+
+class Dams:
+    """The high-hazard dams near a point: how far, how many, and how bad.
+
+    Near, never downstream (feat-007/AC-54). Answered from the inventory held beside the database, a
+    state at a time with its neighbours, like the flash-flood records.
+    """
+
+    name = "dams"
+
+    def __init__(self) -> None:
+        self._store: Any = None
+        self._root: Any = None
+        self._inventory: Any = None
+
+    def attach(self, store: Any) -> None:
+        self._store = store
+        self._root = store.path.parent
+
+    def values(self) -> tuple[str, ...]:
+        return ("dam_miles", "dam_nearest", "dams_nearby", "dam_worst_nearby")
+
+    def precision(self) -> int:
+        return 4
+
+    def ttl_days(self) -> int | None:
+        from . import dams
+
+        return dams.HELD_DAYS
+
+    def configured(self) -> bool:
+        return self._root is not None
+
+    def why_not(self) -> str:
+        return "nothing has told it where the inventory lives"
+
+    def ready(self) -> Any:
+        from . import dams
+
+        if self._inventory is None:
+            self._inventory = dams.build(
+                self._root,
+                _states_or_fail(self._store, self.name),
+                service=settings.endpoint("dams").url,
+                boundaries_service=settings.endpoint("boundaries").url,
+            )
+        return _fresh_or_fail(self._inventory, self.name)
+
+    def fetch(self, session: PacedSession, latitude: float, longitude: float) -> Mapping[str, Any]:
+        found = self.ready().answer(latitude, longitude)
+        return found if found is not None else {}

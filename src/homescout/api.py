@@ -768,7 +768,7 @@ def hazard_layers() -> dict[str, str]:
     from .enrich import settings as where
 
     found = {}
-    for name in ("wildfire", "wui"):
+    for name in ("wildfire", "wui", "flood"):
         drawn = where.picture_of(name)
         if drawn:
             found[name] = drawn
@@ -894,6 +894,203 @@ def data_centers(workspace: Workspace) -> dict[str, Any]:
             "An absence of shapes is not evidence of an absence of data centers. The tracker's "
             "interest is contested projects, so a quietly-running facility nobody objected to can "
             "be missing from it, and the mapped buildings only close part of that gap."
+        ),
+    }
+
+
+
+#: How long a window of dates the flash-flood layer will draw. Every warning in New Mexico since
+#: 2008 is three and a half thousand polygons, which is not a map anybody can read
+#: (`feat-010/AC-98`).
+FLOOD_WINDOW_LONGEST = 366
+
+#: How many days the window opens on, ending with the latest emergency held.
+FLOOD_WINDOW_OPENS = 14
+
+#: Iowa State's warning pages name an office by its four-letter identifier. Almost every office is a
+#: K and three letters; these are the ones that are not.
+_OFFICE_PREFIX = {"AFC": "P", "AFG": "P", "AJK": "P", "HFO": "P", "GUM": "P", "SJU": "T"}
+
+
+def _never(url: str, what: str) -> bytes:
+    """The fetcher the map's routes use, which is to say none: they read what is held (AC-103)."""
+    from .enrich.provider import ProviderFailed
+
+    raise ProviderFailed(f"{what}: not held yet. The enrichment pass fetches it.")
+
+
+def _day(text: str | None, what: str) -> Any:
+    from datetime import date
+
+    try:
+        return date.fromisoformat(str(text).strip())
+    except ValueError:
+        raise InvalidInput(
+            f"{what} is a date written as year-month-day, like 2026-09-29."
+        ) from None
+
+
+def flash_floods(
+    workspace: Workspace, name: str, start: str | None = None, end: str | None = None
+) -> dict[str, Any]:
+    """The flash-flood warnings and flood reports in a window of dates, for one run's states.
+
+    Read from the records the enrichment pass holds and from nothing else: this asks no host
+    (`feat-010/AC-102`, `feat-010/AC-103`). A state whose record has not been fetched yet is named,
+    so the page can say the pass fetches it rather than drawing a map that reads as "no floods".
+
+    The window opens on the fortnight ending with the most recent Flash Flood Emergency held, which
+    today is the Hurricane Polo storm, so the page opens on the latest serious storm without a date
+    written into the code. Either end can be moved; a window longer than a year is refused.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from .enrich import floods
+    from .enrich import settings as where
+
+    states = _states_of(workspace, name)
+    held_warnings: list[dict[str, Any]] = []
+    held_reports: list[dict[str, Any]] = []
+    missing: list[str] = []
+    stale = False
+    now = datetime.now(UTC)
+    for state in states:
+        try:
+            found, old = floods.warnings(
+                workspace.root, where.endpoint("flash_flood_warnings").url, state,
+                now=now, fetch=_never,
+            )
+        except Exception:  # noqa: BLE001 - a state not held is said, not raised
+            missing.append(state)
+            continue
+        held_warnings.extend(found)
+        stale = stale or old
+        try:
+            filed, old = floods.reports(
+                workspace.root, where.endpoint("flood_reports").url, state, now=now, fetch=_never,
+            )
+            held_reports.extend(filed)
+            stale = stale or old
+        except Exception:  # noqa: BLE001 - the reports are their own record
+            missing.append(f"{state} reports")
+
+    record = floods.Record(held_warnings, held_reports, None)
+    latest = record.latest_emergency()
+    last = _day(end, "The window's end") if end else (latest or now.date())
+    try:
+        first = (
+            _day(start, "The window's start")
+            if start
+            else last - timedelta(days=FLOOD_WINDOW_OPENS - 1)
+        )
+    except OverflowError:
+        raise InvalidInput("That window runs off the start of the calendar.") from None
+    if first > last:
+        raise InvalidInput("The window starts after it ends.")
+    if (last - first).days + 1 > FLOOD_WINDOW_LONGEST:
+        raise InvalidInput(
+            f"A window is at most {FLOOD_WINDOW_LONGEST} days. Every warning since 2008 at once is "
+            "thousands of overlapping shapes, which no map can show."
+        )
+    warned, filed = record.within(first, last)
+    return {
+        "states": states,
+        "missing": missing,
+        "stale": stale,
+        "from": first.isoformat(),
+        "to": last.isoformat(),
+        "latest_emergency": latest.isoformat() if latest else None,
+        "warnings": [_drawn_warning(one) for one in warned],
+        "reports": [
+            {
+                key: one[key]
+                for key in (
+                    "date", "at", "latitude", "longitude", "kind", "place", "county", "source",
+                    "remark",
+                )
+            }
+            for one in filed
+        ],
+        "credits": [
+            "Flash-flood warnings and storm reports: National Weather Service, as archived by the "
+            "Iowa Environmental Mesonet at Iowa State University.",
+        ],
+        "caveat": (
+            "A warning marks where the Weather Service expected flash flooding, drawn wide, not "
+            "where water went. A report is placed to about a kilometre, usually from a named town "
+            "or road. Dates are local standard time."
+        ),
+    }
+
+
+def _drawn_warning(one: Mapping[str, Any]) -> dict[str, Any]:
+    """One warning as the map draws it: rings turned to [latitude, longitude], and a link built
+    here from three checked values rather than taken from the archive (`feat-007/AC-49`)."""
+    from .enrich import settings as where
+
+    office, year, event = str(one["office"]), int(one["year"]), int(one["event"])
+    station = _OFFICE_PREFIX.get(office, "K") + office
+    return {
+        "office": office,
+        "event": event,
+        "year": year,
+        "date": one["date"],
+        "time": one.get("time"),
+        "issued": one["issued"],
+        "emergency": bool(one["emergency"]),
+        "damage": one.get("damage"),
+        "polygons": [
+            [[[point[1], point[0]] for point in ring] for ring in polygon]
+            for polygon in one["polygon"]
+        ],
+        "link": (
+            f"{where.endpoint('flash_flood_page').url}"
+            f"?year={year}&wfo={station}&phenomena=FF&significance=W&eventid={event:04d}"
+        ),
+    }
+
+
+def dams(workspace: Workspace, name: str) -> dict[str, Any]:
+    """Every high-hazard dam held for one run's states and their neighbours.
+
+    Read from the inventory the enrichment pass holds and fetched from nowhere (`feat-010/AC-103`).
+    Each dam arrives with its condition and plan already in words, so the page holds no table of
+    codes.
+    """
+    from .enrich import dams as inventory
+    from .enrich import settings as where
+
+    states = _states_of(workspace, name)
+    held: list[dict[str, Any]] = []
+    missing: list[str] = []
+    stale = False
+    seen: set[str] = set()
+    for state in inventory.states_for(states):
+        try:
+            found, old = inventory.inventory(
+                workspace.root, where.endpoint("dams").url, state, fetch=_never
+            )
+        except Exception:  # noqa: BLE001 - a state not held is said, not raised
+            missing.append(state)
+            continue
+        stale = stale or old
+        for dam in found:
+            if dam["id"] in seen:
+                continue
+            seen.add(dam["id"])
+            held.append({**dam, "described": inventory.describe(dam)})
+    return {
+        "states": states,
+        "missing": missing,
+        "stale": stale,
+        "dams": held,
+        #: Counted here rather than in the page: which conditions are the worrying ones is a
+        #: judgment, and a judgment belongs in the core (`feat-010/AC-14`).
+        "poor": sum(1 for dam in held if dam.get("condition") in ("poor", "unsatisfactory")),
+        "credits": ["Dams: U.S. Army Corps of Engineers, National Inventory of Dams."],
+        "caveat": (
+            "Near, not downstream. The inventory places each dam as one point and does not say "
+            "which way it drains; maps of what a failure would flood are not public for local dams."
         ),
     }
 

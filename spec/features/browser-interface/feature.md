@@ -21,7 +21,7 @@ gate:
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-25
+  last_run: 2026-10-03
   open: 4
   contradicts: 0
 human_signoff: []
@@ -280,3 +280,12 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   one: found by which sources, not found, or not looked for. A browser test found a fault on its
   first run: redrawing the panel replaced the section, losing its unsaved mark and the page's edit
   listeners, so the panel rebuilds only its contents.
+
+- **2026-10-03, floods on the map (`changes/floods-on-the-map/`).** The map half of the enrichment
+  feature's `where-the-water-goes`. What is drawn under the properties became a choice (the wildfire
+  model, FEMA's flood zones, or neither), and two layers arrived: flash-flood warnings and reports
+  over a window of dates that opens on the latest Flash Flood Emergency held, and high-hazard dams
+  shaded by condition. In `flood.js`, so the map script did not grow. Warnings answer the pointer on
+  their outline only, as data centres do; a browser test holds that a house inside an emergency
+  still opens, and that a storm report carrying an image tag shows as the characters it is.
+

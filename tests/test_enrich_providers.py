@@ -31,11 +31,13 @@ def answering(payload) -> tuple:
     return session(transport), transport
 
 
-def test_the_eight_providers_exist_and_are_individually_named() -> None:
-    """feat-007/AC-11, feat-007/AC-22, feat-007/AC-28: the six, the interface, the county, and
-    how close the data centres are."""
+def test_the_twelve_providers_exist_and_are_individually_named() -> None:
+    """feat-007/AC-11, feat-007/AC-22, feat-007/AC-28, feat-007/AC-41, feat-007/AC-44,
+    feat-007/AC-50, feat-007/AC-52: the six, the interface, the county, how close the data centres
+    are, and the four that say where water goes."""
     assert set(registered()) == {
         "flood", "elevation", "aquifer", "wildfire", "broadband", "wui", "county", "data_centers",
+        "soils", "flash_floods", "streams", "dams",
     }
 
     from homescout.enrich.boundaries import CensusBoundaries
@@ -57,18 +59,145 @@ def test_every_provider_declares_a_name_a_criterion_can_use() -> None:
 def test_a_flood_zone_at_a_point() -> None:
     """feat-007/AC-11: the letter everybody means, with the qualifier that changes what it means."""
     paced, _ = answering({"features": [{"attributes": {"FLD_ZONE": "X",
-                                                       "ZONE_SUBTY": "0.2 PCT ANNUAL CHANCE"}}]})
+                                                       "ZONE_SUBTY": "0.2 PCT ANNUAL CHANCE",
+                                                       "SFHA_TF": "F"}}]})
 
     found = Flood().fetch(paced, *PLACE)
 
-    assert found == {"flood_zone": "X (0.2 PCT ANNUAL CHANCE)"}
+    assert found == {"flood_zone": "X (0.2 PCT ANNUAL CHANCE)", "flood_hazard_area": False}
 
 
-def test_a_point_in_no_mapped_flood_zone_is_an_answer_rather_than_a_gap() -> None:
-    """feat-007/AC-7: the spec's first edge case, at the provider that meets it most often."""
-    paced, _ = answering({"features": []})
+def flood_answering(zones, *, mapped: bool = True) -> tuple:
+    """The zone layer and the availability layer, told apart by the layer number in the address."""
+    transport = CountingTransport(
+        {
+            "/MapServer/28/query": {"features": [{"attributes": z} for z in zones]},
+            "/MapServer/0/query": {
+                "features": [{"attributes": {"STUDY_ID": "35013C"}}] if mapped else []
+            },
+        }
+    )
+    return session(transport), transport
 
-    assert Flood().fetch(paced, *PLACE) == {"flood_zone": None}
+
+def test_a_mapped_point_with_no_zone_is_a_hole_in_the_data_rather_than_a_no() -> None:
+    """feat-007/AC-40: where FEMA has a digital map, zones cover the ground edge to edge.
+
+    So a mapped point that returns no zone at all is a gap in FEMA's data. It used to read as the
+    spec's first edge case, a point outside every hazard area, which it is not evidence of.
+    """
+    paced, transport = flood_answering([], mapped=True)
+
+    assert Flood().fetch(paced, *PLACE) == {"flood_zone": None, "flood_hazard_area": None}
+    assert transport.count == 2, "the availability layer is asked because the zone layer was empty"
+
+
+def test_a_place_fema_never_mapped_says_so_rather_than_reading_as_dry() -> None:
+    """feat-007/AC-38, feat-007/AC-40: ten of New Mexico's counties have no digital flood map.
+
+    Arrey, in Sierra County, answered nothing from the zone layer on 2026-10-03, and so did Catron
+    County. Before this, that read exactly like a place FEMA had mapped as outside every zone, and
+    in the live statewide search it was 285 locations.
+    """
+    paced, _ = flood_answering([], mapped=False)
+
+    assert Flood().fetch(paced, *PLACE) == {"flood_zone": "not mapped", "flood_hazard_area": None}
+
+
+def test_three_readings_of_a_flood_hazard_area_stay_apart() -> None:
+    """feat-007/AC-7, feat-007/AC-38, feat-007/AC-40: no map, mapped and dry, and never asked."""
+    from homescout.enrich.providers import NOT_MAPPED
+
+    unmapped, _ = flood_answering([], mapped=False)
+    dry, _ = flood_answering(
+        [{"FLD_ZONE": "X", "ZONE_SUBTY": "AREA OF MINIMAL FLOOD HAZARD", "SFHA_TF": "F"}]
+    )
+
+    not_mapped = Flood().fetch(unmapped, *PLACE)
+    known_negative = Flood().fetch(dry, *PLACE)
+    never_asked: dict = {}
+
+    assert not_mapped == {"flood_zone": NOT_MAPPED, "flood_hazard_area": None}
+    assert known_negative["flood_hazard_area"] is False
+    assert "flood_hazard_area" not in never_asked
+    assert not_mapped["flood_zone"] != known_negative["flood_zone"]
+
+
+def test_a_point_inside_a_zone_costs_one_request() -> None:
+    """feat-007/AC-38: the availability layer is never asked about a point that has a zone."""
+    paced, transport = flood_answering([{"FLD_ZONE": "A", "ZONE_SUBTY": None, "SFHA_TF": "T"}])
+
+    assert Flood().fetch(paced, *PLACE) == {"flood_zone": "A", "flood_hazard_area": True}
+    assert transport.count == 1
+
+
+def test_every_feature_is_read_and_the_worst_one_kept() -> None:
+    """feat-007/AC-11, feat-007/AC-39. Defect: the provider read only the first feature returned.
+
+    Where two studies meet, or where a floodway lies inside its zone, FEMA answers with more than
+    one feature, in whatever order the server keeps them. The first one listed was the answer, so
+    a house on a floodway could read as plain `X` if the `X` polygon happened to come back first.
+    """
+    paced, _ = flood_answering(
+        [
+            {"FLD_ZONE": "X", "ZONE_SUBTY": "AREA OF MINIMAL FLOOD HAZARD", "SFHA_TF": "F"},
+            {"FLD_ZONE": "AE", "ZONE_SUBTY": None, "SFHA_TF": "T"},
+            {"FLD_ZONE": "AE", "ZONE_SUBTY": "FLOODWAY", "SFHA_TF": "T"},
+        ]
+    )
+
+    assert Flood().fetch(paced, *PLACE) == {
+        "flood_zone": "AE (FLOODWAY)",
+        "flood_hazard_area": True,
+    }
+
+
+def test_a_floodway_is_in_the_hazard_area_whatever_its_zone_text_says() -> None:
+    """feat-007/AC-39: `flood_zone in ["AE"]` misses `AE (FLOODWAY)`; this value does not."""
+    paced, _ = flood_answering([{"FLD_ZONE": "AE", "ZONE_SUBTY": "FLOODWAY", "SFHA_TF": "T"}])
+
+    found = Flood().fetch(paced, *PLACE)
+
+    assert found["flood_zone"] != "AE"
+    assert found["flood_hazard_area"] is True
+
+
+@pytest.mark.parametrize("zone", ["D", "AREA NOT INCLUDED"])
+def test_an_unstudied_zone_is_never_read_as_outside_the_hazard_area(zone: str) -> None:
+    """feat-007/AC-40: FEMA marks Zone D `F`, and its `F` there means nobody looked."""
+    paced, _ = flood_answering([{"FLD_ZONE": zone, "ZONE_SUBTY": None, "SFHA_TF": "F"}])
+
+    found = Flood().fetch(paced, *PLACE)
+
+    assert found["flood_zone"] == zone
+    assert found["flood_hazard_area"] is None
+
+
+def test_an_unstudied_zone_outranks_a_minimal_one_where_they_meet() -> None:
+    """feat-007/AC-39, feat-007/AC-40: the worse reading wins, and unstudied is worse than dry."""
+    paced, _ = flood_answering(
+        [
+            {"FLD_ZONE": "X", "ZONE_SUBTY": "AREA OF MINIMAL FLOOD HAZARD", "SFHA_TF": "F"},
+            {"FLD_ZONE": "D", "ZONE_SUBTY": None, "SFHA_TF": "F"},
+        ]
+    )
+
+    assert Flood().fetch(paced, *PLACE) == {"flood_zone": "D", "flood_hazard_area": None}
+
+
+def test_a_hazard_flag_nobody_recognizes_is_a_failure_rather_than_a_guess() -> None:
+    """feat-007/AC-4, feat-007/AC-39: the same principle as an unknown fire class."""
+    paced, _ = flood_answering([{"FLD_ZONE": "A", "ZONE_SUBTY": None, "SFHA_TF": "Y"}])
+
+    with pytest.raises(ProviderFailed, match="SFHA_TF"):
+        Flood().fetch(paced, *PLACE)
+
+
+def test_an_older_feature_without_the_flag_reads_its_zone_letter() -> None:
+    """feat-007/AC-39: FEMA's own definition of the hazard area is the A and V zones."""
+    paced, _ = flood_answering([{"FLD_ZONE": "AO", "ZONE_SUBTY": None}])
+
+    assert Flood().fetch(paced, *PLACE)["flood_hazard_area"] is True
 
 
 def test_an_elevation_comes_back_in_feet() -> None:

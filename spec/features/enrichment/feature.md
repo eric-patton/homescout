@@ -21,8 +21,8 @@ gate:
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-25
-  open: 4
+  last_run: 2026-10-03
+  open: 8
   contradicts: 0
 human_signoff: []
 open_decisions: []
@@ -36,7 +36,8 @@ extends: []
 
 A separately schedulable pass that attaches public data to a location rather than to a listing:
 flood zone, broadband service, principal aquifer, wildfire hazard, elevation, and boundary
-resolution. Each provider is a plugin declaring its own cache key and time-to-live, cached by
+resolution, and since then the wildland-urban interface, county, data centers, soils, flash-flood
+history, streams and arroyos, and high-hazard dams. Each provider is a plugin declaring its own cache key and time-to-live, cached by
 rounded coordinates and never re-fetched on a hit. One dead endpoint marks that one field stale
 and the run continues.
 
@@ -140,3 +141,41 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   it. Cache-only like everything else the provider answers during a run; `prepare_addresses` is the
   one call that may fetch, and saved searches makes it before a run starts, never inside the
   filtering loop. Free, national and keyless, which is the constitution's rule for external data.
+
+- **2026-10-03, where water goes (`changes/where-fema-has-no-map/`, `changes/where-the-water-goes/`).**
+  Asked for by a mold-sensitive household the week after the remnants of Hurricane Polo flooded
+  southern New Mexico and put McLeod Dam into a Flash Flood Emergency: show where the storm went and
+  where it could happen again, so those houses can be avoided.
+
+  Decided by three independent reviews run before anything was written (one verifying every
+  candidate source live at New Mexico coordinates, one fitting the answer to this codebase, one
+  arguing a mold-sensitive buyer's case), then counted against the 846 New Mexico listings the live
+  search keeps. Two proposals died on those counts: dropping every house any past emergency covered
+  (14 percent of the list, because emergency polygons are drawn over towns), and a rolling
+  past-year warning count (56 percent, and it would forget this storm next October).
+
+  The first finding was about this feature's own flood value. It read an empty FEMA answer as "in no
+  flood zone", on the belief that FEMA maps the whole country; it maps about three quarters of New
+  Mexico, and 285 of the live search's locations were places with no digital map at all. Zone D was
+  the second hole, and reading only the first feature FEMA returned was a real defect. So the flood
+  provider now asks FEMA's availability layer when the zone layer is empty (`not mapped`), supplies
+  FEMA's own yes or no (`flood_hazard_area`), reads every feature worst first, and leaves the yes or
+  no empty wherever FEMA has not decided.
+
+  Then four providers, each answering a question FEMA does not, each free, national and keyless:
+  soils (USDA Soil Data Access, the shallow-groundwater and wetland signal), flash-flood history
+  (the Weather Service's warnings and storm reports since 2008, archived by Iowa State), streams and
+  arroyos (USGS hydrography), and high-hazard dams (USACE National Inventory of Dams). The soil
+  survey read "none" at every town the storm flooded, which is why it is a groundwater signal here
+  and not a flash-flood one, and why streams came into this change rather than a later one.
+
+  Flash floods and dams hold national records a state at a time, like the data centre provider, in
+  a shared `kept.py`. A closed year of warnings is fetched once, ever. Verified live on 2026-10-03:
+  at Hatch, the held record shows the McLeod emergency and a high-hazard dam in poor condition within
+  ten miles; Arrey, in Sierra County, reads `not mapped`; a playa east of Albuquerque reads frequent
+  flooding with the water table at the surface; Rincon is beside the Rincon Arroyo.
+
+  Found while building it: `settings.picture_of` turned a map-service layer's query address into an
+  export address no ArcGIS map service serves. Nothing drew one until FEMA's zones; fixed under the
+  browser feature's `floods-on-the-map`.
+

@@ -80,7 +80,7 @@ def ask_json(
 
     try:
         found = json.loads(fetched.body)
-    except ValueError:
+    except (ValueError, RecursionError):
         raise ProviderFailed(
             f"{name} answered with something that is not JSON. The service has probably changed."
         ) from None
@@ -91,6 +91,42 @@ def ask_json(
         # ArcGIS answers a refusal with HTTP 200 and an error object, so a caller that only checks
         # the status reads a refusal as data.
         raise ProviderFailed(f"{name} refused: {error.get('message', 'no reason given')}")
+    return found
+
+
+def ask_json_post(
+    session: PacedSession, name: str, url: str, body: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """One POST with a JSON body, one JSON object back, through the same paced session.
+
+    The soil survey's query service takes its question as a body rather than as an address, and is
+    the only service here that does. Everything else is `ask_json`'s: the pacing, the backoff, the
+    user agent, the body limit, and a refusal read as a refusal.
+    """
+    try:
+        fetched = session.request(
+            name,
+            Request(
+                url=url,
+                method="POST",
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                body=json.dumps(dict(body)).encode("utf-8"),
+            ),
+        )
+    except SourceError as exc:
+        raise ProviderFailed(str(exc)) from None
+
+    text = fetched.body.strip()
+    if not text:
+        return {}
+    try:
+        found = json.loads(text)
+    except (ValueError, RecursionError):
+        raise ProviderFailed(
+            f"{name} answered with something that is not JSON. The service has probably changed."
+        ) from None
+    if not isinstance(found, Mapping):
+        raise ProviderFailed(f"{name} answered with a {type(found).__name__}, not an object")
     return found
 
 

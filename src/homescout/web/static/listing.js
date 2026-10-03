@@ -347,6 +347,31 @@ function interfaceValue(held) {
   return el("span", {}, "in the wildland-urban interface: " + String(held));
 }
 
+/* The water values whose empty is an answer rather than "nobody looked", and what each empty says.
+ *
+ * Left to the shared renderer, a stored empty reads "not known / nobody determined this", which is
+ * true of a value nobody asked for and false of these: the soil survey was asked and records no
+ * water table, the hydrography was asked and maps no channel within a mile, and FEMA was asked and
+ * has not decided (feat-007/AC-40, AC-43, AC-50). A value that is absent altogether is still "not
+ * known", because nobody asked. */
+/* Every value about water, by the start of its name, for deciding when the caveats are shown. */
+const WATER_NAMES = ["flood_", "soil_", "water_table", "hydric", "stream_", "flash_flood"];
+
+const WATER_EMPTY = {
+  water_table_cm: "no water table recorded in the soil survey",
+  stream_feet: "no stream or arroyo mapped within a mile",
+  flood_hazard_area: "not decided by FEMA (never studied, or not mapped)",
+};
+
+function waterValue(name, found) {
+  const held = found[name];
+  if (held !== null && held !== undefined) return value(held);
+  if (name === "water_table_cm" && found.soil_flooding === "not surveyed") {
+    return el("span", {class: "unknown"}, "not surveyed");
+  }
+  return el("span", {class: "negative", title: "asked, and this is the answer"}, WATER_EMPTY[name]);
+}
+
 function enrichment(held) {
   const found = held.enrichment || {};
   const names = Object.keys(found);
@@ -371,7 +396,7 @@ function enrichment(held) {
         el("dt", {}, labelFor(name)),
         el("dd", {}, name === "wildland_urban_interface"
           ? interfaceValue(found[name])
-          : value(found[name])),
+          : name in WATER_EMPTY ? waterValue(name, found) : value(found[name])),
       ])),
     /* The speeds need a sentence the others do not. Every other value here is about this point:
      * the flood zone, the elevation, the aquifer under it. The speeds are about the census block,
@@ -382,6 +407,24 @@ function enrichment(held) {
      * say: somebody did determine it, and what they determined is that this house is not standing
      * in the vegetation. The other direction matters just as much, which is why `outside coverage`
      * is spelled out rather than shown as a bare phrase nobody can interpret. */
+    /* What the water values can and cannot say, beside them, because a reader meets "none" and
+     * "X, minimal" here first and the Hurricane Polo storm flooded places reading both. */
+    names.some((name) => WATER_NAMES.some((start) => name.startsWith(start)))
+      ? el("p", {class: "meta"},
+          "Water: FEMA maps rivers rather than most arroyos, and Zone D or not mapped means FEMA " +
+          "never studied the spot. A flash-flood warning marks where flooding was expected, drawn " +
+          "wide, not where water went, and an emergency's area is drawn over whole towns. A flood " +
+          "report is placed to about a kilometre, often on a road. The soil values describe a soil " +
+          "map unit, often hundreds of acres, and its flooding class is river flooding of the " +
+          "soil, not water down a wash. A mapped stream is one somebody mapped; an unmapped wash " +
+          "can be closer.")
+      : null,
+    names.some((name) => name.startsWith("dam"))
+      ? el("p", {class: "meta"},
+          "Dams: high-hazard dams, from the U.S. Army Corps of Engineers' National Inventory of " +
+          "Dams. Near, not downstream: the inventory places a dam as one point and does not say " +
+          "which way it drains.")
+      : null,
     interfaceHeld
       ? el("p", {class: "meta"},
           "The wildland-urban interface says whether houses here stand in the vegetation, which " +

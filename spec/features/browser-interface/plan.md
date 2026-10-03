@@ -588,3 +588,38 @@ same way for the same reason. The server is the one place every start passes thr
 Best effort, because the alternative is a server that will not start on a Windows build that
 refuses the call, which is a worse outcome than a slow one; and a call that is not a security
 setting, so it needs no elevation and changes nothing for any other process.
+
+## Design decisions: floods on the map (`changes/floods-on-the-map/`)
+
+### One map, more under it
+
+The flood layers go on the existing map rather than a second one, because a second one would copy
+the pins, the judgments, the list, the ruler, and the rainfall, which matters as much for water as
+for fire. The new code lives in `flood.js`, loaded by the map page after `fire.js`, so the map
+script does not grow past the point where its layering faults are findable; `fire.js` gains the
+choice of what is drawn under the properties, the controls and the legend entries, and calls into
+`flood.js` for the rest.
+
+### The zones, and the address that was wrong
+
+`picture_of` turned a layer's query address into `.../MapServer/28/export`, which an ArcGIS map
+service does not serve: a map service draws at `.../MapServer/export` and is told which layer with
+`layers=show:28`. The interface layer's picture had the same fault, unnoticed because nothing drew
+it. `picture_of` now returns the service's export address with the layer named in its query, and
+`hazard.tile` joins its own parameters onto an address that already has a query. FEMA's zones are a
+tile layer with a minimum zoom of 14, below which Leaflet asks for nothing.
+
+### Flash floods and dams: two routes over held records
+
+`/api/flash-floods/{name}?from=&to=` and `/api/dams/{name}` read the records the enrichment
+providers hold, for the states the run's properties are in, and fetch nothing. The window's dates
+are parsed as ISO dates in the core, a window longer than 366 days is refused, and the default
+window is computed in the core from the held record. Each answer carries the polygons and points
+already reduced to what the page draws, with words the core chose ("emergency", the condition word),
+so the page holds no table of codes. A warning's link to its own text in the archive is built
+here from the office, year and number, never taken from the archive's ready-made HTML.
+
+The warnings draw on one SVG renderer in their own pane with the pointer off at the pane and back
+on for strokes only, exactly as the data centres do (AC-93's answer). Reports and dams are markers:
+reports as small circles on that renderer, dams as `divIcon` triangles whose look is entirely class
+names and CSS, with no content, so no text from any source is ever placed in an icon.

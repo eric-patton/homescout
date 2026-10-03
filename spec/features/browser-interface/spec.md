@@ -15,7 +15,8 @@ in five years. The problem brief is in `research.md`.
 
   The first is the search builder rather than "the map and search builder", and the seventh is the
   map. The surface that draws the wildfire hazard model also draws either background, which way the
-  wind pushes, county lines, town names, rainfall, data centers and a ruler, so it has the word
+  wind pushes, county lines, town names, rainfall, data centers, FEMA's flood zones, flash floods,
+  dams and a ruler, so it has the word
   outright: two
   surfaces whose names both contain "map" is the ambiguity that rename exists to remove. The search
   builder still has a map on it, and what that map is for is drawing the areas a search covers.
@@ -463,19 +464,21 @@ in five years. The problem brief is in `research.md`.
       prints alongside the kept and passed lists without anything new to read it. Passing asks
       before acting, because it takes the house out of the table; keeping records the keep first and
       asks afterwards, because it hides nothing and the same control undoes it.
-- [ ] AC-55: Every property in a run that has a location is drawn on the wildfire hazard model,
-      using the same layer at the same configured address the enrichment pass reads, with its own
+- [ ] AC-55: Every property in a run that has a location is drawn on whichever of the wildfire
+      hazard model or FEMA's flood zones is chosen (AC-97), or on neither, using the same layer at
+      the same configured address the enrichment pass reads, with its own
       legend drawn from this tool rather than fetched. A property with no location is not drawn, and
       is counted and said so. How strongly the hazard layer is drawn can be turned down to read the
       map beneath it. Drawing it asks that server for the part of the country on screen, which the
       page states, because nothing else here does that unless a map background has been turned on.
       The data center layer of AC-88 adds two further hosts, neither of them federal, and the page
       names those too; like the hazard tiles, both are asked by this machine rather than the
-      browser.
+      browser. Drawing FEMA's flood zones (AC-97) asks FEMA's map service the
+      same way; the flash-flood and dam layers ask no host at all (AC-102).
 - [ ] AC-56: A property can be kept or passed on from its pin, with the same question about why and
       the same effect as from the results table, and the map reflects the decision at once. No
-      property is scored, ranked, hidden or coloured by its distance from anything, a data center
-      included, which is named rather than left to "anything" because it is the first thing drawn
+      property is scored, ranked, hidden or coloured by its distance from anything, a data center,
+      a flash-flood warning and a dam included, which are named rather than left to "anything" because it is the first thing drawn
       on this page that a person arrives with an opinion about and an unnamed rule is one somebody
       talks themselves out of, and the only
       reason one is left off the map is a judgment the person made themselves, because anything else
@@ -678,9 +681,9 @@ in five years. The problem brief is in `research.md`.
       Whether the search is already deleted is read from the catalogue inside the request that
       performs the removal, and no claim the client makes about that state is accepted.
 - [ ] AC-71: A surface is named for everything it does, on every link that reaches it and in its own
-      heading. The map is called the map: it draws the wildfire hazard model, either configured
-      background, which way the wind pushes, county lines, town names, rainfall by county, a movable
-      ruler, and the properties themselves as pins that can be kept or passed on, and a name that
+      heading. The map is called the map: it draws the wildfire hazard model or FEMA's flood zones,
+      either configured background, which way the wind pushes, county lines, town names, rainfall
+      by county, data centers, flash floods, dams, a movable ruler, and the properties themselves as pins that can be kept or passed on, and a name that
       says "fire" describes one of those.
 
       Its address is renamed with it, and the old one keeps working: the surface is at `/map/{name}`
@@ -1087,6 +1090,67 @@ in five years. The problem brief is in `research.md`.
       than Windows nothing is asked. A test asserts, on Windows, that the process's throttling
       state reads as explicitly off once the server has prepared itself, and everywhere else that
       preparing is harmless.
+
+- [ ] AC-97: What is drawn under the properties is a choice among the wildfire hazard model, FEMA's
+      flood zones, and neither, and the opacity control applies to whichever is chosen. FEMA's zones
+      are drawn from the same configured address the flood provider reads, fetched by this machine
+      rather than the browser and kept, on the same terms as the wildfire tiles. FEMA's service
+      draws its zones only at about zoom 14 and closer, so no tile is asked for further out, and the
+      page says "zoom in to see FEMA's zones" while it is. The legend follows the choice and uses
+      FEMA's own colours: the 1 percent flood hazard area, the floodway, the 0.2 percent area, and
+      the unstudied Zone D. Plain Zone `X` is not drawn, and the legend says that an undrawn place
+      is either plain Zone X or a place FEMA has not mapped at all, and that the property's own
+      values say which, and that FEMA maps rivers rather than most arroyos and assumes its dams and
+      levees hold.
+- [ ] AC-98: The map can draw flash floods, off by default: the National Weather Service's
+      flash-flood warnings issued within a window of dates, and the flood, flash-flood and debris-flow
+      reports filed within it, from the records the flash-flood provider holds. The window opens on the
+      fourteen days ending with the most recent Flash Flood Emergency in the held record, so the page
+      opens on the latest serious storm without a date written into the code, and either end can be
+      changed. A window longer than a year is refused with a sentence, because three thousand polygons
+      at once is not a map anybody can read. A warning raised to an emergency is drawn heavier and
+      labelled as an emergency.
+- [ ] AC-99: Opening a warning gives the issuing office and its number, the date and time it was
+      issued in the place's local standard time, whether it became an emergency, and the damage
+      threat the Weather Service attached, with a link to the warning's own text in the archive,
+      which is where a cause such as a dam failure is stated; the link is one the person presses and
+      the page says it leaves this tool. The link is built by the core from the warning's identity
+      (its office, year and number, each checked), never taken from the archive (`feat-007/AC-49`),
+      and goes through the page's one link helper, which yields nothing unless the address is http
+      or https (AC-92). Pressing it is the person's own request to a third party; the routes behind
+      the layer ask nobody (AC-103). Opening a report gives what kind of report it was, where it was
+      filed from, when, who filed it, and the remark, rendered as text. The layer's own words say
+      "warned", never "flooded", and the page says that a warning marks where flooding was expected
+      rather than where water went, and that reports are positioned to about a kilometre.
+- [ ] AC-100: The map can draw dams, off by default: the high-hazard dams in the inventory held for
+      the states the run's properties are in and their neighbours, those within the view, drawn as a
+      triangle shaded by condition (unsatisfactory, poor, fair, satisfactory, and an empty triangle
+      for not rated). Opening one gives its name and inventory id, the year it was built, its
+      condition and when that was assessed, its emergency action plan, its primary purpose, and its
+      owner. How many of the dams drawn are rated poor or unsatisfactory is counted by the core and
+      said beside the map, and the triangle, not the box it is drawn in, is what answers the
+      pointer. The page says "near" and never "downstream": the inventory places a dam as one point
+      and does not say which way it drains.
+- [ ] AC-101: The flash-flood and dam layers obey AC-60. A warning's polygon answers the pointer on
+      its outline and never on its fill, so a property inside a warning still opens, and a test
+      asserts it. The warnings and the reports share one renderer made once, not one per shape; the
+      dams are markers whose look is class names and nothing else. Both layers draw only what falls
+      within the current view, and draw it again when the map moves.
+- [ ] AC-102: The sources are credited on the map, and the page states what turning each layer on
+      asks for: the zones ask FEMA's map service for the part of the map on screen, by this machine; the
+      flash-flood and dam layers ask nothing at all, because they read records the enrichment pass
+      already holds, and say so. When those records have not been fetched yet, the layer says that the
+      enrichment pass fetches them rather than drawing an empty map that reads as "no floods".
+- [ ] AC-103: The routes behind these layers read only records already held on this machine. The
+      window's dates arrive from the page and are checked in the core as dates before anything is done
+      with them, and nothing the page sends reaches a third-party address.
+- [ ] AC-104: The results table's Hazards view includes the flood values the enrichment change adds
+      (`feat-007/AC-39` to `feat-007/AC-54`): whether FEMA puts the property in its hazard area, the
+      flash-flood emergencies and warnings, the nearest stream or arroyo, the soil flooding class,
+      the water table, and the worst dam within ten miles, and the search builder's flood suggestion
+      asks `flood_hazard_area == true`, so a floodway is caught by it. A pin's bubble on the map
+      carries the same values in one line: the FEMA zone, how many Flash Flood Emergencies have
+      covered the spot, the nearest stream or arroyo, and a recorded water table.
 
 ## Edge cases & errors
 

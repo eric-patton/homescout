@@ -96,8 +96,10 @@ def tile(root: Path, service: str, layer: str, bbox: str, size: str = "256,256")
             "f": "image",
         }
     )
+    # A map service's address already names its layer in a query of its own.
+    joined = "&" if "?" in service else "?"
     request = urllib.request.Request(  # noqa: S310 - the address is this tool's own configuration
-        f"{service}?{query}", headers={"User-Agent": AGENT, "Accept": "image/png,image/*"}
+        f"{service}{joined}{query}", headers={"User-Agent": AGENT, "Accept": "image/png,image/*"}
     )
     with _room:
         try:
@@ -115,7 +117,15 @@ def tile(root: Path, service: str, layer: str, bbox: str, size: str = "256,256")
 
     where.mkdir(parents=True, exist_ok=True)
     # Written beside and moved into place, so a half-written tile is never read as a whole one.
-    beside = kept.with_suffix(".part")
+    import os
+    import uuid
+
+    beside = kept.with_name(f".{kept.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.part")
     beside.write_bytes(body)
-    beside.replace(kept)
+    try:
+        beside.replace(kept)
+    except OSError:
+        # The same tile asked for twice at once, and the other request's copy is in the way or
+        # being read. Either copy is the same picture; this one is answered and not kept.
+        beside.unlink(missing_ok=True)
     return body

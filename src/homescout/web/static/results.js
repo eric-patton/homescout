@@ -187,10 +187,14 @@ const VIEWS = [
     "Property", "In favour", "Concerns", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres",
     "Year Built", "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
   ]],
+  /* Water sits beside the FEMA zone it qualifies. A plain X read next to two flash-flood
+   * emergencies and an arroyo six hundred feet away is the reading the Hurricane Polo storm taught. */
   ["hazards", "Hazards", [
     "Property", "In favour", "Concerns", "Town/Area", "Price", "Wildfire Hazard",
     "Wildland-Urban Interface",
-    "FEMA Flood Zone", "Principal Aquifer", "Elevation (ft)", "Water Source", "Sewer/Septic",
+    "FEMA Flood Zone", "In FEMA Hazard Area", "Flash-Flood Emergencies", "Flash-Flood Warnings",
+    "Stream or Arroyo (ft)", "Soil Flooding", "Water Table", "Worst Dam (10 mi)",
+    "Principal Aquifer", "Elevation (ft)", "Water Source", "Sewer/Septic",
     "Fire/Egress/Terrain", "Sewage & Reclaimed-Water Exposure", "Crime/Safety",
   ]],
   ["everything", "Everything", null],

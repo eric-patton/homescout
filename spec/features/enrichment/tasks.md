@@ -242,3 +242,94 @@ alongside its peers.
       that checks it. A temporary workspace costs both indexes fetched once, about a megabyte and a
       half, which is what a live check of this provider is worth. Passing in all three states, two
       minutes and a quarter, most of it the paced fetch.
+
+## Change: where FEMA has no map (`changes/where-fema-has-no-map/`)
+
+- [x] T-fz-1: `enrich/settings.py`: the availability layer's address, overridable like every other
+      (`feat-007/AC-14`, `feat-007/AC-38`).
+- [x] T-fz-2: `enrich/providers.py`: `Flood` asks the availability layer only when the zone layer
+      answered nothing, and answers `not mapped` where there is no digital map (`feat-007/AC-38`).
+- [x] T-fz-3: `Flood` supplies `flood_hazard_area` from `SFHA_TF`, reads every feature and keeps the
+      worst by a fixed table, and fails on a flag that is neither `T` nor `F` (`feat-007/AC-39`).
+- [x] T-fz-4: Zone `D`, `AREA NOT INCLUDED`, `not mapped`, and a mapped point with no zone leave
+      `flood_hazard_area` empty (`feat-007/AC-40`).
+- [x] T-fz-5: `rules/namespace.py`: `flood_hazard_area` declared, with a label, a meaning, and the
+      new example zone values, so the builder shows `AE (FLOODWAY)`, `D` and `not mapped`.
+- [x] T-fz-6: `tests/test_enrich_providers.py`: the criteria above, each citing its token, and the
+      old "empty is a negative" test rewritten to the spec's amended edge case.
+
+## Defect: the flood provider read only the first feature returned
+
+- [x] T-fz-7: `tests/test_enrich_providers.py`: a regression test answering with a plain `X` listed
+      before a floodway, which read `X` before the fix (`feat-007/AC-11`, `feat-007/AC-39`).
+
+## Change: where the water goes (`changes/where-the-water-goes/`)
+
+- [x] T-ww-1: `enrich/settings.py`: addresses for the soil service, the warning archive, the storm
+      reports, the hydrography service and the dam inventory, each overridable (`feat-007/AC-14`).
+- [x] T-ww-2: `enrich/provider.py`: `ask_json_post`, one paced POST with a JSON body, through the
+      same session and failure rules as `ask_json` (`feat-007/AC-13`).
+- [x] T-ww-3: `enrich/providers.py`: `Soils`, with the class tables and the three readings
+      (`feat-007/AC-41`, `feat-007/AC-42`, `feat-007/AC-43`).
+- [x] T-ww-4: `enrich/kept.py`: the shared machinery of D-18, and `states.py`'s neighbour table, with
+      a test that the table is symmetric (`feat-007/AC-53`).
+- [x] T-ww-5: `enrich/floods.py`: the warnings per state per year and the reports per state, kept
+      and refreshed by D-18's rules, counted by identity, dated in local standard time, and indexed
+      (`feat-007/AC-45`, `feat-007/AC-46`, `feat-007/AC-48`, `feat-007/AC-49`).
+- [x] T-ww-6: `enrich/providers.py`: `FlashFloods`, empty outside the loaded states, stale on a
+      failed refresh (`feat-007/AC-44`, `feat-007/AC-47`).
+- [x] T-ww-7: `enrich/providers.py`: `Streams`, channels only, measured to the line, to ten feet
+      (`feat-007/AC-50`, `feat-007/AC-51`).
+- [x] T-ww-8: `enrich/dams.py` and `Dams`: the inventory per state and neighbours, the code tables,
+      and the four values (`feat-007/AC-52`, `feat-007/AC-53`).
+- [x] T-ww-9: `rules/namespace.py`: the sixteen new names declared, labelled, explained (including
+      "near, never downstream" and what an empty water table means), with their closed sets where
+      they have one (`feat-007/AC-43`, `feat-007/AC-54`).
+- [x] T-ww-10: `export/columns.py`: columns for the new values, outside the default sheet
+      (`feat-011/AC-7`).
+- [x] T-ww-11: Tests for each criterion, in `tests/test_enrich_water.py`, plus the performance test
+      for the two held records (`feat-007/AC-55`) and the slow live checks (`feat-007/AC-12`).
+- [x] T-ww-12: README: what each value answers and does not, the new hosts this tool talks to, and
+      credit to each source (`feat-007/AC-48`, `feat-007/AC-54`).
+- [x] T-ww-13: `uv run ruff check .` and the full suite, default and slow, green.
+- [x] T-ww-14: The pre-build check's findings folded in (D-21, the per-value empties, the year
+      fetched before it closed, streams keyed to five places, bounded and same-host fetches, a
+      hostile answer costing one record), each with its test.
+- [x] T-ww-15: `/spec-flow:converge` on this feature, recorded with zero contradictions.
+
+## Converge run 4 remediation (2026-10-03)
+
+- [x] T-cv4-1 (gap-006): a flash-flood or dam record whose refresh failed is not stored as fresh
+      point values. The provider reports the failure and leaves the cached values to age as stale
+      (`feat-007/AC-47`, `feat-007/AC-4`).
+- [x] T-cv4-2 (gap-008): `homescout show` and the assessment dossier say what a stored empty water
+      value means, rather than omitting it or printing `None` (`feat-007/AC-43`).
+- [x] T-cv4-3 (gap-009): the listing page's water sentence carries every caveat AC-48 names, and a
+      dam value carries the inventory's credit and "near" wherever it is shown (`feat-007/AC-48`,
+      `feat-007/AC-54`).
+- [x] T-cv4-4 (gap-011): the record fetch's pacing is written into D-18 as the decision it is, with
+      jitter added to its pause (`feat-007/AC-13`).
+- [x] T-cv4-5 (gap-012): the performance test times flash floods and dams separately, through real
+      state outlines (`feat-007/AC-55`).
+- [x] T-cv4-6 (gap-013): AC-50 states the words the data supports (`stream`, `river`) and that the
+      distance is part of `stream_nearest` (`feat-007/AC-50`).
+- [x] T-cv4-7 (gap-014): the warning page address is configuration (`feat-007/AC-14`).
+- [x] T-cv4-8 (gap-015): a coordinate that is not a finite number is a failure before the soil query
+      is built (`feat-007/AC-41`).
+- [x] T-cv4-9 (gap-017): AC-39 names FEMA's other shaded-X qualifiers, which its own renderer draws in
+      the 0.2 percent colour (`feat-007/AC-39`).
+- [x] T-cv4-10 (gap-018): AC-46 and AC-52 state the damage threat, the dam's purpose and owner, and
+      the distance in `dam_nearest` (`feat-007/AC-46`, `feat-007/AC-52`).
+- [-] T-cv4-11 (gap-007): per-state failures inside a record reported as a degraded outcome. Needs an
+      outcome between ok and failed in the pass, which is its own change; left open.
+- [-] T-cv4-12 (gap-010): the listing page credits the data centre sources and says "nearest known".
+      Predates this change; left open.
+- [-] T-cv4-13 (gap-016): a stored-empty `flood_zone` or `dam_miles` in the sheet reads as blank,
+      which the sheet's own note calls "not run". D-21 chose it; left open for the export feature.
+
+## Converge run 5 (2026-10-03)
+
+- [-] T-cv5-1 (gap-019): the data center provider stores answers worked out from a stale tracker
+      index as fresh values. Its own rule (AC-30) is to keep using a stale index, so the fix is a
+      decision about that feature rather than a copy of T-cv4-1; left open.
+

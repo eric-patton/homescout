@@ -44,9 +44,13 @@ def index_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("enrich-live-indexes")
 
 
+#: The two-letter codes of the three, for the providers that hold a record a state at a time.
+DISTANT_STATES = ("NM", "LA", "AK")
+
+
 @pytest.mark.parametrize("where", list(DISTANT), ids=list(DISTANT))
 def test_every_provider_answers_at_a_point_in_this_state(
-    where: str, paced, index_root: Path
+    where: str, paced, index_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """feat-007/AC-12: national coverage, checked where the country stops looking alike.
 
@@ -62,7 +66,12 @@ def test_every_provider_answers_at_a_point_in_this_state(
     allowed to skip, in all three states. A throwaway workspace is what a live check of it costs:
     both of its indexes, about a megabyte and a half, fetched once into a shared directory.
     """
+    from homescout.enrich import kept
     from homescout.store import Store
+
+    # The flash-flood and dam providers hold their records for the states the store's properties
+    # are in, and this throwaway store has none, so they are told the three directly.
+    monkeypatch.setattr(kept, "store_states", lambda store: DISTANT_STATES)
 
     latitude, longitude = DISTANT[where]
     skipped: list[str] = []
@@ -89,9 +98,15 @@ def test_every_provider_answers_at_a_point_in_this_state(
     assert skipped in ([], ["broadband"]), f"unexpected providers skipped: {skipped}"
     assert set(answered) >= {
         "flood_zone",
+        "flood_hazard_area",
         "elevation_ft",
         "over_principal_aquifer",
         "wildfire_hazard",
+        "soil_flooding",
+        "stream_nearest",
+        "flash_flood_warnings",
+        "flood_reports_nearby",
+        "dam_worst_nearby",
     }
     assert isinstance(answered["over_principal_aquifer"], bool)
     assert answered["elevation_ft"] is not None, "every one of these points is on land"
@@ -271,3 +286,58 @@ def test_both_data_centre_sources_answer_and_the_second_closes_the_first_ones_ga
     assert got is not None
     _, miles = got
     assert miles < 10, f"the nearest running data centre to Los Lunas read as {miles:.0f} miles"
+
+
+def test_the_storm_that_started_this_is_in_the_record(tmp_path, monkeypatch) -> None:
+    """feat-007/AC-44, feat-007/AC-46, feat-007/AC-52: Hatch, the week after Hurricane Polo.
+
+    On 29 September 2026 the Weather Service declared a Flash Flood Emergency for the imminent
+    failure of McLeod Dam above Garfield, and the inventory already had that dam as high hazard and
+    in poor condition. If either of those stops being true of the live record, the record has
+    changed shape or the address has moved, and either is worth hearing about loudly.
+    """
+    from homescout.enrich import kept
+    from homescout.enrich.providers import Dams, FlashFloods
+    from homescout.store import Store
+
+    monkeypatch.setattr(kept, "store_states", lambda store: ("NM",))
+    hatch = (32.6653, -107.1531)
+    with Store.open(tmp_path / "homescout.db") as store:
+        floods, dams = FlashFloods(), Dams()
+        floods.attach(store)
+        dams.attach(store)
+        warned = floods.fetch(None, *hatch)
+        near = dams.fetch(None, *hatch)
+
+    assert warned["flash_flood_emergencies"] >= 1
+    assert warned["flash_flood_latest_year"] >= 2026
+    assert near["dams_nearby"] >= 1
+    assert near["dam_worst_nearby"] in ("poor", "unsatisfactory")
+
+
+def test_the_flood_provider_tells_an_unmapped_county_from_a_mapped_one(paced) -> None:
+    """feat-007/AC-38, feat-007/AC-39: Arrey, Sierra County, against Hatch, Dona Ana County.
+
+    Sierra County has no digital FEMA map; a levee breached near Arrey during the Polo storm. Hatch
+    is mapped, and is in an A zone.
+    """
+    from homescout.enrich.providers import Flood
+
+    arrey = Flood().fetch(paced, 32.85, -107.32)
+    hatch = Flood().fetch(paced, 32.6653, -107.1531)
+
+    assert arrey == {"flood_zone": "not mapped", "flood_hazard_area": None}
+    assert hatch["flood_hazard_area"] is True
+
+
+def test_the_soil_survey_and_the_hydrography_answer_where_the_storm_was(paced) -> None:
+    """feat-007/AC-41, feat-007/AC-50: a playa ponds; Rincon is beside the Rincon Arroyo."""
+    from homescout.enrich.providers import Soils, Streams
+
+    playa = Soils().fetch(paced, 35.0, -106.0)
+    rincon = Streams().fetch(paced, 32.6626, -107.0656)
+
+    assert playa["soil_flooding"] in ("frequent", "very frequent")
+    assert playa["water_table_cm"] is not None and playa["water_table_cm"] < 50
+    assert rincon["stream_feet"] is not None and rincon["stream_feet"] < 2_000
+    assert "Rincon" in rincon["stream_nearest"]

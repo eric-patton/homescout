@@ -429,7 +429,16 @@ def listing(found: Any) -> str:
         for name, entry in sorted(extracted.items()):
             lines.append(f"  {name.replace('_', ' '):<14} {entry['value']} ({entry['provenance']})")
 
-    enrichment = {k: v for k, v in (found.get("enrichment") or {}).items() if v is not None}
+    from ..rules.namespace import empty_means
+
+    held_values = found.get("enrichment") or {}
+    # A stored empty is dropped, except where it is an answer: "no water table recorded" is
+    # something the survey said, and leaving it out would read as nobody having asked (AC-43).
+    enrichment = {
+        k: (v if v is not None else empty_means(k, held_values))
+        for k, v in held_values.items()
+        if v is not None or empty_means(k, held_values)
+    }
     if enrichment:
         lines += ["", "where it is:"]
         for name, held in sorted(enrichment.items()):

@@ -1127,3 +1127,50 @@ def test_the_finished_line_of_an_assessment_says_what_it_read() -> None:
     skipped = _describe(PassOutcome(skipped="no model is configured"))
     assert skipped is not None
     assert skipped["summary"] == "nothing assessed: no model is configured"
+
+
+def test_the_hazards_view_and_the_flood_suggestion_know_about_water() -> None:
+    """feat-010/AC-104: the new flood columns are in the Hazards view, and the builder's flood
+    suggestion asks FEMA's own yes or no, which a floodway (`AE (FLOODWAY)`) cannot slip past."""
+    results = (STATIC / "results.js").read_text(encoding="utf-8")
+    hazards = results[results.index('["hazards", "Hazards", ['):]
+    hazards = hazards[: hazards.index("]],")]
+    for column in ("In FEMA Hazard Area", "Flash-Flood Emergencies", "Stream or Arroyo (ft)",
+                   "Soil Flooding", "Water Table", "Worst Dam (10 mi)"):
+        assert f'"{column}"' in hazards, column
+
+    builder = (STATIC / "search.js").read_text(encoding="utf-8")
+    suggestion = builder[builder.index('["in-a-flood-zone"'):]
+    suggestion = suggestion[: suggestion.index("\n  [", 1)]
+    assert '"flood_hazard_area", "==", true' in suggestion
+    assert '"AE"' not in suggestion
+
+
+def test_the_listing_page_says_what_an_empty_water_value_means() -> None:
+    """feat-007/AC-43, feat-007/AC-40, feat-007/AC-50: an answer is not "not known".
+
+    The soil survey that records no water table, the hydrography that maps no channel within a
+    mile, and FEMA not having decided are each something somebody was asked and answered. The
+    shared renderer would print all three as "not known / nobody determined this".
+    """
+    page = (STATIC / "listing.js").read_text(encoding="utf-8")
+
+    assert "no water table recorded in the soil survey" in page
+    assert "no stream or arroyo mapped within a mile" in page
+    assert "not decided by FEMA" in page
+    assert 'found.soil_flooding === "not surveyed"' in page, "an unsurveyed place says so"
+
+
+def test_the_listing_page_and_the_core_say_the_same_thing_about_an_empty() -> None:
+    """feat-007/AC-43, feat-007/AC-48, feat-007/AC-54. gap-008, gap-009: one wording, and every
+    caveat and the inventory's credit where the values are read."""
+    from homescout.rules.namespace import EMPTY_MEANS
+
+    # Adjacent string literals joined with `+`, read as the one sentence they make on the page.
+    page = re.sub(r'"\s*\+\s*"', "", (STATIC / "listing.js").read_text(encoding="utf-8"))
+
+    for said in EMPTY_MEANS.values():
+        assert said in page, said
+    for caveat in ("drawn over whole towns", "about a kilometre", "an unmapped wash",
+                   "river flooding of the soil", "National Inventory of", "Near, not downstream"):
+        assert caveat in page, caveat

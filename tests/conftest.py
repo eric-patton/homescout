@@ -14,6 +14,25 @@ import pytest
 from homescout.store import ListingFields, RunRecord, SourceOutcome, SourceRow, Store
 
 
+@pytest.fixture(autouse=True)
+def _no_record_downloads(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing in the default suite downloads a public record.
+
+    The flash-flood and dam records are fetched whole by `enrich.kept.fetch`, outside the paced
+    session every other provider's fake transport sits behind. A test that reached it by accident
+    once spent a minute downloading New Mexico's warnings and still passed, because the real data
+    was there. The live checks are marked slow and keep the real fetch.
+    """
+    if request.node.get_closest_marker("slow"):
+        return
+    from homescout.enrich import kept
+
+    def refused(url: str, what: str) -> bytes:
+        raise AssertionError(f"a default-suite test tried to download {what} from {url}")
+
+    monkeypatch.setattr(kept, "fetch", refused)
+
+
 @pytest.fixture
 def db_path(tmp_path: Path) -> Path:
     return tmp_path / "data" / "homescout.db"

@@ -21,7 +21,7 @@ gate:
   product_global_hash: "sha256:d720d6d2ec75"
   constitution_hash: "sha256:d73230560d0f"
 converge:
-  last_run: 2026-08-29
+  last_run: 2026-10-03
   open: 0
   contradicts: 0
 human_signoff: []
@@ -70,3 +70,12 @@ which is the fullest of the three options offered and the only one that drops th
 boundary deliberately rather than by omission.
 
 The measurements behind it are in `research.md`.
+
+- **2026-10-03, what the water did (`changes/what-the-water-did/`).** The dossier gained sixteen
+  values about water from the enrichment feature. The instruction now says that FEMA's minimal X, its
+  `not mapped`, Zone D, a soil survey's `none`, zero flash-flood warnings or flood reports, no
+  stream within a mile and no dam within ten are not all-clears, and the dossier names the soil,
+  stream, flash-flood and dam values when nobody looked them up. The new
+  values change every reading's fingerprint once they are filled in, as any new enriched value
+  always has: the next pass somebody starts re-reads those properties.
+

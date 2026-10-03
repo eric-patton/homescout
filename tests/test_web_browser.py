@@ -4120,3 +4120,223 @@ def test_named_houses_are_added_explained_removed_and_saved(served) -> None:
     assert [(a.text, a.reason, a.at) for a in saved] == [
         ("52150 Taylor Dr, Loranger, LA 70446", "Sent by the agent.", None)
     ]
+
+
+# -- floods on the map (changes/floods-on-the-map/) --------------------------
+
+
+def _hold_a_storm_over_the_fixture(root: Path) -> None:
+    """A flash-flood emergency and a report laid over the address every fixture property shares,
+    and a dam beside it, held where the enrichment pass would have put them."""
+    from homescout.enrich import dams, floods, kept
+
+    ring = [[-103.40, 34.15], [-103.30, 34.15], [-103.30, 34.22], [-103.40, 34.22],
+            [-103.40, 34.15]]
+    feature = {
+        "properties": {"phenomena": "FF", "significance": "W", "wfo": "ABQ", "eventid": 200,
+                       "year": 2026, "status": "NEW", "issue": "2026-09-29T19:47:00Z",
+                       "is_emergency": True, "max_is_emergency": True,
+                       "max_floodtag_damage": "CATASTROPHIC"},
+        "geometry": {"type": "Polygon", "coordinates": [ring]},
+    }
+    reports = (
+        "VALID,LAT,LON,TYPETEXT,CITY,COUNTY,SOURCE,REMARK\n"
+        "202609292000,34.19,-103.35,FLASH FLOOD,Portales,Roosevelt,Public,"
+        "<img src=x onerror=window.__pwned=1> water over the road\n"
+    )
+
+    def recorded(url: str, what: str) -> bytes:
+        if "lsr" in url:
+            return reports.encode()
+        return json.dumps({"features": [feature] if "sts=2026" in url else []}).encode()
+
+    floods.warnings(root, "https://archive.example/sbw", "NM", fetch=recorded)
+    floods.reports(root, "https://archive.example/lsr", "NM", fetch=recorded)
+    for state in dams.states_for(["NM"]):
+        kept.write(dams._file(root, state), [] if state != "NM" else [{
+            "id": "NM99999", "name": "A dam above the town", "latitude": 34.20,
+            "longitude": -103.36, "condition": "poor", "assessed": "2023-03-14",
+            "plan": "no emergency action plan", "built": 1955, "purpose": "flood control",
+            "owner": "",
+        }])
+
+
+def test_a_property_inside_a_flash_flood_warning_still_opens(served) -> None:
+    """feat-010/AC-101, feat-010/AC-60: a warning is a polygon over the houses it warned.
+
+    It answers on its outline and never on its fill, exactly as a data centre's outline does, so
+    what the browser says is under the pointer at a pin inside a Flash Flood Emergency is still
+    the thing the pins are drawn on, and the warning itself can still be opened at its line.
+    """
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => true);
+        const map = held.map;
+        const pin = Object.values(held.pins)[0].pin;
+        const drawnOn = pin._renderer._container;
+        const box = map.getContainer().getBoundingClientRect();
+        const at = map.latLngToContainerPoint(pin.getLatLng());
+        const answers = () => {
+          const on = document.elementFromPoint(box.left + at.x, box.top + at.y);
+          return {itself: on === drawnOn,
+                  what: on ? on.tagName + "." + (on.getAttribute("class") || "") : "nothing"};
+        };
+
+        document.getElementById("floods").click();
+        await until(() => water.floods.layer && water.floods.layer.getLayers().length, 400);
+        await wait(200);
+        const withFloods = answers();
+
+        const shape = water.floods.layer.getLayers().find((one) => one.getBounds && one._path
+          && (one._path.getAttribute("class") || "").includes("ff-emergency"));
+        const drawn = shape ? shape._path.getBoundingClientRect() : null;
+        const onShape = drawn
+          ? document.elementFromPoint(drawn.left + drawn.width / 2, drawn.top + 1) : null;
+        return {
+          withFloods,
+          coversThePin: shape ? shape.getBounds().contains(pin.getLatLng()) : false,
+          shapeTakesThePointer: !!(onShape && onShape.tagName.toLowerCase() === "path"),
+          said: document.getElementById("floodcount").textContent,
+          from: document.getElementById("floodfrom").value,
+          to: document.getElementById("floodto").value,
+        };
+    """)
+
+    assert found["coversThePin"], "the warning is not over the property, so this asks nothing"
+    assert found["withFloods"]["itself"], (
+        f"with flash floods on, the property answers to {found['withFloods']['what']}"
+    )
+    assert found["shapeTakesThePointer"], "the warning itself can no longer be opened"
+    assert "1 emergency" in found["said"], found["said"]
+    assert (found["from"], found["to"]) == ("2026-09-16", "2026-09-29"), (
+        "the window opens on the fortnight ending with the latest emergency"
+    )
+
+
+def test_a_storm_report_is_shown_as_the_words_somebody_wrote(served) -> None:
+    """feat-010/AC-99, feat-007/AC-49: a spotter's remark is text, never markup.
+
+    The remark here is an image tag with a handler, which is what anybody filing a report could
+    type. Opened on the map, it must read as those characters and run nothing.
+    """
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => true);
+        document.getElementById("floods").click();
+        await until(() => water.floods.layer && water.floods.layer.getLayers().length, 400);
+        const report = water.floods.layer.getLayers().find((one) =>
+          one._path && (one._path.getAttribute("class") || "").includes("ff-report"));
+        report.openPopup();
+        const bubble = await until(() => document.querySelector(".ffpopup"));
+        await wait(200);
+        return {
+          text: bubble ? bubble.textContent : "",
+          images: bubble ? bubble.querySelectorAll("img").length : -1,
+          pwned: Boolean(window.__pwned),
+        };
+    """)
+
+    assert "<img src=x" in found["text"], found["text"]
+    assert found["images"] == 0 and not found["pwned"]
+
+
+def test_fema_zones_are_a_choice_of_what_is_drawn_under_the_properties(served) -> None:
+    """feat-010/AC-97: the wildfire model or FEMA's zones, the legend follows, and far out it says
+    to zoom in rather than drawing a blank map."""
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 10);
+        await until(() => true);
+        const before = {fire: held.map.hasLayer(held.hazard),
+                        legend: !document.getElementById("legend-wildfire").hidden};
+        const choose = document.getElementById("under");
+        choose.value = "flood";
+        choose.dispatchEvent(new Event("change"));
+        await wait(100);
+        const after = {
+          fire: held.map.hasLayer(held.hazard),
+          zones: water.zones ? held.map.hasLayer(water.zones) : false,
+          minZoom: water.zones ? water.zones.options.minZoom : null,
+          wildfireLegend: !document.getElementById("legend-wildfire").hidden,
+          femaLegend: !document.getElementById("legend-fema").hidden,
+          note: document.getElementById("zonesnote").textContent,
+        };
+        held.map.setZoom(15, {animate: false});
+        await wait(200);
+        after.noteClose = document.getElementById("zonesnote").textContent;
+        return {before, after};
+    """)
+
+    assert found["before"] == {"fire": True, "legend": True}
+    after = found["after"]
+    assert not after["fire"] and after["zones"], after
+    assert after["minZoom"] == 14
+    assert after["femaLegend"] and not after["wildfireLegend"]
+    assert "Zoom in" in after["note"], after["note"]
+    assert after["noteClose"] == ""
+
+
+def test_the_flood_layers_keep_one_surface_as_the_map_moves(served) -> None:
+    """feat-010/AC-101: one renderer made once, as the data centres learned to their cost."""
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 10);
+        await until(() => true);
+        document.getElementById("floods").click();
+        document.getElementById("dams").click();
+        await until(() => water.floods.layer && water.floods.layer.getLayers().length, 400);
+        await until(() => water.dams.layer && water.dams.layer.getLayers().length, 400);
+        await wait(200);
+        const count = () => ({
+          surfaces: document.querySelectorAll(".leaflet-container svg").length,
+          inTheirPane: document.querySelectorAll(".leaflet-floods-pane svg path").length,
+          dams: document.querySelectorAll(".leaflet-dams-pane .dam").length,
+        });
+        const first = count();
+        for (let i = 0; i < 6; i++) {
+          held.map.panBy([i % 2 ? 40 : -40, 20], {animate: false});
+          await wait(120);
+        }
+        held.map.setZoom(11, {animate: false});
+        await wait(300);
+        return {first, later: count(), damSays: document.getElementById("damcount").textContent};
+    """)
+
+    first, later = found["first"], found["later"]
+    assert first["inTheirPane"] and first["dams"] == 1, first
+    assert later["surfaces"] == first["surfaces"], (
+        f"moving the map grew the page from {first['surfaces']} to {later['surfaces']} surfaces"
+    )
+    assert "1 rated poor or unsatisfactory" in found["damSays"], found["damSays"]
+
+
+def test_a_dam_takes_the_pointer_on_its_triangle_and_not_its_corners(served) -> None:
+    """feat-010/AC-101, feat-010/AC-60: the icon's box is larger than the triangle drawn in it, and
+    its empty corners lie over the properties. Only the triangle answers."""
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        held.map.setView([34.20, -103.36], 13);
+        await until(() => true);
+        document.getElementById("dams").click();
+        await until(() => document.querySelector(".leaflet-dams-pane .dam"), 400);
+        /* The layer is drawn again whenever the map settles, so the marker is found afresh once
+         * it has, rather than held from before. */
+        await wait(400);
+        const icon = document.querySelector(".leaflet-dams-pane .dam");
+        const box = icon.getBoundingClientRect();
+        const corner = document.elementFromPoint(box.left + 1, box.top + 1);
+        const inside = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
+        return {corner: corner === icon, inside: inside === icon};
+    """)
+
+    assert not found["corner"], "the empty corner of a dam's box still takes the pointer"
+    assert found["inside"], "the triangle itself can no longer be opened"

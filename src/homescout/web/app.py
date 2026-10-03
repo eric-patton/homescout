@@ -26,7 +26,7 @@ from typing import Any
 from urllib.parse import quote
 
 import anyio
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
@@ -557,6 +557,23 @@ def build(workspace: api.Workspace) -> FastAPI:
         every call after it is off the disk.
         """
         return answer("data_centers", **api.data_centers(held()))
+
+    @app.get("/api/flash-floods/{name}")
+    def flash_floods(
+        name: str,
+        start: str | None = Query(None, alias="from"),
+        end: str | None = Query(None, alias="to"),
+    ) -> dict[str, Any]:
+        """Flash-flood warnings and flood reports in a window of dates, for this run's states.
+
+        Read from what the enrichment pass already holds; nothing is fetched (feat-010/AC-103).
+        """
+        return answer("flash_floods", **api.flash_floods(held(), name, start, end))
+
+    @app.get("/api/dams/{name}")
+    def dams(name: str) -> dict[str, Any]:
+        """The high-hazard dams held for this run's states and their neighbours."""
+        return answer("dams", **api.dams(held(), name))
 
     @app.get("/api/rain/{name}")
     def rainfall(name: str) -> dict[str, Any]:

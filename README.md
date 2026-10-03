@@ -257,7 +257,7 @@ homescout enrich --search nm-acreage --json
 
 | What | Where it comes from | Fills |
 | --- | --- | --- |
-| Flood zone | FEMA National Flood Hazard Layer | `flood_zone` |
+| Flood zone | FEMA National Flood Hazard Layer | `flood_zone`, `flood_hazard_area` |
 | Elevation | USGS National Map | `elevation_ft` |
 | Principal aquifer | USGS principal aquifers | `over_principal_aquifer` |
 | Wildfire hazard | USFS wildfire hazard potential | `wildfire_hazard` |
@@ -265,6 +265,10 @@ homescout enrich --search nm-acreage --json
 | Boundaries | Census TIGERweb | the shapes a saved search's named areas resolve to |
 | Broadband | FCC National Broadband Map | `upload_mbps`, `download_mbps`, `broadband_provider` |
 | Data centres | FracTracker's tracker, and OpenStreetMap | `data_center_miles`, `data_center_approved_miles`, `data_center_proposed_miles`, `data_center_nearest`, `data_center_in_county` |
+| Soil wetness | USDA NRCS Soil Data Access | `soil_flooding`, `water_table_cm`, `soil_drainage`, `hydric_percent`, `soil_ponding_percent` |
+| Flash-flood history | National Weather Service warnings and storm reports, archived by the Iowa Environmental Mesonet | `flash_flood_warnings`, `flash_flood_emergencies`, `flash_flood_latest`, `flash_flood_latest_year`, `flood_reports_nearby` |
+| Streams and arroyos | USGS National Hydrography Dataset | `stream_feet`, `stream_nearest` |
+| High-hazard dams | USACE National Inventory of Dams | `dam_miles`, `dam_nearest`, `dams_nearby`, `dam_worst_nearby` |
 
 **How close the data centres are, split three ways, because they are three different facts.**
 `data_center_miles` is how far it is to the nearest one that is running,
@@ -298,6 +302,80 @@ has written down.
 Both are free and both want credit, which the map gives them: the tracker is FracTracker Alliance's,
 used non-commercially, and the buildings are OpenStreetMap contributors', under the Open Database
 Licence.
+
+**Where water goes, and why FEMA alone is not enough.** Added the week after the remnants of
+Hurricane Polo flooded southern New Mexico, for a household that is mold sensitive. FEMA answers one
+question, the one-percent river flood, and in New Mexico it answers it for less than three quarters
+of the state. That storm showed the rest: Rincon, which FEMA maps as Zone X, minimal hazard, stayed
+under water a day after the Rincon Arroyo breached its levees, and McLeod Dam above Garfield, which
+the federal inventory already rated high hazard and in poor condition with no emergency plan, went
+into a Flash Flood Emergency for imminent failure.
+
+- **FEMA, read properly.** `flood_hazard_area` is FEMA's own yes or no for its special flood hazard
+  area, so a floodway (`AE (FLOODWAY)`) is caught by the same test as the zone around it, which a list
+  of zone letters misses. `flood_zone` reads `not mapped` where FEMA has no digital map at all (ten
+  of New Mexico's thirty-three counties), instead of looking like a dry `X`. Zone `D` means "possible,
+  never studied". In both of those, and wherever FEMA's map has a hole, `flood_hazard_area` is empty
+  rather than `false`, because "nobody looked" is not "safe".
+- **Soil wetness**, from the national soil survey: how often the soil floods, how close the seasonal
+  water table comes (in centimetres; 100 is about three feet), the wettest drainage class, and how
+  much of it is wetland soil. This is the mold signal that has nothing to do with storms: shallow
+  groundwater wicks into a slab or a crawlspace every irrigation season. It is **not** a flash-flood
+  signal. Its flooding class is river flooding of the soil, and it read "none" at every town the
+  Polo storm flooded. It also describes a soil map unit, which can be hundreds of acres.
+- **Flash-flood history**, from the Weather Service's own record since 2008: how many flash-flood
+  warnings have covered the spot, how many were raised to a Flash Flood Emergency, the date and year
+  of the latest, and how many flood reports were filed within a mile since 2005. This is where flash
+  flooding actually shows up in an arid state, burn scars included: Ruidoso has had 98 warnings since
+  2002, 69 of them since the 2024 fires. A warning says where flooding was *expected*, drawn wide, and
+  never where water went; an emergency area is drawn over whole towns.
+- **Streams and arroyos**: how far to the nearest mapped stream, river or wash, wet or dry, within a
+  mile, and which one. In New Mexico the water that floods a house usually arrives down an arroyo
+  that is dry three hundred days a year; Rincon is about six hundred feet from the Rincon Arroyo. An
+  unmapped wash can be closer.
+- **High-hazard dams**: the nearest one at any distance, how many lie within ten miles, and the worst
+  condition among them. **Near, never downstream**: the inventory places each dam as one point and
+  maps of what a failure would flood are not public for local dams, so nothing here knows which way
+  a dam drains. A dam nobody rated reads `not rated`, never as satisfactory.
+
+The flash-flood record and the dam inventory are held on this machine a state at a time, for the
+states your properties are in (and, for dams, the states bordering them), fetched by the enrichment
+pass the first time it needs them: about 35 megabytes for New Mexico's warnings since 2008, once,
+because a closed year never changes, then one year and one reports file a week. Soils and streams
+ask a service per point, like the flood zone, so the first pass over a big search takes a while:
+two to three hours for two and a half thousand properties, at the one-second pace every provider
+keeps.
+
+Criteria a mold-sensitive search might use, which are the ones the New Mexico search here uses:
+
+```yaml
+- {id: fema-flood-area, when: 'flood_hazard_area == true', severity: drop}
+- {id: soil-floods, when: 'soil_flooding in ["occasional", "frequent", "very frequent"]', severity: drop}
+- {id: groundwater-under-the-house, when: 'water_table_cm < 100', severity: drop}
+- {id: wash-and-emergency, when: 'stream_feet < 500 and flash_flood_emergencies > 0', severity: drop}
+- {id: fema-never-studied, when: 'flood_zone in ["D", "not mapped"]', severity: flag}
+- {id: next-to-a-wash, when: 'stream_feet < 500', severity: flag}
+- {id: flash-flood-emergency-here, when: 'flash_flood_emergencies > 0', severity: flag}
+- {id: poor-dam-nearby, when: 'dam_worst_nearby in ["poor", "unsatisfactory"]', severity: flag}
+```
+
+Dropping on any past Flash Flood Emergency alone would set aside about one house in seven in New
+Mexico, because emergency areas cover whole towns (Roswell, Alto, Ruidoso, Santa Fe), which is why
+that one is a flag and the drop needs a wash beside the house as well.
+
+The per-search map draws all of this too: FEMA's zones as a choice of what is under the properties
+(they only appear zoomed in to a few miles across, because that is where FEMA's service draws them),
+the flash-flood warnings and flood reports for a window of dates that opens on the latest Flash Flood
+Emergency on record, and the high-hazard dams shaded by condition. The zones are fetched from FEMA by
+this machine like the fire layer; the flash floods and dams ask nobody, because they are read from
+what the enrichment pass already holds.
+
+Credit where the data comes from: flash-flood warnings and storm reports are the National Weather
+Service's, as archived by the Iowa Environmental Mesonet at Iowa State University; soils are the USDA
+Natural Resources Conservation Service's; streams are the U.S. Geological Survey's; dams are the U.S.
+Army Corps of Engineers' National Inventory of Dams. All four are free and keyless. The hosts this
+adds are `sdmdataaccess.sc.egov.usda.gov`, `mesonet.agron.iastate.edu` (already asked for wind),
+`hydro.nationalmap.gov` and `nid.sec.usace.army.mil`.
 
 **The wildland-urban interface covers New Mexico only, and says so elsewhere.** It is the one
 value here that does not answer for the whole country, and it is worth having anyway because it
