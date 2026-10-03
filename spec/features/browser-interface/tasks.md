@@ -1874,6 +1874,31 @@ is written in this file beside this function and the wrong pattern is the one cu
       is in the round part, it is on the flood layer's renderer, and the legend's swatch is the
       drop.
 
+## Defect: saving one panel of a search wiped the areas not saved yet
+
+- [x] T-sp-1: `web/static/search.js`: a save rebuilds only the panel it wrote, the areas save and
+      the map background change the map that is open rather than reloading the page, and the
+      fields under "what it looks for" move their own record of what is written instead of being
+      rebuilt (`feat-010/AC-82`, `feat-010/AC-2`).
+
+      Reported on 2026-10-03 as "whenever you are making a new search and change values in the
+      'What it looks for' fields, it resets the map areas you have drawn or put in back to the
+      default of Portales". Every save redrew the whole page from the server's answer, which holds
+      only what has been saved: the map was made again at its default view over Portales, and the
+      shapes drawn, the towns added (back to the new search's Roosevelt County) and the criteria
+      being built all went, while the areas panel still said it had changes not saved. Turning the
+      map background on or off did the same by reloading the page. Two smaller faults in the same
+      table were fixed with it: the area table sits beside the areas panel rather than inside it,
+      so adding, renaming, re-sensing or removing a row there never marked the areas as changed;
+      and an empty table said "add a town below" with nothing below it.
+
+- [x] T-sp-2: `tests/test_web_browser.py`: with a shape drawn, a town added and a criterion
+      started, a price typed and left for the next box is saved, and the map, its view, the shape,
+      the town and the criterion are all still there, the cursor is in the next box, and the file
+      has the price and not the town; the background turned on and off keeps them too; a town
+      added marks the areas as changed (`feat-010/AC-82`, `feat-010/AC-2`). Checked against the
+      old page, where it fails with "saving a price made the map again".
+
 ## Change: easier to open, lighter to draw (`changes/easier-to-open-lighter-to-draw/`)
 
 - [x] T-eo-1: `web/static/flood.js`: a warning takes no pointer; the map's click lists every drawn

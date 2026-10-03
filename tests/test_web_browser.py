@@ -4125,6 +4125,151 @@ def test_named_houses_are_added_explained_removed_and_saved(served) -> None:
     ]
 
 
+def test_saving_one_panel_keeps_what_the_others_have_not_saved(served) -> None:
+    """feat-010/AC-82, feat-010/AC-2: each panel saves only itself, and keeps its draft meanwhile.
+
+    Reported from a new search: changing a value under "What it looks for" put the map back over
+    Portales and took away every area drawn or typed in. A save on any panel redrew the whole page
+    from the server's answer, which holds only what has been saved, so the map was made again at
+    its default view and every other panel's draft went with it, the criteria being built too,
+    while the areas panel went on saying it had changes not saved. Turning the map background on
+    did the same, by reloading the page.
+
+    Asserted the way it was met: a shape drawn, a town added and a criterion started, then a price
+    typed and left by moving to the next box, which is what saves it. The map's background is
+    swapped with the tile layer stubbed out, so the test asks nothing of a tile server.
+    """
+    from contextlib import ExitStack
+
+    from homescout.search.definition import FileCatalog
+    from searches_fakes import sourced
+
+    base, held, store = served
+    directory = store.path.parent / "searches"
+    directory.mkdir(exist_ok=True)
+    definition = directory / "portales.yaml"
+    definition.write_text(
+        'name: portales\nareas:\n  - {type: city, value: "Portales, NM"}\nsources: [fake]\n',
+        encoding="utf-8",
+    )
+    held.catalog = FileCatalog(directory)
+    registry = ExitStack()
+    registry.enter_context(sourced("fake"))
+
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(
+            connection,
+            """(async () => {
+                 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+                 const until = async (ready) => {
+                   for (let i = 0; i < 100; i++) {
+                     const got = ready();
+                     if (got) return got;
+                     await wait(50);
+                   }
+                   return null;
+                 };
+                 await until(() => typeof held !== "undefined" && held.map && held.drawn
+                                   && document.getElementById("price-min"));
+                 const map = held.map;
+                 const shapes = () => held.drawn.getLayers().length;
+                 const rows = () => [...document.querySelectorAll("#arealist tbody tr")].length;
+                 const towns = () => [...document.querySelectorAll("#arealist tbody input")]
+                   .map((box) => box.value);
+                 const view = () => {
+                   const at = map.getCenter();
+                   return [+at.lat.toFixed(3), +at.lng.toFixed(3), map.getZoom()];
+                 };
+
+                 /* Somewhere that is not where the page opens, and a draft on three panels. */
+                 map.setView([35.08, -106.65], 10, {animate: false});
+                 const there = view();
+                 map.fire("draw:created", {layerType: "polygon", layer: L.polygon(
+                   [[35.0, -106.7], [35.1, -106.7], [35.1, -106.6]])});
+                 document.getElementById("newplace").value = "Clovis";
+                 [...document.querySelectorAll("#arealist button")]
+                   .find((b) => b.textContent.trim() === "Add").click();
+                 [...document.querySelectorAll("[data-panel='criteria'] button")]
+                   .find((b) => b.textContent.trim() === "Add a criterion").click();
+                 const drafted = {shapes: shapes(), rows: rows(), rules: held.rules.length};
+
+                 /* A town added is a change to the areas on its own, before any shape. */
+                 saved("areas");
+                 document.getElementById("newplace").value = "Texico";
+                 [...document.querySelectorAll("#arealist button")]
+                   .find((b) => b.textContent.trim() === "Add").click();
+                 const townMarks =
+                   !!document.querySelector("[data-panel='areas'].unsaved");
+                 drafted.rows = rows();
+
+                 /* A price, typed and left for the next box, which is what saves it. */
+                 const low = document.getElementById("price-min");
+                 low.focus();
+                 low.value = "123456";
+                 low.dispatchEvent(new Event("input", {bubbles: true}));
+                 document.getElementById("price-max").focus();
+                 const wrote = await until(() =>
+                   ((held.search.filters || {}).price || {}).min === 123456);
+                 await wait(300);
+                 const afterSave = {
+                   sameMap: held.map === map, view: view(), shapes: shapes(), rows: rows(),
+                   towns: towns(), rules: held.rules.length,
+                   focused: document.activeElement && document.activeElement.id,
+                   areasUnsaved: !!document.querySelector("[data-panel='areas'].unsaved"),
+                   settingsUnsaved:
+                     !!document.querySelector("[data-panel='settings'].unsaved"),
+                 };
+
+                 /* The background, on and off again, on the same map. */
+                 L.tileLayer = () => L.layerGroup();
+                 [...document.querySelectorAll("#maphint button")]
+                   .find((b) => b.textContent.includes("Turn on")).click();
+                 await until(() => document.getElementById("maphint").textContent
+                   .includes("Turn it off"));
+                 const afterTiles = {sameMap: held.map === map, view: view(),
+                                     shapes: shapes(), rows: rows()};
+                 [...document.querySelectorAll("#maphint button")]
+                   .find((b) => b.textContent.includes("Turn it off")).click();
+                 await until(() => document.getElementById("maphint").textContent
+                   .includes("Turn on"));
+
+                 return {there, drafted, townMarks, wrote: !!wrote, afterSave, afterTiles};
+               })()""",
+        )
+    finally:
+        process.terminate()
+        registry.close()
+
+    assert found is not None, "the page never finished"
+    assert found["wrote"], "the price was never saved"
+    assert found["townMarks"], "a town added to the table did not mark the areas as changed"
+    drafted, after = found["drafted"], found["afterSave"]
+    assert after["sameMap"], "saving a price made the map again"
+    assert after["view"] == found["there"], (
+        f"saving a price moved the map from {found['there']} to {after['view']}"
+    )
+    assert after["shapes"] == drafted["shapes"], "saving a price took away the drawn shape"
+    assert after["rows"] == drafted["rows"] and "Clovis" in after["towns"], (
+        f"saving a price took away the areas typed in: {after['towns']}"
+    )
+    assert after["rules"] == drafted["rules"], "saving a price took away the criterion started"
+    assert after["areasUnsaved"], "the areas stopped saying they had changes not saved"
+    assert not after["settingsUnsaved"], "the price was saved and the panel still says it is not"
+    assert after["focused"] == "price-max", f"the cursor left the next box: {after['focused']}"
+
+    tiles = found["afterTiles"]
+    assert tiles["sameMap"] and tiles["view"] == found["there"], "the background moved the map"
+    assert (tiles["shapes"], tiles["rows"]) == (drafted["shapes"], drafted["rows"]), (
+        "turning the background on took away the areas not saved"
+    )
+
+    written = definition.read_text(encoding="utf-8")
+    assert "123456" in written, written
+    assert "Clovis" not in written, "the areas were written without their own save"
+
+
 # -- floods on the map (changes/floods-on-the-map/) --------------------------
 
 

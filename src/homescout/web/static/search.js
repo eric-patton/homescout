@@ -14,7 +14,7 @@
  * means.
  */
 
-const held = {name: "", search: null, settings: null, map: null, drawn: null};
+const held = {name: "", search: null, settings: null, map: null, drawn: null, background: null};
 
 /* Which panels have been changed and not saved.
  *
@@ -107,7 +107,7 @@ function draw() {
     el("p", {class: "lede"},
       "Where to look, what to look for, and what matters to you about what turns up."),
     el("div", {id: "unsaved", class: "notice notice-flag", role: "status", hidden: true}),
-    problems(search),
+    el("div", {id: "problems"}, problems(search)),
     el("div", {class: "detail"},
       el("div", {}, mapPanel(), areaList(), addressPanel()),
       el("div", {}, settingsPanel()),
@@ -202,14 +202,21 @@ async function saveAreas() {
   }
 
   try {
-    await send(`/api/searches/${encodeURIComponent(held.name)}`,
+    const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`,
       {set: {areas: areas, exclude_areas: exclusions}});
+    held.search = answered.search;
     saved("areas");
     say(
       `Saved ${count(areas.length, "area")}` +
       (exclusions.length ? ` and ${count(exclusions.length, "exclusion")}.` : "."),
       "good");
-    await load();
+    /* The areas from what the file now says, on the map that is already open. Reloading the page
+     * here, as this used to, threw away every other panel's unsaved draft and put the map back at
+     * its default view. */
+    held.named = null;
+    showShapes();
+    redrawAreaList();
+    rebuild("areas");
   } catch (error) {
     fail(error);
   }
@@ -257,13 +264,21 @@ function areaList() {
   const named = held.named || namedFrom(search);
   held.named = named;
 
+  /* This table sits beside the areas panel's section rather than inside it, so the listener that
+   * marks a panel changed never hears it. Each control here marks the areas itself; before it did,
+   * a town added or renamed here could be lost by leaving the page without a word. */
+
   const shapes = [];
   if (held.drawn) held.drawn.eachLayer((layer) => { if (layer.toGeoJSON) shapes.push(layer); });
 
+  /* With nothing in the table, the way to put something in it is still there: the sentence says
+   * "add a town below", and below used to be nothing at all. */
   if (!named.length && !shapes.length) {
     return el("section", {id: "arealist"},
       el("p", {class: "unknown"},
-        "this search names no areas yet. Add a town below, or draw one on the map."));
+        "this search names no areas yet. Add a town below, or draw one on the map."),
+      addPlace(),
+      el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"));
   }
 
   return el("section", {id: "arealist"},
@@ -282,7 +297,7 @@ function areaList() {
           el("input", {
             type: "text", value: area.value || "",
             "aria-label": `Which place row ${index + 1} names`,
-            onchange: (e) => { area.value = e.target.value.trim(); },
+            onchange: (e) => { area.value = e.target.value.trim(); touched("areas"); },
           }),
           area,
           () => { named.splice(named.indexOf(area), 1); redrawAreaList(); },
@@ -327,6 +342,7 @@ function addPlace() {
         const given = value_.value.trim();
         if (!given) { say("Type a place first.", "problem"); return; }
         held.named.push({kind: kind.value, value: given, name: "", excluded: false});
+        touched("areas");
         redrawAreaList();
         say(`Added ${given}. Save the areas to write it into the file.`, "good");
       },
@@ -346,6 +362,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
     onchange: (e) => {
       const given = e.target.value.trim();
       if (isLayer) holder.__name = given; else holder.name = given;
+      touched("areas");
     },
   });
   /* Why, opened rather than squeezed in.
@@ -380,6 +397,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
       } else {
         holder.excluded = out;
       }
+      touched("areas");
     },
   },
     el("option", {value: "included"}, "searched"),
@@ -409,7 +427,10 @@ function areaRow(kind, which, holder, remove, position, layer) {
         const called = (isLayer ? holder.__name : holder.name)
           || holder.value || `area ${position}`;
         const why = (isLayer ? holder.__reason : holder.reason) || "";
-        if (await confirmRemoval(called, kind, why)) remove();
+        if (await confirmRemoval(called, kind, why)) {
+          remove();
+          touched("areas");
+        }
       },
       title: `Remove area ${position}`,
       "aria-label": `Remove area ${position}`,
@@ -1258,16 +1279,19 @@ function listOrNothing(raw) {
 
 /* One labelled field that saves when you leave it or press Enter. */
 function text(id, label, current, onSave, hint) {
-  const input = el("input", {
-    type: "text",
-    id: id,
-    value: current === null || current === undefined ? "" : String(current),
-    "aria-label": label,
-  });
-  const commit = () => {
+  /* What the file says, moved on by each save rather than by rebuilding the field (see `rebuild`).
+   * Moved before the save is answered and back if it fails, so the Enter that saves and the blur
+   * that follows it are one write rather than two. */
+  let written = current === null || current === undefined ? "" : String(current);
+  const input = el("input", {type: "text", id: id, value: written, "aria-label": label});
+  const commit = async () => {
     const wanted = input.value.trim();
-    if (wanted === (current === null || current === undefined ? "" : String(current))) return;
-    try { onSave(wanted); } catch (error) { fail(error); }
+    if (wanted === written) return;
+    const before = written;
+    written = wanted;
+    let took = false;
+    try { took = await onSave(wanted); } catch (error) { fail(error); }
+    if (!took) written = before;
   };
   input.addEventListener("keydown", (event) => { if (event.key === "Enter") commit(); });
   input.addEventListener("blur", commit);
@@ -1290,18 +1314,23 @@ function range_(name, label, current) {
   });
   /* What the file says right now, so leaving a box without having touched it saves nothing. A blur
    * handler that commits unconditionally writes the file every time somebody tabs through the page,
-   * which is how an empty `sqft:` appears in a search nobody edited. */
-  const asLoaded = JSON.stringify({
+   * which is how an empty `sqft:` appears in a search nobody edited. Moved on by each save, as
+   * `text` does, because the field is not rebuilt after one. */
+  let written = JSON.stringify({
     ...(held_.min != null ? {min: held_.min} : {}),
     ...(held_.max != null ? {max: held_.max} : {}),
   });
-  const commit = () => {
+  const commit = async () => {
     const wanted = {};
     if (low.value.trim() !== "") wanted.min = Number(low.value);
     if (high.value.trim() !== "") wanted.max = Number(high.value);
-    if (JSON.stringify(wanted) === asLoaded) return;
-    save({[`filters.${name}`]: Object.keys(wanted).length ? wanted : null},
-         "what it looks for");
+    const asked = JSON.stringify(wanted);
+    if (asked === written) return;
+    const before = written;
+    written = asked;
+    const took = await save({[`filters.${name}`]: Object.keys(wanted).length ? wanted : null},
+                            "what it looks for");
+    if (!took) written = before;
   };
   for (const box of [low, high]) {
     box.addEventListener("keydown", (event) => { if (event.key === "Enter") commit(); });
@@ -1312,19 +1341,54 @@ function range_(name, label, current) {
     el("span", {class: "pair"}, low, el("span", {class: "to"}, "to"), high));
 }
 
+/* Writes one panel's part of the search, and then rebuilds that panel and nothing else.
+ *
+ * This used to redraw the whole page from the server's answer, which is everything the file says
+ * and nothing anybody has not saved yet. So every other panel lost its draft: the shapes drawn on
+ * the map, the towns added to the table, the criteria being built, and the map itself, made again
+ * at the default view over Portales. Changing a price on a new search was enough to wipe the areas
+ * drawn for it, while the areas panel went on saying it had changes not saved. Each panel saves
+ * only itself, so each save rebuilds only itself.
+ *
+ * Answers whether it was written, which is what a field that saves on its own needs to know
+ * before it takes the typed value as the one in the file. */
 async function save(changes, panel) {
   try {
     const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`, {set: changes});
     held.search = answered.search;
-    held.named = null;  /* What was saved is now what the server says; re-seed from it. */
-    held.addresses = null;
-    /* Cleared before the redraw, because the redraw rebuilds the panels and re-reads this. */
-    if (panel) saved(panel);
+    if (panel && !(panel === "what it looks for" && notesUnsaved())) saved(panel);
     say("Saved. The file keeps its comments and everything you did not change.", "good");
-    draw();
+    rebuild(panel);
+    return true;
   } catch (error) {
     fail(error);
+    return false;
   }
+}
+
+/* The panel just written, from what the server now says, and the problems it reports.
+ *
+ * Nothing on "what it looks for" is rebuilt. Each of its fields saves itself as it is left, and
+ * already shows what it saved; rebuilding them took the cursor out of the field somebody had just
+ * moved to, along with anything typed into it while the save was on its way. */
+function rebuild(panel) {
+  if (panel === "criteria") {
+    const where = panels().criteria;
+    if (where) where.replaceChildren(...criteriaPanel().childNodes);
+  } else if (panel === "named houses") {
+    held.addresses = null;
+    redrawAddresses();
+  }
+  const where = document.getElementById("problems");
+  const found = problems(held.search);
+  if (where) where.replaceChildren(...(found ? [found] : []));
+}
+
+/* The one control on "what it looks for" that waits for a button. A field elsewhere on the panel
+ * saving is not this note being saved, and the panel must not say it is. */
+function notesUnsaved() {
+  const box = document.getElementById("searchnotes");
+  return !!box && box.value.trim() !== (held.search.extract_notes || "").trim();
 }
 
 /* Research a town once rather than once per property.
@@ -1456,7 +1520,6 @@ async function saveNote(kind, place, notes) {
 
 function startMap() {
   const where = document.getElementById("map");
-  const hint = document.getElementById("maphint");
 
   if (typeof L === "undefined" || typeof L.Control === "undefined" || !L.Control.Draw) {
     where.classList.add("plain");
@@ -1470,53 +1533,12 @@ function startMap() {
   const map = L.map(where, {center: [34.19, -103.34], zoom: 11});
   held.map = map;
 
-  const tiles = held.settings.map && held.settings.map.tiles;
-  if (tiles) {
-    L.tileLayer(tiles, {
-      attribution: (held.settings.map && held.settings.map.attribution) || "",
-      maxZoom: 19,
-      referrerPolicy: TILE_REFERRER,
-    }).addTo(map);
-    hint.replaceChildren(
-      el("span", {},
-        "A background is on, so this map asks that server for the part of the world you are " +
-        "looking at. "),
-      el("button", {type: "button", onclick: turnTilesOff}, "Turn it off"));
-  } else {
-    /* A grey rectangle with a toolbar on it is not a map. Rather than leave somebody looking at
-     * one, say what is missing and offer the one click that fixes it, with what it costs stated
-     * where the choice is made rather than in a file they would have to go and find. */
-    hint.replaceChildren(
-      el("strong", {}, "There is no map background. "),
-      el("span", {},
-        "Drawing works without one, over the coordinate grid below, and is much easier with one. " +
-        "Turning it on means this map asks OpenStreetMap for tiles, which tells them which part " +
-        "of the world you are looking at. Nothing else about this tool talks to them. "),
-      el("button", {type: "button", onclick: turnTilesOn}, "Turn on the map background"),
-      el("span", {}, " "),
-      link("/settings", "or use a different tile server"));
-    grid(map);
-  }
+  background();
 
   const drawn = new L.FeatureGroup();
   map.addLayer(drawn);
   held.drawn = drawn;
-
-  for (const area of (held.search.areas || []).concat(held.search.exclusions || [])) {
-    if (!area.geometry) continue;
-    L.geoJSON(area.geometry, {
-      style: {color: area.excluded ? "#a02020" : "#14508c",
-              dashArray: area.excluded ? "5,5" : null},
-    }).eachLayer((layer) => {
-      layer.__excluded = !!area.excluded;
-      /* The name and the in-or-out sense live on the layer, not on the row that shows them. That
-       * is what lets both be changed without redrawing the shape: the table edits the layer, and
-       * saving reads every layer back out. */
-      layer.__name = area.name || "";
-      layer.__reason = area.reason || "";
-      drawn.addLayer(layer);
-    });
-  }
+  showShapes();
 
   map.addControl(new L.Control.Draw({
     edit: {featureGroup: drawn},
@@ -1566,6 +1588,68 @@ function startMap() {
   });
 }
 
+/* The map's background: the tiles when a server is set, the coordinate grid when none is. Swapped
+ * on the map that is open when the choice changes, rather than by reloading the page, which would
+ * throw away everything drawn and not saved yet. */
+function background() {
+  const map = held.map;
+  const hint = document.getElementById("maphint");
+  if (held.background) held.background();
+
+  const tiles = held.settings.map && held.settings.map.tiles;
+  if (tiles) {
+    const layer = L.tileLayer(tiles, {
+      attribution: (held.settings.map && held.settings.map.attribution) || "",
+      maxZoom: 19,
+      referrerPolicy: TILE_REFERRER,
+    }).addTo(map);
+    held.background = () => map.removeLayer(layer);
+    hint.replaceChildren(
+      el("span", {},
+        "A background is on, so this map asks that server for the part of the world you are " +
+        "looking at. "),
+      el("button", {type: "button", onclick: turnTilesOff}, "Turn it off"));
+  } else {
+    /* A grey rectangle with a toolbar on it is not a map. Rather than leave somebody looking at
+     * one, say what is missing and offer the one click that fixes it, with what it costs stated
+     * where the choice is made rather than in a file they would have to go and find. */
+    hint.replaceChildren(
+      el("strong", {}, "There is no map background. "),
+      el("span", {},
+        "Drawing works without one, over the coordinate grid below, and is much easier with one. " +
+        "Turning it on means this map asks OpenStreetMap for tiles, which tells them which part " +
+        "of the world you are looking at. Nothing else about this tool talks to them. "),
+      el("button", {type: "button", onclick: turnTilesOn}, "Turn on the map background"),
+      el("span", {}, " "),
+      link("/settings", "or use a different tile server"));
+    held.background = grid(map);
+  }
+}
+
+/* The search's drawn areas, as the file has them, on the map that is open. Called when the page
+ * opens and after the areas are saved; never by a save of anything else, because these layers are
+ * also the draft of whatever has been drawn and not saved yet. */
+function showShapes() {
+  const drawn = held.drawn;
+  if (!drawn) return;
+  drawn.clearLayers();
+  for (const area of (held.search.areas || []).concat(held.search.exclusions || [])) {
+    if (!area.geometry) continue;
+    L.geoJSON(area.geometry, {
+      style: {color: area.excluded ? "#a02020" : "#14508c",
+              dashArray: area.excluded ? "5,5" : null},
+    }).eachLayer((layer) => {
+      layer.__excluded = !!area.excluded;
+      /* The name and the in-or-out sense live on the layer, not on the row that shows them. That
+       * is what lets both be changed without redrawing the shape: the table edits the layer, and
+       * saving reads every layer back out. */
+      layer.__name = area.name || "";
+      layer.__reason = area.reason || "";
+      drawn.addLayer(layer);
+    });
+  }
+}
+
 const OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_CREDIT = "© OpenStreetMap contributors";
 
@@ -1578,7 +1662,7 @@ async function turnTilesOn() {
     return;
   }
   say("Map background on. It can be turned off again here or on the settings page.", "good");
-  await load();
+  await backgroundChanged();
 }
 
 async function turnTilesOff() {
@@ -1589,14 +1673,24 @@ async function turnTilesOff() {
     return;
   }
   say("Map background off. Nothing outside this machine is asked about the map now.", "good");
-  await load();
+  await backgroundChanged();
+}
+
+async function backgroundChanged() {
+  try {
+    held.settings = await ask("/api/settings");
+    background();
+  } catch (error) {
+    fail(error);
+  }
 }
 
 /* Something to draw over when there is no background.
  *
  * A grid of degrees with its lines labelled, so a shape drawn on it can be placed and checked
  * against a coordinate rather than against nothing at all. Not a substitute for a map, and it is
- * not offered as one: the sentence above it says what is missing.
+ * not offered as one: the sentence above it says what is missing. Answers how to take it away
+ * again, for when a background is turned on.
  */
 function grid(map) {
   const lines = L.layerGroup().addTo(map);
@@ -1623,6 +1717,10 @@ function grid(map) {
   };
   redraw();
   map.on("moveend zoomend", redraw);
+  return () => {
+    map.off("moveend zoomend", redraw);
+    map.removeLayer(lines);
+  };
 }
 
 /* A cheap self-intersection test for the shape somebody just drew, so the refusal happens while
