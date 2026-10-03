@@ -808,3 +808,21 @@ def test_the_warning_page_address_is_configuration(monkeypatch) -> None:
                                 "damage": None, "polygon": [[[[0, 0], [1, 0], [1, 1], [0, 0]]]]})
 
     assert drawn["link"].startswith("https://mirror.example/vtec/?year=2026&wfo=KEPZ")
+
+
+def test_a_criterion_naming_a_flood_or_dam_value_is_not_told_it_will_never_fire() -> None:
+    """feat-007/AC-44, feat-007/AC-52: nothing needs setting up for these two, so the check a saved
+    search runs does not warn that the rule is undetermined for every property. It did, the day
+    they shipped, because the check builds providers with no workspace attached."""
+    from homescout.rules import namespace as ns
+
+    for name in ("flash_flood_emergencies", "flood_reports_nearby", "dam_worst_nearby"):
+        assert ns.unconfigured(name) is None, name
+
+
+def test_a_provider_asked_with_no_workspace_says_so() -> None:
+    """feat-007/AC-4: a wiring mistake is a failure naming it, never a silent nothing."""
+    with pytest.raises(ProviderFailed, match="without a workspace"):
+        FlashFloods().fetch(session(CountingTransport()), *HATCH)
+    with pytest.raises(ProviderFailed, match="without a workspace"):
+        Dams().fetch(session(CountingTransport()), *HATCH)

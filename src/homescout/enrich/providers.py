@@ -1006,15 +1006,20 @@ class FlashFloods:
         return floods.CURRENT_DAYS
 
     def configured(self) -> bool:
-        return self._root is not None
-
-    def why_not(self) -> str:
-        return "nothing has told it where the records live"
+        # Nothing for a person to set up: no key, no account, no download to ask for. Where the
+        # records live is wiring the pass supplies, and its absence is a failure in `ready`, not a
+        # reason to tell somebody writing a criterion that it will never fire.
+        return True
 
     def ready(self) -> Any:
         """The records, built once per pass rather than once per location (feat-007/AC-45)."""
         from . import floods
 
+        if self._root is None:
+            raise ProviderFailed(
+                f"{self.name} was asked without a workspace to keep its records in, which is a "
+                "wiring mistake rather than anything about this property"
+            )
         if self._record is None:
             self._record = floods.build(
                 self._root,
@@ -1100,14 +1105,17 @@ class Dams:
         return dams.HELD_DAYS
 
     def configured(self) -> bool:
-        return self._root is not None
-
-    def why_not(self) -> str:
-        return "nothing has told it where the inventory lives"
+        # Nothing for a person to set up, as with the flash-flood records.
+        return True
 
     def ready(self) -> Any:
         from . import dams
 
+        if self._root is None:
+            raise ProviderFailed(
+                f"{self.name} was asked without a workspace to keep its inventory in, which is a "
+                "wiring mistake rather than anything about this property"
+            )
         if self._inventory is None:
             self._inventory = dams.build(
                 self._root,
