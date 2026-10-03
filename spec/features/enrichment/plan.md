@@ -472,6 +472,10 @@ projection about the point, which over a mile is accurate to well under the ten 
 lines are channels is read from the dataset's own feature codes: stream or river (460xx) and the
 artificial path a river is drawn along through a lake (558xx).
 
+The hydrography service gets sixty seconds rather than twenty: most points answer in a second
+and a few take twenty or more, and on the first live pass one slow point timed out four times
+and cost the column for that pass.
+
 Times to live: soils a year, because the survey is refreshed every October; streams three years,
 because the national hydrography is being replaced rather than revised. Streams round to five
 places rather than four, because ten feet is about three metres and a four-place key moves a

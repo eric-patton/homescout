@@ -826,3 +826,15 @@ def test_a_provider_asked_with_no_workspace_says_so() -> None:
         FlashFloods().fetch(session(CountingTransport()), *HATCH)
     with pytest.raises(ProviderFailed, match="without a workspace"):
         Dams().fetch(session(CountingTransport()), *HATCH)
+
+
+def test_the_hydrography_service_is_given_longer_to_answer() -> None:
+    """feat-007/AC-13, feat-007/AC-50: most points answer in a second and a few take twenty or
+    more, and on the first live pass one slow point cost the whole column for the pass."""
+    from homescout.enrich import settings
+
+    paced = settings.pacing(("streams", "soils"))
+
+    assert paced.per_source["streams"].timeout == settings.STREAMS_TIMEOUT_SECONDS == 60.0
+    assert paced.per_source["streams"].delay == settings.PROVIDER_DELAY_SECONDS
+    assert paced.per_source["soils"].timeout == settings.PROVIDER_TIMEOUT_SECONDS

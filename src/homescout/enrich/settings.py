@@ -171,6 +171,9 @@ BROADBAND_USERNAME = "HOMESCOUT_FCC_USERNAME"
 #: refresh rather than a failed one.
 REFRESH_TIMEOUT_SECONDS = 180.0
 
+#: How long to wait for the hydrography service, which is slow on some points and quick on most.
+STREAMS_TIMEOUT_SECONDS = 60.0
+
 
 def endpoint(name: str) -> Endpoint:
     """This provider's address, with the environment having the last word."""
@@ -215,4 +218,9 @@ def pacing(providers: tuple[str, ...]) -> PolitenessConfig:
     patient = SourcePolicy(delay=PROVIDER_DELAY_SECONDS, timeout=REFRESH_TIMEOUT_SECONDS)
     per_source = {name: policy for name in providers}
     per_source["broadband"] = patient
+    # The hydrography service answers most points in a second and a few in twenty or more, and on
+    # the first live pass one such point timed out four times and cost the column for the pass.
+    per_source["streams"] = SourcePolicy(
+        delay=PROVIDER_DELAY_SECONDS, timeout=STREAMS_TIMEOUT_SECONDS
+    )
     return PolitenessConfig(default=policy, per_source=per_source)
