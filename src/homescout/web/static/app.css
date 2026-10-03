@@ -1336,12 +1336,19 @@ table.grid tr.kept td.property .what { font-weight: 600; }
 .swatch.fema-shaded { background: #ff8000; }
 .swatch.fema-d { background: #f2e673; }
 
-/* A warning is a dashed outline, an emergency a heavy one, a report a filled dot. Navy and a
+/* A warning is a dashed outline, an emergency a heavy one, a report a drop of water. Navy and a
  * near-black wine, because the scale underneath is green to red or cyan and orange, and the pins on
- * top are gold, blue and pink. */
+ * top are gold, blue and pink. The report is a drop and not a dot because the blue pins are dots,
+ * and a report drawn as one was read as a house. The swatch is the map's drop, drawn the same. */
 .swatch.ff-warning { background: rgba(30, 58, 138, 0.08); border: 2px dashed #1e3a8a; }
 .swatch.ff-emergency { background: rgba(76, 5, 25, 0.15); border: 3px solid #4c0519; }
-.swatch.round.ff-report { background: #60a5fa; border: 2px solid #1e3a8a; }
+.swatch.ff-report {
+  width: 12px;
+  height: 18px;
+  border: none;
+  border-radius: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'%3E%3Cpath d='M6 1.44C7.44 4.32 10.8 7.68 10.8 12A4.8 4.8 0 0 1 1.2 12C1.2 7.68 4.56 4.32 6 1.44Z' fill='%2338bdf8' stroke='%231e3a8a' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 
 /* The same pointer rule as the data centres, for the same reason, written as long for the same
  * reason: a warning's polygon lies over the houses it warned, and its fill must not take their
@@ -1357,10 +1364,14 @@ table.grid tr.kept td.property .what { font-weight: 600; }
  * properties. So the box itself is clipped to a triangle a little larger than the one drawn, which
  * leaves room for the white casing: a clip limits where an element can be pressed as well as where
  * it paints, so the corners pass the click to the house underneath (feat-010/AC-101). */
+/* Never `position` on `.dam` itself. Leaflet places a marker by making it absolute and moving it,
+ * and a rule here would win over Leaflet's, as this sheet loads after it: once it read `relative`,
+ * every dam sat a box lower than the one before it, so the triangles wandered whenever the map
+ * moved and a different set was drawn. The marker is absolute already, which is all `::before`
+ * needs; only the legend's swatch has to ask for it. */
 .leaflet-dams-pane .leaflet-marker-icon.dam { pointer-events: auto; }
 .leaflet-marker-icon.dam { clip-path: polygon(50% -14%, 114% 108%, -14% 108%); }
 .dam {
-  position: relative;
   background: none;
   border: none;
   filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff);
@@ -1377,7 +1388,7 @@ table.grid tr.kept td.property .what { font-weight: 600; }
 .dam-fair { --dam: #d97706; }
 .dam-satisfactory { --dam: #6b7280; }
 .dam-not-rated { --dam: #ffffff; filter: drop-shadow(0 0 1px #111111) drop-shadow(0 0 1px #111111); }
-.legend .swatch.dam { width: 14px; height: 12px; border: none; border-radius: 0; }
+.legend .swatch.dam { position: relative; width: 14px; height: 12px; border: none; border-radius: 0; }
 
 .ffpopup strong, .dampopup strong { display: block; font-size: 1.02rem; line-height: 1.25; }
 .ffpopup ul, .dampopup ul { margin: 6px 0; padding-left: 18px; }

@@ -4340,3 +4340,79 @@ def test_a_dam_takes_the_pointer_on_its_triangle_and_not_its_corners(served) -> 
 
     assert not found["corner"], "the empty corner of a dam's box still takes the pointer"
     assert found["inside"], "the triangle itself can no longer be opened"
+
+
+def test_every_dam_is_drawn_where_it_stands_as_the_map_moves(served) -> None:
+    """feat-010/AC-100: reported as "the dams points are moving all over the place as I move the
+    map or zoom". With one dam it never showed: each further icon sat a box lower than the one
+    before, so it takes several, and the first is the one that was always right."""
+    from homescout.enrich import dams, kept
+
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+    kept.write(dams._file(held.root, "NM"), [
+        {"id": f"NM9999{n}", "name": f"Dam {n}", "latitude": 34.10 + 0.04 * n,
+         "longitude": -103.45 + 0.05 * n, "condition": condition, "assessed": "2023-03-14",
+         "plan": "", "built": 1955, "purpose": "flood control", "owner": ""}
+        for n, condition in enumerate(["poor", "fair", "satisfactory", "not rated", "poor"])
+    ])
+
+    found = on_the_map(served, """
+        held.map.setView([34.18, -103.35], 10);
+        await until(() => true);
+        document.getElementById("dams").click();
+        await until(() => water.dams.layer && water.dams.layer.getLayers().length, 400);
+        await wait(300);
+        const misplaced = () => {
+          const box = held.map.getContainer().getBoundingClientRect();
+          return water.dams.layer.getLayers().map((mark) => {
+            const at = held.map.latLngToContainerPoint(mark.getLatLng());
+            const drawn = mark.getElement().getBoundingClientRect();
+            return Math.hypot(drawn.left + drawn.width / 2 - (box.left + at.x),
+                              drawn.top + drawn.height / 2 - (box.top + at.y));
+          });
+        };
+        const first = misplaced();
+        held.map.panBy([60, -30], {animate: false});
+        await wait(200);
+        held.map.setZoom(11, {animate: false});
+        await wait(300);
+        return {first, later: misplaced()};
+    """)
+
+    assert len(found["first"]) == 5, found
+    for when in ("first", "later"):
+        worst = max(found[when])
+        assert worst < 2, f"{when}: a dam is drawn {worst:.0f}px from where it stands"
+
+
+def test_a_storm_report_is_a_drop_of_water_and_not_a_dot(served) -> None:
+    """feat-010/AC-98, feat-010/AC-101: reported as "too close to the blue dots for houses". The
+    report is a drop standing on its point, still a path on the layer's one renderer."""
+    _base, held, _store = served
+    _hold_a_storm_over_the_fixture(held.root)
+
+    found = on_the_map(served, """
+        held.map.setView([34.1862, -103.3452], 12);
+        await until(() => true);
+        document.getElementById("floods").click();
+        await until(() => water.floods.layer && water.floods.layer.getLayers().length, 400);
+        await wait(200);
+        const report = water.floods.layer.getLayers().find((one) =>
+          one._path && (one._path.getAttribute("class") || "").includes("ff-report"));
+        const shape = report._path.getBBox();
+        const at = held.map.latLngToLayerPoint(report.getLatLng());
+        const swatch = document.querySelector(".legend .swatch.ff-report");
+        return {
+          tall: shape.height / shape.width,
+          pointLow: (at.y - shape.y) / shape.height,
+          inThePane: !!report._path.closest(".leaflet-floods-pane"),
+          sameSurface: report._renderer === water.floods.renderer,
+          swatch: swatch ? getComputedStyle(swatch).backgroundImage : "",
+        };
+    """)
+
+    assert found["tall"] > 1.4, f"the report is {found['tall']:.2f} times as tall as it is wide"
+    assert 0.55 < found["pointLow"] < 0.8, "the report's place is not the drop's round part"
+    assert found["inThePane"] and found["sameSurface"]
+    assert "svg" in found["swatch"], "the legend still shows a dot for a report"

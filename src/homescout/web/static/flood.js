@@ -57,6 +57,33 @@ const EMERGENCY_INK = "#4c0519";
 /* Dams by condition, worst darkest. No green anywhere: "nothing wrong found" is not a colour. */
 const DAM_CONDITIONS = ["unsatisfactory", "poor", "fair", "satisfactory", "not rated"];
 
+/* A report is a drop of water rather than a dot, because the properties are blue dots and a report
+ * drawn as one was taken for a house. Its point sits at the centre of the round part, where the
+ * dot's was, and the tip rises above it.
+ *
+ * It is a circle marker with its outline changed and nothing else, so it stays a path on the
+ * layer's one renderer (feat-010/AC-101). That leans on two names inside Leaflet, `_updatePath`
+ * and the renderer's `_setPath`, which hold for the 1.9.4 this page pins in its vendor manifest. */
+const DROP_TIP = 2.2;
+const Drop = L.CircleMarker.extend({
+  _updateBounds() {
+    const r = this._radius;
+    const w = this._clickTolerance();
+    this._pxBounds = L.bounds(this._point.subtract([r + w, DROP_TIP * r + w]),
+                              this._point.add([r + w, r + w]));
+  },
+  _updatePath() {
+    const {x, y} = this._point;
+    const r = this._radius;
+    const tip = y - DROP_TIP * r;
+    this._renderer._setPath(this, this._empty() ? "M0 0" :
+      `M${x} ${tip}C${x + 0.3 * r} ${y - 1.6 * r} ${x + r} ${y - 0.9 * r} ${x + r} ${y}` +
+      `A${r} ${r} 0 0 1 ${x - r} ${y}` +
+      `C${x - r} ${y - 0.9 * r} ${x - 0.3 * r} ${y - 1.6 * r} ${x} ${tip}Z`);
+  },
+});
+const REPORT_FILL = "#38bdf8";
+
 /* ------------------------------------------------------------------ */
 /* Controls                                                            */
 /* ------------------------------------------------------------------ */
@@ -259,13 +286,13 @@ function drawFloods() {
   }
   for (const report of state.reports) {
     if (!bounds.contains([report.latitude, report.longitude])) continue;
-    state.layer.addLayer(L.circleMarker([report.latitude, report.longitude], {
+    state.layer.addLayer(new Drop([report.latitude, report.longitude], {
       pane: "floods", renderer: state.renderer, interactive: false,
-      radius: 6.5, color: "#ffffff", weight: 3, opacity: 0.9, fill: false,
+      radius: 5.5, color: "#ffffff", weight: 5, opacity: 0.9, fill: false,
     }));
-    const mark = L.circleMarker([report.latitude, report.longitude], {
+    const mark = new Drop([report.latitude, report.longitude], {
       pane: "floods", renderer: state.renderer, className: "ff-report",
-      radius: 5, color: WARNING_INK, weight: 2, fillColor: "#60a5fa", fillOpacity: 0.95,
+      radius: 5.5, color: WARNING_INK, weight: 1.5, fillColor: REPORT_FILL, fillOpacity: 0.95,
     });
     mark.bindPopup(() => reportPopup(report), {maxWidth: 320});
     state.layer.addLayer(mark);
@@ -435,7 +462,7 @@ function waterLegend() {
          "a flash-flood warning"),
       el("li", {}, el("span", {class: "swatch ff-emergency", "aria-hidden": "true"}),
          "a Flash Flood Emergency"),
-      el("li", {}, el("span", {class: "swatch round ff-report", "aria-hidden": "true"}),
+      el("li", {}, el("span", {class: "swatch ff-report", "aria-hidden": "true"}),
          "a flood report"),
     ),
     el("p", {class: "meta"},

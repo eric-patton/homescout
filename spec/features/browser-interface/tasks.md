@@ -1848,3 +1848,28 @@ is written in this file beside this function and the wrong pattern is the one cu
       would go stale; the dam owner, the legend's FEMA caveat and the pin's water line are written
       into AC-97, AC-100 and AC-104.
 
+
+## Defects: the dams wandered, and a flood report looked like a house
+
+- [x] T-fm-13: `web/static/app.css`: no `position` on a dam's icon (`feat-010/AC-100`).
+
+      Reported as "the dams points are moving all over the place as I move the map or zoom in or
+      out". The rule for `.dam` said `position: relative`, which the triangle's pseudo-element
+      needed in the legend, and which wins over Leaflet's `absolute` because this sheet loads
+      after Leaflet's. A relative marker is still in the flow, so every dam sat one box lower than
+      the dam before it, and which dams came before changed with every redraw. The single dam in
+      the test fixture is always first, which is why nothing caught it. Only the legend's swatch
+      asks for `relative` now.
+
+- [x] T-fm-13-test: `tests/test_web_browser.py`: five dams, each drawn within two pixels of where
+      it stands, before and after a pan and a zoom. Red against the old rule, at 29 pixels.
+
+- [x] T-fm-14: `web/static/flood.js`, `app.css`: a storm report is drawn as a drop of water
+      standing on its point, and the legend shows the same drop (`feat-010/AC-98`,
+      `feat-010/AC-101`). Reported as "too close to the blue dots for houses". It is a circle
+      marker with its outline changed, so it is still a path on the layer's one renderer; its
+      place is the centre of the round part, where the dot's was.
+
+- [x] T-fm-14-test: `tests/test_web_browser.py`: the report is taller than it is wide, its place
+      is in the round part, it is on the flood layer's renderer, and the legend's swatch is the
+      drop.
