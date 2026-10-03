@@ -269,3 +269,11 @@ not block a page:
 None. Two things are worth a human's attention and both are decisions recorded rather than
 questions: D-6 commits 255KB of third-party JavaScript with its fingerprints, and D-12 leaves the
 map's tile background off until somebody turns it on.
+
+## Address radius
+
+Below the area list, show Address and Miles inputs, Preview circle, the matched address,
+an In or out choice, and Add radius area. Only Preview sends the address to the Census.
+The circle is a draft until Save the areas. Each radius row shows its address or center and
+an editable Miles field. Circles use the existing inclusion/exclusion colors and dash pattern,
+with the same sense written in the table so color is never the sole explanation.

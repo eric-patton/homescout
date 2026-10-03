@@ -493,3 +493,30 @@ threw rather than waited: one test in a full run failed on it, a different one e
 for the name now.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 9 - 2026-10-03
+
+baseline: spec sha256:966769a21107 | plan sha256:e0a087a9a155 | tasks sha256:855aff79984b | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of changes/address-radius/ and its folded criteria.
+Prior feature behavior outside this change was not re-audited. No new drift found.
+
+implemented:
+
+AC-106: web/static/search.js:389 provides preview/add controls, input revision checks and
+retained drafts. web/app.py:252 calls the shared preview in a worker thread under existing
+request guards. A redraw during a lookup updates the current form, never a detached form.
+AC-107: api.py:2313 and web/static/search.js:225,363,471 preserve and render coordinate,
+address and named-place radii, including mileage, names, reasons and exclusions.
+tests/test_web_browser.py exercises preview/add, changed input, mileage edits, exclusion,
+failed save, successful save, actual reload and a stale asynchronous response.
+
+- confirmed gap-004 [unrequested]: unchanged outside this change.
+- confirmed gap-005 [unrequested]: unchanged outside this change.
+- confirmed gap-006 [unrequested]: unchanged outside this change.
+- confirmed gap-007 [unrequested]: unchanged outside this change.
+
+Verification: 1,576 default tests passed; three focused real-browser tests passed;
+Python lint, JavaScript syntax and both per-feature spec validators passed.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

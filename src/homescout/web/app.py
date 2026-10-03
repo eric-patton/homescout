@@ -249,6 +249,14 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     # -- saved searches ----------------------------------------------------
 
+    @app.post("/api/areas/radius")
+    async def radius_area(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        found = await anyio.to_thread.run_sync(
+            api.radius_area, held(), body.get("address"), body.get("miles")
+        )
+        return answer("radius", **found)
+
     @app.get("/api/searches")
     def list_searches() -> dict[str, Any]:
         return answer(

@@ -316,6 +316,37 @@ def edit_search(workspace: Workspace, name: str, changes: Mapping[str, object]) 
     return workspace.catalog.edit(name, _with_expressions(changes))
 
 
+def radius_area(workspace: Workspace, address: str, miles: float) -> dict[str, Any]:
+    """Preview an address circle, without writing a search or asking listing sources."""
+    from .enrich.boundaries import CensusBoundaries
+    from .search.areas import AreaError, build
+    from .search.boundaries import boundaries
+
+    try:
+        area = build({"type": "radius", "address": address, "miles": miles})
+    except AreaError as exc:
+        raise InvalidInput(str(exc)) from None
+    provider = boundaries() or CensusBoundaries(workspace.store, fetch=False)
+    prepare = getattr(provider, "prepare_addresses", None)
+    locate = getattr(provider, "place_address", None)
+    if prepare is None or locate is None:
+        raise InvalidInput("The address lookup is unavailable. Use a coordinate center instead.")
+    prepare([area.address])
+    found = locate(area.address)
+    if found is None:
+        raise InvalidInput(
+            "The Census could not place that address. Check the street, city, state and ZIP, "
+            "or use a coordinate center in the search file."
+        )
+    return {
+        "area": {
+            "type": "radius", "address": area.address,
+            "center": [found.latitude, found.longitude], "miles": area.miles,
+        },
+        "matched": found.matched,
+    }
+
+
 def _with_expressions(changes: Mapping[str, object]) -> dict[str, object]:
     """Any criterion given as rows, turned into the expression a saved search stores."""
     from .rules.phrase import CannotCompose, Part, compose
@@ -409,11 +440,17 @@ def _place_named_addresses(definition: Any) -> None:
     from .search.boundaries import boundaries
 
     named = [a for a in getattr(definition, "addresses", ()) or () if a.at is None]
+    radii = [
+        area for area in (*getattr(definition, "areas", ()), *getattr(definition, "exclusions", ()))
+        if getattr(area, "address", None) and getattr(area, "centre", None) is None
+    ]
     provider = boundaries()
     prepare = getattr(provider, "prepare_addresses", None) if provider is not None else None
-    if not named or prepare is None:
+    if not (named or radii) or prepare is None:
         return
-    prepare([address.text for address in named])
+    prepare([address.text for address in named] + [area.address for area in radii])
+    for area in radii:
+        area.refresh_address_center()
 
 
 @dataclass(frozen=True, slots=True)
@@ -2286,7 +2323,7 @@ def _area_document(area: Any) -> dict[str, Any]:
             if found is not None:
                 geometry = found
                 break
-    return {
+    document = {
         "kind": getattr(area, "kind", None),
         "name": getattr(area, "name", None),
         "value": getattr(area, "value", None),
@@ -2296,6 +2333,13 @@ def _area_document(area: Any) -> dict[str, Any]:
         "reason": getattr(area, "reason", None),
         "geometry": geometry,
     }
+    if getattr(area, "kind", None) == "radius":
+        document.update({
+            "address": getattr(area, "address", None),
+            "center": getattr(area, "centre", None) or getattr(area, "value", None),
+            "miles": getattr(area, "miles", None),
+        })
+    return document
 
 
 def vocabulary() -> dict[str, Any]:

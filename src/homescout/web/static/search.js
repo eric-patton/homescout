@@ -223,6 +223,13 @@ async function saveAreas() {
 }
 
 function namedArea(area) {
+  if (area.kind === "radius") {
+    const entry = {type: "radius", miles: area.miles};
+    if (area.address) entry.address = area.address;
+    if (area.center != null) entry.center = area.center;
+    if (area.name) entry.name = area.name;
+    return entry;
+  }
   const entry = {type: area.kind, value: area.value};
   if (area.name) entry.name = area.name;
   return entry;
@@ -278,6 +285,7 @@ function areaList() {
       el("p", {class: "unknown"},
         "this search names no areas yet. Add a town below, or draw one on the map."),
       addPlace(),
+      radiusForm(),
       el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"));
   }
 
@@ -294,7 +302,7 @@ function areaList() {
       el("tbody", {},
         named.map((area, index) => areaRow(
           area.kind,
-          el("input", {
+          area.kind === "radius" ? radiusDetails(area, index + 1) : el("input", {
             type: "text", value: area.value || "",
             "aria-label": `Which place row ${index + 1} names`,
             onchange: (e) => { area.value = e.target.value.trim(); touched("areas"); },
@@ -317,6 +325,7 @@ function areaList() {
       "has no houses in it, and the only part of the decision that survives having been made. " +
       "Nothing is written until you save."),
     addPlace(),
+    radiusForm(),
     el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"),
   );
 }
@@ -350,20 +359,142 @@ function addPlace() {
   );
 }
 
+/* Address circles are kept as radii, separate from the polygons Leaflet.draw serializes. */
+function radiusDetails(area, position) {
+  const commitMiles = () => {
+    const given = Number(miles.value);
+    if (!Number.isFinite(given) || given <= 0) {
+      miles.value = area.miles;
+      say("A radius needs a positive number of miles.", "problem");
+      return;
+    }
+    area.miles = given;
+    touched("areas");
+    showRadiusCircles();
+  };
+  const miles = el("input", {
+    type: "number", min: "0.01", step: "any", value: area.miles,
+    "aria-label": `Miles for radius area ${position}`,
+    onchange: commitMiles,
+  });
+  const center = area.address || (Array.isArray(area.center)
+    ? area.center.join(", ") : area.center || area.value || "Unplaced address");
+  miles.oninput = () => {
+    const given = Number(miles.value);
+    if (Number.isFinite(given) && given > 0) commitMiles();
+  };
+  return el("div", {}, el("span", {}, center), el("div", {class: "radiusdistance"}, miles, " miles"));
+}
+
+function radiusForm() {
+  const draft = held.radiusInput ||= {address: "", miles: "10", excluded: false, revision: 0};
+  const matched = el("p", {class: "meta", role: "status"});
+  const address = el("input", {type: "text", id: "radiusaddress", value: draft.address,
+    placeholder: "Street address, city, state, ZIP", "aria-label": "Radius center address"});
+  const miles = el("input", {type: "number", id: "radiusmiles", min: "0.01", step: "any",
+    value: draft.miles, "aria-label": "Radius in miles"});
+  const sense = el("select", {id: "radiussense", "aria-label": "Whether the radius is included or excluded",
+    onchange: () => {
+      draft.excluded = sense.value === "excluded";
+      if (held.radiusPreview) held.radiusPreview.setStyle({color: draft.excluded ? "#a02020" : "#14508c"});
+    }},
+    el("option", {value: "included"}, "area to search"),
+    el("option", {value: "excluded"}, "area to leave out"));
+  sense.value = draft.excluded ? "excluded" : "included";
+  const invalidate = () => {
+    draft.address = address.value;
+    draft.miles = miles.value;
+    draft.revision++;
+    draft.preview = null;
+    draft.pending = false;
+    clearRadiusPreview();
+    draft.render();
+  };
+  address.oninput = invalidate;
+  miles.oninput = invalidate;
+  const preview = el("button", {type: "button", onclick: async () => {
+    if (!address.value.trim() || !Number.isFinite(Number(miles.value)) || Number(miles.value) <= 0) {
+      say("Enter an address and a positive number of miles.", "problem");
+      return;
+    }
+    const revision = ++draft.revision;
+    draft.preview = null;
+    draft.pending = true;
+    clearRadiusPreview();
+    draft.render();
+    try {
+      const found = await send("/api/areas/radius", {address: address.value.trim(), miles: Number(miles.value)});
+      if (revision !== draft.revision) return;
+      draft.preview = found;
+      if (held.map) {
+        held.radiusPreview = L.circle(found.area.center, {radius: found.area.miles * 1609.344,
+          color: draft.excluded ? "#a02020" : "#14508c", dashArray: "3,5", interactive: false}).addTo(held.map);
+        held.map.fitBounds(held.radiusPreview.getBounds(), {padding: [24, 24], maxZoom: 14});
+      }
+    } catch (error) {
+      if (revision === draft.revision) fail(error);
+    } finally {
+      if (revision === draft.revision) { draft.pending = false; draft.render(); }
+    }
+  }}, "Preview circle");
+  const add = el("button", {type: "button", onclick: () => {
+    if (!draft.preview) return;
+    held.named.push({...draft.preview.area, kind: "radius", name: "", reason: "", excluded: draft.excluded});
+    touched("areas");
+    invalidate();
+    redrawAreaList();
+    say("Radius added. Save the areas to write it into the file.", "good");
+  }}, "Add radius area");
+  const update = () => {
+    add.disabled = !draft.preview;
+    preview.disabled = !!draft.pending;
+    preview.textContent = draft.pending ? "Looking up address…" : "Preview circle";
+    matched.textContent = draft.preview
+      ? `Matched: ${draft.preview.matched || draft.preview.area.address}` : "";
+  };
+  draft.render = update;
+  update();
+  return el("fieldset", {class: "radiusform"},
+    el("legend", {}, "Miles from an address"),
+    el("div", {class: "controls"},
+      el("label", {for: "radiusaddress"}, "Address "), address,
+      el("label", {for: "radiusmiles"}, "Miles "), miles, preview, sense, add),
+    matched,
+    el("p", {class: "hint"}, "Straight-line distance. The address lookup uses the Census and is cached. " +
+       "Included areas combine; the circle does not limit other areas."));
+}
+
+function clearRadiusPreview() {
+  if (held.radiusPreview) { held.radiusPreview.remove(); held.radiusPreview = null; }
+}
+
+function showRadiusCircles() {
+  if (!held.circles) return;
+  held.circles.clearLayers();
+  for (const area of held.named || namedFrom(held.search)) {
+    if (area.kind !== "radius" || !Array.isArray(area.center)) continue;
+    L.circle(area.center, {radius: area.miles * 1609.344,
+      color: area.excluded ? "#a02020" : "#14508c",
+      dashArray: area.excluded ? "5,5" : null, interactive: false}).addTo(held.circles);
+  }
+}
+
 /* One row. `holder` is the thing the row edits: a copy of a file entry, or a map layer. Both carry
  * a name and an excluded flag, which is the whole of what this row changes. */
 function areaRow(kind, which, holder, remove, position, layer) {
   const isLayer = !!layer;
+  const rename = (e) => {
+    const given = e.target.value.trim();
+    if (isLayer) holder.__name = given; else holder.name = given;
+    touched("areas");
+  };
   const naming = el("input", {
     type: "text",
     value: (isLayer ? holder.__name : holder.name) || "",
     placeholder: "east side, the flats…",
     "aria-label": `What to call area ${position}`,
-    onchange: (e) => {
-      const given = e.target.value.trim();
-      if (isLayer) holder.__name = given; else holder.name = given;
-      touched("areas");
-    },
+    onchange: rename,
+    oninput: rename,
   });
   /* Why, opened rather than squeezed in.
    *
@@ -396,6 +527,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
         }
       } else {
         holder.excluded = out;
+        showRadiusCircles();
       }
       touched("areas");
     },
@@ -793,6 +925,7 @@ function redrawAddresses() {
 function redrawAreaList() {
   const where = document.getElementById("arealist");
   if (where) where.replaceWith(areaList());
+  showRadiusCircles();
 }
 
 /* Everything about a search that is not geometry.
@@ -1538,6 +1671,7 @@ function startMap() {
   const drawn = new L.FeatureGroup();
   map.addLayer(drawn);
   held.drawn = drawn;
+  held.circles = L.featureGroup().addTo(map);
   showShapes();
 
   map.addControl(new L.Control.Draw({
@@ -1556,6 +1690,8 @@ function startMap() {
    * geometry here, and a new one has no areas at all; both keep the default view, which is the
    * right answer for "there is nothing drawn yet". */
   const bounds = drawn.getBounds();
+  const circles = held.circles.getBounds();
+  if (circles.isValid()) bounds.extend(circles);
   if (bounds.isValid()) map.fitBounds(bounds, {padding: [24, 24], maxZoom: 14});
 
   /* The table is built before this runs, so the shapes it should list did not exist yet. Now they
@@ -1633,6 +1769,7 @@ function showShapes() {
   const drawn = held.drawn;
   if (!drawn) return;
   drawn.clearLayers();
+  showRadiusCircles();
   for (const area of (held.search.areas || []).concat(held.search.exclusions || [])) {
     if (!area.geometry) continue;
     L.geoJSON(area.geometry, {

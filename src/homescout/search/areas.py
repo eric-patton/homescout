@@ -16,6 +16,7 @@ questions and the file's own `type:` key is the discriminator a person reads.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -107,6 +108,7 @@ class SearchArea:
     prepared: Any = None
     centre: tuple[float, float] | None = None
     miles: float | None = None
+    address: str | None = None
     excluded: bool = False
     _boundary: Any = field(default=None, repr=False)
     _boundary_prepared: Any = field(default=None, repr=False)
@@ -119,7 +121,7 @@ class SearchArea:
         if self.name:
             return self.name
         if self.kind == "radius":
-            return f"{self.miles:g} miles around {self.value or self.centre}"
+            return f"{self.miles:g} miles around {self.address or self.value or self.centre}"
         return self.value or self.kind
 
     @property
@@ -132,7 +134,16 @@ class SearchArea:
         strength of it, and says so as a notice at validation. With a provider registered it
         becomes exact like anything else.
         """
-        return self.kind == "radius" and self.centre is None and self._locate() is None
+        return (
+            self.kind == "radius" and not self.address
+            and self.centre is None and self._locate() is None
+        )
+
+    def refresh_address_center(self) -> None:
+        """Forget an earlier cache miss after the run has prepared address centers."""
+        if self.address and self.centre is None:
+            self._asked = False
+            self._boundary = None
 
     # -- coarse: what a source can be asked for ------------------------------
 
@@ -216,6 +227,8 @@ class SearchArea:
     def _inside_circle(self, fields: ListingFields) -> Verdict:
         centre = self.centre or self._locate()
         if centre is None:
+            if self.address:
+                return "unknown"
             # Delegated to the source, which applied it. Nothing here can measure from a name.
             return "inside"
         if fields.latitude is None or fields.longitude is None:
@@ -283,7 +296,12 @@ class SearchArea:
         self._asked = True
         self._lookups += 1
         if self.kind == "radius":
-            if self.value:
+            if self.address:
+                locate = getattr(provider, "place_address", None)
+                found = locate(self.address) if locate is not None else None
+                if found is not None:
+                    self._boundary = (found.latitude, found.longitude)
+            elif self.value:
                 self._boundary = provider.locate(self.value)
             return
         found = provider.boundary(self.kind, self.value or "")
@@ -335,19 +353,21 @@ class SearchArea:
 
 
 def _box_around(centre: tuple[float, float], miles: float) -> tuple[float, float, float, float]:
-    """A box containing a circle. Generous on purpose: containing is the requirement."""
-    import math
-
+    """The spherical circle's bounds, containing even its widest longitude away from the center."""
     latitude, longitude = centre
-    north_south = miles / 69.0
-    scale = max(math.cos(math.radians(latitude)), 0.01)
-    east_west = miles / (69.0 * scale)
-    return (
-        latitude - north_south,
-        longitude - east_west,
-        latitude + north_south,
-        longitude + east_west,
-    )
+    angle = min(miles / geo.EARTH_MILES, math.pi)
+    north_south = math.degrees(angle)
+    south = max(-90.0, latitude - north_south)
+    north = min(90.0, latitude + north_south)
+    if south == -90.0 or north == 90.0:
+        return (south, -180.0, north, 180.0)
+    east_west = math.degrees(math.asin(min(
+        1.0, math.sin(angle) / math.cos(math.radians(latitude)),
+    )))
+    west, east = longitude - east_west, longitude + east_west
+    if west < -180.0 or east > 180.0:
+        west, east = -180.0, 180.0
+    return (south, west, north, east)
 
 
 def _reason(entry: Mapping[str, Any]) -> str | None:
@@ -428,12 +448,29 @@ def _polygon_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
 
 def _radius_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
     miles = entry.get("miles")
-    if not isinstance(miles, int | float) or isinstance(miles, bool) or miles <= 0:
-        raise AreaError("a radius area needs a positive number of miles")
+    if (
+        not isinstance(miles, int | float) or isinstance(miles, bool)
+        or not math.isfinite(miles) or miles <= 0
+    ):
+        raise AreaError("a radius area needs a positive finite number of miles")
+    name = entry.get("name")
+    if name is not None and not isinstance(name, str):
+        raise AreaError("a radius's name has to be text")
+    address = entry.get("address")
+    if "address" in entry and (not isinstance(address, str) or not address.strip()):
+        raise AreaError("a radius address has to be nonempty text")
+    metadata = {
+        "name": name, "reason": _reason(entry),
+        "address": address.strip() if address else None,
+    }
     centre = entry.get("center", entry.get("centre"))
+    if centre is None and address:
+        return SearchArea(kind="radius", miles=float(miles), excluded=excluded, **metadata)
     if isinstance(centre, str) and centre.strip():
+        if address:
+            raise AreaError("an address radius's center override must be a coordinate pair")
         return SearchArea(
-            kind="radius", value=centre.strip(), miles=float(miles), excluded=excluded
+            kind="radius", value=centre.strip(), miles=float(miles), excluded=excluded, **metadata
         )
     if isinstance(centre, list | tuple) and len(centre) == 2:
         try:
@@ -446,10 +483,11 @@ def _radius_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
                 "A pair centre is latitude first, unlike GeoJSON."
             )
         return SearchArea(
-            kind="radius", centre=(latitude, longitude), miles=float(miles), excluded=excluded
+            kind="radius", centre=(latitude, longitude), miles=float(miles), excluded=excluded,
+            **metadata,
         )
     raise AreaError(
-        "a radius area needs a centre: a place name, or a latitude and longitude pair"
+        "a radius area needs an address or a center: a place name, or a latitude and longitude pair"
     )
 
 

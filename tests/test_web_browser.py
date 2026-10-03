@@ -4652,3 +4652,158 @@ def test_a_storm_report_is_a_drop_of_water_and_not_a_dot(served) -> None:
     assert 0.55 < found["pointLow"] < 0.8, "the report's place is not the drop's round part"
     assert found["inThePane"] and found["sameSurface"]
     assert "svg" in found["swatch"], "the legend still shows a dot for a report"
+
+
+def test_address_circle_preview_draft_save_and_reopen(served) -> None:
+    """feat-010/AC-106 feat-010/AC-107: circles stay radii through the actual page."""
+    from enrich_fakes import session
+    from homescout.enrich.boundaries import CensusBoundaries
+    from homescout.search.definition import FileCatalog
+    from searches_fakes import write
+    from test_searches_radius import ADDRESS, CENTER, geocoder
+
+    base, held, store = served
+    directory = store.path.parent / "radius-searches"
+    write(directory, "circle", text=(
+        "# Keep this comment.\nname: circle\nareas:\n"
+        "  - {type: radius, center: [30.611282, -90.369808], miles: 2, name: Old point}\n"
+        "  - {type: radius, center: 'Portales, NM', miles: 20, reason: Legacy name}\n"
+        "sources: [realtor]\n"
+    ))
+    held.catalog = FileCatalog(directory)
+    CensusBoundaries(store, session(geocoder())).place_address(ADDRESS)
+    process, debug = chrome(f"{base}/search/circle")
+    try:
+        connection = talk(debug, "/search/circle")
+        found = evaluate(connection, r"""(async () => {
+          const until = async (test) => {
+            for (let i = 0; i < 150; i++) {
+              if (test()) return;
+              await new Promise(r => setTimeout(r, 30));
+            }
+            throw new Error("radius page did not reach the expected state");
+          };
+          const input = (id, value) => {
+            const box = document.getElementById(id);
+            box.value = value; box.dispatchEvent(new Event("input", {bubbles: true}));
+          };
+          const button = (name) => [...document.querySelectorAll("#arealist button")]
+            .find(b => b.textContent === name);
+          await until(() => document.getElementById("radiusaddress") && held.circles);
+          const initially = {rows: held.named.length, circles: held.circles.getLayers().length};
+          input("radiusaddress", "52150 Taylor Dr, Loranger, LA 70446");
+          input("radiusmiles", "10");
+          button("Preview circle").click();
+          await until(() => !button("Add radius area").disabled);
+          const preview = {matched: document.querySelector(".radiusform [role=status]").textContent,
+                           meters: held.radiusPreview.getRadius()};
+          input("radiusmiles", "12");
+          const invalidated = button("Add radius area").disabled && !held.radiusPreview;
+          button("Preview circle").click();
+          await until(() => !button("Add radius area").disabled);
+          button("Add radius area").click();
+          const box = document.querySelector('[aria-label="Miles for radius area 3"]');
+          box.value = "7.5"; box.dispatchEvent(new Event("input", {bubbles: true}));
+          const name = document.querySelector('[aria-label="What to call area 3"]');
+          name.value = "Near family"; name.dispatchEvent(new Event("input", {bubbles: true}));
+          const sense = document.querySelector(
+            '[aria-label="Whether area 3 is searched or left out"]');
+          sense.value = "excluded"; sense.dispatchEvent(new Event("change", {bubbles: true}));
+          const circle = held.circles.getLayers().find(c => c.getRadius() === 7.5 * 1609.344);
+          const added = {rows: held.named.length, excluded: circle.options.color === "#a02020"};
+          const originalFetch = window.fetch;
+          window.fetch = async (url, options) => {
+            if (String(url).endsWith("/api/searches/circle") && options?.method === "POST")
+              return new Response(JSON.stringify({error: "Test save failed"}),
+                                  {status: 400, headers: {"Content-Type": "application/json"}});
+            return originalFetch(url, options);
+          };
+          await saveAreas();
+          const retained = {rows: held.named.length, dirty: unsaved.has("areas"),
+                            error: document.body.textContent.includes("Test save failed")};
+          window.fetch = originalFetch;
+          await saveAreas();
+          return {initially, preview, invalidated, added, retained,
+                  saved: !unsaved.has("areas"),
+                  areas: held.search.areas, exclusions: held.search.exclusions};
+        })()""")
+        assert found["initially"] == {"rows": 2, "circles": 1}
+        assert "52150 TAYLOR DR" in found["preview"]["matched"]
+        assert found["preview"]["meters"] == 16093.44
+        assert found["invalidated"] is True
+        assert found["added"] == {"rows": 3, "excluded": True}
+        assert found["retained"] == {"rows": 3, "dirty": True, "error": True}
+        assert found["saved"] is True
+        assert found["areas"][1]["center"] == "Portales, NM"
+        assert found["areas"][1]["miles"] == 20
+        assert found["exclusions"][0]["center"] == CENTER
+        assert found["exclusions"][0]["address"] == ADDRESS
+        assert found["exclusions"][0]["name"] == "Near family"
+        assert found["exclusions"][0]["miles"] == 7.5
+        evaluate(connection, "location.reload(); true")
+        reopened = evaluate(connection, r"""(async () => {
+          for (let i = 0; i < 150; i++) {
+            if (typeof held !== "undefined" && held.search && held.circles)
+              return {area: held.search.exclusions[0], circles: held.circles.getLayers().length};
+            await new Promise(r => setTimeout(r, 30));
+          }
+          return null;
+        })()""", message_id=2)
+        assert reopened["area"] == found["exclusions"][0]
+        assert reopened["circles"] == 2
+        connection.close()
+    finally:
+        process.terminate()
+    assert "# Keep this comment." in (directory / "circle.yaml").read_text(encoding="utf-8")
+
+
+def test_radius_preview_ignores_stale_response_and_survives_redraw(served) -> None:
+    """feat-010/AC-106: late lookups cannot authorize adding an obsolete circle."""
+    base, _held, _store = served
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        found = evaluate(connection, r"""(async () => {
+          const until = async (test) => {
+            for (let i = 0; i < 150; i++) {
+              if (test()) return;
+              await new Promise(r => setTimeout(r, 30));
+            }
+            throw new Error("radius preview did not reach the expected state");
+          };
+          const input = (value) => {
+            const box = document.getElementById("radiusaddress");
+            box.value = value; box.dispatchEvent(new Event("input", {bubbles: true}));
+          };
+          const button = (name) => [...document.querySelectorAll("#arealist button")]
+            .find(b => b.textContent === name);
+          await until(() => document.getElementById("radiusaddress"));
+          const originalFetch = window.fetch;
+          let resolve;
+          window.fetch = (url, options) => String(url).endsWith("/api/areas/radius")
+            ? new Promise(done => {resolve = done;}) : originalFetch(url, options);
+          const result = () => new Response(JSON.stringify({area: {type: "radius",
+            address: "First address", center: [30.611282, -90.369808], miles: 10},
+            matched: "First match"}), {status: 200, headers: {"Content-Type": "application/json"}});
+          input("First address"); button("Preview circle").click();
+          await until(() => !!resolve);
+          input("Second address"); resolve(result());
+          await new Promise(r => setTimeout(r, 50));
+          const stale = {disabled: button("Add radius area").disabled,
+                         address: document.getElementById("radiusaddress").value,
+                         circle: !!held.radiusPreview};
+          resolve = null;
+          input("First address"); button("Preview circle").click();
+          await until(() => !!resolve);
+          redrawAreaList();
+          resolve(result());
+          await until(() => !button("Add radius area").disabled);
+          const redrawn = document.querySelector(".radiusform [role=status]").textContent;
+          window.fetch = originalFetch;
+          return {stale, redrawn};
+        })()""")
+        assert found["stale"] == {"disabled": True, "address": "Second address", "circle": False}
+        assert found["redrawn"] == "Matched: First match"
+        connection.close()
+    finally:
+        process.terminate()

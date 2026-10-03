@@ -634,3 +634,15 @@ differently. Browser checks join `tests/test_web_browser.py`.
 | AC-21 per-address report with the matched line, not found, not placed | `api.run_search` outcome and `homescout run --json` | `feat-004/AC-21` |
 | AC-22 the editor adds, removes, saves through edit | `tests/test_web_browser.py` | `feat-004/AC-22` |
 | AC-3 as modified: a named address inside an exclusion | `api.run_search` | `feat-004/AC-3` |
+
+## Address radius (changes/address-radius/)
+
+Use optional `SearchArea.address` alongside existing center forms. Parse and validate locally,
+including finite miles and coordinates; keep name and reason for radii. Address resolution
+reads the existing cache-only provider; the shared run facade prepares missing centers before
+source queries. Explicit coordinates win and prevent lookups. Unresolved address circles
+cannot delegate to listing sources. Radius-preview returns a validated area plus its matched
+address using the same provider, without writing a definition. Expose it through the CLI.
+
+Verify: `uv run pytest -q tests/test_searches_radius.py tests/test_searches_geometry.py
+tests/test_searches_addresses.py tests/test_searches_validation.py`.

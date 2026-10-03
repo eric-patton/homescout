@@ -1506,6 +1506,20 @@ td.whycell { width: 30%; }
 /* And if it still does not fit, it scrolls rather than hiding a column. */
 #arealist { overflow-x: auto; }
 
+.radiusform {
+  margin: var(--s4) 0;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.radiusform legend { padding: 0 var(--s2); font-weight: 600; }
+.radiusform .controls input[type="text"] { min-width: 0; flex: 1 1 16rem; }
+.radiusform input[type="number"] { width: 5rem; }
+.radiusform .meta:empty { display: none; }
+.radiusform .hint { margin-bottom: 0; }
+.radiusdistance { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s1); }
+.radiusdistance input[type="number"] { width: 5rem; min-width: 0; }
+
 /* Said but not shown. A table heading that is only there for something reading the page aloud
    still has to be in the document, and still has to be out of the layout, or the column is as wide
    as the word nobody can see. Clipped rather than `display: none`, which would take it out of the

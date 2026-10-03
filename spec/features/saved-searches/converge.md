@@ -265,3 +265,26 @@ implemented: AC-2, AC-5, AC-7
   one appears.
 
 verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
+
+## run 4 - 2026-10-03
+
+baseline: spec sha256:191fd2515d6a | plan sha256:6053f1d2bcf9 | tasks sha256:a8a0be69ce6e | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of changes/address-radius/ and its folded criteria.
+Prior feature behavior outside this change was not re-audited. No new drift found.
+
+implemented:
+
+AC-23: search/areas.py:142,227,281,355,449 and api.py:427 implement cached address centers,
+finite radius validation, metadata and local great-circle filtering. Perimeter tests confirm
+bounding boxes cover the circle, including polar and date-line cases.
+AC-24: api.py:319 and cli/main.py:163,443 implement the shared preview, no file writes,
+input refusal and cached matches; tests/test_searches_radius.py drives real providers over
+a scripted transport and compares terminal and HTTP results.
+
+- confirmed gap-003 [partial]: existing YAML line-wrapping limitation, unchanged.
+
+Verification: 1,576 default tests passed; three focused real-browser tests passed;
+Python lint, JavaScript syntax and both per-feature spec validators passed.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)

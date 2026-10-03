@@ -206,6 +206,12 @@ in five years. The problem brief is in `research.md`.
   - Then it draws a labelled coordinate grid that can be drawn over, says what is missing, and offers
     to turn a background on with what that costs stated beside the offer
 
+- **Scenario: an address circle**
+  - Given an address the Census can place and a ten-mile radius
+  - When its circle is added and saved
+  - Then the address, coordinates and mileage survive reopening, and listings outside
+    that circle do not qualify through that area.
+
 ## Acceptance criteria
 
 - [ ] AC-1: Nine surfaces exist and are reachable: the search builder, the saved search list,
@@ -1170,6 +1176,19 @@ in five years. The problem brief is in `research.md`.
       whose bubble is open, and it goes when the bubble has closed and the map next moves. A
       browser test opens a report's bubble where the map has to pan to show it and finds it still
       open after the pan.
+
+- [ ] AC-106: The search builder offers an address and positive mileage form, a Preview circle action
+  showing the matched address and circle, and an Add radius area action. Lookup and input failures
+  retain typed values and change no saved search. The preview must match current inputs before it
+  can be added; changing them invalidates it and a stale asynchronous lookup cannot restore it.
+  The user can choose inclusion or exclusion, change mileage and remove a radius in the area list.
+  Adding is a draft until Save the areas. The form states that distance is straight-line and that
+  the address lookup goes to the Census. Included areas continue combining rather than intersecting.
+- [ ] AC-107: Saving and reopening radius areas preserves address, numeric or named center, mileage,
+  name, reason and inclusion/exclusion. Circles with coordinate centers appear on the map with
+  their current mileage and sense, alongside existing polygons, and never become GeoJSON points
+  or lose their radius. Changing another panel leaves draft areas untouched. A failed save keeps
+  the draft and displays failure. Radius control names are keyboard accessible.
 
 ## Edge cases & errors
 

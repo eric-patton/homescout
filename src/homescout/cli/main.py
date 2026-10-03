@@ -160,6 +160,9 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument(
         "--set", action="append", default=[], metavar="KEY=VALUE", dest="assignments"
     )
+    radius = which.add_parser("radius", parents=[common], help="preview miles around an address")
+    radius.add_argument("address")
+    radius.add_argument("--miles", type=float, required=True)
 
     judge = commands.add_parser(
         "judge", parents=[common], help="keep or pass on several properties at once"
@@ -437,6 +440,12 @@ def _changes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
 
 
 def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.action == "radius":
+        found = api.radius_area(workspace, args.address, args.miles)
+        return Answer(
+            digest.envelope("radius", **found),
+            f"Matched: {found['matched'] or args.address}\n" + json.dumps(found["area"], indent=2),
+        )
     if args.action == "list":
         names = api.list_searches(workspace)
         return Answer(digest.envelope("searches", searches=list(names)), render.searches(names))

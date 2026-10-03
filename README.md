@@ -106,6 +106,31 @@ Two details worth knowing:
   Filtering a run by freshness would stop recording older properties, and a property that stops
   being recorded is one this tool can only later describe as having disappeared.
 
+**Miles from an address.** In the search builder, enter an address and mileage under the area
+list, press **Preview circle**, check the matched address, then **Add radius area** and
+**Save the areas**. You can include or exclude the circle and change its mileage in the table.
+Distances are straight-line miles. Included areas combine: a circle alongside a county searches
+both rather than restricting the county to the circle.
+
+The saved form keeps the address and resolved coordinates:
+
+```yaml
+areas:
+  - type: radius
+    address: 123 Main St, Anytown, NM 88001
+    center: [34.18, -103.35] # latitude, longitude
+    miles: 10
+```
+
+The address is sent only to the existing Census geocoder, and its answer is cached. Coordinates
+in the file take precedence, so a saved circle needs no address lookup on each run. You can omit
+`center` to resolve the address before a run, or supply coordinates manually when the Census
+cannot place it. The terminal can preview the same area without changing a search:
+
+```powershell
+homescout searches radius "123 Main St, Anytown, NM 88001" --miles 10 --json
+```
+
 ### Specific houses
 
 A search can also name houses, any number of them, beside its areas or instead of them:

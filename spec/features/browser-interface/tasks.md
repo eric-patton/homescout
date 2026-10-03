@@ -1922,3 +1922,15 @@ is written in this file beside this function and the wrong pattern is the one cu
 - [x] T-eo-6: measured on the live statewide map, zoomed out to the region with all 3,274 dams in
       view: the worst frames of a zoom or pan went from 300 to 650 milliseconds to 17 to 50, with
       one frame of 83 on the zoom that brings two thousand dams into view at once.
+
+## Address radius
+
+- [x] T-radius-1: Add the guarded facade preview route and lossless radius wire fields, tested
+      through HTTP and CLI parity (`feat-010/AC-106`, `feat-010/AC-107`, AC-14, AC-22).
+- [x] T-radius-2: Add accessible address/miles/preview/add controls and radius rows; retain
+      drafts and reject stale lookups (`feat-010/AC-106`, `feat-010/AC-107`, AC-17).
+- [x] T-radius-3: Draw preview and saved circles, preserve all radius fields through saving
+      and reopening, and verify in a real browser (`feat-010/AC-107`, AC-2, AC-3).
+
+Radius validation: the default pytest suite, focused address/radius tests, real-browser
+preview/save/reopen and stale-response tests, Python lint, and JavaScript syntax checks.

@@ -332,3 +332,15 @@ open were worked rather than reported.
       gap-002).
 - [x] T-state-1: `changes/state-areas/`: a state is one of AC-2's area forms, folded into `spec.md`;
       the existing state test cites AC-2 (`feat-004/AC-2`, gap-004). No code changed.
+
+## Address radius
+
+- [x] T-radius-1: Add address centers and preserve radius metadata; validate finite values and
+      test local distance and coarse query coverage (`feat-004/AC-23`, AC-2, AC-4, AC-5, AC-14).
+- [x] T-radius-2: Prepare unplaced radius addresses once before a run; keep other areas working
+      when lookup fails, with no address sent to sources (`feat-004/AC-23`, AC-6).
+- [x] T-radius-3: Add the shared preview operation and terminal entry point, verifying cache
+      reuse, input refusal and no definition writes (`feat-004/AC-24`).
+
+Radius validation: the default pytest suite, focused address/radius tests, real-browser
+preview/save/reopen and stale-response tests, Python lint, and JavaScript syntax checks.

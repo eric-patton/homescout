@@ -41,6 +41,7 @@ from web_fakes import (
 #: hand-written table on purpose: the point is that adding a command means deciding, in writing,
 #: how the browser reaches it, and the test below fails until somebody has.
 REACHES: dict[str, tuple[str, str]] = {
+    "searches radius": ("POST", "/api/areas/radius"),
     "run": ("POST", "/api/searches/{name}/run"),
     "changes": ("GET", "/api/changes/{name}"),
     "searches list": ("GET", "/api/searches"),

@@ -101,6 +101,12 @@ source query plus an exact local test. The problem brief is in `research.md`.
   - When it is run
   - Then all three rows are kept as that address, and become one property
 
+- **Scenario: an address circle**
+  - Given an address the Census can place and a ten-mile radius
+  - When its circle is added and saved
+  - Then the address, coordinates and mileage survive reopening, and listings outside
+    that circle do not qualify through that area.
+
 ## Acceptance criteria
 
 - [ ] AC-1: A definition is a hand-editable text file supporting a name, a description, areas,
@@ -204,6 +210,18 @@ source query plus an exact local test. The problem brief is in `research.md`.
       Before an address is added, the editor says it will be sent once to the Census geocoder to be
       placed. The run status on screen carries the per-address report of AC-21. (Shared with
       feat-010, as AC-14 was.)
+
+- [ ] AC-23: A radius area accepts a nonempty `address` and a positive finite `miles` value, with an
+  optional `center: [latitude, longitude]` override. Coordinate centers and named-place centers
+  remain supported. Radius names and reasons survive loading and editing. Before source queries,
+  address centers without coordinates use the existing cached street-address lookup once per
+  cache lifetime, never once per listing. Listings are checked by great-circle distance locally.
+  An unresolved address yields no query for that area and an unknown local verdict, never an
+  unrestricted query or a source-side street-address lookup. Other areas continue normally.
+- [ ] AC-24: A shared radius-preview operation validates an address and mileage before making any
+  lookup, returns the input address, matched address, resolved center and mileage, and changes no
+  saved-search file. It is reachable through `searches radius ADDRESS --miles N --json` and a
+  guarded browser endpoint. An unmatched address produces a clear error and no invented center.
 
 ## Edge cases & errors
 

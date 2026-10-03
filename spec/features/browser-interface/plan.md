@@ -646,3 +646,15 @@ the view unless one of its shapes has its bubble open, and adds what came in; af
 flood layer brings emergencies and then reports back to the front, since what was added went on
 top. The data centre layer keeps its clear-and-rebuild, which is a few hundred shapes, except for
 the site whose bubble is open, found by a `site` tag on each shape.
+
+## Address radius (changes/address-radius/)
+
+Add POST `/api/areas/radius` without overlapping saved-search routes, delegating validation
+and lookup to `api.radius_area`. The shared area document exposes address, center and miles.
+Keep radius drafts in the named area list, draw their circles in a separate display layer,
+and serialize them by kind, never through polygon GeoJSON. The form uses a request revision
+to reject stale previews. Disable Add until a successful preview matches current inputs.
+Radius rows edit miles and inclusion/exclusion; saved coordinate circles render on reopen.
+
+Verify endpoint and terminal parity plus a real-browser fixture with a cached address,
+preview/add/save/reopen, exclusion, mileage edits, stale previews and failed saves.
