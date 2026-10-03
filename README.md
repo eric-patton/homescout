@@ -356,8 +356,14 @@ Criteria a mold-sensitive search might use, which are the ones the New Mexico se
 - {id: fema-never-studied, when: 'flood_zone in ["D", "not mapped"]', severity: flag}
 - {id: next-to-a-wash, when: 'stream_feet < 500', severity: flag}
 - {id: flash-flood-emergency-here, when: 'flash_flood_emergencies > 0', severity: flag}
-- {id: poor-dam-nearby, when: 'dam_worst_nearby in ["poor", "unsatisfactory"]', severity: flag}
+- {id: poor-dam-close, when: 'dam_miles < 2 and dam_worst_nearby in ["poor", "unsatisfactory"]', severity: flag}
+- {id: unsatisfactory-dam-nearby, when: 'dam_worst_nearby == "unsatisfactory"', severity: flag}
 ```
+
+The dam flags are tighter than they look like they need to be, and that was measured: a high-hazard
+dam rated poor within ten miles is true of more than half of New Mexico's listings, because the old
+flood-control dams stand beside the towns they were built to protect. A flag on half the list is a
+flag nobody reads.
 
 Dropping on any past Flash Flood Emergency alone would set aside about one house in seven in New
 Mexico, because emergency areas cover whole towns (Roswell, Alto, Ruidoso, Santa Fe), which is why
