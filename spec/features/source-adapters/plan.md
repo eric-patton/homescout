@@ -113,6 +113,15 @@ The two body limits are enforced by reading the response in chunks and abandonin
 is passed, not by trusting a `Content-Length` the other side supplies. Exceeding either is a
 `failed` outcome with a reason, never a partial row.
 
+Realtor can return HTTP 200 with the GraphQL error `The user aborted a request.` rather than an
+HTTP timeout (observed on the saved church search on 2026-10-04). The same four candidate queries
+answered normally moments later. Its adapter identifies this exact transient message through a
+`retry_reason` callback on the paced session. HTTP errors, transport failures and this upstream
+abort consume one retry count and use the existing per-source delay, growing backoff and jitter.
+Malformed responses, unknown errors and any mixture containing a permanent error remain failures
+without a body-based retry. Exhausting retries preserves the original message and attempt count;
+the existing collector keeps earlier pages or circles with truncation and abandons the remainder.
+
 ### D-4. The capability declaration drives the request, so an undeclared filter cannot be sent
 
 AC-2 says a field absent from the declaration is never sent. Rather than assert that in review, make

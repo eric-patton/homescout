@@ -164,3 +164,36 @@ spec validator passed. No specification delta was needed: the defect prevented t
 radius and complete-geographic-coverage requirements from working for larger areas.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 4 - 2026-10-04
+
+baseline: spec sha256:3f5ae53abded | plan sha256:92b605d8f9d2 | tasks sha256:1e171f2649bd | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of T-upstream-abort-1 against the source spec, plan,
+tasks, constitution and product-global. Prior behavior outside this defect was not re-audited.
+Raw findings: no new missing, partial, contradicts or unrequested behavior in this scope.
+
+implemented:
+
+AC-6, AC-9, AC-16: sources/politeness.py:223,289 and sources/realtor/__init__.py:376,394
+route the measured GraphQL abort through the same paced request loop. Fake-clock tests prove
+minimum spacing and growing jittered backoff, preserving the complete request and page offset.
+AC-10: sources/politeness.py:291 uses the existing attempt counter, so HTTP, transport and
+upstream body failures share one per-source retry bound. Tests cover zero, one and three retries,
+plus mixed failure kinds. Only the exact measured error, with no other error present, is retried.
+AC-5, AC-12, AC-15: sources/realtor/__init__.py:186,381 retains normal response/error handling
+and the collector's partial-result behavior. Tests prove unknown and permanent failures are not
+retried, exhausted aborts retain the reason and attempt count, and prior-circle rows survive with
+truncation while remaining pieces are abandoned. No store or history path changed.
+AC-17: tests/test_sources_realtor.py:188 proves the same handling on the geography lookup.
+
+Verification: seven initial regression cases failed on the old behavior; all thirteen final
+regression cases passed. The full default suite passed 1,630 tests before the final partial-cover
+test was added; that test passed in the subsequent thirteen-case focused run. Python lint, diff
+whitespace and scoped spec validation passed. A complete live fetch of the saved church query
+completed with outcome ok, 3,105 deduplicated candidates and no truncation across 22 paced listing
+requests, before exact local geography filtering. No source rows, search files or database history
+were written by this probe. The latest user run's error was the upstream-abort message, replacing
+the earlier radius rejection. No specification delta was needed for this retry fidelity defect.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

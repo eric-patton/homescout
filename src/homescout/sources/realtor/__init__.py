@@ -44,7 +44,7 @@ from ..base import (
 from ..ceiling import MAX_REQUESTS_PER_QUERY, Page, collect
 from ..circles import cover
 from ..errors import SourceFailed, SourceUnavailable
-from ..politeness import PacedSession, Request
+from ..politeness import Fetched, PacedSession, Request
 from . import normalize, queries
 
 #: The site's own cap. Documented nowhere, observable everywhere.
@@ -373,6 +373,7 @@ class RealtorSource(BaseSource):
                 body=body,
                 headers=self._headers,
             ),
+            retry_reason=_upstream_retry_reason,
         )
         try:
             payload = json.loads(fetched.body)
@@ -388,6 +389,21 @@ class RealtorSource(BaseSource):
         if not isinstance(data, Mapping):
             raise SourceFailed("realtor returned no data block")
         return data
+
+
+def _upstream_retry_reason(response: Fetched) -> str | None:
+    """Recognize the transient GraphQL abort seen on a live request on 2026-10-04."""
+    try:
+        payload = json.loads(response.body)
+    except ValueError:
+        return None
+    errors = payload.get("errors") if isinstance(payload, Mapping) else None
+    if not isinstance(errors, list) or not errors:
+        return None
+    message = "The user aborted a request."
+    if all(isinstance(error, Mapping) and error.get("message") == message for error in errors):
+        return f"realtor reported an error: {message}"
+    return None
 
 
 def _expected_area_type(area: Any) -> str:

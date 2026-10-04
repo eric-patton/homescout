@@ -201,3 +201,16 @@ T5 and T6 touch disjoint files and neither needs the other.
       integration test proves that polygon holes, exclusions and outside points are filtered
       locally after the candidate cover. All four 38.3488-mile candidate queries for the actual
       saved 60-minute church area returned valid live first pages. The full default suite passed.
+
+## Upstream abort retry defect (2026-10-04)
+
+- [x] T-upstream-abort-1: Retry Realtor's measured HTTP 200 GraphQL upstream-abort response through
+      the paced session, sharing one configured retry bound with HTTP and transport failures.
+      Preserve growing backoff, jitter, minimum delay, the original request and the failure reason.
+      Permanent or unknown responses remain failures without a body-based retry; exhausted retries
+      preserve earlier pages or circles with truncation and stop the remaining query.
+      Traced red-to-green regressions cover recovery, per-source retry settings including zero,
+      mixed failure kinds, permanent errors, later-page offsets, geography lookup and partial
+      circle-cover failure (`feat-002/AC-5`, AC-6, AC-9, AC-10, AC-12, AC-15, AC-16, AC-17).
+      Files: `sources/politeness.py`, `sources/realtor/__init__.py`,
+      `tests/test_sources_realtor.py`.

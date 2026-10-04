@@ -100,6 +100,119 @@ def source(transport: FakeTransport, **kwargs) -> RealtorSource:
     return RealtorSource(session_with(transport, **kwargs))
 
 
+def aborted() -> FakeResponse:
+    return FakeResponse(body=json.dumps({
+        "errors": [{"message": "The user aborted a request."}], "data": None,
+    }).encode())
+
+
+def test_upstream_abort_retries_the_same_query_with_pacing_and_jitter() -> None:
+    """feat-002/AC-6, AC-9, AC-10: HTTP 200 can carry a temporary upstream failure."""
+    clock = FakeClock()
+    transport = FakeTransport(responses=[aborted(), aborted(),
+        FakeResponse(body=json.dumps(fixture("search_city")).encode())])
+
+    result = source(transport, clock=clock, jitter=lambda: 0.5).search(
+        SearchQuery(area=PointRadius(30.6, -90.6, 38), price_max=1000000))
+
+    assert result.outcome == "ok", result.detail
+    assert result.rows
+    assert len(transport.requests) == 3
+    assert len(set(transport.bodies)) == 1
+    assert clock.slept == [2.5, 0.5, 5.0]
+
+
+@pytest.mark.parametrize("retries", [0, 1, 3])
+def test_upstream_abort_stops_at_the_configured_source_retry_bound(retries: int) -> None:
+    """feat-002/AC-10, AC-12: total upstream failure is bounded and reported honestly."""
+    transport = FakeTransport(default=aborted())
+    config = PolitenessConfig.from_mapping({"sources": {"realtor": {"max_retries": retries}}})
+
+    result = source(transport, config=config).search(SearchQuery(area=PointRadius(30.6, -90.6, 38)))
+
+    assert result.outcome == "failed"
+    assert result.rows == ()
+    assert len(transport.requests) == retries + 1
+    assert "The user aborted a request." in result.detail
+    assert f"{retries + 1} attempts" in result.detail
+
+
+def test_http_transport_and_upstream_abort_share_one_retry_bound() -> None:
+    """feat-002/AC-10: mixing failure kinds cannot multiply the retry limit."""
+    transport = FakeTransport(responses=[FakeResponse(status=503), aborted(),
+        TimeoutError("socket timeout"), aborted()], default=responder().default)
+    clock = FakeClock()
+
+    result = source(transport, clock=clock).search(SearchQuery(area=PointRadius(30.6, -90.6, 38)))
+
+    assert result.outcome == "failed"
+    assert len(transport.requests) == 4
+    assert clock.slept == [5.0, 10.0, 20.0]
+
+
+@pytest.mark.parametrize("payload", [
+    {"errors": [{"message": "query.nearby.radius needs to be positive and less than 50"}]},
+    {"errors": [{"message": "The user aborted a request."}, {"message": "BadSearchError"}]},
+    {"errors": [{"message": "The user aborted a request because the radius is invalid."}]},
+    {"errors": [{"message": "Permission denied"}]},
+    {"data": None},
+], ids=["radius", "mixed-permanent", "different-message", "permission", "no-data"])
+def test_permanent_or_unknown_errors_are_not_retried(payload: dict) -> None:
+    """feat-002/AC-10, AC-12: only the measured transient response gets a retry."""
+    transport = FakeTransport(default=FakeResponse(body=json.dumps(payload).encode()))
+
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 38)))
+
+    assert result.outcome == "failed"
+    assert len(transport.requests) == 1
+
+
+def test_upstream_abort_retries_a_later_page_without_repeating_rows() -> None:
+    """feat-002/AC-5, AC-16: retry the same offset before advancing or truncating."""
+    def page(home):
+        return FakeResponse(body=json.dumps({"data": {"homeSearch": {
+            "total": 201, "results": [home],
+        }}}).encode())
+
+    transport = FakeTransport(responses=[page(homes()[0]), aborted(), page(homes()[1])])
+
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 38)))
+
+    assert result.outcome == "ok"
+    assert not result.truncated
+    assert [row.source_listing_id for row in result.rows] == [
+        home["property_id"] for home in homes()[:2]]
+    assert [json.loads(body)["variables"]["offset"] for body in transport.bodies] == [0, 200, 200]
+
+
+def test_geography_lookup_recovers_from_the_same_upstream_abort() -> None:
+    """feat-002/AC-9, AC-17: geography and listing requests use the same retry handling."""
+    transport = FakeTransport(responses=[aborted()], default=responder().default)
+
+    result = source(transport).search(SearchQuery(area=City("Portales", "NM")))
+
+    assert result.outcome == "ok"
+    assert len(transport.requests) == 3
+    assert transport.bodies[0] == transport.bodies[1]
+
+
+def test_exhausted_upstream_abort_keeps_prior_circle_rows_and_stops() -> None:
+    """feat-002/AC-10, AC-15, AC-16: exhausting retries abandons the remaining cover."""
+    first = FakeResponse(body=json.dumps({"data": {"homeSearch": {
+        "total": 1, "results": [homes()[0]],
+    }}}).encode())
+    transport = FakeTransport(responses=[first], default=aborted())
+
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 54)))
+
+    assert result.outcome == "ok"
+    assert result.truncated
+    assert len(result.rows) == 1
+    assert "The user aborted a request." in result.truncation.reason
+    assert len(transport.requests) == 5
+    assert len(set(transport.bodies[1:])) == 1
+
+
 # -- geography ---------------------------------------------------------------
 
 

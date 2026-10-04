@@ -220,12 +220,15 @@ class PacedSession:
         request: Request,
         *,
         headers: Mapping[str, str] | None = None,
+        retry_reason: Callable[[Fetched], str | None] | None = None,
     ) -> Fetched:
         """Perform one request on behalf of one source, politely.
 
         Waits out the configured delay, then retries a refusal or a throttle on a growing,
         jittered backoff until the bound is reached. Anything the source could not answer becomes a
         `SourceFailed` naming why, so the caller reports one source's outcome rather than dying.
+        An adapter may identify a temporary error carried inside a successful HTTP response with
+        `retry_reason`; those failures share the same retry bound as HTTP and transport failures.
         """
         policy = self.policy_for(source)
         prepared = replace(
@@ -276,11 +279,21 @@ class PacedSession:
                     detail=body[:REFUSAL_DETAIL].decode("utf-8", "replace"),
                 )
 
-            return Fetched(
+            fetched = Fetched(
                 status=response.status,
                 body=body,
                 content_type=response.header("content-type"),
             )
+            # Some APIs report temporary upstream failures in a successful HTTP response.
+            # Share the transport retry count and backoff rather than nesting another loop.
+            reason = retry_reason(fetched) if retry_reason is not None else None
+            if reason is not None:
+                if attempt >= policy.max_retries:
+                    raise SourceFailed(f"{reason} (after {attempt + 1} attempts)")
+                attempt += 1
+                self._back_off(attempt, policy)
+                continue
+            return fetched
 
     def fetch_image(self, source: str, url: str) -> Fetched:
         """Retrieve one image, under a much smaller limit and following no redirects.
