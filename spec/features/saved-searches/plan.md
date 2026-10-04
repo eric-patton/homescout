@@ -646,3 +646,10 @@ address using the same provider, without writing a definition. Expose it through
 
 Verify: `uv run pytest -q tests/test_searches_radius.py tests/test_searches_geometry.py
 tests/test_searches_addresses.py tests/test_searches_validation.py`.
+
+
+## Drive-time areas (changes/drive-time-areas/)
+
+Use a dedicated `enrich/travel.py` service over the existing paced transport and SQLite value cache. The endpoint is `https://api.heigit.org/openrouteservice/v2/isochrones/driving-car`, with authorization in a header, no redirects, bounded response and generic refusal messages that cannot echo the key. Re-read the workspace `.env` for every uncached preview. Save one polygon snapshot with provenance in a `drive_time` SearchArea; its coarse and exact paths reuse polygons. Coordinates are latitude first in files, longitude first in requests. Only explicit refresh regenerates unchanged parameters; failures retain the prior cache and all saved files. Public-place acknowledgment is required because the provider prohibits personal data. Use the Census matcher or an explicit coordinate override; never silently remove town/ZIP to guess a match.
+
+Verification: `uv run pytest -q tests/test_searches_drive_time.py tests/test_searches_radius.py tests/test_searches_geometry.py tests/test_searches_validation.py`; full default suite before completion.

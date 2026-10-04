@@ -520,3 +520,36 @@ Verification: 1,576 default tests passed; three focused real-browser tests passe
 Python lint, JavaScript syntax and both per-feature spec validators passed.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 10 - 2026-10-03
+
+baseline: spec sha256:84f6dd92e2fe | plan sha256:a5b324fe2f73 | tasks sha256:0fc798bed0d0 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of changes/drive-time-areas/ and its folded criteria.
+Prior feature behavior outside this change was not re-audited. No new drift found.
+The constitution and product-global rules were checked for this change's network, privacy,
+credential, history and shared-facade paths.
+
+implemented:
+
+AC-108: src/homescout/web/static/search.js:507 implements public-address acknowledgment,
+coordinates, minutes, direction, inclusion/exclusion and explicit preview/add/refresh steps.
+Input revisions reject stale replies, and current-render callbacks retain drafts after redraws
+and errors. src/homescout/web/app.py:261 calls the shared operation under existing guards.
+AC-109: src/homescout/web/static/search.js:226,490,616,627,1931 preserves generated polygons
+and their metadata separately from Leaflet.draw, loads existing parameters for recalculation
+and renders provider/license credit. src/homescout/api.py:2345 preserves wire provenance.
+tests/test_web_browser.py:4812,4923 covers real preview/update, exact geometry, metadata,
+failed saves, successful save/reopen, stale replies and failed refreshes.
+
+- confirmed gap-004 [unrequested]: unchanged outside this change.
+- confirmed gap-005 [unrequested]: unchanged outside this change.
+- confirmed gap-006 [unrequested]: unchanged outside this change.
+- confirmed gap-007 [unrequested]: unchanged outside this change.
+
+Verification: 1,609 default tests passed; four focused real-browser tests passed; Python lint,
+JavaScript syntax and both per-feature spec validators passed. A separate browser-plugin
+check previewed, saved and reopened the actual public church's 30-minute boundary in a
+temporary workspace, retaining its published address label and generated-shape attribution.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

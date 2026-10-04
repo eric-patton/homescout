@@ -131,6 +131,37 @@ cannot place it. The terminal can preview the same area without changing a searc
 homescout searches radius "123 Main St, Anytown, NM 88001" --miles 10 --json
 ```
 
+**Minutes by car.** Under the area list, enter a public destination, choose the minutes and
+whether to drive **to** or **from** it, and confirm it is a public place. Press **Preview driving
+area**, then **Add drive-time area** and **Save the areas**. The default is driving to the address.
+The boundary represents estimated driving time without live traffic. Included areas combine,
+and exclusions subtract from the combined area.
+
+Put `HOMESCOUT_ORS_API_KEY` in the `.env` beside your database, usually
+`%USERPROFILE%\HomeScout\.env`. The file is read when a new boundary is requested, so you can
+add or change the key without restarting a terminal. The process environment takes precedence.
+The Census resolves the address unless you supply a latitude, longitude center under
+**Use a coordinate center (optional)**. Only the center and driving parameters go to
+[openrouteservice by HeiGIT](https://openrouteservice.org/). Use public places for this feature,
+such as a church, school or office, rather than a private home.
+
+Saved areas retain their exact Polygon or MultiPolygon, center, minutes, direction, provider
+and generation date. Search runs use that stored boundary without a geocoder or routing call.
+Previews are cached by center, minutes and direction; **Refresh preview** asks for a new result.
+To change a saved boundary, press **Recalculate** on its row, preview or refresh, then update
+the area and save. A failed refresh preserves the previous boundary.
+
+The terminal can preview the same public destination without changing a search:
+
+```powershell
+homescout searches drive-time "25890 LA-442, Independence, LA 70443" --minutes 30 --direction to --public-place --center 30.5771925204 -90.57493594311 --json
+```
+
+The example supplies the church's coordinates because the Census recognizes that location as
+Tickfaw rather than Independence. Confirm the position on the map before saving. Driving
+boundaries carry attribution to openrouteservice by HeiGIT and OpenStreetMap contributors,
+with a [CC BY-SA 4.0 license](https://creativecommons.org/licenses/by-sa/4.0/).
+
 ### Specific houses
 
 A search can also name houses, any number of them, beside its areas or instead of them:

@@ -4807,3 +4807,178 @@ def test_radius_preview_ignores_stale_response_and_survives_redraw(served) -> No
         connection.close()
     finally:
         process.terminate()
+
+
+def test_drive_time_preview_update_save_and_reopen(served) -> None:
+    """feat-010/AC-108 feat-010/AC-109: generated polygons keep their identity and metadata."""
+    from enrich_fakes import session
+    from homescout.search.definition import FileCatalog
+    from searches_fakes import write
+    from test_searches_drive_time import CENTER, GEOMETRY, Routing, credential
+
+    base, workspace, store = served
+    directory = store.path.parent / "driving-searches"
+    write(directory, "church", text=(
+        "# Keep the destination comment.\nname: church\n"
+        "areas: [{type: city, value: 'Portales, NM'}]\nsources: [realtor]\n"
+    ))
+    workspace.catalog = FileCatalog(directory)
+    credential(store.path.parent)
+    routing = Routing()
+    workspace._travel_session = session(routing)
+    process, debug = chrome(f"{base}/search/church")
+    try:
+        connection = talk(debug, "/search/church")
+        found = evaluate(connection, r"""(async () => {
+          const until = async (test) => {
+            for (let i = 0; i < 200; i++) {
+              if (test()) return;
+              await new Promise(r => setTimeout(r, 30));
+            }
+            throw new Error("driving page did not reach the expected state");
+          };
+          const input = (id, value) => {
+            const box = document.getElementById(id);
+            box.value = value; box.dispatchEvent(new Event("input", {bubbles: true}));
+          };
+          const change = (id, value) => {
+            const box = document.getElementById(id);
+            if (box.type === "checkbox") box.checked = value; else box.value = value;
+            box.dispatchEvent(new Event("change", {bubbles: true}));
+          };
+          const button = (name) => [...document.querySelectorAll("#arealist button")]
+            .find(b => b.textContent === name);
+          await until(() => document.getElementById("driveaddress") && held.circles);
+          const needsPublic = button("Preview driving area").disabled;
+          input("driveaddress", "Public church");
+          input("drivecenter", "30.611282, -90.369808");
+          change("drivepublic", true);
+          button("Preview driving area").click();
+          await until(() => !button("Add drive-time area").disabled);
+          const preview = {text: document.querySelector(".driveform [role=status]").textContent,
+                           rows: held.named.length};
+          input("driveminutes", "31");
+          const invalidated = button("Add drive-time area").disabled && !held.drivePreview;
+          input("driveminutes", "30");
+          button("Preview driving area").click();
+          await until(() => !button("Add drive-time area").disabled);
+          button("Add drive-time area").click();
+          const name = document.querySelector('[aria-label="What to call area 2"]');
+          name.value = "Church commute"; name.dispatchEvent(new Event("input", {bubbles: true}));
+          held.named[1].reason = "Keep Sundays nearby.";
+          button("Recalculate").click();
+          const retained = {address: document.getElementById("driveaddress").value,
+                            center: document.getElementById("drivecenter").value,
+                            rows: held.named.length};
+          input("driveminutes", "32"); change("drivedirection", "from");
+          change("drivesense", "excluded");
+          button("Refresh preview").click();
+          await until(() => !button("Update drive-time area").disabled);
+          button("Update drive-time area").click();
+          const originalFetch = window.fetch;
+          window.fetch = async (url, options) =>
+            String(url).endsWith("/api/searches/church") && options?.method === "POST"
+              ? new Response(JSON.stringify({error: "Drive save failed"}), {status: 400})
+              : originalFetch(url, options);
+          await saveAreas();
+          const failed = {dirty: unsaved.has("areas"), rows: held.named.length,
+                          error: document.body.textContent.includes("Drive save failed")};
+          window.fetch = originalFetch;
+          await saveAreas();
+          return {needsPublic, preview, invalidated, retained, failed,
+                  area: held.search.exclusions[0], saved: !unsaved.has("areas"),
+                  editable: held.drawn.getLayers().length, layers: held.circles.getLayers().length};
+        })()""")
+        assert found["needsPublic"] and found["invalidated"] and found["saved"]
+        assert found["preview"]["rows"] == 1
+        assert "Preview only, not added yet" in found["preview"]["text"]
+        assert found["retained"] == {"address": "Public church",
+                                    "center": "30.611282, -90.369808", "rows": 2}
+        assert found["failed"] == {"dirty": True, "rows": 2, "error": True}
+        assert found["editable"] == 0 and found["layers"] == 1
+        assert found["area"]["kind"] == "drive_time"
+        assert found["area"]["geometry"] == GEOMETRY
+        assert found["area"]["center"] == CENTER
+        assert found["area"]["minutes"] == 32 and found["area"]["direction"] == "from"
+        assert found["area"]["name"] == "Church commute"
+        assert found["area"]["reason"] == "Keep Sundays nearby."
+        evaluate(connection, "location.reload(); true")
+        reopened = evaluate(connection, r"""(async () => {
+          for (let i = 0; i < 150; i++) {
+            if (typeof held !== "undefined" && held.search && held.circles)
+              return {area: held.search.exclusions[0], editable: held.drawn.getLayers().length,
+                      layers: held.circles.getLayers().length};
+            await new Promise(r => setTimeout(r, 30));
+          }
+          return null;
+        })()""", message_id=2)
+        assert reopened == {"area": found["area"], "editable": 0, "layers": 1}
+        connection.close()
+    finally:
+        process.terminate()
+    assert routing.count == 2
+    assert "# Keep the destination comment." in (directory / "church.yaml").read_text("utf-8")
+
+
+def test_drive_time_stale_response_redraw_and_failed_refresh(served) -> None:
+    """feat-010/AC-108: stale responses and failed refreshes never replace the draft's inputs."""
+    from test_searches_drive_time import area
+
+    base, _workspace, _store = served
+    process, debug = chrome(f"{base}/search/portales")
+    try:
+        connection = talk(debug, "/search/portales")
+        script = r"""(async () => {
+          const until = async (test) => {
+            for (let i = 0; i < 150; i++) {
+              if (test()) return;
+              await new Promise(r => setTimeout(r, 30));
+            }
+            throw new Error("driving preview did not reach the expected state");
+          };
+          const input = (value) => {
+            const box = document.getElementById("driveaddress");
+            box.value = value; box.dispatchEvent(new Event("input", {bubbles: true}));
+          };
+          const button = (name) => [...document.querySelectorAll("#arealist button")]
+            .find(b => b.textContent === name);
+          await until(() => document.getElementById("driveaddress"));
+          const publicBox = document.getElementById("drivepublic");
+          publicBox.checked = true; publicBox.dispatchEvent(new Event("change", {bubbles: true}));
+          const originalFetch = window.fetch;
+          let resolve;
+          window.fetch = (url, options) => String(url).endsWith("/api/areas/drive-time")
+            ? new Promise(done => {resolve = done;}) : originalFetch(url, options);
+          const result = () => new Response(JSON.stringify({area: DRIVE_RESULT}), {status: 200});
+          input("First destination"); button("Preview driving area").click();
+          await until(() => !!resolve);
+          input("Second destination"); resolve(result());
+          await new Promise(r => setTimeout(r, 50));
+          const stale = {disabled: button("Add drive-time area").disabled,
+                         address: document.getElementById("driveaddress").value,
+                         polygon: !!held.drivePreview};
+          resolve = null;
+          input("First destination"); button("Preview driving area").click();
+          await until(() => !!resolve);
+          redrawAreaList(); resolve(result());
+          await until(() => !button("Add drive-time area").disabled);
+          const redrawn = document.querySelector(".driveform [role=status]").textContent;
+          resolve = null;
+          button("Refresh preview").click();
+          await until(() => !!resolve);
+          resolve(new Response(JSON.stringify({error: "Routing unavailable"}), {status: 400}));
+          await until(() => !held.driveInput.pending);
+          const failed = {disabled: button("Add drive-time area").disabled,
+                          address: document.getElementById("driveaddress").value,
+                          error: document.body.textContent.includes("Routing unavailable")};
+          window.fetch = originalFetch;
+          return {stale, redrawn, failed};
+        })()""".replace("DRIVE_RESULT", json.dumps(area()))
+        found = evaluate(connection, script)
+        assert found["stale"] == {"disabled": True, "address": "Second destination",
+                                  "polygon": False}
+        assert "Preview only, not added yet" in found["redrawn"]
+        assert found["failed"] == {"disabled": True, "address": "First destination", "error": True}
+        connection.close()
+    finally:
+        process.terminate()

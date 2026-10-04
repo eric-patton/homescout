@@ -42,6 +42,7 @@ from web_fakes import (
 #: how the browser reaches it, and the test below fails until somebody has.
 REACHES: dict[str, tuple[str, str]] = {
     "searches radius": ("POST", "/api/areas/radius"),
+    "searches drive-time": ("POST", "/api/areas/drive-time"),
     "run": ("POST", "/api/searches/{name}/run"),
     "changes": ("GET", "/api/changes/{name}"),
     "searches list": ("GET", "/api/searches"),

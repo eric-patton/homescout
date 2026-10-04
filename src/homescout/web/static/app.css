@@ -1517,6 +1517,10 @@ td.whycell { width: 30%; }
 .radiusform input[type="number"] { width: 5rem; }
 .radiusform .meta:empty { display: none; }
 .radiusform .hint { margin-bottom: 0; }
+.drivepublic { display: block; margin: var(--s3) 0; }
+.drivepublic input { margin-right: var(--s2); }
+.driveform details { margin-top: var(--s3); }
+.driveform details input { width: min(100%, 28rem); margin: var(--s2) 0; }
 .radiusdistance { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s1); }
 .radiusdistance input[type="number"] { width: 5rem; min-width: 0; }
 

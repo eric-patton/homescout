@@ -277,3 +277,8 @@ an In or out choice, and Add radius area. Only Preview sends the address to the 
 The circle is a draft until Save the areas. Each radius row shows its address or center and
 an editable Miles field. Circles use the existing inclusion/exclusion colors and dash pattern,
 with the same sense written in the table so color is never the sole explanation.
+
+
+## Drive-time areas
+
+A form below the radius form uses Address, optional Latitude/Longitude center, Minutes, Driving to/from, a public-place acknowledgment, In or out, Preview driving area, Refresh preview and Add drive-time area. Successful preview says it has not been added; added rows say to save. Existing rows show estimates, date and provider credit, plus Recalculate to load parameters into the form. Generated boundaries are display-only shapes outside the drawing toolbar. Regenerating parameters requires a fresh preview and Add; the existing row stays until the replacement is explicitly added. Refresh uses the same draft rule.

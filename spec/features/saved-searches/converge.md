@@ -288,3 +288,32 @@ Verification: 1,576 default tests passed; three focused real-browser tests passe
 Python lint, JavaScript syntax and both per-feature spec validators passed.
 
 verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
+
+## run 5 - 2026-10-03
+
+baseline: spec sha256:2d6030573c72 | plan sha256:2c08a5011c84 | tasks sha256:32d9b0d85227 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of changes/drive-time-areas/ and its folded criteria.
+Prior feature behavior outside this change was not re-audited. No new drift found.
+The constitution and product-global rules were checked for this change's network, privacy,
+credential, history and shared-facade paths.
+
+implemented:
+
+AC-25: src/homescout/search/areas.py:505,527 validates and preserves the generated area's
+parameters and provenance; its polygon membership and coarse query paths avoid geocoding
+on runs. tests/test_searches_drive_time.py covers holes, islands, exclusions, offline runs,
+metadata and geometry changes starting a new observation scope.
+AC-26: src/homescout/api.py:351 validates before any lookup and shares preview with both
+surfaces. src/homescout/enrich/travel.py:30 uses fixed HTTPS, header authorization, bounded
+responses, fresh workspace credentials, exact-parameter caching and explicit refresh with
+validation before replacement. CLI/HTTP and transport tests verify parity, cache reuse,
+public acknowledgment, safe errors, changed credentials and no search-file writes.
+
+- confirmed gap-003 [partial]: existing YAML line-wrapping limitation, unchanged.
+
+Verification: 1,609 default tests passed; four focused real-browser tests passed; Python lint,
+JavaScript syntax and both per-feature spec validators passed. The actual public church
+center returned a valid 30-minute Polygon through the completed provider integration.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)

@@ -1934,3 +1934,15 @@ is written in this file beside this function and the wrong pattern is the one cu
 
 Radius validation: the default pytest suite, focused address/radius tests, real-browser
 preview/save/reopen and stale-response tests, Python lint, and JavaScript syntax checks.
+
+
+## Drive-time area controls
+
+- [x] T-drive-1: Add the guarded drive-time preview route and area wire fields; verify shared CLI/HTTP behavior (`feat-010/AC-108`).
+- [x] T-drive-2: Build accessible preview/add/refresh controls with retained drafts and revision checks; verify browser input changes, redraws and errors (`feat-010/AC-108`).
+- [x] T-drive-3: Render generated polygons separately; preserve metadata, exclusions and exact geometry through saving/reopening, with attribution and estimate wording (`feat-010/AC-109`).
+
+Drive-time validation: transport/cache/input tests and CLI/HTTP parity in
+`tests/test_searches_drive_time.py`; browser preview/update/save/reopen, failed saves,
+failed refreshes and stale responses in `tests/test_web_browser.py`. The default suite,
+focused real-browser tests, Python lint and JavaScript syntax checks passed.

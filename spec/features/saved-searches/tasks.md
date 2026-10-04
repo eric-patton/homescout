@@ -344,3 +344,15 @@ open were worked rather than reported.
 
 Radius validation: the default pytest suite, focused address/radius tests, real-browser
 preview/save/reopen and stale-response tests, Python lint, and JavaScript syntax checks.
+
+
+## Drive-time areas
+
+- [x] T-drive-1: Store and validate snapshot drive-time areas, reusing polygon query and containment; test names, reasons, exclusions and offline runs (`feat-004/AC-25`).
+- [x] T-drive-2: Implement paced authenticated requests, input/public-place validation, cache and explicit refresh, dynamic workspace credentials and safe errors; test at the transport seam (`feat-004/AC-26`).
+- [x] T-drive-3: Expose the shared preview through CLI and HTTP; test parity, failure preservation and no saved-file writes (`feat-004/AC-26`).
+
+Drive-time validation: transport/cache/input tests and CLI/HTTP parity in
+`tests/test_searches_drive_time.py`; browser preview/update/save/reopen, failed saves,
+failed refreshes and stale responses in `tests/test_web_browser.py`. The default suite,
+focused real-browser tests, Python lint and JavaScript syntax checks passed.

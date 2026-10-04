@@ -223,6 +223,13 @@ async function saveAreas() {
 }
 
 function namedArea(area) {
+  if (area.kind === "drive_time") {
+    const entry = {type: "drive_time"};
+    for (const key of ["address", "center", "minutes", "direction", "provider", "generated_at",
+                       "matched", "public_place", "license", "attribution", "geometry", "name"])
+      if (area[key] != null) entry[key] = area[key];
+    return entry;
+  }
   if (area.kind === "radius") {
     const entry = {type: "radius", miles: area.miles};
     if (area.address) entry.address = area.address;
@@ -250,8 +257,10 @@ function namedArea(area) {
  */
 function namedFrom(search) {
   return [
-    ...(search.areas || []).filter((a) => !a.geometry).map((a) => ({...a, excluded: false})),
-    ...(search.exclusions || []).filter((a) => !a.geometry).map((a) => ({...a, excluded: true})),
+    ...(search.areas || []).filter((a) => !a.geometry || a.kind === "drive_time")
+      .map((a) => ({...a, excluded: false})),
+    ...(search.exclusions || []).filter((a) => !a.geometry || a.kind === "drive_time")
+      .map((a) => ({...a, excluded: true})),
   ];
 }
 
@@ -286,6 +295,7 @@ function areaList() {
         "this search names no areas yet. Add a town below, or draw one on the map."),
       addPlace(),
       radiusForm(),
+      driveTimeForm(),
       el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"));
   }
 
@@ -302,6 +312,7 @@ function areaList() {
       el("tbody", {},
         named.map((area, index) => areaRow(
           area.kind,
+          area.kind === "drive_time" ? driveTimeDetails(area) :
           area.kind === "radius" ? radiusDetails(area, index + 1) : el("input", {
             type: "text", value: area.value || "",
             "aria-label": `Which place row ${index + 1} names`,
@@ -326,6 +337,7 @@ function areaList() {
       "Nothing is written until you save."),
     addPlace(),
     radiusForm(),
+    driveTimeForm(),
     el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"),
   );
 }
@@ -334,7 +346,7 @@ function areaList() {
  * place that has a name, and typing one should not mean opening the file. */
 function addPlace() {
   const kinds = (held.settings.area_kinds || ["city", "county", "zip", "state"])
-    .filter((k) => k !== "polygon" && k !== "radius");
+    .filter((k) => k !== "polygon" && k !== "radius" && k !== "drive_time");
   const kind = el("select", {id: "newkind", "aria-label": "What kind of place to add"},
     kinds.map((k) => el("option", {value: k}, k)));
   const value_ = el("input", {
@@ -468,15 +480,164 @@ function clearRadiusPreview() {
   if (held.radiusPreview) { held.radiusPreview.remove(); held.radiusPreview = null; }
 }
 
+const DRIVE_CREDIT = "openrouteservice by HeiGIT | Data from OpenStreetMap | CC-BY-SA 4.0";
+
+function driveTimeDraft() {
+  return held.driveInput ||= {address: "", center: "", minutes: "30", direction: "to",
+    publicPlace: false, excluded: false, revision: 0};
+}
+
+function driveTimeDetails(area) {
+  return el("div", {},
+    el("span", {}, `${area.minutes} estimated minutes driving ${area.direction} ${area.address}`),
+    el("p", {class: "meta"}, `Generated ${new Date(area.generated_at).toLocaleString()}. ${DRIVE_CREDIT}.`),
+    el("button", {type: "button", onclick: () => {
+      const draft = driveTimeDraft();
+      Object.assign(draft, {address: area.address, center: area.center.join(", "),
+        minutes: String(area.minutes), direction: area.direction, publicPlace: true,
+        excluded: area.excluded, target: area, preview: null, pending: false,
+        revision: draft.revision + 1});
+      clearDrivePreview();
+      redrawAreaList();
+      document.getElementById("driveaddress").focus();
+      say("Parameters loaded below. Preview or refresh, then update the area and save.", "good");
+    }}, "Recalculate"));
+}
+
+function driveTimeForm() {
+  const draft = driveTimeDraft();
+  const status = el("p", {class: "meta", role: "status"});
+  const address = el("input", {id: "driveaddress", type: "text", value: draft.address,
+    placeholder: "Public destination address", "aria-label": "Driving destination address"});
+  const minutes = el("input", {id: "driveminutes", type: "number", min: "0.01", max: "60",
+    step: "any", value: draft.minutes, "aria-label": "Driving minutes"});
+  const center = el("input", {id: "drivecenter", type: "text", value: draft.center,
+    placeholder: "Latitude, longitude", "aria-label": "Driving coordinate center (optional)"});
+  const direction = el("select", {id: "drivedirection", "aria-label": "Driving direction"},
+    el("option", {value: "to"}, "to the address"),
+    el("option", {value: "from"}, "from the address"));
+  direction.value = draft.direction;
+  const publicPlace = el("input", {id: "drivepublic", type: "checkbox"});
+  publicPlace.checked = draft.publicPlace;
+  const sense = el("select", {id: "drivesense", "aria-label": "Whether the driving area is included or excluded",
+    onchange: () => {
+      draft.excluded = sense.value === "excluded";
+      if (held.drivePreview) held.drivePreview.setStyle({color: draft.excluded ? "#a02020" : "#14508c"});
+    }}, el("option", {value: "included"}, "area to search"),
+        el("option", {value: "excluded"}, "area to leave out"));
+  sense.value = draft.excluded ? "excluded" : "included";
+  const invalidate = () => {
+    Object.assign(draft, {address: address.value, minutes: minutes.value, center: center.value,
+      direction: direction.value, publicPlace: publicPlace.checked, preview: null, pending: false,
+      revision: draft.revision + 1});
+    clearDrivePreview();
+    draft.render();
+  };
+  for (const input of [address, minutes, center]) input.oninput = invalidate;
+  direction.onchange = invalidate;
+  publicPlace.onchange = invalidate;
+  const calculate = async (refresh) => {
+    const coords = center.value.trim() ? center.value.trim().split(/[\s,]+/).map(Number) : null;
+    if (!address.value.trim() || !Number.isFinite(Number(minutes.value))
+        || Number(minutes.value) <= 0 || Number(minutes.value) > 60 || !publicPlace.checked
+        || (coords && (coords.length !== 2 || coords.some(n => !Number.isFinite(n))))) {
+      say("Enter a public address, positive minutes up to 60, and confirm it is a public place. "
+          + "Optional coordinates are latitude, longitude.", "problem");
+      return;
+    }
+    const revision = ++draft.revision;
+    draft.pending = true;
+    draft.preview = null;
+    clearDrivePreview();
+    draft.render();
+    try {
+      const found = await send("/api/areas/drive-time", {address: address.value.trim(),
+        minutes: Number(minutes.value), direction: direction.value, center: coords,
+        public_place: publicPlace.checked, refresh});
+      if (revision !== draft.revision) return;
+      draft.preview = found;
+      if (held.map) {
+        held.drivePreview = L.geoJSON(found.area.geometry, {interactive: false,
+          style: {color: draft.excluded ? "#a02020" : "#14508c", dashArray: "3,5"}}).addTo(held.map);
+        held.map.fitBounds(held.drivePreview.getBounds(), {padding: [24, 24], maxZoom: 14});
+        driveCredit();
+      }
+    } catch (error) {
+      if (revision === draft.revision) fail(error);
+    } finally {
+      if (revision === draft.revision) { draft.pending = false; draft.render(); }
+    }
+  };
+  const preview = el("button", {type: "button", onclick: () => calculate(false)}, "Preview driving area");
+  const refresh = el("button", {type: "button", onclick: () => calculate(true)}, "Refresh preview");
+  const add = el("button", {type: "button", onclick: () => {
+    if (!draft.preview) return;
+    const index = draft.target ? held.named.indexOf(draft.target) : -1;
+    const area = {...(index >= 0 ? draft.target : {name: "", reason: ""}),
+      ...draft.preview.area, kind: "drive_time", excluded: draft.excluded};
+    if (index >= 0) held.named[index] = area; else held.named.push(area);
+    draft.target = null;
+    touched("areas");
+    invalidate();
+    redrawAreaList();
+    say("Driving area added to the list. Save the areas to write it into the file.", "good");
+  }}, "Add drive-time area");
+  draft.render = () => {
+    preview.disabled = refresh.disabled = !!draft.pending || !draft.publicPlace;
+    add.disabled = !draft.preview;
+    add.textContent = draft.target ? "Update drive-time area" : "Add drive-time area";
+    status.textContent = draft.pending ? "Calculating driving area…" : draft.preview
+      ? `Preview only, not added yet. ${draft.preview.matched ? "Matched: " + draft.preview.matched + ". " : ""}`
+        + (draft.target ? "Click Update drive-time area, then Save the areas." : "Click Add drive-time area, then Save the areas.")
+      : "Preview the boundary, add it to the list, then save the areas.";
+  };
+  draft.render();
+  return el("fieldset", {class: "radiusform driveform"},
+    el("legend", {}, "Minutes by car to or from a public address"),
+    el("div", {class: "controls"}, el("label", {for: "driveaddress"}, "Address "), address,
+      el("label", {for: "driveminutes"}, "Minutes "), minutes, direction, sense),
+    el("details", {open: !!draft.center}, el("summary", {}, "Use a coordinate center (optional)"),
+      el("p", {class: "hint"}, "When the address lookup cannot place a public destination, "
+        + "enter its latitude and longitude. The address stays as its label."), center),
+    el("label", {class: "drivepublic", for: "drivepublic"}, publicPlace,
+      " This is a public place, such as a church or business."),
+    el("div", {class: "controls"}, preview, refresh, add), status,
+    el("p", {class: "hint"}, "Estimated driving, without live traffic. The address is sent to the Census "
+      + "unless coordinates are supplied; only the destination coordinates and driving parameters go "
+      + "to openrouteservice. Saved boundaries are reused until you refresh and save. "
+      + "Included areas combine; this does not limit other included areas."));
+}
+
+function clearDrivePreview() {
+  if (held.drivePreview) { held.drivePreview.remove(); held.drivePreview = null; }
+  driveCredit();
+}
+
+function driveCredit() {
+  if (!held.map) return;
+  const present = !!held.driveInput?.preview || (held.named || namedFrom(held.search))
+    .some(a => a.kind === "drive_time");
+  if (present === !!held.driveCredited) return;
+  held.map.attributionControl[present ? "addAttribution" : "removeAttribution"](DRIVE_CREDIT);
+  held.driveCredited = present;
+}
+
 function showRadiusCircles() {
   if (!held.circles) return;
   held.circles.clearLayers();
   for (const area of held.named || namedFrom(held.search)) {
+    if (area.kind === "drive_time") {
+      L.geoJSON(area.geometry, {interactive: false,
+        style: {color: area.excluded ? "#a02020" : "#14508c", dashArray: area.excluded ? "5,5" : null}})
+        .addTo(held.circles);
+      continue;
+    }
     if (area.kind !== "radius" || !Array.isArray(area.center)) continue;
     L.circle(area.center, {radius: area.miles * 1609.344,
       color: area.excluded ? "#a02020" : "#14508c",
       dashArray: area.excluded ? "5,5" : null, interactive: false}).addTo(held.circles);
   }
+  driveCredit();
 }
 
 /* One row. `holder` is the thing the row edits: a copy of a file entry, or a map layer. Both carry
@@ -537,7 +698,7 @@ function areaRow(kind, which, holder, remove, position, layer) {
   sense.value = (isLayer ? holder.__excluded : holder.excluded) ? "excluded" : "included";
 
   return el("tr", {},
-    el("td", {}, value(kind)),
+    el("td", {}, value(kind === "drive_time" ? "drive time" : kind)),
     el("td", {}, which),
     el("td", {}, naming),
     el("td", {class: "whycell"}, why),
@@ -732,6 +893,8 @@ function confirmRemoval(called, kind, reason) {
       el("p", {class: "hint"},
         house
           ? "This is an address, so putting it back means typing it again."
+          : kind === "drive_time"
+            ? "Putting this driving area back means calculating it again from the destination."
           : drawn
             ? "This is a shape somebody drew on the map, so putting it back means drawing it again."
             : "This is a named place, so putting it back means typing the name again."),
@@ -1771,7 +1934,7 @@ function showShapes() {
   drawn.clearLayers();
   showRadiusCircles();
   for (const area of (held.search.areas || []).concat(held.search.exclusions || [])) {
-    if (!area.geometry) continue;
+    if (!area.geometry || area.kind === "drive_time") continue;
     L.geoJSON(area.geometry, {
       style: {color: area.excluded ? "#a02020" : "#14508c",
               dashArray: area.excluded ? "5,5" : null},

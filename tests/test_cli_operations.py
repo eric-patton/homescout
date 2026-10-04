@@ -617,6 +617,7 @@ def test_the_facade_is_the_whole_surface() -> None:
         "create_search",
         "edit_search",
         "radius_area",
+        "drive_time_area",
         "annotate",
         "pending_matches",
         "resolve_match",

@@ -257,6 +257,16 @@ def build(workspace: api.Workspace) -> FastAPI:
         )
         return answer("radius", **found)
 
+    @app.post("/api/areas/drive-time")
+    async def drive_time_area(request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        found = await anyio.to_thread.run_sync(
+            api.drive_time_area, held(), body.get("address"), body.get("minutes"),
+            body.get("direction", "to"), body.get("public_place", False),
+            body.get("center"), body.get("refresh", False),
+        )
+        return answer("drive_time", **found)
+
     @app.get("/api/searches")
     def list_searches() -> dict[str, Any]:
         return answer(

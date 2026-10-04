@@ -163,6 +163,15 @@ def build_parser() -> argparse.ArgumentParser:
     radius = which.add_parser("radius", parents=[common], help="preview miles around an address")
     radius.add_argument("address")
     radius.add_argument("--miles", type=float, required=True)
+    driving = which.add_parser(
+        "drive-time", parents=[common], help="preview driving to/from a public address"
+    )
+    driving.add_argument("address")
+    driving.add_argument("--minutes", type=float, required=True)
+    driving.add_argument("--direction", choices=["to", "from"], default="to")
+    driving.add_argument("--public-place", action="store_true")
+    driving.add_argument("--center", nargs=2, type=float, metavar=("LAT", "LON"))
+    driving.add_argument("--refresh", action="store_true")
 
     judge = commands.add_parser(
         "judge", parents=[common], help="keep or pass on several properties at once"
@@ -440,6 +449,11 @@ def _changes(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
 
 
 def _searches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
+    if args.action == "drive-time":
+        found = api.drive_time_area(workspace, args.address, args.minutes, args.direction,
+                                   args.public_place, args.center, args.refresh)
+        return Answer(digest.envelope("drive_time", **found),
+                      found["attribution"] + "\n" + json.dumps(found["area"], indent=2))
     if args.action == "radius":
         found = api.radius_area(workspace, args.address, args.miles)
         return Answer(

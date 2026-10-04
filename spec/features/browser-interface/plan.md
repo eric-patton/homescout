@@ -658,3 +658,10 @@ Radius rows edit miles and inclusion/exclusion; saved coordinate circles render 
 
 Verify endpoint and terminal parity plus a real-browser fixture with a cached address,
 preview/add/save/reopen, exclusion, mileage edits, stale previews and failed saves.
+
+
+## Drive-time area controls (changes/drive-time-areas/)
+
+Add POST `/api/areas/drive-time` as a thin threaded facade wrapper. Persist generated area documents in the named draft list and draw their geometry in a separate noneditable display group, preserving Polygon/MultiPolygon rings and precision instead of round-tripping through Leaflet.draw. Reuse inclusion/exclusion styling. Use revision tokens and a current-render callback, including refresh/load-existing requests. Loading existing parameters copies the center, address and public-place declaration into the form; Add or refresh creates a draft, never auto-saves. Show a clear preview/add/save status. Keep attribution on the map while a drive-time area is present and in row provenance when no map is available.
+
+Verification: HTTP/CLI parity plus real-browser tests for preview, stale replies, Add, failed save, successful save/reopen, public acknowledgment, exclusion, recalculation and geometry/provenance preservation.

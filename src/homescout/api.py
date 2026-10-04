@@ -113,6 +113,7 @@ class Workspace:
     #: next one in the same process resolves geography.
     owns_boundaries: bool = False
     _session: Any = None
+    _travel_session: Any = None
 
     @property
     def root(self) -> Path:
@@ -345,6 +346,37 @@ def radius_area(workspace: Workspace, address: str, miles: float) -> dict[str, A
         },
         "matched": found.matched,
     }
+
+
+def drive_time_area(workspace: Workspace, address: str, minutes: float,
+                    direction: str = "to", public_place: bool = False,
+                    center: Any = None, refresh: bool = False) -> dict[str, Any]:
+    """Preview a public destination's driving polygon without editing a saved search."""
+    from .enrich.travel import ATTRIBUTION, DriveTimes, paced_session
+    from .search.areas import AreaError, travel_parameters
+
+    try:
+        parameters = travel_parameters(address, minutes, direction, center)
+    except AreaError as exc:
+        raise InvalidInput(str(exc)) from None
+    if public_place is not True:
+        raise InvalidInput(
+            "Confirm this is a public place before sending its coordinates to routing."
+        )
+    if not isinstance(refresh, bool):
+        raise InvalidInput("refresh must be true or false")
+    matched = None
+    if parameters["center"] is None:
+        placed = radius_area(workspace, parameters["address"], 1)
+        parameters["center"] = placed["area"]["center"]
+        matched = placed["matched"]
+    if workspace._travel_session is None:
+        workspace._travel_session = paced_session()
+    area = DriveTimes(workspace.store, workspace._travel_session).polygon(
+        parameters["center"], parameters["minutes"], direction, refresh=refresh,
+    )
+    return {"area": {**area, "address": parameters["address"], "matched": matched},
+            "matched": matched, "attribution": ATTRIBUTION}
 
 
 def _with_expressions(changes: Mapping[str, object]) -> dict[str, object]:
@@ -2333,6 +2365,9 @@ def _area_document(area: Any) -> dict[str, Any]:
         "reason": getattr(area, "reason", None),
         "geometry": geometry,
     }
+    if getattr(area, "kind", None) == "drive_time":
+        document.update(area.travel or {})
+        document.update(address=area.address, center=area.centre)
     if getattr(area, "kind", None) == "radius":
         document.update({
             "address": getattr(area, "address", None),

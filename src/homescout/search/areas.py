@@ -37,9 +37,9 @@ from . import geometry as geo
 from .boundaries import boundaries
 
 Verdict = Literal["inside", "outside", "unknown"]
-Kind = Literal["polygon", "city", "county", "zip", "state", "radius"]
+Kind = Literal["polygon", "city", "county", "zip", "state", "radius", "drive_time"]
 
-KINDS: tuple[str, ...] = ("polygon", "city", "county", "zip", "state", "radius")
+KINDS: tuple[str, ...] = ("polygon", "city", "county", "zip", "state", "radius", "drive_time")
 
 #: Enough to compare a state written either way. A file saying "New Mexico" and a source saying
 #: "NM" are the same state, and treating them as different would quietly place houses nowhere.
@@ -109,6 +109,7 @@ class SearchArea:
     centre: tuple[float, float] | None = None
     miles: float | None = None
     address: str | None = None
+    travel: dict[str, Any] | None = None
     excluded: bool = False
     _boundary: Any = field(default=None, repr=False)
     _boundary_prepared: Any = field(default=None, repr=False)
@@ -122,6 +123,8 @@ class SearchArea:
             return self.name
         if self.kind == "radius":
             return f"{self.miles:g} miles around {self.address or self.value or self.centre}"
+        if self.kind == "drive_time":
+            return f"{self.travel['minutes']:g} minutes {self.travel['direction']} {self.address}"
         return self.value or self.kind
 
     @property
@@ -196,6 +199,12 @@ class SearchArea:
         if _accepts(capabilities, BoundingBox):
             return (BoundingBox(*geo.box_of(self.shape)),)
 
+        if self.kind == "drive_time":
+            # Saved routing polygons are self-contained, including their coarse query forms.
+            if _accepts(capabilities, PointRadius):
+                return (PointRadius(*geo.covering_circle(self.shape)),)
+            return ()
+
         places = self._containing()
         if places:
             usable = tuple(area for area in places if _accepts(capabilities, type(area)))
@@ -211,7 +220,7 @@ class SearchArea:
 
     def holds(self, fields: ListingFields) -> Verdict:
         """Is this property inside this area, as far as anything here can tell?"""
-        if self.kind == "polygon":
+        if self.kind in ("polygon", "drive_time"):
             return self._inside_shape(self.prepared, fields)
         if self.kind == "radius":
             return self._inside_circle(fields)
@@ -393,6 +402,8 @@ def build(entry: Mapping[str, Any], *, excluded: bool = False) -> SearchArea:
         return _polygon_area(entry, excluded=excluded)
     if kind == "radius":
         return _radius_area(entry, excluded=excluded)
+    if kind == "drive_time":
+        return _drive_time_area(entry, excluded=excluded)
 
     value = entry.get("value")
     if not isinstance(value, str) or not value.strip():
@@ -489,6 +500,60 @@ def _radius_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
     raise AreaError(
         "a radius area needs an address or a center: a place name, or a latitude and longitude pair"
     )
+
+
+def travel_parameters(address: Any, minutes: Any, direction: Any, center: Any = None) -> dict:
+    """Validate preview parameters locally, before a geocoder or routing service is asked."""
+    if not isinstance(address, str) or not address.strip() or len(address) > 200:
+        raise AreaError("a drive-time area needs an address label of 1 to 200 characters")
+    if (not isinstance(minutes, int | float) or isinstance(minutes, bool)
+            or not 0 < minutes <= 60 or not math.isfinite(minutes)):
+        raise AreaError("driving minutes must be a positive finite number, at most 60")
+    if direction not in ("to", "from"):
+        raise AreaError("driving direction must be 'to' or 'from' the address")
+    if center is not None:
+        if (not isinstance(center, list | tuple) or len(center) != 2
+                or any(not isinstance(n, int | float) or isinstance(n, bool) for n in center)
+                or not -90 <= center[0] <= 90 or not -180 <= center[1] <= 180
+                or any(not math.isfinite(n) for n in center)):
+            raise AreaError(
+                "a drive-time center must be [latitude, longitude], within geographic bounds"
+            )
+        center = [float(n) for n in center]
+    return {"address": address.strip(), "minutes": float(minutes),
+            "direction": direction, "center": center}
+
+
+def _drive_time_area(entry: Mapping[str, Any], *, excluded: bool) -> SearchArea:
+    from datetime import datetime
+
+    params = travel_parameters(entry.get("address"), entry.get("minutes"),
+                               entry.get("direction"), entry.get("center"))
+    if params["center"] is None:
+        raise AreaError("a saved drive-time area needs its resolved coordinate center")
+    if entry.get("public_place") is not True:
+        raise AreaError("drive-time areas require a public-place declaration")
+    if entry.get("provider") != "openrouteservice":
+        raise AreaError("the drive-time provider must be openrouteservice")
+    try:
+        generated = datetime.fromisoformat(entry.get("generated_at", "").replace("Z", "+00:00"))
+        if generated.tzinfo is None:
+            raise ValueError
+    except (AttributeError, TypeError, ValueError):
+        raise AreaError("a drive-time area needs a generation time with a timezone") from None
+    matched = entry.get("matched")
+    if matched is not None and not isinstance(matched, str):
+        raise AreaError("a drive-time matched address must be text")
+    area = _polygon_area(entry, excluded=excluded)
+    area.kind = "drive_time"
+    area.address = params["address"]
+    area.centre = tuple(params["center"])
+    area.travel = {key: entry.get(key) for key in
+                   ("provider", "generated_at", "matched", "public_place")}
+    area.travel.update(minutes=params["minutes"], direction=params["direction"])
+    area.travel.update(license="CC-BY-SA 4.0", attribution=
+                       "openrouteservice by HeiGIT | Data from OpenStreetMap | CC-BY-SA 4.0")
+    return area
 
 
 def _example(kind: str) -> str:
