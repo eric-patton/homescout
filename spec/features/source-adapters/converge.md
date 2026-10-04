@@ -136,3 +136,31 @@ defect that passes every test that was written before it:
 - **The recursion bound bounded nothing.** The walk limited split depth, which permits a million
   requests because the branch count doubles at every level. Found by a test that hung. The walk now
   carries a budget on total requests, and exhausting it is an honest truncation.
+
+## run 3 - 2026-10-04
+
+baseline: spec sha256:3f5ae53abded | plan sha256:6bda49df0bc4 | tasks sha256:b2e02f6f0e43 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of T-radius-limit-1, against the source spec, plan, tasks,
+constitution and product-global. Prior source behavior outside this defect was not re-audited.
+Raw findings: no new missing, partial, contradicts or unrequested behavior in this scope.
+
+implemented:
+
+AC-17: sources/realtor/__init__.py:145,163 and sources/circles.py:13 replace an oversized
+candidate circle with a containing cover of accepted circles. An address center is resolved
+once. Tests sample the original perimeter and interior, including poles and the date line;
+the live 53.6965-mile church query failed before the fix and all four 38.3488-mile pieces
+returned valid normalized first pages afterward.
+AC-5: sources/realtor/__init__.py:195 deduplicates across pieces, preserving contradictions
+within a response. The original payload remains attached to each retained SourceRow.
+AC-12, AC-15: sources/realtor/__init__.py:179,191 shares one request budget and stops after
+a partial refusal, preserving rows with truncation. A refusal before any rows remains failed.
+AC-16: every piece uses the existing collector and paced session. Fake-clock tests verify
+request spacing, filter retention, paging and one shared budget across pieces.
+
+Verification: 1,618 default tests passed; Python lint, diff whitespace check and the scoped
+spec validator passed. No specification delta was needed: the defect prevented the existing
+radius and complete-geographic-coverage requirements from working for larger areas.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

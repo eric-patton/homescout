@@ -86,6 +86,59 @@ def test_polygon_holes_multipart_coarse_coverage_and_metadata():
     assert build(area(multi)).holds(ListingFields(latitude=30.85, longitude=-90.15)) == "inside"
 
 
+def test_large_drive_time_runs_realtor_with_exact_shape_and_exclusions(tmp_path):
+    """feat-004/AC-25, AC-3, AC-4: a large drive polygon is covered without clipping to 50mi."""
+    from homescout.search.geometry import miles_between
+    from homescout.sources.realtor import RealtorSource
+    from searches_fakes import polygon
+    from sources_fakes import FakeResponse, FakeTransport, session_with
+    from test_sources_realtor import homes
+
+    geometry = polygon(-91.2, 30.1, -89.95, 31.1)
+    geometry["coordinates"].append(polygon(-90.8, 30.5, -90.6, 30.7)["coordinates"][0])
+    wanted = {"southwest": (30.11, -91.19), "southeast": (30.11, -89.96),
+              "northwest": (31.09, -91.19), "northeast": (31.09, -89.96),
+              "middle": (30.75, -90.5)}
+    population = {**wanted, "outside": (30.01, -90.6), "hole": (30.6, -90.7),
+                  "excluded": (30.6, -90.3)}
+    returned = set()
+
+    def answer(request):
+        body = json.loads(request.body)
+        assert body["operationName"] == "GetHomeSearch", "the saved center needs no lookup"
+        radius = float(body["variables"]["radius"][:-2])
+        if radius > 50:
+            return FakeResponse(body=b'{"errors":[{"message":"query.nearby.radius too large"}]}')
+        lon, lat = body["variables"]["coordinates"]
+        found = []
+        for identifier, point in population.items():
+            if miles_between((lat, lon), point) <= radius:
+                returned.add(identifier)
+                home = json.loads(json.dumps(homes()[0]))
+                home["property_id"] = identifier
+                home["location"]["address"].update(line=f"{identifier} Example Road",
+                    coordinate={"lat": point[0], "lon": point[1]})
+                found.append(home)
+        return FakeResponse(body=json.dumps({"data": {"homeSearch": {
+            "total": len(found), "results": found}}}).encode())
+
+    transport = FakeTransport(default=answer)
+    source = RealtorSource(session_with(transport))
+    write(tmp_path / "searches", "church", "name: church\nareas: ["
+          + json.dumps({**area(geometry), "minutes": 60}) + "]\nexclude_areas: ["
+          + json.dumps({"type": "polygon", "geometry": polygon(-90.4, 30.5, -90.2, 30.7)})
+          + "]\nsources: [realtor]\n")
+    with Store.open(tmp_path / "homescout.db") as store, workspace(
+            store, sources={"realtor": source}) as held:
+        definition = held.catalog.load("church")
+        assert definition.queries_for(source.capabilities())[0].area.miles > 50
+        outcome = api.run_search(held, "church")
+        assert outcome.sources[0].outcome == "ok", outcome.sources[0].detail
+        assert outcome.sources[0].rows == len(wanted)
+        assert returned == set(population), "local filtering, rather than undersized queries"
+        assert len(transport.requests) == 4
+
+
 def test_provider_reuses_cache_refreshes_and_sends_lon_lat_and_direction(tmp_path):
     """feat-004/AC-26: one cached polygon, explicit refresh, safe request and fresh credentials."""
     transport = Routing()

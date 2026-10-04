@@ -356,3 +356,13 @@ Drive-time validation: transport/cache/input tests and CLI/HTTP parity in
 `tests/test_searches_drive_time.py`; browser preview/update/save/reopen, failed saves,
 failed refreshes and stale responses in `tests/test_web_browser.py`. The default suite,
 focused real-browser tests, Python lint and JavaScript syntax checks passed.
+
+## Large drive-time candidate cover defect (2026-10-04)
+
+- [x] T-drive-cover-1: Verify a drive-time polygon whose coarse circle exceeds Realtor's
+      accepted radius through the real adapter and run pipeline. The source adapter covers
+      the full circle with smaller requests; exact saved polygon membership, holes and
+      exclusions remain authoritative (`feat-004/AC-3`, AC-4, AC-25).
+      `tests/test_searches_drive_time.py::test_large_drive_time_runs_realtor_with_exact_shape_and_exclusions`
+      checks every outer corner and proves fetched outside, hole and excluded rows are removed
+      locally. No area format or saved file changes.

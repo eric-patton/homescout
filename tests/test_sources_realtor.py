@@ -8,6 +8,7 @@ that quietly passes against a stale idea of the schema. See `fixtures/realtor/RE
 from __future__ import annotations
 
 import json
+import math
 import pathlib
 
 import pytest
@@ -602,3 +603,122 @@ def test_a_radius_around_coordinates_is_searched_without_looking_the_place_up() 
     #: sorts explicitly instead, which paging by offset needs anyway.
     assert "bucket" not in search["query"]
     assert "sort: [{ field: list_date, direction: desc }]" in search["query"]
+
+
+def destination(center, miles, bearing):
+    """A point on a great-circle perimeter, independent of the adapter's splitting code."""
+    lat, lon = map(math.radians, center)
+    angle, heading = miles / 3958.7613, math.radians(bearing)
+    end_lat = math.asin(math.sin(lat) * math.cos(angle)
+                        + math.cos(lat) * math.sin(angle) * math.cos(heading))
+    end_lon = lon + math.atan2(math.sin(heading) * math.sin(angle) * math.cos(lat),
+                              math.cos(angle) - math.sin(lat) * math.sin(end_lat))
+    return math.degrees(end_lat), (math.degrees(end_lon) + 180) % 360 - 180
+
+
+@pytest.mark.parametrize("center,miles", [
+    ((30.5771925204, -90.57493594311), 53.69649866247237),
+    ((89.8, 179.8), 150), ((-34, -179.8), 150),
+])
+def test_large_circle_uses_smaller_paced_queries_and_keeps_outer_edges(center, miles):
+    """feat-002/AC-17, AC-16, feat-004/AC-4: the 50-mile limit cannot shrink a search."""
+    from homescout.search.geometry import miles_between
+
+    population = [destination(center, distance, heading)
+                  for distance in (0, miles / 2, miles) for heading in range(0, 360, 5)]
+    clock = FakeClock()
+    requested_at = []
+
+    def answer(request):
+        requested_at.append(clock.now)
+        body = json.loads(request.body)
+        assert body["operationName"] == "GetHomeSearch", "no geography lookup is needed"
+        radius = float(body["variables"]["radius"][:-2])
+        if radius > 50:
+            return FakeResponse(body=b'{"errors":[{"message":"query.nearby.radius too large"}]}')
+        lon, lat = body["variables"]["coordinates"]
+        found = []
+        for index, point in enumerate(population):
+            if miles_between((lat, lon), point) <= radius:
+                home = json.loads(json.dumps(homes()[0]))
+                home["property_id"] = str(index)
+                home["location"]["address"]["coordinate"] = {"lat": point[0], "lon": point[1]}
+                found.append(home)
+        offset = body["variables"]["offset"]
+        return FakeResponse(body=json.dumps({"data": {"homeSearch": {
+            "total": len(found), "results": found[offset:offset + 200]}}}).encode())
+
+    transport = FakeTransport(default=answer)
+    result = RealtorSource(session_with(transport, clock=clock)).search(
+        SearchQuery(area=PointRadius(*center, miles), price_max=1000000))
+    assert result.outcome == "ok", result.detail
+    assert not result.truncated
+    assert {r.source_listing_id for r in result.rows} == {str(i) for i in range(len(population))}
+    assert len(result.rows) == len(population), "overlapping pieces are deduplicated"
+    assert result.request_count == len(transport.requests)
+    assert all(b - a >= 3 for a, b in zip(requested_at, requested_at[1:], strict=False))
+    assert all("max: 1000000" in json.loads(body)["query"] for body in transport.bodies)
+
+
+def test_large_circle_preserves_partial_rows_and_stops_after_a_refusal():
+    """feat-002/AC-12, AC-15: failure during circle splitting is an honest partial answer."""
+    transport = FakeTransport(responses=[
+        FakeResponse(body=json.dumps(fixture("search_city")).encode()),
+        FakeResponse(body=b'{"errors":[{"message":"source refused"}]}'),
+    ])
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 54)))
+    assert result.outcome == "ok"
+    assert result.rows
+    assert result.truncated
+    assert "source refused" in result.truncation.reason
+    assert len(transport.requests) == 2
+
+
+def test_large_circle_shares_one_request_budget(monkeypatch):
+    """feat-002/AC-15, AC-16: splitting cannot multiply the existing request budget."""
+    import homescout.sources.realtor as realtor
+
+    monkeypatch.setattr(realtor, "MAX_REQUESTS_PER_QUERY", 2)
+    transport = responder()
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 150)))
+    assert result.outcome == "ok"
+    assert result.truncated
+    assert "2 requests" in result.truncation.reason
+    assert len(transport.requests) == 2
+
+
+def test_large_address_radius_is_resolved_once_and_uses_coordinate_pieces():
+    """feat-002/AC-17: splitting an address radius does not repeat its geography lookup."""
+    transport = responder()
+    result = source(transport).search(SearchQuery(area=AddressRadius("Portales, NM", 54)))
+    assert result.outcome == "ok", result.detail
+    bodies = [json.loads(b) for b in transport.bodies]
+    assert sum(b["operationName"] == "Search_suggestions" for b in bodies) == 1
+    searches = [b for b in bodies if b["operationName"] == "GetHomeSearch"]
+    assert len(searches) == 4
+    assert all(0 < float(b["variables"]["radius"][:-2]) <= 50 for b in searches)
+
+
+def test_large_circle_failure_before_any_rows_is_failed():
+    """feat-002/AC-12: a total refusal still reports failure with no rows."""
+    transport = FakeTransport(default=FakeResponse(
+        body=b'{"errors":[{"message":"source refused"}]}'))
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 54)))
+    assert result.outcome == "failed"
+    assert not result.rows
+    assert "source refused" in result.detail
+    assert len(transport.requests) == 1
+
+
+def test_large_circle_keeps_contradicting_rows_within_a_response():
+    """feat-002/AC-5: overlap deduplication must not remove a source's own contradictions."""
+    page = fixture("search_city")
+    home = page["data"]["homeSearch"]["results"][0]
+    changed = {**home, "list_price": home["list_price"] + 10000}
+    page["data"]["homeSearch"].update(total=2, results=[home, changed])
+    transport = responder(search=page)
+    result = source(transport).search(SearchQuery(area=PointRadius(30.6, -90.6, 54)))
+    assert result.outcome == "ok"
+    assert len(result.rows) == 2
+    assert {r.fields.price for r in result.rows} == {home["list_price"], changed["list_price"]}
+    assert len(transport.requests) == 4

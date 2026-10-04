@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit
@@ -39,8 +39,10 @@ from ..base import (
     SearchQuery,
     SearchResult,
     State,
+    Truncation,
 )
-from ..ceiling import Page, collect
+from ..ceiling import MAX_REQUESTS_PER_QUERY, Page, collect
+from ..circles import cover
 from ..errors import SourceFailed, SourceUnavailable
 from ..politeness import PacedSession, Request
 from . import normalize, queries
@@ -48,6 +50,9 @@ from . import normalize, queries
 #: The site's own cap. Documented nowhere, observable everywhere.
 RESULT_CEILING = 10_000
 PAGE_SIZE = 200
+
+#: Verified against the live endpoint on 2026-10-04: 50mi succeeds; 53.6965mi is refused.
+MAX_RADIUS_MILES = 50.0
 
 #: How far back a split may reach when a query has no date bound of its own. Nothing on this site
 #: was listed before it existed, so this is a bound on the arithmetic, not on the results.
@@ -136,6 +141,9 @@ class RealtorSource(BaseSource):
 
     def run_search(self, query: SearchQuery) -> SearchResult:
         place = self._resolve(query.area)
+        if (isinstance(query.area, AddressRadius | PointRadius)
+                and query.area.miles > MAX_RADIUS_MILES):
+            return self._large_radius(place, query)
         harvest = collect(
             query,
             fetch_page=lambda q, offset: self._page(place, q, offset),
@@ -151,6 +159,52 @@ class RealtorSource(BaseSource):
             truncation=harvest.truncation,
             request_count=harvest.request_count,
         )
+
+    def _large_radius(self, place: Place, query: SearchQuery) -> SearchResult:
+        """Keep a broad circle intact while respecting the site's 50-mile request limit."""
+        if place.latitude is None or place.longitude is None:
+            raise SourceUnavailable("realtor gave the radius center no coordinates")
+        circle = PointRadius(place.latitude, place.longitude, query.area.miles)
+        rows: list[SourceRow] = []
+        seen: set[str] = set()
+        requests = 0
+        truncation = None
+
+        def fetch(part: SearchQuery, offset: int) -> Page:
+            nonlocal requests
+            requests += 1
+            return self._page(self._resolve(part.area), part, offset)
+
+        for piece in cover(circle, MAX_RADIUS_MILES):
+            if requests >= MAX_REQUESTS_PER_QUERY:
+                truncation = Truncation(reason=(
+                    f"the radius cover needed more than {MAX_REQUESTS_PER_QUERY} requests; "
+                    "what was retrieved is kept"))
+                break
+            try:
+                harvest = collect(
+                    replace(query, area=piece), fetch_page=fetch,
+                    split=_split_by_listing_date, ceiling=RESULT_CEILING,
+                    page_size=PAGE_SIZE, budget=MAX_REQUESTS_PER_QUERY - requests)
+            except SourceFailed as exc:
+                if not rows:
+                    raise
+                truncation = Truncation(reason=(
+                    f"the source stopped answering partway through: {exc.reason}. "
+                    "What had already been retrieved is kept; "
+                    "the rest of the query was abandoned."))
+                break
+            # Remove overlap between pieces, retaining contradictions within the same response.
+            rows.extend(row for row in harvest.rows
+                        if row.source_listing_id is None or row.source_listing_id not in seen)
+            seen.update(row.source_listing_id for row in harvest.rows
+                        if row.source_listing_id is not None)
+            truncation = harvest.truncation or truncation
+            if harvest.truncation is not None and harvest.truncation.ceiling is None:
+                break
+        return SearchResult(source=self.name, outcome="ok", rows=tuple(rows),
+                            applied=self.capabilities().application(query),
+                            truncation=truncation, request_count=requests)
 
     def _resolve(self, area: Any) -> Place:
         """Turn an area into the site's own place object, or say it cannot be expressed."""

@@ -189,3 +189,15 @@ T5 and T6 touch disjoint files and neither needs the other.
       `for_sale`. Reading the flag into the status would be more faithful, and would also make the
       first nightly run after it report every house already under contract as a status change it
       did not just undergo. Left for a deliberate change rather than slipped in under a defect.
+
+## Radius limit defect (2026-10-04)
+
+- [x] T-radius-limit-1: Cover circles larger than Realtor's accepted 50-mile radius with paced,
+      smaller circles, preserving the whole perimeter, filters, overlap deduplication, source
+      contradictions, partial-failure behavior and one shared request budget
+      (`feat-002/AC-5`, AC-12, AC-15, AC-16, AC-17; `feat-004/AC-4`, AC-25).
+      `sources/circles.py`, `sources/realtor/__init__.py`; red-to-green regressions in
+      `tests/test_sources_realtor.py`, including poles and the date line. The saved-search
+      integration test proves that polygon holes, exclusions and outside points are filtered
+      locally after the candidate cover. All four 38.3488-mile candidate queries for the actual
+      saved 60-minute church area returned valid live first pages. The full default suite passed.

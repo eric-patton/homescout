@@ -28,6 +28,19 @@ on. What they established:
 
 ## Design decisions
 
+### Radius limit defect (2026-10-04)
+
+The live endpoint accepts a 50-mile radius and refuses the 53.6965-mile covering circle for
+`la-near-church`. Keep this provider limit inside the Realtor adapter. For a larger circle,
+`sources/circles.py` lazily covers it with smaller circles, using spherical distances at the
+center and quadrant corners plus a rounding margin. This works across the date line and near
+poles. The adapter resolves an address center once, keeps all query filters on each piece,
+uses the existing paged/date-split collector, and shares one 2,000-request budget across all
+pieces. Overlap is deduplicated while contradictory rows within a response survive. A refusal
+after some rows preserves them with an explicit truncation and stops; a total refusal fails.
+The saved search still filters against its original exact geometry. No search-file edit,
+provider credential, or geocoding/routing request is introduced by splitting a known center.
+
 ### D-1. No `homeharvest` dependency. We own the client; we borrow only the idea.
 
 The brief named `homeharvest` as the backing for this adapter. Reading it changed the answer.

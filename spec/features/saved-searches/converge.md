@@ -317,3 +317,28 @@ JavaScript syntax and both per-feature spec validators passed. The actual public
 center returned a valid 30-minute Polygon through the completed provider integration.
 
 verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
+
+## run 6 - 2026-10-04
+
+baseline: spec sha256:2d6030573c72 | plan sha256:2c08a5011c84 | tasks sha256:2d0bb0fa3bf6 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of T-drive-cover-1 and the Realtor radius-limit defect.
+The saved-search spec, plan, tasks, constitution and product-global were checked for this
+scope; prior behavior outside it was not re-audited. Raw findings: no new drift in this scope.
+
+implemented:
+
+AC-3, AC-4, AC-25: tests/test_searches_drive_time.py:89 runs a saved drive-time polygon
+through the actual Realtor adapter, file definition and run pipeline. Its candidate circle
+exceeds 50 miles. The adapter issues four accepted smaller requests, retaining every outer
+corner. The test proves that outside points, a polygon hole and an exclusion are fetched as
+candidates and removed by the original exact local geometry. No saved area, coordinate,
+metadata, observation scope, credential or routing behavior was changed by this defect fix.
+
+- confirmed gap-003 [partial]: existing YAML line-wrapping limitation, unchanged and previously routed.
+
+Verification: 1,618 default tests passed; Python lint, diff whitespace check and both scoped
+spec validators passed. The four smaller candidate queries for the user's actual saved
+60-minute church polygon each returned a valid live first page.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
