@@ -493,6 +493,13 @@ That download is never something an enrichment pass does on its own, because a p
 fetched fifty megabytes the first time it met a new state would be a pass you could not predict the
 cost of. A property in a state you have not downloaded says so, and names the command.
 
+Finding the property's 2020 census block uses the FCC's free coordinate lookup first. If it fails,
+the pass uses the Census coordinate geocoder for that point and the remaining points. Both lookups
+are keyless; speeds still come from your downloaded FCC files. A later pass tries FCC again.
+If neither service can identify the block, existing cached values are preserved and the provider
+reports the failure. Use the normal enrichment run to retry missing data; "Only what is stale"
+refreshes previously obtained values that have expired.
+
 **What the number means, exactly.** It is the best *advertised residential* speed in that property's
 *census block*, as filed with the FCC. Not a measurement, and not that property's own line: a block
 is a few houses in town and a few square miles outside it. **Satellite is left out** on purpose. It

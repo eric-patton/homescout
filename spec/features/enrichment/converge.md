@@ -342,3 +342,39 @@ AC-55
   index to keep being used, so the fix is a decision about that feature. Route: T-cv5-1, left open.
 
 verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+## run 6 - 2026-10-05
+
+baseline: spec sha256:dfd730527e39 | plan sha256:670bbfabffba | tasks sha256:7a272d3d7c20 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of changes/census-block-fallback against modified AC-17,
+related AC-2, AC-4, AC-13, AC-14, AC-16 and AC-18, plan D-12, tasks, constitution and
+product-global. No new missing, partial, contradicts or unrequested behavior in this scope.
+The prior eight gaps (001, 002, 004, 005, 007, 010, 016, 019) are not re-audited or closed;
+their existing routes and classes remain unchanged.
+
+implemented:
+
+AC-17: enrich/broadband.py:275,280 tries the keyless FCC service first and switches to Census
+for the provider's remaining lookups after its first failure. enrich/providers.py:417,461
+owns one resolver per provider, so a new pass tries FCC again. broadband.py:325,335 explicitly
+requests 2020 blocks from both services. broadband.py:308,352 validates 15 ASCII digits, a
+known and consistent state, and one unique block in either observed Census block layer.
+Malformed and ambiguous answers fail; failure of both services reports both reasons.
+AC-13: broadband.py:296 routes both services through the same broadband pacing key and existing
+bounded session policy. Scripted 503 tests prove four bounded FCC attempts, minimum request
+spacing and only Census requests for later points. No file-API credentials enter either request.
+AC-14: broadband.py:343 reuses the configured geocode endpoint. An override test verifies it.
+AC-2, AC-4: real-pass regression tests prove successful fallback values are cached, a second
+pass makes no requests, and failure of both services leaves stale values and timestamps intact.
+AC-16, AC-18: availability still comes solely from the loaded FCC index, with the same block
+and advertised-speed meaning. Missing-state tests prove no implicit dataset download.
+
+Verification: two initial regression cases failed before the fix; all 45 broadband tests and
+69 focused broadband/pass/cache tests passed afterward. Full default suite: 1,687 passed,
+126 live/slow tests deselected, one existing Starlette deprecation warning. Python lint passed.
+Read-only live probes recovered the first failing NM point and a representative LA point while
+FCC still returned HTTP 400, yielding 150/150 and 1000/1000 advertised Mbps from the existing
+indexes. No live values, historical rows, annotations or state indexes were written by the probes.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)

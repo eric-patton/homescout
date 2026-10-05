@@ -333,3 +333,21 @@ alongside its peers.
       index as fresh values. Its own rule (AC-30) is to keep using a stale index, so the fix is a
       decision about that feature rather than a copy of T-cv4-1; left open.
 
+## Change: Census block fallback (`changes/census-block-fallback/`)
+
+- [x] T-block-fallback-1: Add a provider-owned block resolver that tries FCC first and switches to
+      the configured Census geocoder for the rest of a pass after failure. Request 2020 geography,
+      validate a unique block and consistent state, retain both errors when unavailable, and use
+      the existing paced, bounded, keyless transport (`feat-007/AC-17`, AC-4, AC-13, AC-14).
+      Files: `enrich/broadband.py`, `enrich/providers.py`.
+- [x] T-block-fallback-2: Offline tests for FCC success, outage failover, one failed FCC attempt
+      per provider, new-pass recovery, alternate layer names, invalid and ambiguous blocks,
+      missing state index, both-service failures, fresh-cache reuse and stale-cache protection
+      (`feat-007/AC-17`, AC-2, AC-4, AC-13, AC-16).
+      File: `tests/test_enrich_broadband.py`.
+- [x] T-block-fallback-3: Document the fallback, run the feature and full default suites, lint,
+      fold AC-17 and perform a scoped code review preserving the eight prior unrelated gaps.
+      Verify live lookups against the existing NM and LA indexes without writing to the live store
+      (`feat-007/AC-17`). The idle-only restart and rerun are recorded in the approved proposal.
+      Files: `README.md`, this feature's change record and canonical artifacts.
+

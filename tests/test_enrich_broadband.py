@@ -24,13 +24,17 @@ import csv
 import io
 import json
 import zipfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from enrich_fakes import CountingTransport, session
+from conftest import do_run, prop
+from enrich_fakes import CountingTransport, _Response, session
 from homescout.enrich import broadband as fcc
-from homescout.enrich import settings, states
+from homescout.enrich import cache, settings, states
+from homescout.enrich.pass_ import run_pass
 from homescout.enrich.provider import ProviderFailed
 from homescout.enrich.providers import Broadband
 from homescout.store import Store
@@ -342,6 +346,191 @@ def test_an_unreadable_answer_from_the_block_service_is_a_failure_not_a_blank() 
         fcc.block_for(paced, *PLACE)
 
 
+class BlockServices:
+    """Script the two public block services, retaining complete requests for credential checks."""
+
+    def __init__(self, *, census=None, fcc_answer=None):
+        self.requests = []
+        self.fcc_answer = fcc_answer or _Response(b'{"status":"error"}', 400)
+        payload = census if census is not None else {
+            "result": {"geographies": {"Census Blocks": [{"GEOID": BLOCK, "STATE": "35"}]}}
+        }
+        self.census_answer = _Response(json.dumps(payload).encode())
+
+    def __call__(self, request):
+        self.requests.append(request)
+        if "geo.fcc.gov" in request.url:
+            return self.fcc_answer
+        return self.census_answer
+
+
+def test_fcc_outage_uses_census_then_reads_the_existing_state_index(store, monkeypatch):
+    """feat-007/AC-17, feat-007/AC-16: outage recovery still answers from the FCC index."""
+    fcc.store_index(store, "NM", {BLOCK: [150, 150, {"DesertGate Internet"}]}, "2025-12-31")
+    monkeypatch.setenv(settings.BROADBAND_USERNAME, "never-forward-this-name")
+    monkeypatch.setenv(settings.BROADBAND_TOKEN, "never-forward-this-token")
+    provider = Broadband()
+    provider.attach(store)
+    transport = BlockServices()
+    paced = session(transport)
+
+    assert provider.fetch(paced, *PLACE) == {
+        "download_mbps": 150, "upload_mbps": 150, "broadband_provider": "DesertGate Internet"
+    }
+    assert provider.fetch(paced, PLACE[0] + 0.01, PLACE[1])["download_mbps"] == 150
+    assert len(transport.requests) == 3, "the failed FCC service was retried for every property"
+    assert "geo.fcc.gov" in transport.requests[0].url
+    assert all("geocoding.geo.census.gov" in r.url for r in transport.requests[1:])
+    query = parse_qs(urlsplit(transport.requests[1].url).query)
+    assert query["x"] == [str(PLACE[1])] and query["y"] == [str(PLACE[0])]
+    assert query["benchmark"] == ["Public_AR_Current"]
+    assert query["vintage"] == ["Census2020_Current"]
+    assert query["format"] == ["json"]
+    assert all("username" not in r.headers and "hash_value" not in r.headers
+               for r in transport.requests)
+    assert all("never-forward" not in r.url for r in transport.requests)
+
+
+def test_both_block_services_failing_reports_both_reasons():
+    """feat-007/AC-17: a failure identifies both services rather than inventing no service."""
+    transport = BlockServices(census={"result": {"geographies": {}}})
+    with pytest.raises(fcc.BroadbandUnavailable) as raised:
+        fcc.block_for(session(transport), *PLACE)
+    assert "FCC" in str(raised.value)
+    assert "Census" in str(raised.value)
+    assert len(transport.requests) == 2
+
+
+def test_a_new_provider_tries_fcc_again_after_an_earlier_outage(store):
+    """feat-007/AC-17: outage state belongs to the provider, not the process or session."""
+    fcc.store_index(store, "NM", {BLOCK: [100, 20, {"A"}]}, "2025-12-31")
+    transport = BlockServices()
+    paced = session(transport)
+    earlier = Broadband()
+    earlier.attach(store)
+    earlier.fetch(paced, *PLACE)
+    transport.fcc_answer = _Response(json.dumps({"Block": {"FIPS": BLOCK}}).encode())
+    later = Broadband()
+    later.attach(store)
+    later.fetch(paced, *PLACE)
+    assert len(transport.requests) == 3
+    assert "geo.fcc.gov" in transport.requests[-1].url
+    assert parse_qs(urlsplit(transport.requests[-1].url).query)["censusYear"] == ["2020"]
+
+
+@pytest.mark.parametrize("fcc_answer", [
+    _Response(b'not json'), _Response(b'{"Block":[]}'),
+    _Response(b'{"Block":{"FIPS":"350410001001017"},"State":{"code":"LA"}}'),
+])
+def test_a_malformed_or_inconsistent_fcc_answer_can_fall_back(fcc_answer):
+    """feat-007/AC-17: the alternate lookup repairs unusable data as well as HTTP failures."""
+    transport = BlockServices(fcc_answer=fcc_answer)
+    assert fcc.block_for(session(transport), *PLACE) == (BLOCK, "NM")
+    assert len(transport.requests) == 2
+
+
+@pytest.mark.parametrize("layer", ["Census Blocks", "2020 Census Blocks"])
+def test_census_block_layer_names_and_state_prefix(layer, monkeypatch):
+    """feat-007/AC-17, feat-007/AC-14: the observed layers work at the configured endpoint."""
+    monkeypatch.setenv("HOMESCOUT_ENRICH_GEOCODE_URL", "https://example.invalid/coordinates")
+    transport = BlockServices(census={
+        "result": {"geographies": {layer: [{"GEOID": BLOCK}]}}
+    })
+    assert fcc.block_for(session(transport), *PLACE) == (BLOCK, "NM")
+    assert transport.requests[-1].url.startswith("https://example.invalid/coordinates?")
+
+
+@pytest.mark.parametrize("payload", [
+    None, [], {"result": None}, {"result": {"geographies": []}},
+    {"result": {"geographies": {"Census Blocks": []}}},
+    {"result": {"geographies": {"Census Blocks": "not rows"}}},
+    {"result": {"geographies": {"Census Blocks": [None]}}},
+    {"result": {"geographies": {"Census Blocks": [
+        {"GEOID": BLOCK}, {"GEOID": "350410001001018"}]}}},
+])
+def test_unusable_or_ambiguous_census_geography_is_a_failure(payload):
+    """feat-007/AC-17, feat-007/AC-4: no guessed block and no false no-service answer."""
+    transport = BlockServices()
+    transport.census_answer = _Response(json.dumps(payload).encode())
+    with pytest.raises(fcc.BroadbandUnavailable, match="Census"):
+        fcc.block_for(session(transport), *PLACE)
+
+
+@pytest.mark.parametrize("block,state", [
+    (None, None), (123456789012345, "35"), ("35041000100101", "35"),
+    ("35041000100101x", "35"), ("３５０４１０００１００１０１７", "35"),
+    ("990410001001017", "99"), (BLOCK, "22"), (BLOCK, 35),
+])
+def test_census_identity_must_be_valid_and_match_its_state(block, state):
+    """feat-007/AC-17: reject malformed, unknown-state and inconsistent block identities."""
+    transport = BlockServices(census={"result": {"geographies": {
+        "Census Blocks": [{"GEOID": block, "STATE": state}]
+    }}})
+    with pytest.raises(fcc.BroadbandUnavailable, match="Census"):
+        fcc.block_for(session(transport), *PLACE)
+
+
+def test_fallback_retains_bounded_retries_and_request_pacing(store):
+    """feat-007/AC-17, feat-007/AC-13: failover uses the shared paced session and retry cap."""
+    starts = []
+
+    class TimedServices(BlockServices):
+        def __call__(self, request):
+            starts.append(paced._clock())
+            return super().__call__(request)
+
+    transport = TimedServices(fcc_answer=_Response(b'{}', 503))
+    paced = session(transport)
+    fcc.store_index(store, "NM", {BLOCK: [100, 20, {"A"}]}, "2025-12-31")
+    provider = Broadband()
+    provider.attach(store)
+    assert provider.fetch(paced, *PLACE)["download_mbps"] == 100
+    provider.fetch(paced, PLACE[0] + 0.01, PLACE[1])
+    assert len(transport.requests) == 6, "four bounded FCC attempts, then two Census lookups"
+    assert all(b - a >= 1 for a, b in zip(starts, starts[1:], strict=False))
+    assert sum("geo.fcc.gov" in r.url for r in transport.requests) == 4
+
+
+def test_a_census_block_still_requires_its_state_to_be_loaded(store):
+    """feat-007/AC-17, feat-007/AC-16: fallback never triggers a state download."""
+    fcc.store_index(store, "NM", {BLOCK: [100, 20, {"A"}]}, "2025-12-31")
+    transport = BlockServices(census={"result": {"geographies": {
+        "Census Blocks": [{"GEOID": "220950001001017", "STATE": "22"}]
+    }}})
+    provider = Broadband()
+    provider.attach(store)
+    with pytest.raises(ProviderFailed, match="homescout broadband --state LA"):
+        provider.fetch(session(transport), *PLACE)
+    assert set(store.broadband_states()) == {"NM"}
+
+
+def test_successful_fallback_is_cached_and_failure_preserves_stale_values(store, monkeypatch):
+    """feat-007/AC-17, feat-007/AC-2, feat-007/AC-4: real-pass writes remain honest."""
+    monkeypatch.setenv(settings.BROADBAND_USERNAME, "test@example.invalid")
+    monkeypatch.setenv(settings.BROADBAND_TOKEN, "a-token")
+    do_run(store, sources={"realtor": [prop("a1", latitude=PLACE[0], longitude=PLACE[1])]})
+    fcc.store_index(store, "NM", {BLOCK: [150, 150, {"A"}]}, "2025-12-31")
+    transport = BlockServices()
+    paced = session(transport)
+    outcome = run_pass(store, [Broadband()], session=paced)
+    assert outcome.providers[0].looked_up == 1 and not outcome.degraded
+    key = cache.key_for(*PLACE, 4)
+    saved = store.cached_values("broadband", [key])[key]
+    assert saved["download_mbps"].value == 150
+    again = run_pass(store, [Broadband()], session=paced)
+    assert again.providers[0].looked_up == 0 and len(transport.requests) == 2
+
+    old = (datetime.now(UTC) - timedelta(days=181)).isoformat().replace("+00:00", "Z")
+    store.connection.execute("UPDATE enrichment_values SET fetched_at = ?", (old,))
+    store.connection.commit()
+    broken = BlockServices(census={"result": {"geographies": {}}})
+    failed = run_pass(store, [Broadband()], session=session(broken), stale_only=True)
+    assert failed.degraded and failed.providers[0].looked_up == 0
+    assert "FCC" in failed.providers[0].detail and "Census" in failed.providers[0].detail
+    retained = store.cached_values("broadband", [key])[key]
+    assert retained["download_mbps"].value == 150 and retained["download_mbps"].fetched_at == old
+
+
 def test_a_file_far_larger_than_any_state_is_refused_rather_than_read() -> None:
     """feat-007 security: a bound, so a malformed listing cannot ask for an unbounded read."""
     assert fcc.MOST_BYTES > 100 * 1024 * 1024, "room for an order of magnitude over the real files"
@@ -393,4 +582,3 @@ def test_the_word_advertised_travels_with_the_number() -> None:
     assert "advertised" in shown, shown
     assert shown.startswith("1200/1000 Mbps"), "the number a person is scanning for comes first"
     assert "Yucca Telecom" in shown
-

@@ -398,8 +398,8 @@ class Broadband:
     So the shape is different, and deliberately so (D-12). A state's published files are downloaded
     once, by somebody who asked for that, and reduced to one row per census block. A point on a
     property
-    becomes a census block through the FCC's keyless block service, which is one paced request like
-    every other provider makes, and the block is answered locally.
+    becomes a census block through the FCC's keyless block service, with Census as fallback. These
+    lookups share the existing pacing, and the block is answered locally.
 
     Absent by default and honest about which kind of absent it is. No credentials at all is not
     configured. Credentials and no index is a state nobody has loaded, which names the state and the
@@ -409,9 +409,12 @@ class Broadband:
     name = "broadband"
 
     def __init__(self) -> None:
+        from .broadband import BlockLookup
+
         #: Set by the pass, which holds the store. Nothing else here needs one, so the protocol
         #: stays what it was for the other five and this one gets a hook rather than a parameter.
         self._store: Any = None
+        self._blocks = BlockLookup()
 
     def attach(self, store: Any) -> None:
         self._store = store
@@ -455,7 +458,7 @@ class Broadband:
                 "wiring mistake rather than anything about this property."
             )
         try:
-            block, state = fcc.block_for(session, latitude, longitude)
+            block, state = self._blocks.find(session, latitude, longitude)
         except fcc.BroadbandUnavailable as exc:
             raise ProviderFailed(f"broadband: {exc}") from None
 

@@ -255,8 +255,17 @@ silently downloaded fifty megabytes the first time it met a new state would be a
 predict the cost of, and this feature's performance requirement is that a cached area makes no
 requests at all.
 
-`fetch` then does what the other providers do: one paced request, to the FCC's keyless block
-service, which turns a point into a block. The block is looked up locally. A block whose state was
+`fetch` resolves a 2020 census block, trying the FCC's keyless service first. If that lookup fails
+or returns an unusable block, a provider-owned `BlockLookup` switches to the Census coordinate
+geocoder for that point and the rest of the pass (`changes/census-block-fallback`, AC-17). A new
+provider tries FCC again. Census uses the configured `geocode` endpoint, `Public_AR_Current`
+benchmark and `Census2020_Current` vintage, with longitude as x and latitude as y. Both lookups
+share the existing broadband pacing key, bounded retries, timeout and body limit; neither carries
+file-API credentials. Parsers require one valid 15-digit block and consistent state, accepting
+the two documented/observed block layer names. If both fail, the reason names both and no value
+is cached. Barrier-free offline tests cover failover, per-pass routing, malformed and ambiguous
+responses, existing cache protection and endpoint override; a read-only live probe verifies the
+failing point against the local FCC index. The block is looked up locally. A block whose state was
 never indexed is its own outcome, naming the state and the command, because "we have no data for New
 Mexico" and "you have not configured this provider" are different problems with different fixes and
 an empty column tells you neither.

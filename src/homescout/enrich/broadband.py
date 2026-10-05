@@ -15,7 +15,8 @@ against the live service on 2026-08-24, once there was a real token to measure w
 
 So there is no point query to make, and this module is what to do instead. Every availability row
 carries the census block it is in, and the FCC will name the census block for a point with no
-credential at all. A state's files reduce to one row per block: the best advertised residential
+credential at all. Census supplies the same 2020 block when that lookup fails. A state's files
+reduce to one row per block: the best advertised residential
 speeds and who offers them. New Mexico is 47.5 MB, twenty-one seconds, and 60,287 blocks.
 
 **Satellite is left out of the speed on purpose.** Three point three million of New Mexico's rows
@@ -40,6 +41,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlencode
 
 from ..sources.errors import SourceError
 from ..sources.politeness import PacedSession, Request
@@ -75,7 +77,7 @@ MOST_BYTES = 400 * 1024 * 1024
 
 
 class BroadbandUnavailable(Exception):
-    """The FCC would not give this build what it asked for. One refresh, never a run."""
+    """A broadband service could not answer. One refresh, never a run."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,24 +267,93 @@ def store_index(
 
 
 def block_for(session: PacedSession, latitude: float, longitude: float) -> tuple[str, str]:
-    """The census block a point is in, and its state. Keyless, and the only per-point request."""
-    url = f"{BLOCKS}?latitude={latitude}&longitude={longitude}&format=json"
+    """Resolve one point, with the same fallback a provider uses across its whole pass."""
+    return BlockLookup().find(session, latitude, longitude)
+
+
+@dataclass
+class BlockLookup:
+    """After an FCC failure, use Census for the rest of this provider's pass."""
+
+    _fcc_failure: str | None = None
+
+    def find(self, session: PacedSession, latitude: float, longitude: float) -> tuple[str, str]:
+        if self._fcc_failure is None:
+            try:
+                return _fcc_block(session, latitude, longitude)
+            except BroadbandUnavailable as exc:
+                self._fcc_failure = str(exc)
+        try:
+            return _census_block(session, latitude, longitude)
+        except BroadbandUnavailable as exc:
+            raise BroadbandUnavailable(
+                f"both census block services failed: FCC: {self._fcc_failure}; Census: {exc}"
+            ) from None
+
+
+def _block_json(session: PacedSession, url: str, service: str) -> Mapping[str, Any]:
     try:
         answer = session.request(PACING_KEY, Request(url=url))
     except SourceError as exc:
-        raise BroadbandUnavailable(
-            f"the block for this point could not be looked up: {exc}"
-        ) from None
+        raise BroadbandUnavailable(f"{service} block lookup failed: {exc}") from None
     try:
         found = json.loads(answer.body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise BroadbandUnavailable(f"the block service's answer was not readable: {exc}") from None
+        raise BroadbandUnavailable(f"{service} block answer was not readable: {exc}") from None
+    if not isinstance(found, Mapping):
+        raise BroadbandUnavailable(f"{service} returned an unusable census block answer")
+    return found
 
-    block = ((found.get("Block") or {}).get("FIPS") or "").strip()
-    state = ((found.get("State") or {}).get("code") or "").strip().upper()
-    if not block:
-        raise BroadbandUnavailable(
-            "the FCC could not say which census block this point is in, which happens for a point "
-            "in open water or outside the United States."
-        )
-    return block, state or block[:2]
+
+def _identity(block: Any, declared_state: Any, service: str) -> tuple[str, str]:
+    from . import states
+
+    if not isinstance(block, str):
+        raise BroadbandUnavailable(f"{service} returned no valid census block")
+    block = block.strip()
+    state = states.of_block(block)
+    if len(block) != 15 or not block.isascii() or not block.isdigit() or state is None:
+        raise BroadbandUnavailable(f"{service} returned no valid 15-digit census block")
+    if declared_state is not None and (
+        not isinstance(declared_state, str)
+        or declared_state.strip().upper() not in (state, block[:2])
+    ):
+        raise BroadbandUnavailable(f"{service} returned a census block with an inconsistent state")
+    return block, state
+
+
+def _fcc_block(session: PacedSession, latitude: float, longitude: float) -> tuple[str, str]:
+    url = f"{BLOCKS}?latitude={latitude}&longitude={longitude}&format=json&censusYear=2020"
+    found = _block_json(session, url, "FCC")
+    block = found.get("Block")
+    state = found.get("State")
+    if not isinstance(block, Mapping) or (state is not None and not isinstance(state, Mapping)):
+        raise BroadbandUnavailable("FCC returned no usable census block for this point")
+    return _identity(block.get("FIPS"), state.get("code") if state else None, "FCC")
+
+
+def _census_block(session: PacedSession, latitude: float, longitude: float) -> tuple[str, str]:
+    from . import settings
+
+    query = urlencode({
+        "x": longitude, "y": latitude, "benchmark": "Public_AR_Current",
+        "vintage": "Census2020_Current", "format": "json",
+    })
+    found = _block_json(session, f"{settings.endpoint('geocode').url}?{query}", "Census")
+    result = found.get("result")
+    geographies = result.get("geographies") if isinstance(result, Mapping) else None
+    if not isinstance(geographies, Mapping):
+        raise BroadbandUnavailable("Census returned no usable census block geography")
+
+    blocks: set[tuple[str, str]] = set()
+    for layer in ("Census Blocks", "2020 Census Blocks"):
+        rows = geographies.get(layer, [])
+        if not isinstance(rows, list):
+            raise BroadbandUnavailable("Census returned an unusable census block layer")
+        for row in rows:
+            if not isinstance(row, Mapping):
+                raise BroadbandUnavailable("Census returned an unusable census block row")
+            blocks.add(_identity(row.get("GEOID"), row.get("STATE"), "Census"))
+    if len(blocks) != 1:
+        raise BroadbandUnavailable("Census did not identify one unambiguous census block")
+    return blocks.pop()

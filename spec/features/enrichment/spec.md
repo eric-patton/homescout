@@ -136,9 +136,15 @@ service must cost one column rather than a run. The problem brief is in `researc
       availability files, keyed by census block, rather than from a per-property request to any
       service. Building the index for a state is an explicit action, never a side effect of an
       enrichment pass.
-- [ ] AC-17: A property's block is resolved from its coordinates through the FCC's keyless block
-      service, paced like every other request this feature makes, and cached like every other
-      enriched value.
+- [ ] AC-17: A property's 2020 census block is resolved from its coordinates through the FCC's
+      keyless block service, with the keyless Census coordinate geocoder as fallback after a failed
+      or unusable FCC lookup. After the first FCC failure, that provider uses Census for the
+      remaining lookups in the pass; a new provider tries FCC again. Both use the existing paced
+      session and its bounded network policy, without file-API credentials. A lookup must identify
+      one valid 15-digit block in a known state, with any supplied state agreeing with its prefix.
+      An ambiguous or unusable answer is a failure, never a known negative. If both services fail,
+      the reported reason names both, and cached broadband values remain intact. Successful values
+      are cached as before and availability still comes only from the loaded FCC state index.
 - [ ] AC-18: The recorded broadband values are the best advertised residential download and upload
       speeds in that block and the providers that offer them. Every surface that shows them says
       the figure is for the block rather than for the property, and says advertised rather than
