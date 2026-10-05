@@ -330,7 +330,34 @@ thinks beside what the person thinks, never into it, and it decides nothing.
 - [ ] AC-22: When the soil, stream, flash-flood or dam values are absent from a dossier, the dossier
       names them among what was not looked up, as it already names a missing flood zone.
 
+Concurrency and completion progress, from `changes/concurrent-assessment`:
+
+- [ ] AC-23: Assessments run with a configurable maximum number of concurrent model calls,
+      defaulting to eight. `HOMESCOUT_ASSESS_CONCURRENCY` is read from the existing environment or
+      ignored `.env` beside the database; allowed values are integers from 1 to 32. Invalid values
+      are reported before model requests. Calls share the existing model pacing and retry policy,
+      with a common cooldown after a temporary refusal and respect for a valid Retry-After hint.
+      Queued work is bounded by the configured concurrency. Pictures, store reads, writes and
+      progress run on the coordinator thread; workers perform only model calls. Current readings,
+      per-pass limits, criteria selection, narrow-question priority and property-wide failure
+      isolation continue to hold. An interruption preserves completed readings, which are skipped
+      when the pass is restarted.
+
+- [ ] AC-24: Each completed model job reports the number finished out of the scheduled total,
+      successful full assessments, successful top-ups, failures and remaining jobs. Results are
+      saved when ready without waiting for an earlier slow request. Final counts agree with saved
+      results and reported failures. Existing CLI and browser progress surfaces show these lines.
+
 ## Edge cases & errors
+
+### Concurrent completion and restart
+
+Given eight permitted jobs, one of which is slow, when another completes, its result is saved and
+the finished and remaining counts update before the slow job ends. If the process is stopped,
+restarting the pass skips the saved readings whose fingerprints still match. Given a concurrency
+setting outside the permitted integer range, starting a pass reports that setting before any model
+call. Given a temporary refusal with a valid Retry-After value, workers share the cooldown and do
+not create a burst of retries.
 
 - **A property with no coordinates.** No hazard rating, no elevation, no aquifer answer, no nearest
   station, and no map picture. Assessed on what remains, with the absences named. Never assessed as

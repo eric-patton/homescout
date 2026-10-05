@@ -562,6 +562,11 @@ Two things worth knowing before you rely on the columns:
 
 ### The optional model pass
 
+Property assessment uses up to eight concurrent model calls, with shared request pacing and
+retries. Set `HOMESCOUT_ASSESS_CONCURRENCY` in the environment or the ignored `.env` beside the
+database to an integer from 1 to 32 (1 runs sequentially). The setting is read when each assessment
+starts. Each completion is saved and reported immediately; restarting skips current readings.
+
 Off unless a saved search asks for it:
 
 ```yaml

@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Any
 
 from .dossier import Dossier, dossier_for
 from .model import AssessmentFailed, ask, ask_in_favour
+from .settings import AssessmentMisconfigured, validated
+from .settings import concurrency as configured_concurrency
 
 #: Seconds between requests, and the timeout, come from the model's own politeness. This pass adds
 #: no second policy; see `model.PACING_KEY`.
@@ -137,6 +140,7 @@ def run_pass(
     add: Callable[[str, tuple, Any], None] | None = None,
     limit: int | None = None,
     progress: Callable[[str], None] | None = None,
+    concurrency: int = 1,
 ) -> PassOutcome:
     """Ask each of these properties only what it is still missing.
 
@@ -163,6 +167,7 @@ def run_pass(
     read against, and `criteria` is every row's when it is absent. The fingerprint is taken with the
     row's own, so a reading is current exactly while its own search's criteria still hold.
     """
+    concurrency = validated(concurrency)
     say = progress or (lambda _message: None)
     known = dict(already or {})
     against = criteria_of or (lambda _row: criteria)
@@ -205,36 +210,56 @@ def run_pass(
         + (f", {len(topping)} to add what is in their favour" if topping else "")
         + f", {current} already current"
         + (f", {left_over} left for a later pass" if left_over else "")
+        + f", up to {concurrency} workers"
     )
 
     assessed = 0
     topped_up = 0
     failures: list[str] = []
 
-    #: The fingerprint is not used here on purpose. A top-up is only ever offered to a reading
-    #: whose fingerprint already matches, so the one to record is the one already recorded.
-    for row, dossier, _mark, mine in topping:
-        pictures = pictures_for(row, dossier) if pictures_for is not None else []
-        try:
-            points = ask_in_favour(
-                session, account, dossier, mine, owing[row.listing_id], pictures
-            )
-        except AssessmentFailed as exc:
-            failures.append(f"{row.listing_id}: {exc}")
-            continue
-        add(row.listing_id, points, owing[row.listing_id])
-        topped_up += 1
+    total = len(topping) + len(wanted)
+    with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="homescout-assess") as pool:
+        # Finish the narrow questions first, including when more than one can be asked at once.
+        for items, top_up in ((topping, True), (wanted, False)):
+            remaining = iter(items)
+            pending: dict[Any, tuple[Any, str]] = {}
 
-    for row, dossier, mark, mine in wanted:
-        pictures = pictures_for(row, dossier) if pictures_for is not None else []
-        try:
-            found = ask(session, account, dossier, mine, pictures)
-        except AssessmentFailed as exc:
-            failures.append(f"{row.listing_id}: {exc}")
-            continue
-        if record is not None:
-            record(row.listing_id, found, mark)
-        assessed += 1
+            def fill(pending: dict, remaining: Iterator, top_up: bool) -> None:
+                while len(pending) < concurrency:
+                    item = next(remaining, None)
+                    if item is None:
+                        break
+                    row, dossier, mark, mine = item
+                    pictures = pictures_for(row, dossier) if pictures_for is not None else []
+                    if top_up:
+                        future = pool.submit(ask_in_favour, session, account, dossier, mine,
+                                             owing[row.listing_id], pictures)
+                    else:
+                        future = pool.submit(ask, session, account, dossier, mine, pictures)
+                    pending[future] = (row, mark)
+
+            fill(pending, remaining, top_up)
+            while pending:
+                ready, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in ready:
+                    row, mark = pending.pop(future)
+                    try:
+                        found = future.result()
+                    except AssessmentFailed as exc:
+                        failures.append(f"{row.listing_id}: {exc}")
+                    else:
+                        if top_up:
+                            add(row.listing_id, found, owing[row.listing_id])
+                            topped_up += 1
+                        else:
+                            if record is not None:
+                                record(row.listing_id, found, mark)
+                            assessed += 1
+                    finished = assessed + topped_up + len(failures)
+                    say(f"assess: {finished}/{total} finished, {assessed} assessed, "
+                        f"{topped_up} topped up, {len(failures)} failed, "
+                        f"{total - finished} remaining, {len(pending)} active jobs")
+                fill(pending, remaining, top_up)
 
     if failures:
         say(f"assess: {len(failures)} properties could not be assessed")
@@ -315,7 +340,8 @@ def assess_searches(
 
     try:
         account = model_settings.account(root)
-    except model_settings.ExtractionMisconfigured as exc:
+        concurrency = configured_concurrency(root)
+    except (model_settings.ExtractionMisconfigured, AssessmentMisconfigured) as exc:
         # Before anything is sent. Invariant 9 at the point of use: an installation with no model
         # configured is not broken, it simply does not have this.
         return PassOutcome(skipped=str(exc))
@@ -453,21 +479,18 @@ def assess_searches(
             could_not_tell=earlier.could_not_tell,
         )
 
-    return run_pass(
-        in_play,
-        account=account,
-        criteria=None,
-        criteria_of=lambda row: read_against[row.listing_id],
-        session=session or _session(),
-        already=already,
-        owed=owed,
-        pictures_for=pictures_for,
-        wind_for=wind_for,
-        record=record,
-        add=add,
-        limit=limit,
-        progress=say,
-    )
+    owned = session is None
+    session = _session() if owned else session
+    try:
+        return run_pass(
+            in_play, account=account, criteria=None,
+            criteria_of=lambda row: read_against[row.listing_id], session=session,
+            already=already, owed=owed, pictures_for=pictures_for, wind_for=wind_for,
+            record=record, add=add, limit=limit, progress=say, concurrency=concurrency,
+        )
+    finally:
+        if owned:
+            session.close()
 
 
 def _still_deciding(store: Any, row: Any) -> bool:

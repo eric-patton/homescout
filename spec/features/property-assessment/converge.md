@@ -92,3 +92,38 @@ again on the next pass somebody starts (AC-19), which is the right outcome and i
 no meaning of its own is named among the unknowns.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 3 - 2026-10-04
+
+baseline: spec sha256:406245a0e082 | plan sha256:fb8a879266a7 | tasks sha256:1eafde240685 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of changes/concurrent-assessment against AC-23, AC-24,
+related AC-9, AC-11, AC-13 and AC-20, the plan, tasks, constitution and product-global.
+Prior behavior outside this change was not re-audited. The existing deferred T28 decision stands.
+Raw findings: no new missing, partial, contradicts or unrequested behavior in this scope.
+
+implemented:
+
+AC-23: assess/settings.py:23,32 validates concurrency before requests through the existing
+local environment loader, default eight, range 1 to 32. assess/pass_.py:220,226 bounds both
+workers and submitted jobs. Picture callbacks and assessment writes remain on the coordinator;
+only ask/ask_in_favour run on workers. sources/politeness.py:328,347,351 shares atomic pacing
+and cooldown, including Retry-After. sources/transport.py:50 gives each thread a pooled HTTP
+session. assess/pass_.py:493 closes owned connections after workers stop, preserving borrowed
+session ownership. New tests prove overlap, bounded preparation, actual SQLite ownership,
+configuration rejection and cleanup.
+AC-24: assess/pass_.py:245,256,267 consumes ready futures and saves results before an earlier
+slow request finishes. Coordinator progress names finished, successful full readings, top-ups,
+failures, remaining and active jobs. The existing shared progress callback reaches both surfaces;
+no new UI implementation is needed. Tests prove partial failure and matching final counts.
+AC-9, AC-11, AC-20: fingerprint, per-search criteria and property deduplication are unchanged;
+current readings are excluded before submission and the limit retains top-up priority. Tests
+prove saved readings are skipped after restart and all top-ups finish before full readings begin.
+No model, reasoning effort, prompt, search-file or user annotation change was made.
+
+Verification: the full default suite passed 1,660 tests, with 126 live/slow tests deselected.
+All 29 new concurrency tests passed again after freezing the Retry-After HTTP-date test clock.
+Python lint and both scoped spec validators passed. Live activation is a separate operational
+step after this audit, using the user's authorized restart of the existing model pass.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

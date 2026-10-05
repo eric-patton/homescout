@@ -197,3 +197,31 @@ were written by this probe. The latest user run's error was the upstream-abort m
 the earlier radius rejection. No specification delta was needed for this retry fidelity defect.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 5 - 2026-10-04
+
+baseline: spec sha256:3f5ae53abded | plan sha256:69a7fb6eeb4e | tasks sha256:13322f360463 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor review of T-concurrent-client-1, required by the approved
+property-assessment concurrency change, against AC-6, AC-7, AC-9 and AC-10, the plan, tasks,
+constitution and product-global. Prior source behavior outside this prerequisite was not
+re-audited. Raw findings: no new missing, partial, contradicts or unrequested behavior in scope.
+
+implemented:
+
+AC-6, AC-7: sources/politeness.py:328,343 reserves request admission atomically per source,
+rechecking after sleeps. Locks are released before both sleep and network I/O. Event-controlled
+tests prove simultaneous waiters cannot share a slot and paced requests overlap in the network.
+sources/transport.py:50,93 isolates each thread's mutable connection pool and closes all pools
+after callers stop. Per-thread ownership and reuse are tested.
+AC-9, AC-10: sources/politeness.py:273,347,351 retains the shared bounded retry counter and
+existing exponential jittered backoff, extending a source-wide cooldown on temporary failures.
+A valid numeric or HTTP-date Retry-After hint is a minimum wait, including when the failing
+call has exhausted retries. Peer-cooldown, source-key isolation, zero retries and invalid hints
+are covered. Existing source and Realtor retry tests continue to pass.
+
+Verification: 14 new shared-client tests passed; the full default suite passed 1,660 tests.
+Python lint and scoped spec validation passed. No adapter contract, network identity, request
+payload, timeout, body limit or source policy configuration changed.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

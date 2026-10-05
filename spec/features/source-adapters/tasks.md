@@ -214,3 +214,13 @@ T5 and T6 touch disjoint files and neither needs the other.
       circle-cover failure (`feat-002/AC-5`, AC-6, AC-9, AC-10, AC-12, AC-15, AC-16, AC-17).
       Files: `sources/politeness.py`, `sources/realtor/__init__.py`,
       `tests/test_sources_realtor.py`.
+
+## Shared concurrent-client prerequisite (2026-10-04)
+
+- [x] T-concurrent-client-1: Make per-source request admission atomic for concurrent callers while
+      allowing network I/O to overlap. Share temporary-failure cooldowns, honor Retry-After, preserve
+      retry bounds and isolate source keys. The existing HTTP transport owns a reusable session per
+      thread and closes them after work stops. Event/barrier regressions verify simultaneous wakeups,
+      network overlap, peer cooldown, zero-retry hints and connection ownership
+      (`feat-002/AC-6`, AC-7, AC-9, AC-10; `feat-013/AC-23`).
+      Files: `sources/politeness.py`, `sources/transport.py`, `tests/test_sources_concurrency.py`.

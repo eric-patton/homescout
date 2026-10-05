@@ -122,6 +122,15 @@ Malformed responses, unknown errors and any mixture containing a permanent error
 without a body-based retry. Exhausting retries preserves the original message and attempt count;
 the existing collector keeps earlier pages or circles with truncation and abandons the remainder.
 
+Concurrent model assessment exposed a shared-layer prerequisite: request admission must be atomic
+when several callers use one paced session. A per-source gate reserves each request start, while
+sleep and network I/O release the lock. Waiters recheck the latest admission and shared cooldown
+after sleeping. Retry-After, when valid, is a minimum cooldown even when that caller has no retry
+left. Other source keys remain independent. The existing HTTP transport keeps one pooled session
+per calling thread so concurrent callers do not mutate the same connection/cookie state; close is
+performed after callers stop. This implements AC-6, AC-7, AC-9 and AC-10 for concurrent callers
+without a new client or pacing policy. Barrier-controlled source tests cover these interleavings.
+
 ### D-4. The capability declaration drives the request, so an undeclared filter cannot be sent
 
 AC-2 says a field absent from the declaration is never sent. Rather than assert that in review, make

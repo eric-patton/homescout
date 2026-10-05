@@ -201,6 +201,28 @@ defaults to the one `criteria` for every row. The fingerprint is taken with each
 reading is current exactly while its own search's criteria still hold. A missing model is checked
 once, before any search is gathered.
 
+### D-14: bounded model concurrency, one writer
+
+Approved in `changes/concurrent-assessment` (AC-23, AC-24). A coordinator prepares pictures and
+submits at most the configured number of jobs to a worker pool. It consumes completed futures,
+records each result on its own store connection and reports completion counts. Narrow top-ups
+finish before full readings start. Fingerprints and the model request body are unchanged, so
+already finished readings remain current after interruption. Configuration belongs to
+`assess/settings.py`, default eight, range 1 to 32, read through the existing environment loader.
+
+Every worker uses the existing model client and one shared paced session. The source layer's gate
+serializes request admission per source, releasing the gate during network I/O. Temporary failures
+set a shared cooldown and retain the configured retry count and jitter; Retry-After is a minimum
+wait when valid. The transport owns a separate pooled HTTP session per calling thread. The owned
+assessment session closes those connections only after its workers stop; injected sessions remain
+owned by the caller. Enrichment pictures remain fetched by the coordinator using their existing
+provider behavior. No SQLite connection or progress recorder enters a model worker.
+
+Verification uses barriers/events to prove overlapping calls, the concurrency cap, completion of
+a fast result while an earlier job is blocked, coordinator-thread callbacks, partial failure,
+current-reading reuse, top-up priority and configuration rejection. Shared source tests prove
+global request spacing, cooldown, bounded retries and thread-local connection ownership.
+
 ## Verification approach
 
 - **Unit, against recorded answers.** The dossier assembly, the fingerprint, the staleness rule and
@@ -217,7 +239,7 @@ once, before any search is gathered.
 Test commands name explicit paths, never a bare directory:
 
 ```
-uv run pytest tests/test_assessment_dossier.py tests/test_assessment_pass.py
+uv run pytest tests/test_assessment.py tests/test_assessment_concurrency.py tests/test_sources_concurrency.py
 ```
 
 ## Deviations from the constitution

@@ -224,3 +224,22 @@ sent, the storage before the pass writes to it, and the surfaces last.
       was not looked up when they are absent (`feat-013/AC-22`).
 - [x] T-ww-a3: `tests/test_assessment.py`: both, each citing its token.
 
+## Change: concurrent assessments (`changes/concurrent-assessment/`)
+
+- [x] T-concurrent-1: Validate `HOMESCOUT_ASSESS_CONCURRENCY` through the existing environment
+      loader, default eight and allowed range 1 to 32, before any model call (`feat-013/AC-23`).
+      Files: `assess/settings.py`, `.env.example`, `README.md`.
+- [x] T-concurrent-2: Run a bounded model-worker pool, preserving current-reading reuse, limits,
+      criteria and top-up priority. Prepare pictures and record completed results on the calling
+      thread. Publish per-job completion, success, failure and remaining counts (`feat-013/AC-23`,
+      AC-24; existing AC-9, AC-11, AC-13, AC-20). Files: `assess/pass_.py`.
+- [x] T-concurrent-3: Make the existing paced session admit requests safely across threads, share
+      refusal cooldown and honor valid Retry-After. Give each thread its own HTTP connection pool
+      and close owned sessions after the workers finish (`feat-013/AC-13`, AC-23;
+      `feat-002/AC-6`, AC-7, AC-9, AC-10). Files: `sources/politeness.py`, `sources/transport.py`.
+- [x] T-concurrent-4: Verify bounded overlap with blocking requests, ready-result persistence,
+      coordinator callbacks, partial failure, top-up priority, restart reuse, bad configuration,
+      shared pacing/cooldown and connection ownership using offline tests (`feat-013/AC-23`, AC-24).
+      Files: `tests/test_assessment.py`, `tests/test_assessment_concurrency.py`,
+      `tests/test_sources_concurrency.py`.
+

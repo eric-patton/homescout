@@ -12,10 +12,14 @@ lets the pacing be tested exactly and instantly, instead of by a test suite that
 
 from __future__ import annotations
 
+import math
 import random
+import threading
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any, Protocol
 
 from .errors import ConfigurationError, SourceFailed
@@ -206,6 +210,9 @@ class PacedSession:
         #: Half again either way, so two schedules that collide do not stay in step.
         self._jitter = jitter or (lambda: random.uniform(0.5, 1.5))
         self._last_request_at: dict[str, float] = {}
+        self._not_before: dict[str, float] = {}
+        self._gates: dict[str, Any] = {}
+        self._gate_lock = threading.Lock()
 
     @property
     def user_agent(self) -> str:
@@ -253,23 +260,25 @@ class PacedSession:
                 if attempt >= policy.max_retries:
                     raise SourceFailed(f"{source} timed out after {attempt + 1} attempts") from exc
                 attempt += 1
-                self._back_off(attempt, policy)
+                self._back_off(source, attempt, policy)
                 continue
             except Exception as exc:  # noqa: BLE001 - one source's trouble, deliberately contained
                 if attempt >= policy.max_retries:
                     raise SourceFailed(f"{source} could not be reached: {exc}") from exc
                 attempt += 1
-                self._back_off(attempt, policy)
+                self._back_off(source, attempt, policy)
                 continue
 
             if response.status in RETRYABLE_STATUSES:
+                retry_after = _retry_after_seconds(response.header("retry-after"))
                 if attempt >= policy.max_retries:
+                    self._defer(source, retry_after)
                     raise SourceFailed(
                         f"{source} answered {response.status} on all "
                         f"{attempt + 1} attempts; giving up rather than pressing"
                     )
                 attempt += 1
-                self._back_off(attempt, policy)
+                self._back_off(source, attempt, policy, retry_after=retry_after)
                 continue
 
             if response.status >= 400:
@@ -291,7 +300,7 @@ class PacedSession:
                 if attempt >= policy.max_retries:
                     raise SourceFailed(f"{reason} (after {attempt + 1} attempts)")
                 attempt += 1
-                self._back_off(attempt, policy)
+                self._back_off(source, attempt, policy)
                 continue
             return fetched
 
@@ -317,15 +326,52 @@ class PacedSession:
         return {"User-Agent": self._user_agent}
 
     def _wait_turn(self, source: str, policy: SourcePolicy) -> None:
-        last = self._last_request_at.get(source)
-        now = self._clock()
-        if last is not None:
-            owed = policy.delay - (now - last)
-            if owed > 0:
-                self._sleeper(owed)
+        while True:
+            with self._gate_for(source):
+                last = self._last_request_at.get(source)
                 now = self._clock()
-        self._last_request_at[source] = now
+                allowed = max(self._not_before.get(source, now),
+                              last + policy.delay if last is not None else now)
+                owed = allowed - now
+                if owed <= 0:
+                    self._last_request_at[source] = now
+                    return
+            # Recheck after sleeping: another worker may have entered or extended the cooldown.
+            # Neither the sleep nor network I/O holds a lock needed by a returning request.
+            self._sleeper(owed)
 
-    def _back_off(self, attempt: int, policy: SourcePolicy) -> None:
+    def _gate_for(self, source: str) -> Any:
+        with self._gate_lock:
+            return self._gates.setdefault(source, threading.Lock())
+
+    def _defer(self, source: str, wait: float) -> None:
+        with self._gate_for(source):
+            self._not_before[source] = max(self._not_before.get(source, 0), self._clock() + wait)
+
+    def _back_off(
+        self, source: str, attempt: int, policy: SourcePolicy, *, retry_after: float = 0,
+    ) -> None:
         wait = min(policy.backoff * (2 ** (attempt - 1)), policy.backoff_cap)
-        self._sleeper(wait * self._jitter())
+        wait = max(wait * self._jitter(), retry_after)
+        self._defer(source, wait)
+        self._sleeper(wait)
+
+    def close(self) -> None:
+        """Close owned network connections after all callers have stopped using this session."""
+        close = getattr(self._transport, "close", None)
+        if close is not None:
+            close()
+
+
+def _retry_after_seconds(value: str | None) -> float:
+    if not value:
+        return 0
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            when = parsedate_to_datetime(value)
+            seconds = (when.replace(tzinfo=when.tzinfo or UTC) - datetime.now(UTC)).total_seconds()
+        except (ValueError, TypeError, OverflowError):
+            return 0
+    return max(0, seconds) if math.isfinite(seconds) else 0

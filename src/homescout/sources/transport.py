@@ -10,6 +10,7 @@ announces is the size the other side chose to announce.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 import requests
@@ -42,12 +43,23 @@ class RequestsTransport:
     """
 
     def __init__(self) -> None:
-        self._session = requests.Session()
+        self._local = threading.local()
+        self._sessions: list[requests.Session] = []
+        self._lock = threading.Lock()
+
+    def _session_for_thread(self) -> requests.Session:
+        session = getattr(self._local, "session", None)
+        if session is None:
+            session = requests.Session()
+            self._local.session = session
+            with self._lock:
+                self._sessions.append(session)
+        return session
 
     def __call__(self, request: Request) -> _Response:
         limit = request.max_bytes or 0
         try:
-            response = self._session.request(
+            response = self._session_for_thread().request(
                 request.method,
                 request.url,
                 headers=dict(request.headers),
@@ -78,4 +90,8 @@ class RequestsTransport:
         )
 
     def close(self) -> None:
-        self._session.close()
+        with self._lock:
+            sessions, self._sessions = self._sessions, []
+            self._local = threading.local()
+        for session in sessions:
+            session.close()
