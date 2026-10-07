@@ -110,3 +110,9 @@ alongside its peers.
       rather than escaped in each of the three places one is displayed. Read for the whole sheet in
       one query, because one query per row is how a table of a thousand becomes a table somebody
       waits for.
+
+## Defect: retracted records remained in current property rows
+
+- [x] T-retracted-1: Exclude retracted canonical records from current table/export
+      rows while retaining snapshots, source rows and annotations (feat-011/AC-2,
+      feat-001/AC-14, AC-15). Verify cleanup against an annotated record.

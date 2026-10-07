@@ -100,3 +100,34 @@ verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)
   and moved into place. A directory where a file was wanted leaves neither a partial file nor a
   changed database, and the Windows case the spec names, the file being open in Excel, is reported
   as itself.
+
+
+## run 2 - 2026-10-07
+
+baseline: spec sha256:336271434150 | plan sha256:b8b851b2ffb2 | tasks sha256:388765965c86 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of retracted canonical records in current rows.
+Only this defect was re-audited; unrelated behavior and existing decisions are carried forward.
+
+implemented:
+
+AC-2: src/homescout/export/rows.py:_as_they_stand_now resolves merges and omits records
+which are no longer live canonical listings. The table and export consume this same row
+builder. Disappeared real properties remain eligible; retracted collection records do not.
+The read path performs no writes and retains existing order and merged-field selection.
+
+tests/test_zillow_collections.py verifies current rows omit an annotated retracted record
+while its snapshot, source links and annotation remain unchanged, supporting listing-store
+AC-14 and AC-15 as well. Existing merge/export tests passed in the 1,695-test default suite.
+The reversible workspace repair retracted 482 confirmed collection records, including 457
+in la-near-church. A SQLite backup and an ID audit were written before committing the repair.
+After the rerun, every pre-repair raw row, snapshot, event, source link, annotation, image,
+tag, assessment and completed run still matched the backup. An idempotent cleanup dry run
+found zero candidates. Historical observations and the comparison engine were not rewritten.
+
+- confirmed gap-001 [partial]: carried forward outside this defect's scope; the existing
+  delimited formula-protection difference and owner decision remain unchanged.
+- confirmed gap-002 [unrequested]: carried forward outside this defect's scope; the existing
+  additional export columns and owner decision remain unchanged.
+
+verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)

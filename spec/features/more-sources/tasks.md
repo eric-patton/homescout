@@ -138,3 +138,10 @@ that does not exist yet is not one of them.
 - [x] T-kind-4: measured against the real site before and after, on one box in the east mountains.
       Realtor was checked too and is clean: it honours the same filter exactly, and the wrong-typed
       rows in the workspace all came from a `portales` test search that carried no kind filter.
+
+## Defect: Zillow collection advertisements became properties
+
+- [x] T-collection-1: Recognize explicit community/building advertisements without
+      rejecting sparse individual properties. Exclude those advertisements before
+      normalization, retaining the original response count for ceiling splitting
+      (feat-005/AC-1, AC-3, AC-10). Pin the recorded live card shapes in regression tests.

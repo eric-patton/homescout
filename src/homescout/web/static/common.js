@@ -503,7 +503,7 @@ const JUDGMENTS = [
 
 /** How each narrowing is said, wherever it is said. One phrasing, both surfaces. */
 function heldBack(many, why) {
-  return why === "pass" ? `${many} passed on, hidden` : `${many} off the market, hidden`;
+  return why === "pass" ? `${many} passed on, hidden` : `${many} not returned by the search, hidden`;
 }
 
 /** The chooser itself. `pick` is handed the new answer; redrawing is the caller's business. */

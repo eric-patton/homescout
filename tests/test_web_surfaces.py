@@ -104,12 +104,12 @@ def test_a_property_that_disappeared_is_hidden_and_counted(store: Store, db_path
     # said: in the bar above the table, in words, with its own control to lift it. AC-20 asks for
     # the number and no longer counts the controls on the screen, because the two that hide rows
     # became one and this one moved.
-    assert "holding back the ones that came off the market" in results, "and it can be lifted"
+    assert "holding back the ones no longer returned by the search" in results
     # The phrasing itself lives in the shared file, because AC-67 says the map and the table say
     # this in the same words and two copies of a sentence is how two surfaces come to differ.
-    assert "off the market, hidden" in script("common"), "said as a reason, not as a tally"
-    assert "off the market, hidden" not in results, "and said in exactly one place"
-    assert "heldBack(offMarket" in results, "which the table asks for rather than restating"
+    assert "not returned by the search, hidden" in script("common")
+    assert "not returned by the search, hidden" not in results, "and said in exactly one place"
+    assert "heldBack(missing" in results, "which the table asks for rather than restating"
 
 
 def test_a_search_lists_only_its_own_disappeared_properties(store: Store, db_path: Path) -> None:
@@ -600,7 +600,7 @@ def test_every_reason_a_row_is_missing_is_in_the_one_bar() -> None:
     """
     results = script("results")
     assert "heldBack(behind" in results, "the judgment is named in the bar"
-    assert "heldBack(offMarket" in results, "so are the ones off the market"
+    assert "heldBack(missing" in results, "so are the ones no longer returned"
     assert "narrowing by what you decided" in results, "each with its own control to lift it"
 
     # And it is drawn on arrival, not only once somebody touches a filter: the judgment narrows the

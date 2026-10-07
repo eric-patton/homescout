@@ -251,7 +251,7 @@ function draw() {
            * the same properties with the same controls and the same words on them, and this is
            * the same question asked in the same words. */
           judgmentChooser(held.judgment, pickJudgment),
-          el("label", {for: "showgone"}, gone, " include ones off the market"),
+          el("label", {for: "showgone"}, gone, " include ones no longer returned"),
         ),
       ),
       el("div", {class: "group"},

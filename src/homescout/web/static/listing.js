@@ -52,7 +52,7 @@ function draw(held, settings) {
     el("p", {class: "meta recordid"}, "record ", held.listing_id),
     el("p", {class: "lede"},
       held.presence === "disappeared"
-        ? "This property stopped appearing in results without being seen sold."
+        ? "This property was not returned by the search. That does not confirm a sale or delisting."
         : "Observed in the most recent run."),
     el("div", {class: "detail"},
       el("div", {},

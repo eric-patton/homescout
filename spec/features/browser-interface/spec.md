@@ -283,6 +283,9 @@ in five years. The problem brief is in `research.md`.
       are hidden. The number is reported where every other reason a row is missing is reported, in
       the bar above the table (AC-57), with its own control to lift it.
 
+      Wording says the property was not returned by the search. No control, count or
+      detail description equates this absence with a confirmed sale or off-market status.
+
       This criterion used to name the mechanism as well: "one of the table's four view toggles,
       alongside the ones for passed properties, photographs and wrapped text". There are not four
       any more, because the two that hid rows became one control with four answers and this one
@@ -525,7 +528,7 @@ in five years. The problem brief is in `research.md`.
       Every reason the table is showing fewer rows than the run found is named in words above the
       table with its own control to lift it, and one control lifts all of them. That is the column
       filters, the whole-table search, the judgment being narrowed to anything but all of them, and
-      the properties that have come off the market being held back; each says how many rows it is
+      the properties no longer returned by the search being held back; each says how many rows it is
       holding, which is what satisfies AC-36 and AC-20 for the two that hide by the thousand. The
       bar is drawn on arrival rather than once somebody touches a filter, because the judgment
       narrows the table by default and a bar that waited would be silent for exactly the person who
@@ -618,7 +621,8 @@ in five years. The problem brief is in `research.md`.
       empty tag cell also has to say is that there is something here to press.
 - [ ] AC-67: The map and the results table hide the same properties, by the same rules, with the
       same controls and the same words on them. A property passed on is hidden from both; a property
-      that has come off the market is hidden from both; either can be brought back from either page.
+      with presence `disappeared` is hidden from both, described as no longer returned by the search
+      rather than as a confirmed delisting; either can be brought back from either page.
 
       Two surfaces over one library are allowed to show different things about a property. What they
       are not allowed to do is disagree about which properties there are, because somebody who

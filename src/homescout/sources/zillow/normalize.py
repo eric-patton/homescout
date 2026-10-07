@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import urlsplit
 
 from ...records import ListingFields, SourceRow
 from ..errors import SourceFailed
@@ -176,6 +177,26 @@ def to_row(home: Mapping[str, Any], *, fetched_at: str) -> SourceRow:
         payload=dict(home),
         source_listing_id=_as(str, identifier, "zpid"),
         fetched_at=fetched_at,
+    )
+
+
+def is_collection(home: Mapping[str, Any]) -> bool:
+    """Recognize advertisements for many homes without rejecting sparse individual homes.
+
+    Community and building cards have plid/buildingId rather than a property's zpid.
+    Missing fields alone prove nothing. Only the source's explicit collection markers
+    or collection page paths are enough to keep a card out of property history.
+    """
+    home = _mapping(home, "a search result")
+    info = _mapping(_mapping(home.get("hdpData"), "hdpData").get("homeInfo"), "hdpData.homeInfo")
+    identifier = home.get("zpid") or info.get("zpid")
+    if identifier is not None and str(identifier).strip():
+        return False
+    path = urlsplit(str(home.get("detailUrl") or "")).path
+    return (
+        home.get("isBuilding") is True
+        or home.get("isCdpResult") is True
+        or path.startswith(("/community/", "/b/"))
     )
 
 

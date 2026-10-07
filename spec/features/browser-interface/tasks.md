@@ -1946,3 +1946,16 @@ Drive-time validation: transport/cache/input tests and CLI/HTTP parity in
 `tests/test_searches_drive_time.py`; browser preview/update/save/reopen, failed saves,
 failed refreshes and stale responses in `tests/test_web_browser.py`. The default suite,
 focused real-browser tests, Python lint and JavaScript syntax checks passed.
+
+## Missing is not off market
+
+- [x] T-missing-1: Correct the shared hidden count, table/map controls and property
+      detail explanation (feat-010/AC-20, AC-57, AC-67).
+- [x] T-missing-2: Verify the text and reveal/hide behavior on the table and map.
+      Update the existing real-browser regression and check both toggles against
+      the live workspace through the browser plugin.
+
+Validation: 1,695 default tests passed, including adapter classification, original
+ceiling counts and annotated retraction. Python lint and JavaScript syntax checks
+passed. Live table and map checks each revealed 48 properties and restored the
+default 34 visible plus 14 not returned. The slow browser pytest suite was not run.

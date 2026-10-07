@@ -715,7 +715,7 @@ function draw() {
       group("Which rows",
         search,
         judgmentControl(),
-        el("label", {for: "showgone"}, gone, " include ones off the market"),
+        el("label", {for: "showgone"}, gone, " include ones no longer returned"),
       ),
       group("Which columns",
         viewControl(),
@@ -1165,11 +1165,11 @@ function showFilters() {
     }
   }
 
-  const offMarket = state.all.filter((row) => row.presence === "disappeared").length;
-  if (!state.showGone && offMarket) {
+  const missing = state.all.filter((row) => row.presence === "disappeared").length;
+  if (!state.showGone && missing) {
     chips.push(chip(
-      heldBack(offMarket, "gone"),
-      "holding back the ones that came off the market",
+      heldBack(missing, "gone"),
+      "holding back the ones no longer returned by the search",
       () => {
         state.showGone = true;
         const box = document.getElementById("showgone");

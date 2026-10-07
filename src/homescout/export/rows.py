@@ -162,9 +162,13 @@ def _as_they_stand_now(store: Store, wanted: list[_Kept]) -> list[_Kept]:
     #: answer for the same property, and asking the database for it each time was two queries per
     #: row of a table already assembled from one.
     live_of = store.live_listing_ids([entry.listing_id for entry in wanted])
+    live_ids = {record.id for record in store.listings()}
     best: dict[str, _Kept] = {}
     for entry in wanted:
         live = live_of[entry.listing_id]
+        # Retraction removes a mistaken canonical record from current results, not its history.
+        if live not in live_ids:
+            continue
         held = entry
         if live != entry.listing_id:
             held = _Kept(live, entry.fields, entry.flags, entry.dropped)
@@ -176,7 +180,7 @@ def _as_they_stand_now(store: Store, wanted: list[_Kept]) -> list[_Kept]:
     ordered: list[_Kept] = []
     for entry in wanted:
         live = live_of[entry.listing_id]
-        if live in seen:
+        if live in seen or live not in best:
             continue
         seen.add(live)
         ordered.append(best[live])

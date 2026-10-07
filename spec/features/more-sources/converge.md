@@ -91,3 +91,33 @@ verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)
 - **Neither adapter can mark a property as disappeared.** Checked end to end rather than argued:
   a run with Redfin refusing completes, is recorded degraded, and reports nothing gone. Absence is
   not evidence, the store enforces it, and a new source cannot get around it.
+
+
+## run 2 - 2026-10-07
+
+baseline: spec sha256:848a43ea2b0b | plan sha256:07b3cd93dd66 | tasks sha256:38a4fb01e6d2 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of the Zillow collection-card defect.
+Only this defect was re-audited; unrelated behavior and existing decisions are carried forward.
+
+implemented:
+
+AC-1, AC-10: src/homescout/sources/zillow/normalize.py:is_collection recognizes
+explicit community/building markers and collection page paths only when no property zpid
+is present. src/homescout/sources/zillow/__init__.py:_page excludes those advertisements
+before creating property observations. Sparse individual homes remain eligible.
+AC-3: _page retains the original response count for the query ceiling and splitting.
+Removing cards cannot make an overfull box appear complete.
+
+tests/test_zillow_collections.py reproduces the recorded live card shapes, preserves sparse
+individuals, and checks ceiling counts with and without a reported total. The live rerun
+7cfff50daaa0429d9be3d1d4d009a8e9 returned 417 Zillow properties and no collection observations.
+All three sources completed without a truncated result. The 1,695 default tests and Python
+lint passed. No adapter-to-core dependency, credential or request-pacing change was added.
+
+- confirmed gap-001 [partial]: carried forward outside this defect's scope; the existing
+  Redfin coverage limitation and its recorded routing remain unchanged.
+- confirmed gap-002 [unrequested]: carried forward outside this defect's scope; the existing
+  shared type/status vocabulary and owner decision remain unchanged.
+
+verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)

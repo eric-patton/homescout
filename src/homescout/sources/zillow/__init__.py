@@ -121,7 +121,11 @@ class ZillowSource(BaseSource):
 
         fetched_at = _utc_text()
         return Page(
-            rows=tuple(normalize.to_row(home, fetched_at=fetched_at) for home in homes),
+            rows=tuple(
+                normalize.to_row(home, fetched_at=fetched_at)
+                for home in homes if not normalize.is_collection(home)
+            ),
+            # The ceiling applies to the response before collection advertisements are removed.
             total=_total(cat1, len(homes)),
         )
 

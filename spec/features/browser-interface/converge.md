@@ -553,3 +553,33 @@ check previewed, saved and reopened the actual public church's 30-minute boundar
 temporary workspace, retaining its published address label and generated-shape attribution.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 11 - 2026-10-07
+
+baseline: spec sha256:904cd32e8870 | plan sha256:84687fe19936 | tasks sha256:e1fe91f85342 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline code-versus-spec audit of changes/missing-is-not-off-market/ and its
+folded requirements. Unrelated feature behavior was not re-audited. The constitution and
+product-global implications were checked: the shared row builder still supplies table and
+map, annotations and immutable history survive, and no network/security behavior changed.
+
+implemented:
+
+AC-20, AC-57, AC-67: common.js:heldBack says a property was not returned by the search.
+results.js and fire.js retain default hiding and the same reveal control. listing.js
+explains that missing search results do not confirm a sale or delisting. Source listing
+statuses are untouched. The canonical spec and display plan include the approved correction.
+
+tests/test_web_surfaces.py checks shared wording and the table filter. The corresponding
+slow browser regression was updated, but the slow pytest suite was not run. Live browser
+plugin checks after run 7cfff50daaa0429d9be3d1d4d009a8e9 showed table and map each starting
+with 34 visible properties and 14 not returned, revealing all 48, then restoring 34.
+The 1,695 default tests, Python lint and JavaScript syntax checks passed.
+
+- confirmed gap-004 [unrequested]: carried forward outside this change's scope.
+- confirmed gap-005 [unrequested]: carried forward outside this change's scope.
+- confirmed gap-006 [unrequested]: carried forward outside this change's scope.
+- confirmed gap-007 [unrequested]: carried forward outside this change's scope.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

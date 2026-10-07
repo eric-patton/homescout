@@ -3145,17 +3145,16 @@ def test_no_satellite_configured_offers_no_switch(served, monkeypatch) -> None:
     assert found["mapAlive"] and found["pins"], "the map did not survive having no background"
 
 
-def test_the_map_hides_a_house_that_is_no_longer_for_sale(served) -> None:
+def test_the_map_hides_a_house_no_longer_returned_by_the_search(served) -> None:
     """feat-010/AC-67: the two surfaces count the same search the same way.
 
     Reported as "why is the results page showing 162 properties but the fire map is showing 213?"
     Both were right. Two hundred and seventeen were still in play; the table also hid the
-    fifty-five that had come off the market, and the map hid nothing but could not draw four that
+    fifty-five that were no longer returned, and the map hid nothing but could not draw four that
     had no coordinates. A hundred and sixty-two against two hundred and thirteen.
 
-    The half that matters is not the arithmetic. The map was drawing fifty-five delisted houses
-    pinned exactly like the ones still for sale, with no way to tell and no way to hide them, so
-    somebody planning a drive was planning it around houses they could not buy.
+    The map was drawing fifty-five missing properties like the ones returned by the latest search,
+    with no way to distinguish or hide them. Absence from a search does not confirm a delisting.
 
     So the map takes the table's rule and the table's checkbox, and this asserts the whole loop:
     hidden by default, said out loud in the count, and back when the box is ticked.
@@ -3187,32 +3186,31 @@ def test_the_map_hides_a_house_that_is_no_longer_for_sale(served) -> None:
           hidden, shown,
           checkbox: box ? box.parentElement.textContent.trim() : null,
           startsUnticked: hidden.pins < shown.pins,
-          delisted: held.rows.filter((row) => row.presence === "disappeared").length,
+          missing: held.rows.filter((row) => row.presence === "disappeared").length,
           backAgain: pins(),
         };
     """)
 
     # The words are the results table's, which is the whole point of the criterion: both surfaces
     # hide the same properties with the same control saying the same thing. The table now reads
-    # "include ones off the market" and the map was brought into line with it; this expectation was
-    # left behind, and this file was skipping so nothing said so.
-    assert found["checkbox"] == "include ones off the market", (
+    # "include ones no longer returned", so absence is not described as a confirmed delisting.
+    assert found["checkbox"] == "include ones no longer returned", (
         f"the map's control has to read like the table's: {found['checkbox']!r}"
     )
-    assert found["delisted"] > 0, "no delisted property reached the page, so nothing was asked"
+    assert found["missing"] > 0, "no missing property reached the page, so nothing was asked"
     assert found["startsUnticked"], (
-        "the map drew the delisted houses with the box unticked, which is the reported fault"
+        "the map drew the missing houses with the box unticked, which is the reported fault"
     )
-    assert found["shown"]["pins"] == found["hidden"]["pins"] + found["delisted"], (
-        "ticking the box did not put back exactly the houses that had come off the market"
+    assert found["shown"]["pins"] == found["hidden"]["pins"] + found["missing"], (
+        "ticking the box did not put back exactly the houses no longer returned"
     )
     # "disappeared and hidden" until both surfaces were made to say this in one place, in
     # `common.js`, so the map and the table could not drift into two wordings for one number. The
     # words moved and this expectation did not, and this file was skipping so nothing said so.
-    assert "off the market, hidden" in found["hidden"]["says"], (
+    assert "not returned by the search, hidden" in found["hidden"]["says"], (
         f"the count has to say what it is holding back: {found['hidden']['says']!r}"
     )
-    assert "off the market, hidden" not in found["shown"]["says"], (
+    assert "not returned by the search, hidden" not in found["shown"]["says"], (
         "the count still claimed to be hiding them while they were on screen"
     )
     # The list under the map follows the pins, which is the rule it already had for passing.
