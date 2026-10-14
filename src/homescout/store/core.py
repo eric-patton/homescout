@@ -1606,7 +1606,7 @@ class Store:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         now = utc_now()
-        relative = str(target.relative_to(self._path.parent))
+        relative = target.relative_to(self._path.parent).as_posix()
         with translating_errors(self._path, self._timeout), transaction(self._conn) as conn:
             conn.execute(
                 "INSERT INTO listing_images "
@@ -1685,7 +1685,8 @@ class Store:
 
     def preview_image_path(self, listing_id: str) -> Path | None:
         stored = self.get_preview_image(listing_id)
-        return self._path.parent / stored.path if stored else None
+        # Older Windows workspaces used backslashes. Resolve them without rewriting the record.
+        return self._path.parent / stored.path.replace("\\", "/") if stored else None
 
     # -- merge decisions ----------------------------------------------------
 

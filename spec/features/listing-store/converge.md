@@ -111,3 +111,18 @@ command line, and browser surface those results. Tests cover these paths and the
 backup migrated to schema 15 with its recorded runs and snapshots intact.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 4 - 2026-10-14
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:36671ef89dd0 · code n/a
+
+implemented: AC-25
+
+Scoped inline audit of the workspace photo-path defect. Store.store_preview_image writes portable
+relative paths and preview_image_path resolves legacy Windows separators without changing records.
+The regression failed on the Mac before the fix and passed after it. Live API and browser checks
+read a retained photo; post-run SQL comparison found no missing or altered original image records,
+annotations, assessments, raw rows, snapshots, events, or identity history. Other unchanged criteria
+retain the prior audit disposition; this run makes no new full-feature claim.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

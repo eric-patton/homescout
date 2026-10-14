@@ -324,3 +324,8 @@ earlier.
 - [x] T23-test: `tests/test_merge_pass.py`: one source-link query for a whole review page rather
       than one per property (`feat-006/AC-23`, `feat-001/AC-13`), checked against the code before
       the change, where it asked six.
+
+- [x] T24-defect: Preview image paths written on Windows remain readable after copying a workspace
+      to macOS. New paths use forward slashes; legacy paths are normalized only while resolving,
+      preserving stored records. Reproduced red and verified green on the Mac Mini with
+      `test_a_preview_image_survives_moving_between_operating_systems` (feat-001/AC-25).

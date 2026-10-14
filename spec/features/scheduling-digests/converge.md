@@ -77,3 +77,42 @@ verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
   email to look at then showed the same property listed twice in a four-line message, once as new
   and once as newly flagged, so each property is now shown once. Both were caught by reading the
   output rather than by any assertion, which is the argument for rendering one and looking at it.
+
+## run 2 - 2026-10-14
+
+baseline: spec sha256:2ec0ad40686e · plan sha256:eabb891d9486 · tasks sha256:902583c8a038 · code n/a
+
+implemented: AC-4, AC-6, AC-12, AC-13, AC-15
+
+- confirmed gap-001 [partial] spec:"AC-2 delivery is explicit"
+
+  The existing run-without-deliver wording gap is unchanged and retains its prior change route.
+
+Scoped inline audit of macOS deployment and the email photo-path defect. macos_launchd.py emits
+absolute paths, ordinary-user jobs, a supervised interface, and a separate 03:00 calendar job.
+The installed system jobs match the prepared plists; launchd restarted a terminated idle interface.
+Wrappers set process file limits without changing kernel-wide limits. The manual nightly workflow
+completed both active searches and all twelve providers, and SMTP accepted email with saved photos.
+Legacy image paths attach original bytes without rewriting records. Archived searches preserve the
+existing skip/exit-3 behavior, so the workflow check does not call that code a source failure.
+Windows stays available, with its duplicate nightly task paused after verification. No live reboot
+or calendar-trigger observation is asserted. Full default suites passed on Windows and macOS;
+slow tests were not run. Other unchanged criteria retain the prior audit disposition.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
+
+## run 3 - 2026-10-14
+
+baseline: spec sha256:2ec0ad40686e · plan sha256:74e004f68f68 · tasks sha256:b3b349f1b36e · code n/a
+
+implemented: AC-15
+
+- confirmed gap-001 [partial] spec:"AC-2 delivery is explicit"
+
+Finalization audit: the Mac CI matrix uses the same process-local file limit as the tested
+wrappers. Its test command and the Windows/Linux command retain the existing default suite.
+The deployment checklist records system registration and actual KeepAlive recovery, while
+explicitly leaving reboot and the first calendar-trigger observation unclaimed. No new findings;
+the prior delivery-wording gap remains routed as before.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)

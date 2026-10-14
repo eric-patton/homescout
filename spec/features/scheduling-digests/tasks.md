@@ -87,6 +87,24 @@ that code, so the test tasks below carry no marker.
 
 ## Finishing
 
+- [x] T31: Generate and test macOS launchd jobs, explicit paths, ordinary-user execution, unchanged
+      nightly commands, credential-free plists, and meaningful stage exit codes (AC-15).
+      The default CI matrix includes macOS, with the same process file limit as the startup jobs.
+- [x] T32: Document macOS runtime, consistent workspace transfer, credentials, startup installation,
+      Tailscale address, verification and removal (AC-12, AC-15).
+- [x] T33: Verify the transferred data, real interface and photographs, manual nightly run, email,
+      enrichment, and system startup registration on the Mac Mini, preserving the Windows service
+      until the Mac is verified (AC-15).
+
+      Verified 2026-10-14: 13,541 file checksums; identical snapshot checksum, database integrity
+      and foreign keys; original user/history rows retained after the Mac runs; both active searches
+      and all 12 enrichment providers succeeded; SMTP accepted the digest and a verification with
+      60 stored thumbnails. System jobs run as eric, with KeepAlive/RunAtLoad for the interface and
+      Hour 3/Minute 0 for nightly. Terminating the idle Mac interface caused launchd to restart it
+      and HTTP returned 200. Windows interface remains up; only its duplicate nightly task is paused.
+      The archived search retains the existing command-line skip/exit-3 behavior. No reboot or
+      actual calendar-trigger observation was claimed.
+
 - [x] T27 [P]: `tests/test_deliver_live.py`: one real SMTP send, marked slow, skipped unless an
       account is configured.
 - [x] T28 [P]: Document delivery in the README: the flag, the variables, and that email is optional.
@@ -94,6 +112,10 @@ that code, so the test tasks below carry no marker.
 - [x] T30: `/spec-flow:converge`, then the manifest stamp.
 
 ## Found in use
+
+- [x] T34-defect: Email thumbnails from copied Windows workspaces resolve their legacy separators
+      on macOS without rewriting image records. Reproduced red and verified green on the Mac Mini
+      in `test_email_retains_pictures_from_a_copied_windows_workspace` (feat-012/AC-6).
 
 - [x] **T-defect: a busy night could not send its email at all.** Found the first time delivery was
       tried against a real statewide search: Google refused the message because it carried 501

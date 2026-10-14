@@ -250,6 +250,24 @@ that stops parsing is then a failing test rather than a discovery made at midnig
   interval, which it already does: a comparison's baseline is the previous *completed* run, not
   yesterday.
 
+### D-15: macOS host deployment
+
+`scripts/macos_launchd.py` renders two property lists and three shell scripts into the workspace's
+`launchd` directory. The interface uses RunAtLoad and KeepAlive; the nightly job uses
+StartCalendarInterval at 03:00 and has neither restart nor immediate-start behavior. UserName is
+the ordinary workspace owner. HOMESCOUT_DB and the working directory are absolute, and no
+credential is placed in these generated files. Process file limits are set inside the wrappers,
+avoiding launchd resource keys that also change system-wide kernel limits. The nightly wrapper runs
+delivery before enrichment
+and reports a nonzero result from either stage instead of hiding it.
+
+The prepared installer requires administrator authentication, validates the plists, declines while
+the interface reports work under way, and installs only net.homescout.interface and
+net.homescout.nightly under /Library/LaunchDaemons. A temporary user interface job allows validation
+before this administrator step, but does not substitute for boot startup. Deployment uses a
+verified SQLite backup and a file checksum manifest. Windows remains available during verification;
+there is no cross-machine synchronization. `docs/macos.md` records setup and rollback.
+
 ## Verification approach
 
 - **The silence rule is tested in both directions.** An unchanged run sends nothing and writes the

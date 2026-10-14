@@ -94,6 +94,19 @@ def test_every_picture_in_the_email_is_the_tool_s_own_copy(a_night) -> None:
     assert not re.findall(r'<img[^>]+src="https?://', found["html"]), "nothing is hotlinked"
 
 
+def test_email_retains_pictures_from_a_copied_windows_workspace(store: Store) -> None:
+    """feat-012/AC-6: legacy Windows paths still attach the saved bytes on macOS."""
+    outcome = run(store, rows=[row("a")])
+    image = store.connection.execute("SELECT * FROM listing_images").fetchone()
+    legacy = image["path"].replace("/", "\\")
+    store.connection.execute("UPDATE listing_images SET path = ?", (legacy,))
+
+    found = parts(message_of(store, document(store, outcome)))
+    assert found["images"]
+    assert all(value == b"fake-image-bytes" for value in found["cids"].values())
+    assert store.connection.execute("SELECT path FROM listing_images").fetchone()[0] == legacy
+
+
 def test_every_picture_carries_the_address_as_its_alternative_text(a_night) -> None:
     """feat-012/AC-5: an email read with images off still says which property each row is."""
     doc, store = a_night

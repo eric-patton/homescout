@@ -205,7 +205,8 @@ class _Pictures:
         relative = summary.get("image")
         if self._root is None or not relative:
             return None
-        path = self._root / str(relative)
+        # Digests can refer to paths written before a Windows workspace moved to macOS.
+        path = self._root / str(relative).replace("\\", "/")
         try:
             data = path.read_bytes()
         except OSError:

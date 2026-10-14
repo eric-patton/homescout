@@ -1,5 +1,7 @@
 # Running HomeScout on a schedule (Windows)
 
+For macOS boot startup and nightly runs, follow [HomeScout on a Mac](macos.md).
+
 A monitor that has to be remembered is not a monitor. This is how to have Windows run every saved
 search overnight, write a digest where a program can read it, and email you only when something
 happened.

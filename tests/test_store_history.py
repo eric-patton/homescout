@@ -324,6 +324,25 @@ def test_a_preview_image_is_kept_on_disk_and_referenced_by_path(store: Store) ->
     assert store.images_dir in on_disk.parents
 
 
+@pytest.mark.parametrize("separator", ["/", "\\"])
+def test_a_preview_image_survives_moving_between_operating_systems(
+    store: Store, separator: str
+) -> None:
+    """feat-001/AC-25: a copied workspace retains images written on Windows or macOS."""
+    do_run(store, sources={"realtor": [prop("a1")]})
+    listing_id = store.listings()[0].id
+    store.store_preview_image(listing_id, b"retained-preview")
+    portable = f"photos/{listing_id[:2]}/{listing_id}.jpg"
+    original = portable.replace("/", separator)
+    store.connection.execute(
+        "UPDATE listing_images SET path = ? WHERE listing_id = ?", (original, listing_id)
+    )
+
+    path = store.preview_image_path(listing_id)
+    assert path is not None and path.read_bytes() == b"retained-preview"
+    assert store.get_preview_image(listing_id).path == original  # type: ignore[union-attr]
+
+
 def test_a_preview_image_outlives_the_listing_disappearing(store: Store) -> None:
     """feat-001/AC-25: the reason to keep a copy at all.
 
