@@ -48,8 +48,9 @@ replace hours of manual searching and spreadsheet maintenance with a scheduled, 
   parsing uses `usaddress`. External data comes only from free, public sources, national by default. A source
   covering only part of the country is permitted only where a location outside its coverage is
   reported as not applicable rather than as an answer.
-- Platform: Windows is the primary target (Windows Terminal, PowerShell, no WSL). Nothing may
-  assume a POSIX-only path, shell, or scheduler. Scheduling targets Windows Task Scheduler.
+- Platform: Windows is the primary target (Windows Terminal, PowerShell, no WSL). The core also
+  supports macOS, including Apple Silicon. Shared code must not assume a platform-specific path,
+  shell, or scheduler. Scheduling uses Windows Task Scheduler on Windows and launchd on macOS.
 - Optional AI extraction speaks the OpenAI-compatible request shape with a configurable base URL,
   so the hosted and local backends are one code path.
 

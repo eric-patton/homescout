@@ -92,5 +92,6 @@ listing sites do not expose, and honest about what changed since the last time y
   that partial coverage can never be read as an answer. Each provider declares a cache key and
   a time-to-live, and a cache hit is never re-fetched.
 - Storage is one SQLite file. Downloaded images live on disk beside it, referenced by path.
-- Scheduling targets Windows Task Scheduler invoking the command line. No daemon, no service, no
-  always-on process.
+- Scheduled searches use the operating system's scheduler to invoke the command line: Windows Task
+  Scheduler or macOS launchd. The nightly job exits between runs. The optional browser interface
+  may run continuously under an operating system supervisor, bound to loopback.
