@@ -126,3 +126,106 @@ annotations, assessments, raw rows, snapshots, events, or identity history. Othe
 retain the prior audit disposition; this run makes no new full-feature claim.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 5 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:e98e10dc9eef · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline audit of T25's latest-snapshot query optimization. Raw findings: none in the changed
+surface. `src/homescout/store/core.py:721` still returns the same fields for live canonical listings,
+selects the newest observation by run sequence, preserves narrowed and empty requests, and executes
+SELECT statements only. CROSS JOIN changes the lookup order without changing snapshot semantics,
+historical comparisons, merge mechanics, annotations, or the schema. No unrequested behavior or
+glossary mismatch was found in this surface. Other unchanged criteria retain their prior audit
+disposition; this run makes no new full-feature claim. The manifest declares no code_surface, so the
+code baseline remains n/a.
+
+`tests/test_store_latest.py:12` verifies sequence ordering even when snapshots arrive out of order,
+including a newer empty run and a duplicate or unknown requested ID. It also checks that reads write
+nothing. `tests/test_store_latest.py:35` verifies live-record selection through supersession and undo.
+`tests/test_store_latest.py:48` reproduces historical-scan work growth before the fix and passes after
+it, for both full and narrowed requests. All 1,704 default tests and six slow store/merge performance
+tests passed; four default tests were skipped. Ruff and the listing-store artifact validator passed.
+
+A separate process on the Mac evaluated the exact worktree method against the live database with
+mode=ro, query_only=ON, and one read transaction. The installed and worktree methods returned equal
+full snapshots, narrowed snapshots, and complete review entries. The fresh queue took 4.7432 seconds
+before and 0.3649 after, with total_changes=0. This was a read-only benchmark, not a deployment or a
+measurement of the complete live browser delay. The browser extension verified saving and removal
+of the original match card against an isolated local fixture running the changed code; its after
+screenshot is attached to Guildboard card #1. The Mac's running service remains unchanged.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 6 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:a3365813914b · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline deployment verification of T25. Raw findings: none in the changed surface. The
+runtime code is identical to the audited and tested `7175468` change; only this verification record
+and the task receipt were added. The earlier scoped audit and unchanged criteria retain their
+disposition. The manifest still declares no code_surface.
+
+The user explicitly approved deploying and verifying live. The clean Mac checkout was fast-forwarded
+to `7175468` after checking the transferred bundle hash and confirming the service was idle. All 71
+focused snapshot/store/merge tests passed on macOS. The interface process restarted under its existing
+launchd job, with no change to scheduling, configuration, dependencies, or schema.
+
+The browser extension verified one reserved live merge: the original card disappeared in 2.552
+seconds from the automation click call, including automation overhead, and the queue went from 90
+to 89. This is one sample, not a percentile or an exact comparison with a measured pre-fix browser
+baseline. A subsequent live matches request took 0.5736 seconds and excluded the original match.
+The merge decision persisted. The schema stayed at version 15; counts remained 208,346 raw rows,
+112,723 snapshots, and 1,247 annotations. The live after screenshot replaced the local-fixture
+image on Guildboard card #1. No active passes remained after verification.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 7 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:c5c051bccab4 · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline audit of review-round-1 finding A1 and its T26 correction. A1 was valid: runs 5 and 6
+did not cover listings absent from recent runs, and the original growth regression reobserved every
+property. The forced runs-first query therefore grew with unrelated runs for stale and snapshotless
+records. The new instruction-count regression failed in all six variants before the correction.
+This block corrects that gap in the earlier scoped audit; prior entries remain historical records.
+
+Raw findings after the correction: none in the changed surface. The bounded branch at
+`src/homescout/store/core.py:745` probes at most eight recent sequence values. When it finds no
+observation, the fallback searches only the listing's own indexed history. Both loop orders are
+explicit; COALESCE avoids the historical scan when a recent snapshot exists. Any recent match is
+newer than the fallback-only history, preserving latest-by-run-sequence semantics. Snapshotless
+records do not scan unrelated run history. Eligibility, returned fields, empty and narrowed
+requests, history immutability, and merge mechanics are unchanged. No schema or unrequested behavior
+was added. The manifest still declares no code_surface; other criteria retain their prior disposition.
+
+`tests/test_store_latest.py:93` covers observed-but-stale, disappeared, and snapshotless merged
+records through full and narrowed requests. Each adds 120 empty or unrelated runs after an initial
+16. All six growth checks now pass without modifying stored data. The existing current-property
+growth test still passes. `tests/test_store_latest.py:30` checks out-of-order insertion with recent
+and old observations, exercising both branches. All 1,712 default tests passed, with four skipped;
+Ruff passed. Five relevant slow checks passed initially, and the comparison-history timing check
+passed on an isolated rerun after exceeding its budget during the parallel suite run.
+
+A read-only Mac comparison returned identical full snapshots, narrowed snapshots, and complete
+review entries, including the store's 514 stale listings and 37 snapshotless records. EXPLAIN QUERY
+PLAN confirmed the bounded run range and listing-index fallback. SQLite total_changes was zero.
+Deployed source commit `ac4db52` after clean-checkout and idle checks under the existing deployment
+approval. All 79 focused tests passed on the Mac. The interface restarted under its existing
+launchd job. Both reserved live merges persisted and removed their original cards; the queue went
+from 89 to 87. One continuous browser check measured 4.854 seconds including automation overhead,
+and a later matches API request took 0.4102 seconds. No precise timing is claimed for the first
+merge because its automated wait hit the tool deadline. These individual samples do not establish
+a latency guarantee or a controlled comparison with the earlier browser sample.
+
+The schema stayed at version 15 and raw-listing, snapshot, and annotation counts were unchanged.
+The fresh live after screenshot replaced the prior after image on Guildboard card #1.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)

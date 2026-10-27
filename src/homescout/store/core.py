@@ -724,14 +724,12 @@ class Store:
         What address matching compares. One query rather than one per listing, because a county is
         several thousand of them and the merge pass runs after every run.
 
-        Only the newest row for each listing is read, picked in the query rather than by reading
-        them all and keeping the last. Every run adds a snapshot per property, so reading them all
-        grows by a run's worth every night: after twenty-one runs on the real workspace that was
-        22,346 rows built to keep 1,825, in 0.57 seconds against 0.10 for the newest alone. Newest
-        is by `seq` on the run, the only ordering in this database that cannot tie, which is why
-        comparisons use it too. The index is named rather than left to the planner, for the reason
-        the source-links query names its own: a test database is never large enough to show the
-        difference, and a missing index should fail by name rather than slow down.
+        Only the newest row for each listing is read. Newest is by the run's `seq`, even when
+        concurrent runs insert snapshots in the opposite order. First probe at most eight recent
+        runs using the unique (run_id, listing_id) index. If none observed the property, fall back
+        to only that listing's indexed snapshot history. CROSS JOIN fixes the loop order for each
+        path, and COALESCE skips the historical read when a recent observation exists. Old and
+        snapshotless properties must not scan every unrelated run as the database accumulates them.
 
         `listing_ids` narrows it to the properties a caller actually wants. Building every snapshot
         in the database to keep a handful of them is the shape of waste that does not show up until
@@ -744,10 +742,14 @@ class Store:
         select = (
             f"SELECT s.run_id, s.listing_id, s.source, s.observed_at, {_SNAPSHOT_COLUMNS} "
             f"FROM listings l "
-            f"JOIN listing_snapshots s ON s.id = ("
-            f"    SELECT newest.id FROM listing_snapshots newest INDEXED BY idx_snapshots_listing "
-            f"    JOIN runs r ON r.id = newest.run_id "
-            f"    WHERE newest.listing_id = l.id ORDER BY r.seq DESC LIMIT 1"
+            f"JOIN listing_snapshots s ON s.id = COALESCE("
+            f"   (SELECT newest.id FROM runs r "
+            f"    CROSS JOIN listing_snapshots newest ON newest.run_id = r.id "
+            f"    WHERE r.seq > (SELECT MAX(seq) - 8 FROM runs) "
+            f"      AND newest.listing_id = l.id ORDER BY r.seq DESC LIMIT 1), "
+            f"   (SELECT newest.id FROM listing_snapshots newest INDEXED BY idx_snapshots_listing "
+            f"    CROSS JOIN runs r ON r.id = newest.run_id "
+            f"    WHERE newest.listing_id = l.id ORDER BY r.seq DESC LIMIT 1)"
             f") "
             f"WHERE l.retracted = 0 AND l.superseded_by IS NULL "
         )
