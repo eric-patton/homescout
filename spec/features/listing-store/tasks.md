@@ -332,10 +332,12 @@ earlier.
 
 ## Defect: merge review reread each property's snapshot history
 
-- [x] T25-defect: `Store.latest_snapshots` walks runs in descending sequence and probes the existing
+- [x] T25-defect: Initial optimization: `Store.latest_snapshots` walks runs in descending sequence
+      and probes the existing
       unique (run_id, listing_id) index. CROSS JOIN preserves that lookup order instead of reading
       every older snapshot and sorting each property's history (feat-001/NFR-performance,
-      feat-006/AC-23). No schema, stored data, queue invalidation, or snapshot-ordering rule changes.
+      feat-006/AC-23). T26 bounds the recent-run scan for absent records. No schema, stored data,
+      queue invalidation, or snapshot-ordering rule changes.
 
 - [x] T25-test: `tests/test_store_latest.py` verifies ordering by run sequence despite opposite
       snapshot insertion order, empty and narrowed requests, supersession and undo, and read-only
@@ -362,3 +364,38 @@ earlier.
       (208,346), snapshots (112,723), and annotations (1,247) remained unchanged. This is one live
       timing sample, compared with the user's reported delay of about 11 seconds. The live after
       screenshot replaces the local-fixture image on Guildboard card #1.
+
+## Defect: A1 stale and snapshotless lookups scanned unrelated runs
+
+- [x] T26-defect: Accepted review finding A1. Limit the recent-run path to eight sequence values,
+      then fall back to only the requested listing's history through `idx_snapshots_listing`.
+      CROSS JOIN fixes the loop order in both paths; COALESCE skips the fallback when a recent
+      observation exists. Work for an absent record no longer grows with every unrelated or empty
+      run. Snapshot ordering, eligibility, narrowed requests, and the schema remain unchanged
+      (feat-001/NFR-performance, feat-006/AC-23).
+
+- [x] T26-test: Added six instruction-count cases across observed-but-stale, disappeared, and
+      snapshotless merged records, for both full and narrowed lookups. Each adds 120 later runs
+      alternating unrelated observations and empty searches after a 16-run baseline. All six fail
+      before the correction and pass afterward. Example failures: observed full lookup 2,000 to
+      9,300 instructions; snapshotless narrowed lookup 600 to 4,300. The initial T25 test reobserved
+      every property and missed this case. Run-sequence ordering is now exercised with both recent
+      and old out-of-order snapshots (feat-001/AC-20, feat-001/NFR-performance, feat-006/AC-23).
+
+- [x] T26-verify: 1,712 default tests passed, 4 skipped, 126 slow tests deselected; Ruff passed. Five
+      of six relevant slow checks passed on the first run; the comparison-history timing check
+      exceeded its five-second budget while the default suite was also running, then passed when
+      rerun alone. A read-only Mac comparison returned identical 2,916 full snapshots, 171 narrowed
+      snapshots, and 89 complete review entries. It confirmed 514 eligible listings last observed
+      over 40 runs ago and 37 without snapshots. The query plan uses a range on recent run sequence
+      and a listing-index search for the fallback. query_only was enabled; total_changes stayed zero.
+
+- [x] T26-deploy: Deployed source commit `ac4db52` under the user's existing approval after checking
+      the Mac checkout was clean and the service idle. All 79 focused tests passed on the Mac.
+      Restarted only the interface under its existing launchd job. Two reserved live merges saved
+      and removed their original cards, reducing the queue from 89 to 87. The first browser wait
+      hit its tool deadline, so no precise timing is claimed for it. A continuous check of the
+      second completed in 4.854 seconds including automation overhead; a later matches API request
+      took 0.4102 seconds. These are individual samples, not latency guarantees. Schema version 15
+      and counts of raw rows (208,346), snapshots (112,723), and annotations (1,247) were unchanged.
+      Refreshed the existing after screenshot on Guildboard card #1.

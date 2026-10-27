@@ -184,3 +184,48 @@ The merge decision persisted. The schema stayed at version 15; counts remained 2
 image on Guildboard card #1. No active passes remained after verification.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 7 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:c5c051bccab4 · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline audit of review-round-1 finding A1 and its T26 correction. A1 was valid: runs 5 and 6
+did not cover listings absent from recent runs, and the original growth regression reobserved every
+property. The forced runs-first query therefore grew with unrelated runs for stale and snapshotless
+records. The new instruction-count regression failed in all six variants before the correction.
+This block corrects that gap in the earlier scoped audit; prior entries remain historical records.
+
+Raw findings after the correction: none in the changed surface. The bounded branch at
+`src/homescout/store/core.py:745` probes at most eight recent sequence values. When it finds no
+observation, the fallback searches only the listing's own indexed history. Both loop orders are
+explicit; COALESCE avoids the historical scan when a recent snapshot exists. Any recent match is
+newer than the fallback-only history, preserving latest-by-run-sequence semantics. Snapshotless
+records do not scan unrelated run history. Eligibility, returned fields, empty and narrowed
+requests, history immutability, and merge mechanics are unchanged. No schema or unrequested behavior
+was added. The manifest still declares no code_surface; other criteria retain their prior disposition.
+
+`tests/test_store_latest.py:93` covers observed-but-stale, disappeared, and snapshotless merged
+records through full and narrowed requests. Each adds 120 empty or unrelated runs after an initial
+16. All six growth checks now pass without modifying stored data. The existing current-property
+growth test still passes. `tests/test_store_latest.py:30` checks out-of-order insertion with recent
+and old observations, exercising both branches. All 1,712 default tests passed, with four skipped;
+Ruff passed. Five relevant slow checks passed initially, and the comparison-history timing check
+passed on an isolated rerun after exceeding its budget during the parallel suite run.
+
+A read-only Mac comparison returned identical full snapshots, narrowed snapshots, and complete
+review entries, including the store's 514 stale listings and 37 snapshotless records. EXPLAIN QUERY
+PLAN confirmed the bounded run range and listing-index fallback. SQLite total_changes was zero.
+Deployed source commit `ac4db52` after clean-checkout and idle checks under the existing deployment
+approval. All 79 focused tests passed on the Mac. The interface restarted under its existing
+launchd job. Both reserved live merges persisted and removed their original cards; the queue went
+from 89 to 87. One continuous browser check measured 4.854 seconds including automation overhead,
+and a later matches API request took 0.4102 seconds. No precise timing is claimed for the first
+merge because its automated wait hit the tool deadline. These individual samples do not establish
+a latency guarantee or a controlled comparison with the earlier browser sample.
+
+The schema stayed at version 15 and raw-listing, snapshot, and annotation counts were unchanged.
+The fresh live after screenshot replaced the prior after image on Guildboard card #1.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
