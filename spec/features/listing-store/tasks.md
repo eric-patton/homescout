@@ -351,4 +351,14 @@ earlier.
       4.2219 seconds before and 0.3028 after; a fresh review queue took 4.7432 seconds before and
       0.3649 after. SQLite query_only was enabled and total_changes remained zero. Browser verification
       against an isolated local fixture confirmed that merging removes the original card and updates
-      the queue. The Mac service has not been modified or restarted; live deployment remains pending.
+      the queue. The Mac was unchanged during that comparison; T25-deploy records the later rollout.
+
+- [x] T25-deploy: With explicit deployment approval, fast-forwarded the clean Mac checkout to tested
+      commit `7175468` using a verified Git bundle. All 71 focused snapshot/store/merge tests passed
+      on the Mac. Confirmed no active passes before restarting only the interface service; launchd
+      restored it in 1.102 seconds. One user-reserved live browser merge saved and removed its original
+      card in 2.552 seconds, including browser automation overhead; the queue changed from 90 to 89.
+      The live matches API then returned in 0.5736 seconds. Schema version 15 and counts of raw rows
+      (208,346), snapshots (112,723), and annotations (1,247) remained unchanged. This is one live
+      timing sample, compared with the user's reported delay of about 11 seconds. The live after
+      screenshot replaces the local-fixture image on Guildboard card #1.

@@ -158,3 +158,29 @@ of the original match card against an isolated local fixture running the changed
 screenshot is attached to Guildboard card #1. The Mac's running service remains unchanged.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 6 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:a3365813914b · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline deployment verification of T25. Raw findings: none in the changed surface. The
+runtime code is identical to the audited and tested `7175468` change; only this verification record
+and the task receipt were added. The earlier scoped audit and unchanged criteria retain their
+disposition. The manifest still declares no code_surface.
+
+The user explicitly approved deploying and verifying live. The clean Mac checkout was fast-forwarded
+to `7175468` after checking the transferred bundle hash and confirming the service was idle. All 71
+focused snapshot/store/merge tests passed on macOS. The interface process restarted under its existing
+launchd job, with no change to scheduling, configuration, dependencies, or schema.
+
+The browser extension verified one reserved live merge: the original card disappeared in 2.552
+seconds from the automation click call, including automation overhead, and the queue went from 90
+to 89. This is one sample, not a percentile or an exact comparison with a measured pre-fix browser
+baseline. A subsequent live matches request took 0.5736 seconds and excluded the original match.
+The merge decision persisted. The schema stayed at version 15; counts remained 208,346 raw rows,
+112,723 snapshots, and 1,247 annotations. The live after screenshot replaced the local-fixture
+image on Guildboard card #1. No active passes remained after verification.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
