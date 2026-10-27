@@ -329,3 +329,26 @@ earlier.
       to macOS. New paths use forward slashes; legacy paths are normalized only while resolving,
       preserving stored records. Reproduced red and verified green on the Mac Mini with
       `test_a_preview_image_survives_moving_between_operating_systems` (feat-001/AC-25).
+
+## Defect: merge review reread each property's snapshot history
+
+- [x] T25-defect: `Store.latest_snapshots` walks runs in descending sequence and probes the existing
+      unique (run_id, listing_id) index. CROSS JOIN preserves that lookup order instead of reading
+      every older snapshot and sorting each property's history (feat-001/NFR-performance,
+      feat-006/AC-23). No schema, stored data, queue invalidation, or snapshot-ordering rule changes.
+
+- [x] T25-test: `tests/test_store_latest.py` verifies ordering by run sequence despite opposite
+      snapshot insertion order, empty and narrowed requests, supersession and undo, and read-only
+      lookups. SQLite instruction counts reproduce the historical-scan defect before the fix:
+      1,100 to 8,300 instructions for all properties, and 200 to 2,000 for a subset, after forty more
+      runs. Both growth checks pass after the fix (feat-001/AC-20, feat-001/NFR-performance,
+      feat-006/AC-9, feat-006/AC-16, feat-006/AC-23).
+
+- [x] T25-verify: 1,704 default tests passed, 4 skipped, 126 slow tests deselected; all 6 slow merge
+      and store performance tests passed; Ruff passed. A separate read-only Mac process compared
+      the installed and worktree methods against one consistent database view: all 2,918 snapshots,
+      the 173 requested snapshots, and all 90 complete review entries matched. Latest snapshots took
+      4.2219 seconds before and 0.3028 after; a fresh review queue took 4.7432 seconds before and
+      0.3649 after. SQLite query_only was enabled and total_changes remained zero. Browser verification
+      against an isolated local fixture confirmed that merging removes the original card and updates
+      the queue. The Mac service has not been modified or restarted; live deployment remains pending.

@@ -126,3 +126,35 @@ annotations, assessments, raw rows, snapshots, events, or identity history. Othe
 retain the prior audit disposition; this run makes no new full-feature claim.
 
 verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
+
+## run 5 - 2026-10-27
+
+baseline: spec sha256:11d7023c282e · plan sha256:f8a35cf5b796 · tasks sha256:e98e10dc9eef · code n/a
+
+implemented: AC-1, AC-2, AC-20, NFR-performance
+
+Scoped inline audit of T25's latest-snapshot query optimization. Raw findings: none in the changed
+surface. `src/homescout/store/core.py:721` still returns the same fields for live canonical listings,
+selects the newest observation by run sequence, preserves narrowed and empty requests, and executes
+SELECT statements only. CROSS JOIN changes the lookup order without changing snapshot semantics,
+historical comparisons, merge mechanics, annotations, or the schema. No unrequested behavior or
+glossary mismatch was found in this surface. Other unchanged criteria retain their prior audit
+disposition; this run makes no new full-feature claim. The manifest declares no code_surface, so the
+code baseline remains n/a.
+
+`tests/test_store_latest.py:12` verifies sequence ordering even when snapshots arrive out of order,
+including a newer empty run and a duplicate or unknown requested ID. It also checks that reads write
+nothing. `tests/test_store_latest.py:35` verifies live-record selection through supersession and undo.
+`tests/test_store_latest.py:48` reproduces historical-scan work growth before the fix and passes after
+it, for both full and narrowed requests. All 1,704 default tests and six slow store/merge performance
+tests passed; four default tests were skipped. Ruff and the listing-store artifact validator passed.
+
+A separate process on the Mac evaluated the exact worktree method against the live database with
+mode=ro, query_only=ON, and one read transaction. The installed and worktree methods returned equal
+full snapshots, narrowed snapshots, and complete review entries. The fresh queue took 4.7432 seconds
+before and 0.3649 after, with total_changes=0. This was a read-only benchmark, not a deployment or a
+measurement of the complete live browser delay. The browser extension verified saving and removal
+of the original match card against an isolated local fixture running the changed code; its after
+screenshot is attached to Guildboard card #1. The Mac's running service remains unchanged.
+
+verdict: open 0 (missing 0, partial 0, contradicts 0, unrequested 0)
