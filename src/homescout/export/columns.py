@@ -353,6 +353,7 @@ COLUMNS: tuple[Column, ...] = (
     Column("Town/Area", "text", "listing", _listing("city")),
     Column("County/Region", "text", "derived", _county),
     Column("Price", "number", "listing", _listing("price")),
+    Column("Drive to Church (min)", "number", "enriched", _enriched("church_drive_minutes")),
     Column("$/sq ft", "number", "derived", _price_per_sqft),
     Column("Price History & DOM", "text", "derived", _price_history),
     Column("Beds", "number", "listing", _listing("beds")),

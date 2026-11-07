@@ -184,7 +184,8 @@ const VIEWS = [
    * `In favour` sits before `Concerns` for the same reason a person asks the questions in that
    * order. A column of worries read first sets the tone for the row behind it. */
   ["deciding", "Deciding", [
-    "Property", "In favour", "Concerns", "Price", "$/sq ft", "Beds", "Baths", "Sq Ft", "Acres",
+    "Property", "In favour", "Concerns", "Price", "Drive to Church (min)", "$/sq ft",
+    "Beds", "Baths", "Sq Ft", "Acres",
     "Year Built", "Town/Area", "Status", "Wildfire Hazard", "Verdict", "Tags",
   ]],
   /* Water sits beside the FEMA zone it qualifies. A plain X read next to two flash-flood
@@ -745,6 +746,12 @@ function draw() {
      * The line used to carry both, plus how many milliseconds the table took to draw, which is a
      * number for whoever is writing this table rather than whoever is reading it. */
     el("p", {class: "counts", id: "counts", role: "status"}, ""),
+    el("p", {class: "hint"},
+      "Drive to Church (min): estimated driving from Louisiana houses to Old Zion Hill Baptist Church, "
+      + "25890 LA-442, Independence, LA 70443. No live traffic. ",
+      link("https://openrouteservice.org/", "openrouteservice by HeiGIT"), " / ",
+      link("https://www.openstreetmap.org/copyright", "OpenStreetMap"), " / ",
+      link("https://creativecommons.org/licenses/by-sa/4.0/", "CC-BY-SA 4.0"), "."),
     /* Empty and out of the way until something is filtered, and impossible to miss once
      * something is. `role="status"` so a filter set from the keyboard is announced rather than
      * only drawn. */
@@ -1509,7 +1516,7 @@ function apply() {
   if (state.sortBy) {
     const name = state.sortBy;
     const direction = state.descending ? -1 : 1;
-    kept = kept.slice().sort((a, b) => compare(a.values[name], b.values[name]) * direction);
+    kept = kept.slice().sort((a, b) => compare(a.values[name], b.values[name], direction));
   }
 
   state.shown = kept;
@@ -1519,14 +1526,14 @@ function apply() {
 
 /* A property with no value for the column being sorted goes last whichever way the sort points. A
  * missing price is not the cheapest house. */
-function compare(a, b) {
+function compare(a, b, direction = 1) {
   const missingA = a === null || a === undefined || a === "";
   const missingB = b === null || b === undefined || b === "";
   if (missingA && missingB) return 0;
   if (missingA) return 1;
   if (missingB) return -1;
-  if (typeof a === "number" && typeof b === "number") return a - b;
-  return String(a).localeCompare(String(b), undefined, {numeric: true});
+  if (typeof a === "number" && typeof b === "number") return (a - b) * direction;
+  return String(a).localeCompare(String(b), undefined, {numeric: true}) * direction;
 }
 
 /* The totals, and nothing else.

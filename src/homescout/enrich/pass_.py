@@ -133,12 +133,14 @@ def run_pass(
         wanted = _keys_to_ask(provider, places, held, stale_only=stale_only)
         looked_up = 0
         failure: str | None = None
-        for key, place in wanted.items():
+        answers = iter(_fetch_values(provider, paced, wanted))
+        while True:
             try:
-                found = provider.fetch(paced, place[0], place[1])
+                key, found = next(answers)
+            except StopIteration:
+                break
             except ProviderFailed as exc:
-                # One column, not a run. Whatever was cached stays exactly as it was, and reads as
-                # stale rather than disappearing.
+                # Completed batches remain saved; a failed refresh never removes older values.
                 failure = str(exc)
                 break
             except Exception as exc:  # noqa: BLE001 - deliberately the end of the line
@@ -146,6 +148,8 @@ def run_pass(
                 break
             store.cache_values(provider.name, key, dict(found))
             looked_up += 1
+            if looked_up % 100 == 0:
+                say(f"{provider.name}: {looked_up} of {len(wanted)} locations saved")
 
         outcomes.append(
             ProviderOutcome(
@@ -165,6 +169,15 @@ def run_pass(
         providers=tuple(outcomes),
         unlocatable=tuple(unlocatable),
     )
+
+
+def _fetch_values(provider: Provider, session: Any, wanted: dict[str, tuple[float, float]]):
+    batch = getattr(provider, "fetch_many", None)
+    if batch is not None:
+        yield from batch(session, wanted)
+    else:
+        for key, place in wanted.items():
+            yield key, provider.fetch(session, *place)
 
 
 def _coverage_of(provider: Provider) -> str | None:

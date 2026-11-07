@@ -31,13 +31,14 @@ def answering(payload) -> tuple:
     return session(transport), transport
 
 
-def test_the_twelve_providers_exist_and_are_individually_named() -> None:
+def test_the_shipped_providers_exist_and_are_individually_named() -> None:
     """feat-007/AC-11, feat-007/AC-22, feat-007/AC-28, feat-007/AC-41, feat-007/AC-44,
     feat-007/AC-50, feat-007/AC-52: the six, the interface, the county, how close the data centres
     are, and the four that say where water goes."""
     assert set(registered()) == {
         "flood", "elevation", "aquifer", "wildfire", "broadband", "wui", "county", "data_centers",
         "soils", "flash_floods", "streams", "dams",
+        "church_drive",
     }
 
     from homescout.enrich.boundaries import CensusBoundaries
@@ -463,7 +464,7 @@ def test_a_classification_this_build_does_not_know_is_a_failure() -> None:
 def test_the_interface_provider_declares_what_it_covers() -> None:
     """feat-007/AC-26: a column answering for one state says so without opening the module."""
     assert WildlandUrbanInterface().coverage() == "New Mexico"
-    national = [p for p in create() if p.name != "wui"]
+    national = [p for p in create() if p.name not in ("wui", "church_drive")]
     assert all(not hasattr(p, "coverage") for p in national), (
         "covering the country is the default and is declared by saying nothing"
     )

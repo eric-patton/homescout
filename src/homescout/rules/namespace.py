@@ -110,6 +110,8 @@ _DERIVED: tuple[Field, ...] = (
 #: answer: a provider can be present in the build and unconfigured in this installation, which is
 #: what `unconfigured` below is for.
 _ENRICHED: tuple[Field, ...] = (
+    Field("church_drive_minutes", NUMBER, "enriched", populated=True),
+    Field("church_drive_status", TEXT, "enriched", populated=True),
     Field("flood_zone", TEXT, "enriched", populated=True),
     Field("flood_hazard_area", BOOLEAN, "enriched", populated=True),
     Field("upload_mbps", NUMBER, "enriched", populated=True),
@@ -288,6 +290,14 @@ _VALUE_LABELS: dict[str, str] = {
 #: What each field means, in the words somebody writing a criterion would use. Here rather than in a
 #: surface, because both surfaces need it and a second copy would drift from the first.
 _MEANS: dict[str, str] = {
+    "church_drive_minutes": (
+        "estimated minutes driving from this Louisiana house to Old Zion Hill Baptist Church, "
+        "25890 LA-442, Independence, LA 70443, without live traffic. "
+        "openrouteservice by HeiGIT / OpenStreetMap, CC-BY-SA 4.0; refreshed after 30 days"
+    ),
+    "church_drive_status": (
+        "church route: estimated, route unavailable, or outside coverage (Louisiana houses only)"
+    ),
     "dom": "days on market, counted from this tool's own first sighting, never the site's claim",
     "is_new": "first seen by this tool in the run being looked at",
     "presence": "whether the last run still saw it",

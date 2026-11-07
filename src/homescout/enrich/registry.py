@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from ..rules import namespace as ns
+from .church import ChurchDrive
 from .provider import Provider
 from .providers import (
     Aquifer,
@@ -35,6 +36,7 @@ from .providers import (
 #: (data centres, dams, flash floods) come before soils and streams, which ask a service a question
 #: per point and take a second or more each time.
 SHIPPED: tuple[Callable[[], Provider], ...] = (
+    ChurchDrive,
     Elevation,
     County,
     Aquifer,

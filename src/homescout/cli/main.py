@@ -236,6 +236,10 @@ def build_parser() -> argparse.ArgumentParser:
     enrich = commands.add_parser("enrich", parents=[common], help="attach public data to locations")
     enrich.add_argument("--stale", action="store_true", help="only values past their lifetime")
     enrich.add_argument("--search", metavar="NAME", help="only properties in this saved search")
+    enrich.add_argument(
+        "--provider", action="append", dest="providers", metavar="NAME",
+        help="only this enrichment provider; repeat to select several",
+    )
 
     assess = commands.add_parser(
         "assess",
@@ -516,7 +520,8 @@ def _judge(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
 
 def _enrich(workspace: api.Workspace, args: argparse.Namespace, note: Any) -> Answer:
     outcome = api.enrich(
-        workspace, stale_only=args.stale, search=args.search, progress=note
+        workspace, stale_only=args.stale, search=args.search,
+        providers=args.providers, progress=note
     )
     document = digest.envelope(
         "enrichment",

@@ -1604,6 +1604,11 @@ def enrich(
     from .enrich.pass_ import run_pass
     from .enrich.registry import create
 
+    if providers is not None and (
+        not isinstance(providers, (list, tuple))
+        or not all(isinstance(name, str) for name in providers)
+    ):
+        raise InvalidInput("providers must be a list of enrichment provider names")
     try:
         built = create(providers)
     except ValueError as exc:
@@ -2133,6 +2138,7 @@ def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         ],
         "sources": _distinct_sources(links),
         "enrichment": _enrichment_for(workspace, fields),
+        "church_drive": _church_drive_for(workspace, fields),
         "extracted": {
             field: {
                 "value": entry.value,
@@ -2187,6 +2193,18 @@ def _enrichment_for(workspace: Workspace, fields: Any) -> dict[str, Any]:
     from .enrich.registry import create
 
     return known_values(values_for(workspace.store, create(), fields.latitude, fields.longitude))
+
+
+def _church_drive_for(workspace: Workspace, fields: Any) -> dict[str, Any]:
+    from .enrich.cache import values_for
+    from .enrich.church import ADDRESS, CHURCH, ChurchDrive
+
+    found = values_for(workspace.store, [ChurchDrive()],
+                       getattr(fields, "latitude", None), getattr(fields, "longitude", None))
+    minutes = found["church_drive_minutes"]
+    return {"destination": CHURCH, "address": ADDRESS, "minutes": minutes.value,
+            "status": found["church_drive_status"].value, "freshness": minutes.status,
+            "fetched_at": minutes.fetched_at}
 
 
 def preview_image(workspace: Workspace, listing_id: str) -> tuple[bytes, str] | None:

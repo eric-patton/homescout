@@ -581,3 +581,7 @@ therefore left blank rather than filled from a source covering part of the count
 
 Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_enrich_pass.py`,
 `tests/test_enrich_providers.py`, `tests/test_enrich_live.py` (slow).
+
+## Church drive times (2026-11-07)
+
+Apply `changes/church-drive-times/delta.md`, AC-56-58. Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. Preserve snapshots, annotations, existing views and optional-provider behavior.

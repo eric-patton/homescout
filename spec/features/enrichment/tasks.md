@@ -351,3 +351,8 @@ alongside its peers.
       (`feat-007/AC-17`). The idle-only restart and rerun are recorded in the approved proposal.
       Files: `README.md`, this feature's change record and canonical artifacts.
 
+
+## Church drive times
+
+- [x] T-church-1: Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. (AC-56-58)
+- [ ] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.

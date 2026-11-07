@@ -238,3 +238,7 @@ in the tool.
 - **The store is compared before and after**, table by table.
 - **Five thousand properties are exported and timed**, marked slow.
 - **A run with zero results still produces a workbook**, with headers and no rows.
+
+## Church drive times (2026-11-07)
+
+Apply `changes/church-drive-times/delta.md`, AC-17. Expose saved numeric minutes to all-column/custom exports and verify XLSX and CSV without requests. Preserve snapshots, annotations, existing views and optional-provider behavior.

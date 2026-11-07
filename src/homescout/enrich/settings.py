@@ -35,6 +35,10 @@ class Endpoint:
 
 #: The addresses as they stand. Each is overridable by `HOMESCOUT_ENRICH_<NAME>_URL`.
 DEFAULTS: dict[str, Endpoint] = {
+    "church_drive": Endpoint(
+        "https://api.heigit.org/openrouteservice/v2/matrix/driving-car",
+        "openrouteservice by HeiGIT, driving from Louisiana houses to Old Zion Hill Baptist Church",
+    ),
     "flood": Endpoint(
         "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
         "FEMA National Flood Hazard Layer, flood hazard zones",
@@ -218,6 +222,7 @@ def pacing(providers: tuple[str, ...]) -> PolitenessConfig:
     patient = SourcePolicy(delay=PROVIDER_DELAY_SECONDS, timeout=REFRESH_TIMEOUT_SECONDS)
     per_source = {name: policy for name in providers}
     per_source["broadband"] = patient
+    per_source["church_drive"] = SourcePolicy(delay=6, timeout=60, max_retries=2)
     # The hydrography service answers most points in a second and a few in twenty or more, and on
     # the first live pass one such point timed out four times and cost the column for the pass.
     per_source["streams"] = SourcePolicy(

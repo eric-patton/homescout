@@ -116,3 +116,8 @@ alongside its peers.
 - [x] T-retracted-1: Exclude retracted canonical records from current table/export
       rows while retaining snapshots, source rows and annotations (feat-011/AC-2,
       feat-001/AC-14, AC-15). Verify cleanup against an annotated record.
+
+## Church drive times
+
+- [x] T-church-1: Expose saved numeric minutes to all-column/custom exports and verify XLSX and CSV without requests. (AC-17)
+- [ ] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.

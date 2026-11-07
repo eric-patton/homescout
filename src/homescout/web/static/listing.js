@@ -391,6 +391,17 @@ function enrichment(held) {
    * the public record about the place rather than the place. */
   return el("section", {},
     el("h2", {}, "What is around it"),
+    "church_drive_minutes" in found
+      ? el("p", {class: "meta"},
+          "Drive to church: estimated minutes from this Louisiana house to Old Zion Hill Baptist Church, "
+          + "25890 LA-442, Independence, LA 70443. No live traffic. ",
+          link("https://openrouteservice.org/", "openrouteservice by HeiGIT"), " / ",
+          link("https://www.openstreetmap.org/copyright", "OpenStreetMap"), " / ",
+          link("https://creativecommons.org/licenses/by-sa/4.0/", "CC-BY-SA 4.0"), ". ",
+          held.church_drive?.fetched_at
+            ? `Fetched ${held.church_drive.fetched_at.slice(0, 10)} (${held.church_drive.freshness}).`
+            : "No saved church estimate yet.")
+      : null,
     el("dl", {class: "facts"},
       names.sort().flatMap((name) => [
         el("dt", {}, labelFor(name)),

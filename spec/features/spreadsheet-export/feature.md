@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-011"
 slug: "spreadsheet-export"
 title: "Spreadsheet export"
-status: done
+status: active
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,11 +15,11 @@ readiness:
   design:   n/a
   spec:     ready
   plan:     ready
-  tasks:    ready
+  tasks:    draft
 gate:
-  analyze: not-run
-  product_global_hash: "sha256:869c75445341"
-  constitution_hash: "sha256:7ed19648690b"
+  analyze: pass
+  product_global_hash: "sha256:e7405477e401"
+  constitution_hash: "sha256:32a07eb3ff77"
 converge:
   last_run: 2026-10-07
   open: 2

@@ -125,6 +125,11 @@ has them:
       contain one, refused at the single point a tag is created rather than escaped in every place
       one is displayed.
 
+- [ ] AC-17: A `Drive to Church (min)` numeric enriched column is available to templates and all-column
+  exports, using the saved `church_drive_minutes` without network access. XLSX cells remain numeric,
+  CSV carries the same values, and unavailable minutes are empty. The established default column
+  set is unchanged. Documentation identifies the destination, driving estimate caveat and provider.
+
 ## Edge cases & errors
 
 - A search with zero results. A workbook is still produced, with headers and no property rows,

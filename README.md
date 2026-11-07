@@ -162,6 +162,33 @@ Tickfaw rather than Independence. Confirm the position on the map before saving.
 boundaries carry attribution to openrouteservice by HeiGIT and OpenStreetMap contributors,
 with a [CC BY-SA 4.0 license](https://creativecommons.org/licenses/by-sa/4.0/).
 
+### Saved drive time to church
+
+The results table includes **Drive to Church (min)** beside Price in the Deciding view.
+Click its heading to sort shortest or longest first. Blanks sort last. The destination is
+Old Zion Hill Baptist Church, 25890 LA-442, Independence, LA 70443, using the coordinate center
+already used by the Louisiana driving-area search (30.5771925204, -90.57493594311).
+
+These are estimated driving minutes **from the house to church, without live traffic**.
+The optional `church_drive` enrichment provider uses the same `HOMESCOUT_ORS_API_KEY` as driving
+areas. Only Louisiana listing coordinates and the public destination are sent to
+[openrouteservice by HeiGIT](https://openrouteservice.org/), using
+[OpenStreetMap](https://www.openstreetmap.org/copyright) data under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+No listing addresses, identities or personal notes are transmitted. A matrix request contains
+up to 100 houses and one church destination, following the provider's
+[matrix API](https://giscience.github.io/openrouteservice/api-reference/endpoints/matrix/).
+
+Run `homescout enrich --provider church_drive --json` to backfill saved houses. The usual nightly
+enrichment also fills new houses and refreshes estimates after 30 days. Fresh estimates make no
+routing requests. Reading results, property detail or exports makes no routing requests.
+Missing coordinates and unavailable routes stay blank; property detail shows the route status,
+fetch date and freshness. A service failure preserves the last saved estimate. Houses outside
+Louisiana have no estimate and show `outside coverage` in detail.
+
+All-column spreadsheet/CSV downloads include the numeric minutes. Custom export templates may
+name `Drive to Church (min)`; the established default spreadsheet retains its existing columns.
+
 ### Specific houses
 
 A search can also name houses, any number of them, beside its areas or instead of them:

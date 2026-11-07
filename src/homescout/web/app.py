@@ -390,7 +390,8 @@ def build(workspace: api.Workspace) -> FastAPI:
         started = app.state.runs.start_task(
             "enrich",
             lambda mine, say: api.enrich(
-                mine, stale_only=bool(body.get("stale")), search=body.get("search"), progress=say
+                mine, stale_only=bool(body.get("stale")), search=body.get("search"),
+                providers=body.get("providers"), progress=say
             ),
             held(),
         )

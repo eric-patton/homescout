@@ -674,3 +674,7 @@ say `include ones no longer returned`. Detail copy explains that missing search
 results do not confirm a sale or delisting. Presence, default hiding and source
 listing statuses stay distinct. Existing table/map browser checks verify the text
 and toggles.
+
+## Church drive times (2026-11-07)
+
+Apply `changes/church-drive-times/delta.md`, AC-110. Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. Preserve snapshots, annotations, existing views and optional-provider behavior.

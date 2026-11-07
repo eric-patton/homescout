@@ -1197,6 +1197,14 @@ in five years. The problem brief is in `research.md`.
 - [ ] AC-108: The area editor has address, optional coordinate center, minutes (up to 60), direction (to by default), public-place acknowledgment, include/exclude, Preview driving area, Refresh preview and Add drive-time area controls. Preview is visibly not yet added; Add writes only a draft row and Save the areas writes the search. Changes to preview inputs invalidate the preview; stale replies and redraws cannot restore obsolete results. Provider errors retain draft input and all saved areas. The guarded HTTP endpoint calls the shared core operation.
 - [ ] AC-109: Saved drive-time polygons render separately from editable drawn shapes, preserving exact geometry and provenance through save/reopen. Rows show address, minutes, direction and generation date, permit names, reasons and inclusion/exclusion, and can load their parameters into the preview form for recalculation; no metadata edit silently changes a generated boundary. Explain estimated driving without live traffic, public coordinate transmission, combined include areas, and explicit refresh. Credit openrouteservice by HeiGIT and OpenStreetMap whenever the generated shapes are displayed; exported area provenance identifies the provider and its CC-BY-SA 4.0 result license.
 
+- [ ] AC-110: Results expose `Drive to Church (min)` as a numeric, sortable, filterable column beside
+  price, visible in the Deciding view. Existing saved arrangements retain their choices and receive
+  the new column by the normal new-column placement behavior. Ascending and descending sorting
+  compare numbers, with blanks last. Result and property pages identify Old Zion Hill Baptist
+  Church, its address, the house-to-church direction, estimated driving without live traffic, and
+  openrouteservice by HeiGIT / OpenStreetMap attribution. Property detail shows the saved minutes,
+  status, fetched date and normal fresh/stale/missing states. No page read makes a routing request.
+
 ## Edge cases & errors
 
 - A property is passed and then a later run observes a price cut on it. It stays passed and stays

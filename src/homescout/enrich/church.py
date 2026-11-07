@@ -1,0 +1,150 @@
+"""Saved house-to-church driving estimates, with no live traffic."""
+
+from __future__ import annotations
+
+import json
+import math
+from collections.abc import Iterator, Mapping
+from typing import Any
+
+from ..deliver.settings import environment
+from ..sources.errors import SourceError, SourceFailed
+from ..sources.politeness import Request
+from ..store import Store
+from . import cache, settings
+from .provider import ProviderFailed
+from .travel import KEY
+
+DESTINATION = (30.5771925204, -90.57493594311)
+CHURCH = "Old Zion Hill Baptist Church"
+ADDRESS = "25890 LA-442, Independence, LA 70443"
+BATCH_SIZE = 100
+Place = tuple[float, float]
+
+
+class ChurchDrive:
+    name = "church_drive"
+
+    def __init__(self) -> None:
+        self.store: Store | None = None
+        self.louisiana: set[str] = set()
+
+    def attach(self, store: Store) -> None:
+        self.store = store
+        self.louisiana = {
+            cache.key_for(fields.latitude, fields.longitude, self.precision())
+            for snapshot in store.latest_snapshots().values()
+            if ((fields := snapshot.fields).state
+                and fields.state.strip().upper() in ("LA", "LOUISIANA")
+                and fields.latitude is not None and fields.longitude is not None)
+        }
+
+    def values(self) -> tuple[str, ...]:
+        return ("church_drive_minutes", "church_drive_status")
+
+    def precision(self) -> int:
+        return 6
+
+    def ttl_days(self) -> int:
+        return 30
+
+    def coverage(self) -> str:
+        return "Louisiana houses driving to Old Zion Hill Baptist Church; no live traffic"
+
+    def _credential(self) -> str:
+        if self.store is not None:
+            return environment(self.store.path.parent).get(KEY, "").strip()
+        return settings.token(KEY) or ""
+
+    def configured(self) -> bool:
+        return bool(self._credential())
+
+    def why_not(self) -> str:
+        return f"Set {KEY} in the .env beside the database for church driving estimates."
+
+    def fetch(self, session: Any, latitude: float, longitude: float) -> Mapping[str, Any]:
+        key = cache.key_for(latitude, longitude, self.precision())
+        return next(self.fetch_many(session, {key: (latitude, longitude)}))[1]
+
+    def fetch_many(self, session: Any, wanted: Mapping[str, Place]) -> Iterator[tuple[str, dict]]:
+        eligible = []
+        for key, place in wanted.items():
+            if key not in self.louisiana:
+                yield key, self._answer(None, "outside coverage")
+            elif (not all(math.isfinite(x) for x in place)
+                  or not -90 <= place[0] <= 90 or not -180 <= place[1] <= 180):
+                raise ProviderFailed("church_drive: invalid property coordinates")
+            else:
+                eligible.append((key, place))
+        for start in range(0, len(eligible), BATCH_SIZE):
+            yield from self._batch(session, eligible[start:start + BATCH_SIZE])
+
+    @staticmethod
+    def _answer(minutes: float | None, status: str) -> dict:
+        return {"church_drive_minutes": minutes, "church_drive_status": status}
+
+    def _batch(self, session: Any, entries: list[tuple[str, Place]]) -> Iterator[tuple[str, dict]]:
+        credential = self._credential()
+        if not credential:
+            raise ProviderFailed(self.why_not())
+        url = settings.endpoint(self.name).url
+        if not url.startswith("https://"):
+            raise ProviderFailed("church_drive: routing endpoint must use HTTPS")
+        locations = [[lon, lat] for _, (lat, lon) in entries]
+        locations.append([DESTINATION[1], DESTINATION[0]])
+        request = Request(
+            url, method="POST", allow_redirects=False, max_bytes=1_000_000,
+            headers={"Authorization": credential, "Content-Type": "application/json",
+                     "Accept": "application/json"},
+            body=json.dumps({"locations": locations, "sources": list(range(len(entries))),
+                             "destinations": [len(entries)], "metrics": ["duration"],
+                             "resolve_locations": False}).encode(),
+        )
+        try:
+            fetched = session.request(self.name, request)
+        except SourceError as exc:
+            # Split only a documented point-snapping error, never quota or credential failures.
+            if self._unsnappable(exc):
+                if len(entries) == 1:
+                    yield entries[0][0], self._answer(None, "route unavailable")
+                else:
+                    middle = len(entries) // 2
+                    yield from self._batch(session, entries[:middle])
+                    yield from self._batch(session, entries[middle:])
+                return
+            raise ProviderFailed(
+                "church_drive: routing request failed. Check service availability, key and quota; "
+                "saved estimates are retained."
+            ) from None
+        try:
+            answer = json.loads(fetched.body)
+            rows = answer["durations"]
+            if not isinstance(rows, list) or len(rows) != len(entries):
+                raise ValueError
+            results = []
+            for (key, _), row in zip(entries, rows, strict=True):
+                if not isinstance(row, list) or len(row) != 1:
+                    raise ValueError
+                seconds = row[0]
+                if seconds is None:
+                    results.append((key, self._answer(None, "route unavailable")))
+                elif (type(seconds) not in (int, float)
+                      or not math.isfinite(seconds) or seconds < 0):
+                    raise ValueError
+                else:
+                    results.append((key, self._answer(round(seconds / 60, 1), "estimated")))
+        except (ValueError, TypeError, KeyError, RecursionError, OverflowError):
+            raise ProviderFailed(
+                "church_drive: routing service returned invalid durations"
+            ) from None
+        # Validate the entire batch before publishing any value from it.
+        yield from results
+
+    @staticmethod
+    def _unsnappable(exc: SourceError) -> bool:
+        if not isinstance(exc, SourceFailed) or exc.status not in (400, 404):
+            return False
+        try:
+            return json.loads(exc.detail).get("error", {}).get("code") == 6010
+        except (ValueError, TypeError, AttributeError, RecursionError):
+            return False
