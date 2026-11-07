@@ -188,8 +188,8 @@ Missing coordinates and unavailable routes stay blank; property detail shows the
 fetch date and freshness. A service failure preserves the last saved estimate. Houses outside
 Louisiana have no estimate and show `outside coverage` in detail.
 
-All-column spreadsheet/CSV downloads include the numeric minutes. Custom export templates may
-name `Drive to Church (min)`; the established default spreadsheet retains its existing columns.
+Custom spreadsheet/CSV export templates may include the numeric `Drive to Church (min)` column.
+The established default spreadsheet and its browser download retain their existing columns.
 
 ### Specific houses
 

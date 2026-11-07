@@ -378,3 +378,29 @@ FCC still returned HTTP 400, yielding 150/150 and 1000/1000 advertised Mbps from
 indexes. No live values, historical rows, annotations or state indexes were written by the probes.
 
 verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+
+## run 7 - 2026-11-07
+
+baseline: spec sha256:ef06ad510f3e | plan sha256:0390bfb56197 | tasks sha256:0dd24f8bb319 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/church-drive-times, including historical coordinates, new merges and not-returned rows. Raw findings: none in the changed acceptance criteria. Existing unrelated gaps are carried forward, not reclassified or closed.
+
+implemented:
+
+AC-56: enrich/church.py:33 selects current Louisiana canonical houses and merge stand-ins, then reads saved coordinate versions of their nonretracted constituents. fetch_many at line 93 targets those origins to the fixed church destination. Old-coordinate, merge, retraction and Louisiana-only regressions pass.
+AC-57: enrich/church.py:110 uses the attached database credential, HTTPS, bounded requests, no redirects and sanitized failures. Shape and numeric validation precede cache writes. Tests cover missing keys, null routes, malformed values, authentication/quota redaction and unsnappable origins.
+AC-58: enrich/pass_.py:130,177 accepts provider-owned supplementary places and a streaming fetch hook. Existing six-decimal cache keys, 30-day TTL and timestamps are retained. Batch, stale-refresh, partial-failure and zero-request second-pass tests pass. Live verification filled every current Louisiana origin and cached historical origins; a repeat pass took 1.154 seconds with no routing calls.
+
+Validation: 1,735 default tests passed, four skipped and 126 slow/live deselected. Eight focused enrichment/export performance tests passed. Python lint, JavaScript syntax and affected spec validation passed. Live checks and exact table-preservation evidence are in docs/church-drive-times-verification-2026-11-07.md. Runtime commit: 44a498a. Browser visuals were not verified because the browser host was unavailable.
+
+- confirmed gap-001 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-002 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-004 [unrequested]: carried forward outside this change; prior routing remains.
+- confirmed gap-005 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-007 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-010 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-016 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-019 [partial]: carried forward outside this change; prior routing remains.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)

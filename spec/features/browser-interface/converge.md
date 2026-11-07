@@ -583,3 +583,23 @@ The 1,695 default tests, Python lint and JavaScript syntax checks passed.
 - confirmed gap-007 [unrequested]: carried forward outside this change's scope.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 12 - 2026-11-07
+
+baseline: spec sha256:d6af2b2b39a3 | plan sha256:c888c752a39d | tasks sha256:f67599a1d0c5 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/church-drive-times, including historical coordinates, new merges and not-returned rows. Raw findings: none in the changed acceptance criteria. Existing unrelated gaps are carried forward, not reclassified or closed.
+
+implemented:
+
+AC-110: export/columns.py:356 declares numeric minutes beside Price. web/static/results.js:187,750,1529 adds the Deciding view column, destination/caveat/attribution and numeric sorting with blanks last in both directions. Existing arrangement behavior is executed by the JavaScript unit check. api.py:_disappeared bulk-loads saved church values for revealed older rows. api.py:_church_drive_for and web/static/listing.js:375 show destination, status, fetch date and freshness, including new merges. HTTP verifies all 758 church-search rows and all 9 one-off rows have numeric minutes, also through the normal Tailscale URL. Browser host unavailable, so no visual verification is claimed.
+
+Validation: 1,735 default tests passed, four skipped and 126 slow/live deselected. Eight focused enrichment/export performance tests passed. Python lint, JavaScript syntax and affected spec validation passed. Live checks and exact table-preservation evidence are in docs/church-drive-times-verification-2026-11-07.md. Runtime commit: 44a498a. Browser visuals were not verified because the browser host was unavailable.
+
+- confirmed gap-004 [unrequested]: carried forward outside this change; prior routing remains.
+- confirmed gap-005 [unrequested]: carried forward outside this change; prior routing remains.
+- confirmed gap-006 [unrequested]: carried forward outside this change; prior routing remains.
+- confirmed gap-007 [unrequested]: carried forward outside this change; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

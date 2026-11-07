@@ -1963,4 +1963,4 @@ default 34 visible plus 14 not returned. The slow browser pytest suite was not r
 ## Church drive times
 
 - [x] T-church-1: Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. (AC-110)
-- [ ] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+- [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.

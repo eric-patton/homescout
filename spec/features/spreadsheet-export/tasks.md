@@ -120,4 +120,4 @@ alongside its peers.
 ## Church drive times
 
 - [x] T-church-1: Expose saved numeric minutes to all-column/custom exports and verify XLSX and CSV without requests. (AC-17)
-- [ ] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+- [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.

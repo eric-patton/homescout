@@ -131,3 +131,21 @@ found zero candidates. Historical observations and the comparison engine were no
   additional export columns and owner decision remain unchanged.
 
 verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)
+
+
+## run 3 - 2026-11-07
+
+baseline: spec sha256:e5ed767fb1b7 | plan sha256:3a3bd3b02cc3 | tasks sha256:1a180049a025 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/church-drive-times, including historical coordinates, new merges and not-returned rows. Raw findings: none in the changed acceptance criteria. Existing unrelated gaps are carried forward, not reclassified or closed.
+
+implemented:
+
+AC-17: export/columns.py:356 reads saved church_drive_minutes as a numeric enriched column. Custom-template CSV/XLSX regression tests verify matching numeric values without routing. A live temporary custom export of the latest one-off run produced seven populated minutes in each format, with numeric XLSX cells. The established default column set is unchanged. Built-in browser exports retain that default; the new field is available through custom templates.
+
+Validation: 1,735 default tests passed, four skipped and 126 slow/live deselected. Eight focused enrichment/export performance tests passed. Python lint, JavaScript syntax and affected spec validation passed. Live checks and exact table-preservation evidence are in docs/church-drive-times-verification-2026-11-07.md. Runtime commit: 44a498a. Browser visuals were not verified because the browser host was unavailable.
+
+- confirmed gap-001 [partial]: carried forward outside this change; prior routing remains.
+- confirmed gap-002 [unrequested]: carried forward outside this change; prior routing remains.
+
+verdict: open 2 (missing 0, partial 1, contradicts 0, unrequested 1)

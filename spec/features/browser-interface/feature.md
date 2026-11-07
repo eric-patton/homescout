@@ -3,7 +3,7 @@ schema_version: 2
 id: "feat-010"
 slug: "browser-interface"
 title: "Browser interface"
-status: active
+status: done
 owner: "eric-patton"
 depth: "mvp"
 sprint: null
@@ -15,13 +15,13 @@ readiness:
   design:   ready
   spec:     ready
   plan:     ready
-  tasks:    draft
+  tasks:    ready
 gate:
   analyze: pass
   product_global_hash: "sha256:e7405477e401"
   constitution_hash: "sha256:32a07eb3ff77"
 converge:
-  last_run: 2026-10-07
+  last_run: 2026-11-07
   open: 4
   contradicts: 0
 human_signoff: []

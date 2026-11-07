@@ -355,4 +355,4 @@ alongside its peers.
 ## Church drive times
 
 - [x] T-church-1: Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. (AC-56-58)
-- [ ] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+- [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
