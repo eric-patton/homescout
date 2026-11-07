@@ -159,6 +159,18 @@ def test_newly_merged_house_gets_a_time_before_another_listing_run(store):
     assert second.providers[0].looked_up == 0 and len(routing.requests) == 1
 
 
+def test_house_not_returned_in_latest_search_keeps_its_saved_drive_time(store):
+    """feat-010/AC-110: revealing older houses must not discard their saved enrichment."""
+    seed(store)
+    run_pass(store, [ChurchDrive()], session=Routing())
+    store.connection.execute("UPDATE listings SET presence='disappeared'")
+    store.connection.commit()
+    load(store, [])
+    found = api.results(held_workspace(store), "portales")
+    assert len(found["rows"]) == 1 and found["rows"][0]["presence"] == "disappeared"
+    assert found["rows"][0]["values"]["Drive to Church (min)"] == 12
+
+
 @pytest.mark.parametrize("answer", [
     {}, {"durations": []}, {"durations": [[-1]]}, {"durations": [[True]]},
     {"durations": [["20"]]}, {"durations": [[float("nan")]]},

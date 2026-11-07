@@ -2036,6 +2036,8 @@ def _disappeared(workspace: Workspace, name: str, already: set[str]) -> list[Any
     "stopped appearing" is a status rather than a deletion. Hidden by default on the screen and
     shown by a filter that says how many it is hiding.
     """
+    from .enrich.cache import known_values, read
+    from .enrich.church import ChurchDrive
     from .export.rows import Row
 
     store = workspace.store
@@ -2053,6 +2055,9 @@ def _disappeared(workspace: Workspace, name: str, already: set[str]) -> list[Any
     #: ordered by listing id and the rows it makes are still in that order.
     snapshots = store.latest_snapshots(gone)
     histories = store.histories_for(list(snapshots))
+    places = [(s.fields.latitude, s.fields.longitude) for s in snapshots.values()
+              if s.fields.latitude is not None and s.fields.longitude is not None]
+    church_values = read(store, [ChurchDrive()], places) if places else {}
     made: list[Row] = []
     for listing_id, snapshot in snapshots.items():
         history = histories.get(listing_id)
@@ -2064,6 +2069,9 @@ def _disappeared(workspace: Workspace, name: str, already: set[str]) -> list[Any
                 fields=snapshot.fields,
                 history=history,
                 presence="disappeared",
+                enriched=known_values(church_values.get(
+                    (snapshot.fields.latitude, snapshot.fields.longitude), {}
+                )),
             )
         )
     return made
