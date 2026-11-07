@@ -2138,7 +2138,7 @@ def listing(workspace: Workspace, listing_id: str) -> dict[str, Any]:
         ],
         "sources": _distinct_sources(links),
         "enrichment": _enrichment_for(workspace, fields),
-        "church_drive": _church_drive_for(workspace, fields),
+        "church_drive": _church_drive_for(workspace, fields, listing_id),
         "extracted": {
             field: {
                 "value": entry.value,
@@ -2195,10 +2195,13 @@ def _enrichment_for(workspace: Workspace, fields: Any) -> dict[str, Any]:
     return known_values(values_for(workspace.store, create(), fields.latitude, fields.longitude))
 
 
-def _church_drive_for(workspace: Workspace, fields: Any) -> dict[str, Any]:
+def _church_drive_for(workspace: Workspace, fields: Any, listing_id: str) -> dict[str, Any]:
     from .enrich.cache import values_for
     from .enrich.church import ADDRESS, CHURCH, ChurchDrive
 
+    if fields is None:
+        stand_in = workspace.store.merged_stand_ins().get(listing_id)
+        fields = stand_in.fields if stand_in is not None else None
     found = values_for(workspace.store, [ChurchDrive()],
                        getattr(fields, "latitude", None), getattr(fields, "longitude", None))
     minutes = found["church_drive_minutes"]

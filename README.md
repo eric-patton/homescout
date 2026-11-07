@@ -182,6 +182,8 @@ up to 100 houses and one church destination, following the provider's
 Run `homescout enrich --provider church_drive --json` to backfill saved houses. The usual nightly
 enrichment also fills new houses and refreshes estimates after 30 days. Fresh estimates make no
 routing requests. Reading results, property detail or exports makes no routing requests.
+Saved coordinate versions and merge constituents are included, so older result rows and newly
+merged houses also have estimates before the next listing run. No historical listing is rewritten.
 Missing coordinates and unavailable routes stay blank; property detail shows the route status,
 fetch date and freshness. A service failure preserves the last saved estimate. Houses outside
 Louisiana have no estimate and show `outside coverage` in detail.

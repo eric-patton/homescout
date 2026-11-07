@@ -585,3 +585,5 @@ Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_e
 ## Church drive times (2026-11-07)
 
 Apply `changes/church-drive-times/delta.md`, AC-56-58. Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. Preserve snapshots, annotations, existing views and optional-provider behavior.
+
+Live coverage verification: include historical coordinate versions of current Louisiana canonical houses and their nonretracted merge constituents through a provider-owned additional-places hook. Use the same bounded batch/cache path; do not rewrite snapshots. Regression tests cover older results, a newly merged house and retracted records (AC-56, AC-58).

@@ -118,6 +118,47 @@ def test_batches_are_bounded_and_fresh_second_pass_costs_zero(store):
     assert len(routing.requests) == 2
 
 
+def test_saved_rows_with_older_coordinates_also_get_their_drive_time(store):
+    """feat-007/AC-56, feat-007/AC-58, feat-010/AC-110: saved runs keep exact origins."""
+    first = seed(store)
+    load(store, [listing("la0", state="LA", latitude=LA[0] + .002, longitude=LA[1])])
+    routing = Routing()
+    result = run_pass(store, [ChurchDrive()], session=routing)
+    assert result.providers[0].looked_up == 2
+    origins = json.loads(routing.requests[0].body)["locations"][:-1]
+    assert [LA[1], LA[0]] in origins and [LA[1], LA[0] + .002] in origins
+    found = api.results(held_workspace(store), "portales", run_id=first.run_id)
+    assert found["rows"][0]["values"]["Drive to Church (min)"] is not None
+    assert store.snapshot_at(first["la0"], first.run_id).fields.latitude == LA[0]
+
+
+def test_retracted_records_are_not_sent_to_the_router(store):
+    """feat-007/AC-56: collection records already removed by the owner stay excluded."""
+    seed(store)
+    store.connection.execute("UPDATE listings SET retracted=1")
+    store.connection.commit()
+    routing = Routing()
+    result = run_pass(store, [ChurchDrive()], session=routing)
+    assert not result.degraded and not routing.requests
+
+
+def test_newly_merged_house_gets_a_time_before_another_listing_run(store):
+    """feat-007/AC-56, feat-010/AC-110: follow constituents of an unobserved merge."""
+    loaded = seed(store, 2)
+    merged = store.supersede([loaded["la0"], loaded["la1"]], join_signal="manual")
+    assert merged not in store.latest_snapshots()
+    routing = Routing()
+    result = run_pass(store, [ChurchDrive()], session=routing)
+    assert not result.degraded and result.providers[0].looked_up == 2
+    found = api.results(held_workspace(store), "portales")
+    assert len(found["rows"]) == 1
+    assert found["rows"][0]["values"]["Drive to Church (min)"] is not None
+    detail = api.listing(held_workspace(store), merged)
+    assert detail["church_drive"]["minutes"] is not None
+    second = run_pass(store, [ChurchDrive()], session=routing)
+    assert second.providers[0].looked_up == 0 and len(routing.requests) == 1
+
+
 @pytest.mark.parametrize("answer", [
     {}, {"durations": []}, {"durations": [[-1]]}, {"durations": [[True]]},
     {"durations": [["20"]]}, {"durations": [[float("nan")]]},

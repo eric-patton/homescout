@@ -373,7 +373,11 @@ function waterValue(name, found) {
 }
 
 function enrichment(held) {
-  const found = held.enrichment || {};
+  const found = {...(held.enrichment || {})};
+  if (held.church_drive) {
+    found.church_drive_minutes = held.church_drive.minutes;
+    found.church_drive_status = held.church_drive.status;
+  }
   const names = Object.keys(found);
   if (!names.length) {
     return el("section", {}, el("h2", {}, "What is around it"),

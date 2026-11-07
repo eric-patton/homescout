@@ -242,3 +242,5 @@ in the tool.
 ## Church drive times (2026-11-07)
 
 Apply `changes/church-drive-times/delta.md`, AC-17. Expose saved numeric minutes to all-column/custom exports and verify XLSX and CSV without requests. Preserve snapshots, annotations, existing views and optional-provider behavior.
+
+The live coverage check extends this change to historical coordinate versions and newly merged Louisiana houses, with no snapshot edits. Existing acceptance criteria remain the source of truth.

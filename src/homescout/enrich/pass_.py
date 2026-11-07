@@ -114,7 +114,6 @@ def run_pass(
 
     located, unlocatable = places_in(store, search=search)
     places = [place for _, place in located]
-    held = cache.read(store, providers, places) if places else {}
 
     outcomes: list[ProviderOutcome] = []
     paced = session or _session(providers)
@@ -130,7 +129,11 @@ def run_pass(
             say(f"{provider.name}: skipped, {reason}")
             continue
 
-        wanted = _keys_to_ask(provider, places, held, stale_only=stale_only)
+        additions = getattr(provider, "additional_places", lambda: ())()
+        seen_places = set(places)
+        provider_places = [*places, *(place for place in additions if place not in seen_places)]
+        held = cache.read(store, [provider], provider_places) if provider_places else {}
+        wanted = _keys_to_ask(provider, provider_places, held, stale_only=stale_only)
         looked_up = 0
         failure: str | None = None
         answers = iter(_fetch_values(provider, paced, wanted))
@@ -156,7 +159,7 @@ def run_pass(
                 provider=provider.name,
                 outcome="failed" if failure else "ok",
                 looked_up=looked_up,
-                cached=len(places) - len(wanted),
+                cached=len(provider_places) - len(wanted),
                 detail=failure,
                 coverage=_coverage_of(provider),
             )

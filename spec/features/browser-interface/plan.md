@@ -678,3 +678,5 @@ and toggles.
 ## Church drive times (2026-11-07)
 
 Apply `changes/church-drive-times/delta.md`, AC-110. Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. Preserve snapshots, annotations, existing views and optional-provider behavior.
+
+The live coverage check extends this change to historical coordinate versions and newly merged Louisiana houses, with no snapshot edits. Existing acceptance criteria remain the source of truth.

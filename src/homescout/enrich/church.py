@@ -28,16 +28,40 @@ class ChurchDrive:
     def __init__(self) -> None:
         self.store: Store | None = None
         self.louisiana: set[str] = set()
+        self.locations: list[Place] = []
 
     def attach(self, store: Store) -> None:
         self.store = store
-        self.louisiana = {
-            cache.key_for(fields.latitude, fields.longitude, self.precision())
-            for snapshot in store.latest_snapshots().values()
+        snapshots = store.latest_snapshots()
+        snapshots.update(store.merged_stand_ins())
+        roots = [
+            listing_id for listing_id, snapshot in snapshots.items()
             if ((fields := snapshot.fields).state
                 and fields.state.strip().upper() in ("LA", "LOUISIANA")
                 and fields.latitude is not None and fields.longitude is not None)
-        }
+        ]
+        self.locations = []
+        # A saved result can carry older coordinates, or a constituent's coordinates just after
+        # a merge. Enrich those exact places too, without rewriting any observed snapshot.
+        for start in range(0, len(roots), 400):
+            chunk = roots[start:start + 400]
+            marks = ",".join("?" for _ in chunk)
+            rows = store.connection.execute(
+                "WITH RECURSIVE members(id) AS ("
+                f" SELECT id FROM listings WHERE id IN ({marks})"
+                " UNION SELECT l.id FROM listings l JOIN members m ON l.superseded_by=m.id"
+                " WHERE l.retracted=0)"
+                " SELECT DISTINCT s.latitude,s.longitude FROM listing_snapshots s"
+                " JOIN members m ON m.id=s.listing_id"
+                " WHERE UPPER(TRIM(s.state)) IN ('LA','LOUISIANA')"
+                " AND s.latitude IS NOT NULL AND s.longitude IS NOT NULL", chunk,
+            )
+            self.locations.extend((row[0], row[1]) for row in rows)
+        self.locations = list(dict.fromkeys(self.locations))
+        self.louisiana = {cache.key_for(*place, self.precision()) for place in self.locations}
+
+    def additional_places(self) -> list[Place]:
+        return self.locations
 
     def values(self) -> tuple[str, ...]:
         return ("church_drive_minutes", "church_drive_status")
