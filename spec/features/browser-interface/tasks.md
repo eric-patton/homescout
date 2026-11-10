@@ -2027,3 +2027,25 @@ released: clearing Work continued Family automatically; navigating to Map contin
 automatically. Retry re-enabled after completion, with final results/pins/list agreement.
 Fresh after screenshots replaced the existing paired results and map captions. No live
 routing, merge, push or deployment was performed. Eric reviews and delivers through the board.
+
+## Card #3 review round 2: table reset
+
+- [x] T-range-review2: Reproduce B1, then clear retained column-filter context when resetting
+      the table so reload cannot restore it. Cover actual shipped load/setFilter/reset behavior,
+      retained non-column constraints and ordinary reload retention (feat-010/AC-45,
+      feat-010/AC-57, feat-010/AC-113). Verify reset and subsequent map/results navigation in
+      the permitted browser; refresh both existing after screenshot captions.
+
+B1 reproduced in the browser and in the new shipped-JavaScript regression before the fix.
+The same regression passed after updating the retained context. Focused results suite:
+38 passed in 7.13 seconds. Browser reproduction: Property Boundary stayed at two of eight
+after reset. After correction, Work 55-60 plus Family 20-40 gave
+three of eight; adding Property FamilyCollected58 gave one, and reset restored all three
+while preserving both ranges. Map pins/list and return navigation agreed on three, with
+no restored Property chip. Both after screenshots use the original paired captions.
+
+Final review round 2 default suite: 1,789 passed, four macOS wrapper skips and 126 slow/live
+cases deselected in 225.91 seconds, with one existing Starlette/httpx deprecation warning.
+Ruff and syntax checks for results.js, common.js, fire.js and the new regression passed.
+All 286 runtime/test/dependency inputs stayed unchanged through final verification.
+No live routing, production changes, merge, push or deployment. Eric reviews through Guildboard.

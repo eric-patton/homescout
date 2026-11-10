@@ -768,3 +768,42 @@ or deployment was used. Eric reviews through Guildboard before board-managed del
 - confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 18 - 2026-11-10
+
+baseline: spec sha256:67bd23686dca | plan sha256:62f25cf4c9c7 | tasks sha256:bb2b7fb9b5f2 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for review round 2 B1 against the existing table/filter/navigation
+requirements, plan and shared snapshot/privacy invariants. Raw findings after correction: none
+in this scope. The browser and shipped-JavaScript regression both reproduced the defect before
+the fix. No source-of-truth change, backend change or new persistence is introduced.
+
+implemented:
+
+AC-45/57/113: results.js:601 assigns the table's cleared column-filter object to its current
+visit context before reset reloads. tests/results_table_reset.cjs executes actual shipped load,
+setFilter, reset and matching. It proves rows return after clearing the column filter, while
+query, judgment, disappeared visibility, sorting and drive-time ranges remain intact. Ordinary
+reload still retains active column filters. It failed against the previous code and passes now.
+
+Permitted browser acceptance: Property Boundary stayed at two of eight after reset before the
+fix. With the correction, Work 55-60 AND Family 20-40 matched three of eight; Property
+FamilyCollected58 narrowed to one; reset restored three with both drive-time ranges retained.
+Map navigation and return kept three matches with no restored Property chip. The map showed
+three pins and three list entries. Fresh after images use the original results and map captions.
+The fixture and agent-owned browser tab are closed; routing was scripted, with no real credential.
+
+Validation: 38 focused tests passed in 7.13 seconds. The final default suite passed 1,789 tests
+in 225.91 seconds, with four macOS wrapper skips, 126 slow/live deselections and one existing
+Starlette/httpx deprecation warning. Ruff and four JavaScript syntax checks passed. All 286
+runtime/test/dependency files remained unchanged since the suite began. Source fingerprint:
+8c284b667be7d5fe4931eefee5d55e17a924d4cd9906d03a426f3b8bc5a94d79.
+No production change, merge, push or deployment was performed. Eric reviews through Guildboard.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

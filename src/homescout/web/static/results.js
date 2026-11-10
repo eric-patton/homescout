@@ -598,6 +598,7 @@ function reset() {
   state.hidden = {};
   state.view = "deciding";
   state.filters = {};
+  readResultsVisit(state.search).filters = state.filters;
   state.showPhotos = false;
   state.wrap = false;
   try {

@@ -226,7 +226,8 @@ def test_unconfigured_and_no_areas(setup, monkeypatch):
     assert api.results(held, "portales")["drive_time_areas"] == []
 
 
-@pytest.mark.parametrize("script", ["results_drive_time.cjs", "results_drive_time_progress.cjs"])
+@pytest.mark.parametrize("script", ["results_drive_time.cjs", "results_drive_time_progress.cjs",
+                                   "results_table_reset.cjs"])
 def test_shipped_javascript(script):
     completed = subprocess.run(["node", str(Path(__file__).with_name(script))],
                                capture_output=True, text=True, check=False)
