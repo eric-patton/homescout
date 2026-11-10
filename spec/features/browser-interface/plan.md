@@ -680,3 +680,9 @@ and toggles.
 Apply `changes/church-drive-times/delta.md`, AC-110. Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. Preserve snapshots, annotations, existing views and optional-provider behavior.
 
 The live coverage check extends this change to historical coordinate versions and newly merged Louisiana houses, with no snapshot edits. Existing acceptance criteria remain the source of truth.
+
+## Adjust saved drive-time minutes (card #2)
+
+Extend the existing Recalculate, Preview, Update and Save stages. Reuse api.drive_time_area, enrich/travel.py and FileCatalog.edit. Keep object references while editing; never use duration or geometry as identity. Preserve any stable ID supplied by card #3. Lock the selected area routing/location controls during duration editing. Merge only minutes, validated geometry and generation provenance after a current preview; keep matched address and all row metadata. Revision tokens invalidate requests after input, target and lifecycle changes. An explicit Cancel clears only the calculation draft. Block area save while a calculation edit is pending, and invalidate edit references when the area list is refreshed after save. Retain drafts on failure. Included geography remains OR with exclusions and ordinary observation revisions.
+
+Verify feat-004/AC-25, feat-004/AC-26, feat-010/AC-108 and feat-010/AC-109 through persisted 45 to 60 to 55 changes with distinct polygons, real runner union/coarse/exact tests, HTTP failure checks, executed JavaScript state tests and local fixture browser acceptance. Run normal pytest, ruff, JavaScript syntax and scoped spec validation. Browser acceptance uses the installed plugin, with no headless launcher. Eric reviews before delivery; deployment waits for cards #2 and #3.

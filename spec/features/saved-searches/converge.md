@@ -342,3 +342,20 @@ spec validators passed. The four smaller candidate queries for the user's actual
 60-minute church polygon each returned a valid live first page.
 
 verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)
+
+## run 7 - 2026-11-09
+
+baseline: spec sha256:37bde5c4fda9 | plan sha256:cdd76bf4b56c | tasks sha256:273072c2121b | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/adjust-drive-time and card #2. Raw findings: none in the changed criteria. The shared constitution and product-global paths were checked: unchanged guarded facade, bounded routing transport, local validation, immutable history and file persistence. Unrelated feature behavior was not re-audited.
+
+implemented:
+
+AC-25: tests/test_searches_drive_time.py:290 persists 45 to 60 to 55 and decimal minutes through real HTTP, routing transport, FileCatalog.edit and a fresh catalog, checking distinct matching geometry, provenance, matched address, direction, other areas, exclusions and YAML comments. The test at line 338 runs real coarse queries and exact triangle containment, admits new Work and Family-only listings, preserves exclusions and deduplicates overlap without any routing/geocoding.
+AC-26: tests/test_searches_drive_time.py:401,423 covers invalid values before requests, rejected saved geometry, missing credentials, provider refusal, malformed responses and failed refresh without changing the saved pair. Existing api.py:351 and enrich/travel.py share validation and cache; no core change was needed.
+
+- confirmed gap-003 [partial]: carried forward outside this change; existing routing remains.
+
+Verification: 195 focused tests passed in 38.25 seconds. Final normal suite: 1,751 passed, 4 platform skips, 126 slow/live deselected in 260.47 seconds. Ruff, JavaScript syntax and scoped validators pass. Full receipt and detailed review evidence are run artifacts outside the checkout. The installed validator does not implement --code-fingerprint; no source fingerprint capability is claimed. Eric review, delivery approval and combined card #3 acceptance are pending; deployment belongs to card #4.
+
+verdict: open 1 (missing 0, partial 1, contradicts 0, unrequested 0)

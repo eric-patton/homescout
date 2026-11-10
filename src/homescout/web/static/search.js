@@ -172,6 +172,12 @@ function mapPanel() {
  * interface can only change what the core's edit operation can change.
  */
 async function saveAreas() {
+  if (held.savingAreas) return;
+  const calculation = driveTimeDraft();
+  if (calculation.target || calculation.pending || calculation.preview) {
+    say("Update the driving area or Cancel its preview before saving the areas.", "problem");
+    return;
+  }
   const areas = [];
   const exclusions = [];
 
@@ -201,6 +207,7 @@ async function saveAreas() {
     return;
   }
 
+  held.savingAreas = true;
   try {
     const answered = await send(`/api/searches/${encodeURIComponent(held.name)}`,
       {set: {areas: areas, exclude_areas: exclusions}});
@@ -208,17 +215,22 @@ async function saveAreas() {
     saved("areas");
     say(
       `Saved ${count(areas.length, "area")}` +
-      (exclusions.length ? ` and ${count(exclusions.length, "exclusion")}.` : "."),
+      (exclusions.length ? ` and ${count(exclusions.length, "exclusion")}.` : ".") +
+      " Run this search again to collect listings using the saved coverage.",
       "good");
     /* The areas from what the file now says, on the map that is already open. Reloading the page
      * here, as this used to, threw away every other panel's unsaved draft and put the map back at
      * its default view. */
     held.named = null;
+    resetDriveDraft();
+    held.coverageSaved = true;
     showShapes();
     redrawAreaList();
     rebuild("areas");
   } catch (error) {
     fail(error);
+  } finally {
+    held.savingAreas = false;
   }
 }
 
@@ -226,7 +238,7 @@ function namedArea(area) {
   if (area.kind === "drive_time") {
     const entry = {type: "drive_time"};
     for (const key of ["address", "center", "minutes", "direction", "provider", "generated_at",
-                       "matched", "public_place", "license", "attribution", "geometry", "name"])
+                       "matched", "public_place", "license", "attribution", "geometry", "name", "id"])
       if (area[key] != null) entry[key] = area[key];
     return entry;
   }
@@ -266,6 +278,8 @@ function namedFrom(search) {
 
 function areaList() {
   const search = held.search;
+  if (held.driveInput?.target && held.named && !held.named.includes(held.driveInput.target))
+    resetDriveDraft();
   /* Seeded once from what the server said and then kept, which is the whole fix here.
    *
    * This used to be rebuilt from `held.search` on every redraw, and both controls that change it
@@ -339,6 +353,9 @@ function areaList() {
     radiusForm(),
     driveTimeForm(),
     el("button", {type: "button", class: "primary", onclick: saveAreas}, "Save the areas"),
+    held.coverageSaved ? el("p", {class: "notice", role: "status"},
+      "Coverage saved. Run this search again to collect listings in these areas. ",
+      link("/", "Go to Searches to Run")) : null,
   );
 }
 
@@ -487,29 +504,40 @@ function driveTimeDraft() {
     publicPlace: false, excluded: false, revision: 0};
 }
 
+function resetDriveDraft() {
+  const draft = driveTimeDraft();
+  Object.assign(draft, {address: "", center: "", minutes: "30", direction: "to",
+    publicPlace: false, excluded: false, target: null, adjustment: "", preview: null,
+    pending: false, error: "", revision: draft.revision + 1});
+  clearDrivePreview();
+}
+
 function driveTimeDetails(area) {
   return el("div", {},
     el("span", {}, `${area.minutes} estimated minutes driving ${area.direction} ${area.address}`),
     el("p", {class: "meta"}, `Generated ${new Date(area.generated_at).toLocaleString()}. ${DRIVE_CREDIT}.`),
     el("button", {type: "button", onclick: () => {
+      if (held.savingAreas) return;
       const draft = driveTimeDraft();
       Object.assign(draft, {address: area.address, center: area.center.join(", "),
-        minutes: String(area.minutes), direction: area.direction, publicPlace: true,
+        minutes: String(area.minutes), direction: area.direction, publicPlace: area.public_place,
         excluded: area.excluded, target: area, preview: null, pending: false,
-        revision: draft.revision + 1});
+        adjustment: "", error: "", revision: draft.revision + 1});
       clearDrivePreview();
       redrawAreaList();
-      document.getElementById("driveaddress").focus();
-      say("Parameters loaded below. Preview or refresh, then update the area and save.", "good");
+      document.getElementById("driveadjustment").focus();
+      say(`Adjust ${area.name || area.address} below, currently ${area.minutes} minutes. ` +
+        "Preview, Update, then Save the areas.", "good");
     }}, "Recalculate"));
 }
 
 function driveTimeForm() {
   const draft = driveTimeDraft();
+  const editing = !!draft.target;
   const status = el("p", {class: "meta", role: "status"});
   const address = el("input", {id: "driveaddress", type: "text", value: draft.address,
     placeholder: "Public destination address", "aria-label": "Driving destination address"});
-  const minutes = el("input", {id: "driveminutes", type: "number", min: "0.01", max: "60",
+  const minutes = el("input", {id: "driveminutes", type: "number", min: "0", max: "60",
     step: "any", value: draft.minutes, "aria-label": "Driving minutes"});
   const center = el("input", {id: "drivecenter", type: "text", value: draft.center,
     placeholder: "Latitude, longitude", "aria-label": "Driving coordinate center (optional)"});
@@ -526,27 +554,55 @@ function driveTimeForm() {
     }}, el("option", {value: "included"}, "area to search"),
         el("option", {value: "excluded"}, "area to leave out"));
   sense.value = draft.excluded ? "excluded" : "included";
+  for (const control of [address, center, direction, publicPlace, sense]) control.disabled = editing;
   const invalidate = () => {
     Object.assign(draft, {address: address.value, minutes: minutes.value, center: center.value,
       direction: direction.value, publicPlace: publicPlace.checked, preview: null, pending: false,
-      revision: draft.revision + 1});
+      error: "", revision: draft.revision + 1});
     clearDrivePreview();
     draft.render();
   };
   for (const input of [address, minutes, center]) input.oninput = invalidate;
   direction.onchange = invalidate;
   publicPlace.onchange = invalidate;
+  const complain = (message) => {
+    draft.error = message;
+    draft.render();
+    say(message, "problem");
+  };
+  const adjustment = el("input", {id: "driveadjustment", type: "number", min: "0", step: "any",
+    value: draft.adjustment || "", "aria-label": "Minutes to increase or decrease",
+    oninput: () => { draft.adjustment = adjustment.value; invalidate(); }});
+  const adjust = (sign) => {
+    const delta = Number(adjustment.value);
+    const current = Number(minutes.value);
+    if (!adjustment.value.trim() || !Number.isFinite(delta) || delta <= 0) {
+      complain("Enter a positive number of minutes to increase or decrease.");
+      return;
+    }
+    const total = Number((current + sign * delta).toPrecision(12));
+    if (!minutes.value.trim() || !Number.isFinite(current) || !Number.isFinite(total)
+        || total <= 0 || total > 60) {
+      complain("The resulting driving allowance must be greater than 0 and at most 60 minutes.");
+      return;
+    }
+    minutes.value = String(total);
+    invalidate();
+  };
+  const currentTarget = () => !draft.target || (held.named || []).includes(draft.target);
   const calculate = async (refresh) => {
+    if (!currentTarget() || held.savingAreas) return;
     const coords = center.value.trim() ? center.value.trim().split(/[\s,]+/).map(Number) : null;
     if (!address.value.trim() || !Number.isFinite(Number(minutes.value))
         || Number(minutes.value) <= 0 || Number(minutes.value) > 60 || !publicPlace.checked
         || (coords && (coords.length !== 2 || coords.some(n => !Number.isFinite(n))))) {
-      say("Enter a public address, positive minutes up to 60, and confirm it is a public place. "
-          + "Optional coordinates are latitude, longitude.", "problem");
+      complain("Enter a public address, positive minutes up to 60, and confirm it is a public place. "
+          + "Optional coordinates are latitude, longitude.");
       return;
     }
     const revision = ++draft.revision;
     draft.pending = true;
+    draft.error = "";
     draft.preview = null;
     clearDrivePreview();
     draft.render();
@@ -554,7 +610,13 @@ function driveTimeForm() {
       const found = await send("/api/areas/drive-time", {address: address.value.trim(),
         minutes: Number(minutes.value), direction: direction.value, center: coords,
         public_place: publicPlace.checked, refresh});
-      if (revision !== draft.revision) return;
+      if (revision !== draft.revision || !currentTarget()) return;
+      const area = found.area;
+      if (!area || area.minutes !== Number(draft.minutes) || area.direction !== draft.direction
+          || area.address !== draft.address.trim() || area.provider !== "openrouteservice"
+          || !area.geometry || (coords && JSON.stringify(area.center) !== JSON.stringify(coords))) {
+        throw new Error("The preview did not match this driving allowance. Please try again.");
+      }
       draft.preview = found;
       if (held.map) {
         held.drivePreview = L.geoJSON(found.area.geometry, {interactive: false,
@@ -563,7 +625,7 @@ function driveTimeForm() {
         driveCredit();
       }
     } catch (error) {
-      if (revision === draft.revision) fail(error);
+      if (revision === draft.revision && currentTarget()) complain(error.message);
     } finally {
       if (revision === draft.revision) { draft.pending = false; draft.render(); }
     }
@@ -571,37 +633,56 @@ function driveTimeForm() {
   const preview = el("button", {type: "button", onclick: () => calculate(false)}, "Preview driving area");
   const refresh = el("button", {type: "button", onclick: () => calculate(true)}, "Refresh preview");
   const add = el("button", {type: "button", onclick: () => {
-    if (!draft.preview) return;
-    const index = draft.target ? held.named.indexOf(draft.target) : -1;
-    const area = {...(index >= 0 ? draft.target : {name: "", reason: ""}),
-      ...draft.preview.area, kind: "drive_time", excluded: draft.excluded};
-    if (index >= 0) held.named[index] = area; else held.named.push(area);
-    draft.target = null;
+    if (!draft.preview || draft.pending || held.savingAreas || !currentTarget()) return;
+    const updated = !!draft.target;
+    if (updated) {
+      // Preserve the row reference and all settings, including any persistent area ID.
+      for (const key of ["minutes", "geometry", "generated_at", "license", "attribution"])
+        draft.target[key] = draft.preview.area[key];
+    } else {
+      held.named.push({...draft.preview.area, kind: "drive_time", excluded: draft.excluded,
+        name: "", reason: ""});
+    }
     touched("areas");
-    invalidate();
+    resetDriveDraft();
     redrawAreaList();
-    say("Driving area added to the list. Save the areas to write it into the file.", "good");
+    say(`Driving area ${updated ? "updated" : "added"} in the draft. Save the areas, then run ` +
+      "the search again to collect listings using this coverage.", "good");
   }}, "Add drive-time area");
+  const cancel = el("button", {type: "button", onclick: () => {
+    resetDriveDraft();
+    redrawAreaList();
+    say("Driving calculation canceled. Area rows and other drafts are unchanged.", "good");
+  }}, "Cancel");
   draft.render = () => {
     preview.disabled = refresh.disabled = !!draft.pending || !draft.publicPlace;
     add.disabled = !draft.preview;
     add.textContent = draft.target ? "Update drive-time area" : "Add drive-time area";
-    status.textContent = draft.pending ? "Calculating driving area…" : draft.preview
+    cancel.hidden = !draft.target && !draft.preview && !draft.pending;
+    status.textContent = draft.error || (draft.pending ? "Calculating driving area…" : draft.preview
       ? `Preview only, not added yet. ${draft.preview.matched ? "Matched: " + draft.preview.matched + ". " : ""}`
         + (draft.target ? "Click Update drive-time area, then Save the areas." : "Click Add drive-time area, then Save the areas.")
-      : "Preview the boundary, add it to the list, then save the areas.";
+      : draft.target ? "Preview the new boundary, then Update and Save the areas. Cancel keeps the original area."
+      : "Preview the boundary, add it to the list, then save the areas.");
   };
   draft.render();
   return el("fieldset", {class: "radiusform driveform"},
-    el("legend", {}, "Minutes by car to or from a public address"),
+    el("legend", {}, editing ? `Adjust ${draft.target.name || draft.target.address}`
+      : "Minutes by car to or from a public address"),
+    editing ? el("p", {class: "meta"}, `Current allowance: ${draft.target.minutes} minutes. ` +
+      "Location and routing settings stay the same.") : null,
+    editing ? el("div", {class: "controls"},
+      el("label", {for: "driveadjustment"}, "Adjust by minutes "), adjustment,
+      el("button", {type: "button", onclick: () => adjust(1)}, "Increase"),
+      el("button", {type: "button", onclick: () => adjust(-1)}, "Decrease")) : null,
     el("div", {class: "controls"}, el("label", {for: "driveaddress"}, "Address "), address,
-      el("label", {for: "driveminutes"}, "Minutes "), minutes, direction, sense),
+      el("label", {for: "driveminutes"}, editing ? "Final minutes " : "Minutes "), minutes, direction, sense),
     el("details", {open: !!draft.center}, el("summary", {}, "Use a coordinate center (optional)"),
       el("p", {class: "hint"}, "When the address lookup cannot place a public destination, "
         + "enter its latitude and longitude. The address stays as its label."), center),
     el("label", {class: "drivepublic", for: "drivepublic"}, publicPlace,
       " This is a public place, such as a church or business."),
-    el("div", {class: "controls"}, preview, refresh, add), status,
+    el("div", {class: "controls"}, preview, refresh, add, cancel), status,
     el("p", {class: "hint"}, "Estimated driving, without live traffic. The address is sent to the Census "
       + "unless coordinates are supplied; only the destination coordinates and driving parameters go "
       + "to openrouteservice. Saved boundaries are reused until you refresh and save. "

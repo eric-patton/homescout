@@ -603,3 +603,23 @@ Validation: 1,735 default tests passed, four skipped and 126 slow/live deselecte
 - confirmed gap-007 [unrequested]: carried forward outside this change; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+## run 13 - 2026-11-09
+
+baseline: spec sha256:746ddb070d46 | plan sha256:ecd44b97e95e | tasks sha256:8a289d381183 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/adjust-drive-time and card #2. Raw findings: none in the changed criteria. The shared constitution and product-global paths were checked: unchanged guarded facade, bounded routing transport, local validation, immutable history and file persistence. Unrelated feature behavior was not re-audited.
+
+implemented:
+
+AC-108, AC-109: web/static/search.js:174,279,502-689 implements selected-area context, positive adjustments, final-minute validation, request revisions, explicit Cancel, response matching, in-place updates and save/rerun guidance. Update changes only duration, geometry and generation provenance, retaining the area reference, optional stable ID and all other metadata. tests/test_drive_time_editor.py executes tests/drive_time_editor_checks.cjs for invalid input, refusals, mismatched replies, cancellation, delayed replies, input/target switches and removal, other-panel saves and retryable failed saves.
+Actual browser-plugin acceptance on the local fixture increased 45 by 15 to 60, saved/reopened, decreased by 5 to 55, saved/reopened, used keyboard input and Tab, verified decimal adjustment, invalid input, routing refusal, delayed Cancel, failed save/retry and another panel save with a preview held. The saved Run link reached Run now; a later run displayed original Work, expanded Work and Family-only listings. The paired editor/map screenshots and rerun screenshot are attached to card #2. The owned tab and fixture server were closed. No live-provider evidence is claimed.
+
+- confirmed gap-004 [unrequested]: carried forward outside this change; existing routing remains.
+- confirmed gap-005 [unrequested]: carried forward outside this change; existing routing remains.
+- confirmed gap-006 [unrequested]: carried forward outside this change; existing routing remains.
+- confirmed gap-007 [unrequested]: carried forward outside this change; existing routing remains.
+
+Verification: 195 focused tests passed in 38.25 seconds. Final normal suite: 1,751 passed, 4 platform skips, 126 slow/live deselected in 260.47 seconds. Ruff, JavaScript syntax and scoped validators pass. Full receipt and detailed review evidence are run artifacts outside the checkout. The installed validator does not implement --code-fingerprint; no source fingerprint capability is claimed. Eric review, delivery approval and combined card #3 acceptance are pending; deployment belongs to card #4.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
