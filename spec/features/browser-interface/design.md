@@ -282,6 +282,10 @@ with the same sense written in the table so color is never the sole explanation.
 ## Drive-time areas
 
 A form below the radius form uses Address, optional Latitude/Longitude center, Minutes, Driving to/from, a public-place acknowledgment, In or out, Preview driving area, Refresh preview and Add drive-time area. Successful preview says it has not been added; added rows say to save. Existing rows show estimates, date and provider credit, plus Recalculate to load parameters into the form. Generated boundaries are display-only shapes outside the drawing toolbar. Regenerating parameters requires a fresh preview and Add; the existing row stays until the replacement is explicitly added. Refresh uses the same draft rule.
+
+## Adjust saved drive-time minutes
+
+Recalculate opens the existing driving form for the named area. Show its current allowance, a positive adjustment input, Increase and Decrease, plus editable final minutes. Keep location, direction, provider and inclusion unchanged; those controls are disabled during this duration edit. Show Preview, Refresh preview, Update and Cancel. The original solid boundary stays until Update; a dashed boundary is only a preview. Cancel returns to Add without altering other drafts. Update writes a draft pair, and Save the areas persists it. A saved coverage notice links to Searches where Run already exists. No save automatically collects listings. Errors use the existing status surface and retain editable input.
 ## Card #3: results drive-time filters
 
 A compact fieldset above the result count lists attached drive-time locations. A checkbox

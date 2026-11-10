@@ -378,3 +378,18 @@ through Family, outside Work geometry, then matching Work at 58 minutes with Wor
 saved at 45 minutes. That targeted regression passed separately in 1.34 seconds.
 All six new criteria carry explicit qualified test trace tokens. Final validators have
 zero errors and warnings. Four default-suite skips execute macOS shell wrappers on Windows.
+
+## Card #3 integration with delivered #2
+
+- [x] T-range-integration: Merge delivered #2 at 414197b, preserve both sets of spec
+      records, and verify saved duration changes retain filter references/cache values.
+      The combined real-browser fixture saved Work 45 + 15 = 60, retained Work 55-60
+      and Family 20-40, and kept two results/pins/list entries. Exact route records and
+      fetch times were unchanged: zero matrix requests, one polygon request and two
+      original collection queries. Navigation context now initializes on arrival at
+      each search surface; the shipped JS test retains it through a 120-second edit.
+      Combined focused checks: 86 passed in 12.66 seconds. Integrated default suite:
+      1,787 passed, four macOS skips, 126 slow/live deselected in 224.28 seconds.
+      Lint, four JS syntax checks and all three affected spec validators passed.
+      No live routing or feature #3 delivery/deployment is claimed. Eric reviews the
+      resulting integrated candidate before its destination merge/push.

@@ -1964,6 +1964,13 @@ default 34 visible plus 14 not returned. The slow browser pytest suite was not r
 
 - [x] T-church-1: Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. (AC-110)
 - [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+
+## Adjust saved drive-time minutes (card #2)
+
+- [x] T-adjust-1: Extend the existing editor with entered Increase/Decrease, direct final minutes and selected-area context; preserve settings and metadata (feat-010/AC-109).
+- [x] T-adjust-2: Invalidate stale previews on input/cancel/target changes; preserve saved geometry and unrelated drafts on failure, and expose the rerun lifecycle (feat-010/AC-108, feat-010/AC-109).
+- [x] T-adjust-3: Verify 45 to 60 to 55 persistence, matching polygons, preserved YAML and metadata, invalid inputs and failed routing/save (feat-004/AC-25, feat-004/AC-26).
+- [x] T-adjust-4: Verify updated coarse and exact Work OR Family collection, exclusions, deduplication, offline runs, browser flow and complete required checks (feat-004/AC-25, feat-010/AC-109).
 ## Card #3: results drive-time ranges
 
 - [x] T-range-1: Expose stable area references and shared validated matching (AC-111-113).
@@ -1986,3 +1993,18 @@ through Family, outside Work geometry, then matching Work at 58 minutes with Wor
 saved at 45 minutes. That targeted regression passed separately in 1.34 seconds.
 All six new criteria carry explicit qualified test trace tokens. Final validators have
 zero errors and warnings. Four default-suite skips execute macOS shell wrappers on Windows.
+
+## Card #3 integration with delivered #2
+
+- [x] T-range-integration: Merge delivered #2 at 414197b, preserve both sets of spec
+      records, and verify saved duration changes retain filter references/cache values.
+      The combined real-browser fixture saved Work 45 + 15 = 60, retained Work 55-60
+      and Family 20-40, and kept two results/pins/list entries. Exact route records and
+      fetch times were unchanged: zero matrix requests, one polygon request and two
+      original collection queries. Navigation context now initializes on arrival at
+      each search surface; the shipped JS test retains it through a 120-second edit.
+      Combined focused checks: 86 passed in 12.66 seconds. Integrated default suite:
+      1,787 passed, four macOS skips, 126 slow/live deselected in 224.28 seconds.
+      Lint, four JS syntax checks and all three affected spec validators passed.
+      No live routing or feature #3 delivery/deployment is claimed. Eric reviews the
+      resulting integrated candidate before its destination merge/push.

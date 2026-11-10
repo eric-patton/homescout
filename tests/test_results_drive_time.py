@@ -428,3 +428,16 @@ def test_real_additive_collection_through_family_matches_work_58(store, monkeypa
         "match": 1, "excluded": 0, "pending": 0, "unavailable": 0, "complete": True,
     }
     assert definition.areas[0].travel["minutes"] == 45
+    cached = api.results(held, "cross-area")["rows"][0]["drive_times"][areas[0]["ref"]]
+    updated = {**documents[0], "minutes": 60, "generated_at": "2026-11-09T12:00:00+00:00",
+               "geometry": documents[1]["geometry"]}
+    api.edit_search(held, "cross-area", {"areas": [updated, documents[1]]})
+    after = api.results(held, "cross-area")
+    assert after["drive_time_areas"][0]["ref"] == areas[0]["ref"]
+    assert after["rows"][0]["drive_times"][areas[0]["ref"]] == cached
+    routing = Routing(SourceFailed("A duration-only change must not request another matrix"))
+    result_routes.calculate(store, after["rows"], filters.destinations(held.catalog.load(
+        "cross-area")), filters.validate(active, after["drive_time_areas"]), session=routing)
+    assert not routing.calls
+    assert api.results(held, "cross-area", drive_time_filters=active)[
+        "drive_time_summary"]["match"] == 1

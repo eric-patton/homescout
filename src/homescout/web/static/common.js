@@ -655,6 +655,7 @@ const SEARCH_PAGES = [
 /** Which search this is, and one press to each of its other screens. */
 function aboutSearch(name, here) {
   if (!name) return null;
+  readResultsVisit(name);
   return [
     el("p", {class: "crumbs"},
       link("/", "Searches"), " / ", el("span", {}, name)),

@@ -71,6 +71,12 @@ assert.equal(run('readResultsVisit("search").query'), '');
 run(`visit = readResultsVisit('search');visit.query='old';carryResults({},'search','/map/search');
   resultVisit=null;location.pathname='/results/other';`);
 assert.equal(run('readResultsVisit("other").query'), '');
+run(`var navTime=0;Date={now:()=>navTime};resultVisit=null;location.pathname='/results/search';
+  visit=readResultsVisit('search');visit.query='retained through editing';
+  carryResults({},'search','/search/search');resultVisit=null;location.pathname='/search/search';
+  aboutSearch('search','search');navTime=120000;
+  carryResults({},'search','/results/search');resultVisit=null;location.pathname='/results/search';`);
+assert.equal(run('readResultsVisit("search").query'), 'retained through editing');
 run(`var many = Array.from({length:5000}, (_,i) => ({values:{Property:String(i)},
   drive_times:{work:{minutes:i%100,status:'estimated'}}}));
   var active = [{ref:'work',min:55,max:60}];`);

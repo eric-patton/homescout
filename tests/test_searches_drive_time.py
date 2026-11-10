@@ -285,3 +285,162 @@ def test_changed_geometry_starts_new_observation_scope(tmp_path):
                [[[-90.4, 30.6], [-90.3, 30.6], [-90.3, 30.8], [-90.4, 30.8], [-90.4, 30.6]]]}
     catalog.edit("church", {"areas": [area(changed)]})
     assert catalog.load("church").observation_revision != before
+
+
+def test_adjusted_minutes_and_boundary_round_trip_together(tmp_path):
+    """feat-004/AC-25 feat-010/AC-109: 45 + 15, then 60 - 5, through real HTTP and YAML."""
+    from homescout.search.definition import FileCatalog
+    from searches_fakes import polygon
+
+    original = {**area(), "minutes": 45, "name": "Work", "direction": "from",
+                "matched": "Matched public workplace", "reason": "Commute"}
+    family = {**area(polygon(-90.1, 30.6, -90, 30.7)), "name": "Family"}
+    path = write(tmp_path / "searches", "commute", "# Keep the comment.\nname: commute\nareas: "
+                 + json.dumps([original, family]) + "\nexclude_areas: " + json.dumps([family])
+                 + "\nfilters: {price: {max: 500000}} # untouched\nsources: [fake]\n")
+    credential(tmp_path)
+    routing = Routing()
+    with shared_store(tmp_path / "homescout.db") as store, sourced("fake"), workspace(
+            store) as held, client(held) as browser:
+        held._travel_session = session(routing)
+        revision = held.catalog.load("commute").observation_revision
+        for minutes in (60, 55, 55.5):
+            geometry = polygon(-90.4, 30.6, -90.4 + minutes / 300, 30.7)
+            routing.body = {"features": [{"geometry": geometry}]}
+            before = path.read_bytes()
+            preview = browser.post("/api/areas/drive-time", headers=ours(), json={
+                "address": original["address"], "center": original["center"],
+                "direction": original["direction"], "minutes": minutes, "public_place": True})
+            assert preview.status_code == 200, preview.text
+            assert path.read_bytes() == before, "preview must not write a saved search"
+            proposed = {**original, **{key: preview.json()["area"][key] for key in (
+                "minutes", "geometry", "generated_at", "license", "attribution")}}
+            saved = browser.post("/api/searches/commute", headers=ours(), json={
+                "set": {"areas": [proposed, family], "exclude_areas": [family]}})
+            assert saved.status_code == 200, saved.text
+            reopened = browser.get("/api/searches/commute", headers=reading()).json()["search"]
+            work = reopened["areas"][0]
+            for key, value in proposed.items():
+                assert work["kind" if key == "type" else key] == value
+            assert reopened["areas"][1]["geometry"] == family["geometry"]
+            assert reopened["exclusions"][0]["geometry"] == family["geometry"]
+            # Fresh catalog, so this proves disk persistence rather than a cached response.
+            loaded = FileCatalog(tmp_path / "searches").load("commute")
+            assert loaded.areas[0].travel["minutes"] == minutes
+            assert loaded.areas[0].shape.equals(build(proposed).shape)
+            assert loaded.observation_revision != revision
+            revision = loaded.observation_revision
+            assert "# Keep the comment." in path.read_text()
+            assert "filters: {price: {max: 500000}} # untouched" in path.read_text()
+        assert routing.count == 3
+
+
+def test_expanded_work_or_family_run_uses_new_coarse_and_exact_coverage(tmp_path):
+    """feat-004/AC-25: includes are OR, exclusions subtract and overlap does not duplicate rows."""
+    from dataclasses import replace
+
+    from searches_fakes import polygon
+
+    class BoxSource(FakeSource):
+        def capabilities(self):
+            return Capabilities(accepts_areas=(BoundingBox,))
+
+        def run_search(self, query):
+            response = super().run_search(query)
+            box = query.area
+            return replace(response, rows=tuple(r for r in response.rows if
+                box.south <= r.fields.latitude <= box.north and
+                box.west <= r.fields.longitude <= box.east))
+
+    def no_lookup(*args, **kwargs):
+        raise AssertionError("Saved-boundary runs must not geocode or route")
+
+    class Offline:
+        containing = no_lookup
+        prepare_addresses = no_lookup
+        place_address = no_lookup
+
+    old_shape = polygon(-90.4, 30.6, -90.25, 30.7)
+    # Triangle: bounding box includes the 'coarse-only' point; exact geometry must reject it.
+    new_shape = {"type": "Polygon", "coordinates": [[
+        [-90.4, 30.6], [-90.2, 30.6], [-90.4, 30.8], [-90.4, 30.6]]]}
+    family = {**area(polygon(-90.1, 30.6, -90, 30.7)), "name": "Family"}
+    work = {**area(old_shape), "minutes": 45, "name": "Work"}
+    overlap = {"type": "polygon", "geometry": polygon(-90.4, 30.6, -90.35, 30.7)}
+    exclusion = {"type": "polygon", "geometry": polygon(-90.08, 30.62, -90.06, 30.64)}
+    write(tmp_path / "searches", "commute", "name: commute\nareas: "
+          + json.dumps([work, family, overlap]) + "\nexclude_areas: " + json.dumps([exclusion])
+          + "\nsources: [fake]\n")
+    source = BoxSource(rows=[
+        row("original", latitude=30.63, longitude=-90.38),
+        row("newly-covered", latitude=30.62, longitude=-90.23),
+        row("family-only", latitude=30.63, longitude=-90.05),
+        row("excluded", latitude=30.63, longitude=-90.07),
+        row("coarse-only", latitude=30.77, longitude=-90.21),
+        row("outside", latitude=31, longitude=-90.21),
+    ])
+    with shared_store(tmp_path / "homescout.db") as store, sourced("fake"), boundaries(
+            Offline()), workspace(store, sources={"fake": source}) as held:
+        api.run_search(held, "commute")
+        first = api.results(held, "commute")["rows"]
+        assert len(first) == 2
+        before = held.catalog.load("commute").observation_revision
+        api.edit_search(held, "commute", {"areas": [
+            {**work, "minutes": 60, "geometry": new_shape}, family, overlap]})
+        assert held.catalog.load("commute").observation_revision != before
+        source.queries.clear()
+        outcome = api.run_search(held, "commute")
+        assert outcome.sources[0].rows == 3
+        assert source.queries[0].area == BoundingBox(30.6, -90.4, 30.8, -90.2)
+        result = api.results(held, "commute")["rows"]
+        assert len(result) == 3
+        assert {r["longitude"] for r in result} == {-90.38, -90.23, -90.05}
+
+
+@pytest.mark.parametrize("minutes", [None, "", "abc", "55", 0, -5, 60.01, True, 10**1000])
+def test_adjustment_invalid_http_values_and_failed_save_preserve_pair(tmp_path, minutes):
+    """feat-004/AC-25 feat-004/AC-26: no routing for invalid inputs, no partial saved change."""
+    path = write(tmp_path / "searches", "commute", "name: commute\nareas: ["
+                 + json.dumps({**area(), "minutes": 45}) + "]\nsources: [fake]\n")
+    original = path.read_bytes()
+    routing = Routing()
+    with shared_store(tmp_path / "homescout.db") as store, sourced("fake"), workspace(
+            store) as held, client(held) as browser:
+        held._travel_session = session(routing)
+        response = browser.post("/api/areas/drive-time", headers=ours(), json={
+            "address": ADDRESS, "center": CENTER, "minutes": minutes, "public_place": True})
+        assert response.status_code == 400
+        assert routing.count == 0
+        refused = browser.post("/api/searches/commute", headers=ours(), json={"set": {
+            "areas": [{**area(), "minutes": 60, "geometry": {"type": "Polygon", "coordinates": []}}]
+        }})
+        assert refused.status_code == 400
+        assert path.read_bytes() == original
+        assert held.catalog.load("commute").areas[0].travel["minutes"] == 45
+
+
+@pytest.mark.parametrize("failure", ["credential", "refusal", "malformed", "refresh"])
+def test_failed_adjustment_calculation_never_writes_saved_pair(tmp_path, failure):
+    """feat-004/AC-25 feat-004/AC-26: failure cannot change a saved duration or polygon."""
+    path = write(tmp_path / "searches", "commute", "name: commute\nareas: ["
+                 + json.dumps({**area(), "minutes": 45}) + "]\nsources: [fake]\n")
+    original = path.read_bytes()
+    routing = Routing()
+    with shared_store(tmp_path / "homescout.db") as store, sourced("fake"), workspace(
+            store) as held, client(held) as browser:
+        held._travel_session = session(routing)
+        params = {"address": ADDRESS, "center": CENTER, "minutes": 55, "public_place": True}
+        if failure != "credential":
+            credential(tmp_path)
+        if failure == "refresh":
+            cached = browser.post("/api/areas/drive-time", headers=ours(), json=params)
+            assert cached.status_code == 200
+            params["refresh"] = True
+        routing.status = 503 if failure in ("refusal", "refresh") else 200
+        if failure == "malformed":
+            routing.body = {"features": [{"geometry": {"type": "Polygon", "coordinates": []}}]}
+        failed = browser.post("/api/areas/drive-time", headers=ours(), json=params)
+        assert failed.status_code == 400, failed.text
+        assert path.read_bytes() == original
+        assert held.catalog.load("commute").areas[0].travel["minutes"] == 45
+        assert held.catalog.load("commute").areas[0].shape.equals(build(area()).shape)

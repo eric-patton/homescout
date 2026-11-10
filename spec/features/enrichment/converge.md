@@ -479,3 +479,43 @@ code did not change afterward. No live routing, destination merge/push or deploy
 - confirmed gap-019 [partial]: unchanged outside this scope; prior routing remains.
 
 verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+
+## run 10 - 2026-11-09
+
+baseline: spec sha256:0fb1fab1b53f | plan sha256:977e6be1ebee | tasks sha256:a563a4661162 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline audit of the integrated #2/#3 candidate against both approved deltas and shared
+invariants. Raw findings: none in the combined behavior. Main's delivered audit history is
+preserved; branch-local records from b99d872 remain identifiable in Git and the integration note.
+
+implemented:
+
+AC-108/109 and AC-111/112/113 (browser), AC-59/60/61 (enrichment): the unchanged delivered editor
+recalculates/saves Work from 45 to 60. common.js:aboutSearch initializes one-shot visit context on
+arrival, retaining valid filters through longer editing visits. The shipped JS regression advances
+the edit clock by 120 seconds; browser checks retained Work 55-60 and Family 20-40 after saving.
+Real FileCatalog integration coverage changes duration/geometry/generation time, verifies stable
+references and identical cached minutes/status/fetch times, and proves zero new matrix calls.
+Combined browser results, map pins and map list each remain two, with no automatic collection
+rerun. The fixture observed exactly one polygon request, zero matrix requests and two original
+collection queries. Before/after cache documents and an integration screenshot are review evidence.
+Location/direction changes still invalidate references, covered by existing focused checks.
+
+Validation: 86 combined focused checks passed in 12.66 seconds. Integrated full suite: 1,787
+passed, four macOS shell-wrapper skips, 126 slow/live deselected in 224.28 seconds. Ruff, four
+changed/integrated JavaScript syntax checks and browser-interface/enrichment/saved-searches
+validators passed. Runtime/test/dependency fingerprint: 608ca53a76681cbff2a96a9b2ec7fea85ac24f8886587a68b2cec0d8c70b9a56.
+No live routing or feature #3 destination merge/push/deployment was performed. Eric's explicit
+approval applies to this integrated candidate; #4 remains the deployment gate.
+
+- confirmed gap-001 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-002 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-004 [unrequested]: carried forward outside integration; prior routing remains.
+- confirmed gap-005 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-007 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-010 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-016 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-019 [partial]: carried forward outside integration; prior routing remains.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
