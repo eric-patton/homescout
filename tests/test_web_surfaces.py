@@ -557,6 +557,38 @@ def test_a_town_note_can_be_written_from_a_row_and_belongs_to_the_town(
 # ---------------------------------------------------------------------------
 
 
+def test_the_results_header_is_compact_and_hides_nothing() -> None:
+    """feat-010/AC-114: denser on the Results page only, with every control still there.
+
+    The behaviour of the Drive time button and its panel is executed from the shipped code in
+    tests/results_compact_header.cjs; this holds the page's layout and the scope of its styles.
+    """
+    results = script("results")
+    assert '.add("wide", "results")' in results, "a class of the Results page's own"
+    assert 'el("div", {class: "pagehead"}' in results, "trail, heading, tabs, disclosure"
+    assert 'aboutSearch(state.search, "results")' in results
+    assert "state.drive ? state.drive.toggle() : null" in results, "a button in Which rows"
+    assert results.index("state.drive.toggle()") < results.index('group("Which columns"')
+    assert "{compact: true}" in results, "the Results page asks for the compact form"
+    assert "compact" not in script("fire"), "and the Map page keeps its box"
+    bar = results[results.index('el("div", {class: "resultbar"}'):results.index('id: "picked"')]
+    for part in ('id: "drive-status"', 'id: "counts"', 'id: "sifted"',
+                 "Old Zion Hill Baptist", "25890 LA-442, Independence, LA 70443",
+                 "no live traffic", "openrouteservice by HeiGIT", "OpenStreetMap", "CC-BY-SA 4.0"):
+        assert part in bar, f"{part} is in the one bar above the table"
+    assert results.count("openrouteservice by HeiGIT") == 1, "the routing credit is said once"
+    # Shared furniture is restyled only under the Results page's class, so What changed, Map and
+    # Edit keep their trail, tabs and spacing.
+    style = (STATIC / "app.css").read_text(encoding="utf-8")
+    block = style[style.rindex("/*", 0, style.index("the Results page's compact header")):]
+    block = re.sub(r"/\*.*?\*/", "", block, flags=re.DOTALL)
+    shared = r"#main|\.pagehead|\.crumbs|\.surfaces|\.grouped|\.group|\.howto|\.choice|h1"
+    for selector in re.findall(r"^([^\s/@}][^{]*)\{", block, flags=re.MULTILINE):
+        for one in (part.strip() for part in selector.split(",")):
+            if re.search(shared, one):
+                assert one.startswith("body.results"), f"{one} would change other pages"
+
+
 def test_the_table_controls_are_grouped_by_the_question_they_answer() -> None:
     """feat-010/AC-72: three questions, named, rather than eleven controls in one flow."""
     results = script("results")

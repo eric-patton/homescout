@@ -807,3 +807,41 @@ No production change, merge, push or deployment was performed. Eric reviews thro
 - confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 19 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:865137e9e9ef | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/compact-results-header (card #5) and the criteria it
+touches. Raw findings: none. No backend, matching, routing, persistence or other-page change.
+
+implemented:
+
+AC-114: results.js:324 adds a Results-only body class; results.js:720 puts the trail, heading,
+tabs and disclosure in one row; results.js:744 puts the Drive time button in Which rows;
+results.js:774 is the one bar (notice, count, chips, church note, the single credit at :789).
+common.js:111 summarises ranges, invalid entries and calculation; common.js:128 and :136 give the
+button aria-expanded/aria-controls and open or close the panel built hidden at :174; common.js:362
+shows the yellow notice only while incomplete and says the rest in the panel at :370. app.css:2249
+scopes shared furniture under body.results. Browser on a copy of the live workspace, 1920x950,
+la-near-church: table header 601 px to 202 px, full rows 9 to 25; a 10-25 min range gave 78 and
+with Town/Area Ponchatoula 34, the same as before. 1280 px and 390 px (page width emulated in a
+maximized window) showed no overlap. What changed, Edit and Map pages keep their styles; the Map
+box renders identically to the base commit's common.js.
+AC-53: every height change re-measures (common.js:141, :151, :368; results.js:842 unchanged).
+AC-72, AC-78, AC-110, AC-111, AC-112, AC-113: same controls, same disclosure, church note and
+credit still shown once, controls hidden without areas, notice with counts and Retry while
+incomplete, chips and Clear all still lift drive-time ranges (tests/results_compact_header.cjs).
+
+Verification: focused 128 passed; full default suite 1,791 passed, 4 macOS wrapper skips, 126
+slow/live deselected in 254.88 s, one existing Starlette/httpx deprecation warning. Ruff and
+node --check on common.js, results.js and the new test passed; spec validator 0/0. The separate
+Chrome harness in tests/test_web_browser.py was not run. No routing request, merge or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

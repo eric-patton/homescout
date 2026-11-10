@@ -1,6 +1,7 @@
 """Results-only ranges and exact route identities.
 
 feat-010/AC-111, feat-010/AC-112, feat-010/AC-113.
+feat-010/AC-114: results_compact_header.cjs, the Results page's compact Drive time control.
 feat-007/AC-59, feat-007/AC-60, feat-007/AC-61.
 """
 
@@ -227,7 +228,7 @@ def test_unconfigured_and_no_areas(setup, monkeypatch):
 
 
 @pytest.mark.parametrize("script", ["results_drive_time.cjs", "results_drive_time_progress.cjs",
-                                   "results_table_reset.cjs"])
+                                   "results_table_reset.cjs", "results_compact_header.cjs"])
 def test_shipped_javascript(script):
     completed = subprocess.run(["node", str(Path(__file__).with_name(script))],
                                capture_output=True, text=True, check=False)

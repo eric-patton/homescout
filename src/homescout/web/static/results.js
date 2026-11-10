@@ -319,8 +319,9 @@ let editing = false;
 
 whenReady(() => {
   /* The table wants every pixel the window has; every other surface reads better bounded to a
-   * comfortable measure. One class rather than a second stylesheet. */
-  document.body.classList.add("wide");
+   * comfortable measure. One class rather than a second stylesheet. `results` is this page's own,
+   * because the Map page is wide too and its header is not being made compact (AC-114). */
+  document.body.classList.add("wide", "results");
   nav("/");
   state.search = pathParts()[1] || "";
   load().catch(fail);
@@ -335,9 +336,12 @@ async function load() {
   state.declared = arrange(found.columns);
   state.columns = visible();
   state.all = found.rows;
+  /* The panel is closed on arrival; a redraw within the visit (reset) leaves it as it was. */
+  const wasOpen = Boolean(state.drive && state.drive.open);
   state.drive = new ResultDriveFilters(found, context, () => {
     showFilters(); apply(); fit();
-  });
+  }, {compact: true});
+  state.drive.open = wasOpen;
   forget();
   draw();
   /* Before the first `apply`, not only when somebody changes a filter. The bar used to be empty on
@@ -707,28 +711,37 @@ function draw() {
     },
   });
 
+  /* One line rather than four (AC-114): the trail, the heading, the screens about this search and
+   * the disclosure. The heading stands in for the last step of the trail, which says the same
+   * name; it is still there for anything that reads the trail out. */
+  const [trail, surfaces] = aboutSearch(state.search, "results") || [];
   shell(
     `${state.search} results`,
-    aboutSearch(state.search, "results"),
-    el("h1", {}, `${state.search}`),
-    howItWorks("results", "How this table works",
-      el("p", {},
-        "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
-        "containing some text, drag it to move the column, drag its right edge to resize, " +
-        "right-click it to hide it."),
-      el("p", {},
-        "Cells with a white background are yours to write in: click one and press Enter. What you " +
-        "write survives every later run. Tags open on a single click, because they are chosen " +
-        "rather than typed. Town notes are the exception: they belong to the town and appear on " +
-        "every property in it."),
-      el("p", {},
-        "Shift with a press selects a range of rows, and shift with the arrow keys does the same " +
-        "from the keyboard. Keeping or passing then applies to all of them at once.")),
+    el("div", {class: "pagehead"},
+      trail,
+      el("h1", {}, `${state.search}`),
+      surfaces,
+      howItWorks("results", "How this table works",
+        el("p", {},
+          "Click a heading to sort by it, press the ▼ on it to narrow that column to rows " +
+          "containing some text, drag it to move the column, drag its right edge to resize, " +
+          "right-click it to hide it."),
+        el("p", {},
+          "Cells with a white background are yours to write in: click one and press Enter. What you " +
+          "write survives every later run. Tags open on a single click, because they are chosen " +
+          "rather than typed. Town notes are the exception: they belong to the town and appear on " +
+          "every property in it."),
+        el("p", {},
+          "Shift with a press selects a range of rows, and shift with the arrow keys does the same " +
+          "from the keyboard. Keeping or passing then applies to all of them at once."))),
     el("div", {class: "grouped"},
       group("Which rows",
         search,
         judgmentControl(),
         el("label", {for: "showgone"}, gone, " include ones no longer returned"),
+        /* The drive-time ranges, as one button whose text says which are in force. It opens
+         * the controls under this row (AC-114). Absent when the search has no drive-time areas. */
+        state.drive ? state.drive.toggle() : null,
       ),
       group("Which columns",
         viewControl(),
@@ -753,23 +766,30 @@ function draw() {
         el("span", {id: "export-error", role: "alert"}),
       ),
     ),
-    /* The totals, and only the totals. How many there are is a fact nobody can act on; why any are
-     * missing is a reason, and every reason is in the bar below with its own control to lift it.
-     * The line used to carry both, plus how many milliseconds the table took to draw, which is a
-     * number for whoever is writing this table rather than whoever is reading it. */
+    /* Closed until the button above opens it, and kept in the page while closed. */
     state.drive ? state.drive.group() : null,
-    el("p", {id: "drive-status", class: "drive-status", role: "status", hidden: true}),
-    el("p", {class: "counts", id: "counts", role: "status"}, ""),
-    el("p", {class: "hint"},
-      "Drive to Church (min): estimated driving from Louisiana houses to Old Zion Hill Baptist Church, "
-      + "25890 LA-442, Independence, LA 70443. No live traffic. ",
-      link("https://openrouteservice.org/", "openrouteservice by HeiGIT"), " / ",
-      link("https://www.openstreetmap.org/copyright", "OpenStreetMap"), " / ",
-      link("https://creativecommons.org/licenses/by-sa/4.0/", "CC-BY-SA 4.0"), "."),
-    /* Empty and out of the way until something is filtered, and impossible to miss once
-     * something is. `role="status"` so a filter set from the keyboard is announced rather than
-     * only drawn. */
-    el("div", {id: "sifted", class: "sifted", role: "status", hidden: true}),
+    /* One bar directly above the table (AC-114): the incomplete-results notice when there is one,
+     * the totals, every filter in force, what the church column measures, and the routing credit,
+     * said once. It wraps rather than hiding anything. */
+    el("div", {class: "resultbar"},
+      el("p", {id: "drive-status", class: "drive-status", role: "status", hidden: true}),
+      /* The totals, and only the totals. How many there are is a fact nobody can act on; why any
+       * are missing is a reason, and every reason is in the chips beside it with its own control
+       * to lift it. The line used to carry both, plus how many milliseconds the table took to
+       * draw, which is a number for whoever is writing this table rather than whoever is reading
+       * it. */
+      el("p", {class: "counts", id: "counts", role: "status"}, ""),
+      /* Empty and out of the way until something is filtered, and impossible to miss once
+       * something is. `role="status"` so a filter set from the keyboard is announced rather than
+       * only drawn. */
+      el("div", {id: "sifted", class: "sifted", role: "status", hidden: true}),
+      el("p", {class: "hint resultnote"},
+        "Drive to Church (min): estimated driving from Louisiana houses to Old Zion Hill Baptist "
+        + "Church, 25890 LA-442, Independence, LA 70443, no live traffic. Routing: ",
+        link("https://openrouteservice.org/", "openrouteservice by HeiGIT"), " / ",
+        link("https://www.openstreetmap.org/copyright", "OpenStreetMap"), " / ",
+        link("https://creativecommons.org/licenses/by-sa/4.0/", "CC-BY-SA 4.0"), "."),
+    ),
     /* What a keep or a pass would apply to, said before it is pressed rather than counted in the
      * dialog afterwards. */
     el("div", {id: "picked", class: "sifted picked-bar", role: "status", hidden: true}),

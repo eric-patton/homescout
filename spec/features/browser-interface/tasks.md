@@ -2049,3 +2049,15 @@ cases deselected in 225.91 seconds, with one existing Starlette/httpx deprecatio
 Ruff and syntax checks for results.js, common.js, fire.js and the new regression passed.
 All 286 runtime/test/dependency inputs stayed unchanged through final verification.
 No live routing, production changes, merge, push or deployment. Eric reviews through Guildboard.
+
+## Card #5: compact Results header
+
+- [x] T-compact-1: Add the opt-in compact Drive time mode in common.js: button with summary and
+      expanded state, panel built while closed, notice only while incomplete, facts and Retry in
+      the panel; the Map page's box unchanged (feat-010/AC-114, feat-010/AC-111-113).
+- [x] T-compact-2: Compact the Results header in results.js and app.css under a Results-only
+      class: one header row, inline group names, Drive time in Which rows, one bar above the
+      table with the routing credit once (feat-010/AC-114, feat-010/AC-53).
+- [x] T-compact-3: Test collapsed/opened states, summaries, notice, chips and clearing, the Map
+      box and CSS scope; verify in the browser at 1920x950 on la-near-church, 1280 px and phone
+      width, with paired before/after screenshots on card #5 (feat-010/AC-114).
