@@ -1964,3 +1964,10 @@ default 34 visible plus 14 not returned. The slow browser pytest suite was not r
 
 - [x] T-church-1: Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. (AC-110)
 - [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+
+## Adjust saved drive-time minutes (card #2)
+
+- [x] T-adjust-1: Extend the existing editor with entered Increase/Decrease, direct final minutes and selected-area context; preserve settings and metadata (feat-010/AC-109).
+- [x] T-adjust-2: Invalidate stale previews on input/cancel/target changes; preserve saved geometry and unrelated drafts on failure, and expose the rerun lifecycle (feat-010/AC-108, feat-010/AC-109).
+- [x] T-adjust-3: Verify 45 to 60 to 55 persistence, matching polygons, preserved YAML and metadata, invalid inputs and failed routing/save (feat-004/AC-25, feat-004/AC-26).
+- [x] T-adjust-4: Verify updated coarse and exact Work OR Family collection, exclusions, deduplication, offline runs, browser flow and complete required checks (feat-004/AC-25, feat-010/AC-109).

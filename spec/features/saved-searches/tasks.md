@@ -366,3 +366,10 @@ focused real-browser tests, Python lint and JavaScript syntax checks passed.
       `tests/test_searches_drive_time.py::test_large_drive_time_runs_realtor_with_exact_shape_and_exclusions`
       checks every outer corner and proves fetched outside, hole and excluded rows are removed
       locally. No area format or saved file changes.
+
+## Adjust saved drive-time minutes (card #2)
+
+- [x] T-adjust-1: Extend the existing editor with entered Increase/Decrease, direct final minutes and selected-area context; preserve settings and metadata (feat-010/AC-109).
+- [x] T-adjust-2: Invalidate stale previews on input/cancel/target changes; preserve saved geometry and unrelated drafts on failure, and expose the rerun lifecycle (feat-010/AC-108, feat-010/AC-109).
+- [x] T-adjust-3: Verify 45 to 60 to 55 persistence, matching polygons, preserved YAML and metadata, invalid inputs and failed routing/save (feat-004/AC-25, feat-004/AC-26).
+- [x] T-adjust-4: Verify updated coarse and exact Work OR Family collection, exclusions, deduplication, offline runs, browser flow and complete required checks (feat-004/AC-25, feat-010/AC-109).
