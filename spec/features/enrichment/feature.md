@@ -21,7 +21,7 @@ gate:
   product_global_hash: "sha256:e7405477e401"
   constitution_hash: "sha256:32a07eb3ff77"
 converge:
-  last_run: 2026-11-07
+  last_run: 2026-11-09
   open: 8
   contradicts: 0
 human_signoff: []

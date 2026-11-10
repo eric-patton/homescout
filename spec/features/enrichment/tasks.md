@@ -356,3 +356,40 @@ alongside its peers.
 
 - [x] T-church-1: Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. (AC-56-58)
 - [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+## Card #3: results route estimates
+
+- [x] T-range-1: Generalize matrix routing and exact cache identities (AC-59-60).
+- [x] T-range-2: Add guarded background/CLI operations and safe progress/retry (AC-61).
+- [x] T-range-3: Test directions/cache/failures/full result coordinates and audit (AC-59-61).
+
+Verification for card #3: 129 focused checks passed in 27.51 seconds. Final default
+suite: 1,771 passed, four existing skips, 126 slow/live deselected in 283.20 seconds.
+Python lint, changed-JavaScript syntax and both spec validators passed. The permitted
+browser exercised Work/Family ranges, progressive status, errors, clearing, navigation
+and a 5,000-row pool (300 filtered matches, 33 rendered rows); map/list counts agreed.
+No separate Chrome harness, real routing credential, production backfill, push, merge
+or deployment. Paired before/after screenshots are attached to card #3.
+Pre-build inline consistency/security review: no blocking findings for the approved delta.
+Card #2 is separately in Review at 6c299fc; its area/routing identity is unchanged.
+Owner approval and combined post-merge verification remain external delivery gates.
+
+The final run also includes the real FileCatalog/FakeSource collection proof: returned only
+through Family, outside Work geometry, then matching Work at 58 minutes with Work still
+saved at 45 minutes. That targeted regression passed separately in 1.34 seconds.
+All six new criteria carry explicit qualified test trace tokens. Final validators have
+zero errors and warnings. Four default-suite skips execute macOS shell wrappers on Windows.
+
+## Card #3 integration with delivered #2
+
+- [x] T-range-integration: Merge delivered #2 at 414197b, preserve both sets of spec
+      records, and verify saved duration changes retain filter references/cache values.
+      The combined real-browser fixture saved Work 45 + 15 = 60, retained Work 55-60
+      and Family 20-40, and kept two results/pins/list entries. Exact route records and
+      fetch times were unchanged: zero matrix requests, one polygon request and two
+      original collection queries. Navigation context now initializes on arrival at
+      each search surface; the shipped JS test retains it through a 120-second edit.
+      Combined focused checks: 86 passed in 12.66 seconds. Integrated default suite:
+      1,787 passed, four macOS skips, 126 slow/live deselected in 224.28 seconds.
+      Lint, four JS syntax checks and all three affected spec validators passed.
+      No live routing or feature #3 delivery/deployment is claimed. Eric reviews the
+      resulting integrated candidate before its destination merge/push.

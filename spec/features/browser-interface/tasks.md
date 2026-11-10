@@ -1971,3 +1971,81 @@ default 34 visible plus 14 not returned. The slow browser pytest suite was not r
 - [x] T-adjust-2: Invalidate stale previews on input/cancel/target changes; preserve saved geometry and unrelated drafts on failure, and expose the rerun lifecycle (feat-010/AC-108, feat-010/AC-109).
 - [x] T-adjust-3: Verify 45 to 60 to 55 persistence, matching polygons, preserved YAML and metadata, invalid inputs and failed routing/save (feat-004/AC-25, feat-004/AC-26).
 - [x] T-adjust-4: Verify updated coarse and exact Work OR Family collection, exclusions, deduplication, offline runs, browser flow and complete required checks (feat-004/AC-25, feat-010/AC-109).
+## Card #3: results drive-time ranges
+
+- [x] T-range-1: Expose stable area references and shared validated matching (AC-111-113).
+- [x] T-range-2: Build immediate controls/chips/errors/status and map navigation (AC-111-113).
+- [x] T-range-3: Verify full pool, fixtures, JS/HTTP/core checks, scoped audit (AC-111-113).
+
+Verification for card #3: 129 focused checks passed in 27.51 seconds. Final default
+suite: 1,771 passed, four existing skips, 126 slow/live deselected in 283.20 seconds.
+Python lint, changed-JavaScript syntax and both spec validators passed. The permitted
+browser exercised Work/Family ranges, progressive status, errors, clearing, navigation
+and a 5,000-row pool (300 filtered matches, 33 rendered rows); map/list counts agreed.
+No separate Chrome harness, real routing credential, production backfill, push, merge
+or deployment. Paired before/after screenshots are attached to card #3.
+Pre-build inline consistency/security review: no blocking findings for the approved delta.
+Card #2 is separately in Review at 6c299fc; its area/routing identity is unchanged.
+Owner approval and combined post-merge verification remain external delivery gates.
+
+The final run also includes the real FileCatalog/FakeSource collection proof: returned only
+through Family, outside Work geometry, then matching Work at 58 minutes with Work still
+saved at 45 minutes. That targeted regression passed separately in 1.34 seconds.
+All six new criteria carry explicit qualified test trace tokens. Final validators have
+zero errors and warnings. Four default-suite skips execute macOS shell wrappers on Windows.
+
+## Card #3 integration with delivered #2
+
+- [x] T-range-integration: Merge delivered #2 at 414197b, preserve both sets of spec
+      records, and verify saved duration changes retain filter references/cache values.
+      The combined real-browser fixture saved Work 45 + 15 = 60, retained Work 55-60
+      and Family 20-40, and kept two results/pins/list entries. Exact route records and
+      fetch times were unchanged: zero matrix requests, one polygon request and two
+      original collection queries. Navigation context now initializes on arrival at
+      each search surface; the shipped JS test retains it through a 120-second edit.
+      Combined focused checks: 86 passed in 12.66 seconds. Integrated default suite:
+      1,787 passed, four macOS skips, 126 slow/live deselected in 224.28 seconds.
+      Lint, four JS syntax checks and all three affected spec validators passed.
+      No live routing or feature #3 delivery/deployment is claimed. Eric reviews the
+      resulting integrated candidate before its destination merge/push.
+## Card #3 review round 1: progress tracking defects
+
+- [x] T-range-review1: Fix A1 so clearing individual/all filters or deselecting areas cannot
+      strand a running route job. Fix A2 so navigation attaches to the same search's running
+      result-drive-times pass, distinguishing unrelated work. Add timer-driven shipped-JS
+      regressions for multi-batch progress, clear/reselect, navigation and remaining-area work
+      (feat-010/AC-112, feat-010/AC-113). Recheck browser interactions and update after shots.
+
+Review round 1 verification: both defects reproduced before the fix. Nine deterministic
+timer-driven cases now pass, including clearing one/all areas, reselecting during/after a
+job, blanking/deselecting, attaching on navigation, follow-up work for an uncovered area,
+and unrelated pass handling. The focused results suite passed 37 tests in 12.14 seconds.
+Final default suite: 1,788 passed, four macOS shell-wrapper skips, 126 slow/live cases
+deselected in 231.58 seconds; one existing Starlette/httpx deprecation warning. Ruff and
+four JavaScript syntax checks passed. Offline browser batches were held pending, then
+released: clearing Work continued Family automatically; navigating to Map continued Work
+automatically. Retry re-enabled after completion, with final results/pins/list agreement.
+Fresh after screenshots replaced the existing paired results and map captions. No live
+routing, merge, push or deployment was performed. Eric reviews and delivers through the board.
+
+## Card #3 review round 2: table reset
+
+- [x] T-range-review2: Reproduce B1, then clear retained column-filter context when resetting
+      the table so reload cannot restore it. Cover actual shipped load/setFilter/reset behavior,
+      retained non-column constraints and ordinary reload retention (feat-010/AC-45,
+      feat-010/AC-57, feat-010/AC-113). Verify reset and subsequent map/results navigation in
+      the permitted browser; refresh both existing after screenshot captions.
+
+B1 reproduced in the browser and in the new shipped-JavaScript regression before the fix.
+The same regression passed after updating the retained context. Focused results suite:
+38 passed in 7.13 seconds. Browser reproduction: Property Boundary stayed at two of eight
+after reset. After correction, Work 55-60 plus Family 20-40 gave
+three of eight; adding Property FamilyCollected58 gave one, and reset restored all three
+while preserving both ranges. Map pins/list and return navigation agreed on three, with
+no restored Property chip. Both after screenshots use the original paired captions.
+
+Final review round 2 default suite: 1,789 passed, four macOS wrapper skips and 126 slow/live
+cases deselected in 225.91 seconds, with one existing Starlette/httpx deprecation warning.
+Ruff and syntax checks for results.js, common.js, fire.js and the new regression passed.
+All 286 runtime/test/dependency inputs stayed unchanged through final verification.
+No live routing, production changes, merge, push or deployment. Eric reviews through Guildboard.

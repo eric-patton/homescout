@@ -1207,6 +1207,25 @@ in five years. The problem brief is in `research.md`.
   openrouteservice by HeiGIT / OpenStreetMap attribution. Property detail shows the saved minutes,
   status, fetched date and normal fresh/stale/missing states. No page read makes a routing request.
 
+- AC-111: Results hide drive-time controls without attached drive-time areas. Otherwise zero
+  through all included or excluded locations can be selected, each labelled by name, address
+  and to/from direction, with independent optional nonnegative finite minimum/maximum minutes.
+  Blank is unset, zero is valid, bounds are inclusive and minimum above maximum has an inline
+  error. Invalid drafts apply no numeric filter for that area. No bounds means no constraint.
+- AC-112: All active ranges and all existing results filters must match across the complete
+  collected pool before virtual scrolling. Cross-area listings qualify irrespective of which
+  area collected them, polygon membership or collection duration. No search is rerun or expanded.
+  Missing/pending/failed routes never match numerically. Show only confirmed matches and a
+  prominent incomplete notice with separate pending/unavailable counts, incremental batches,
+  safe failure details and explicit retry without an automatic failure loop.
+- AC-113: Removable chips, individual clearing and Clear all include drive-time constraints.
+  Table, map pins and map list share the active filters during same-search navigation, retaining
+  sorting and full-pool counts, with unmappable matches distinguished. A fresh visit or search
+  switch resets transient filters. Duration-only area edits retain route identity; changed or
+  removed destinations and stale responses cannot apply to the wrong search/location. No new
+  persisted filter settings. State survives same-visit redraws. Show provider credit and explain
+  estimates have no live traffic. Automatic calculations are debounced and deduplicated.
+
 ## Edge cases & errors
 
 - A property is passed and then a later run observes a price cut on it. It stays passed and stays
@@ -1306,7 +1325,7 @@ in five years. The problem brief is in `research.md`.
 ## Non-functional requirements
 
 - Performance: a results table of 5,000 rows becomes interactive within three seconds, and sorting
-  or filtering it responds within 200 milliseconds without contacting the server.
+  or filtering it responds within 200 milliseconds once estimates are available. Missing route estimates are calculated in the background with qualified progressive results.
 - Security: bound to the local interface, single user, no authentication by design. Every value
   originating from a source or from a user note is rendered as text and never as markup, so no
   listing description can inject content into the page. No authentication by design means whatever

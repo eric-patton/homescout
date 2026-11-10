@@ -304,6 +304,7 @@ const state = {
   /* Every tag this workspace knows, newest answer from the server. Held so the chooser can offer
    * them without a request per cell, and refreshed whenever a save changes what exists. */
   tags: [],
+  drive: null,
 };
 
 /* Set while a header is being dragged or resized, and read by the click handler: a drag that ends
@@ -327,9 +328,16 @@ whenReady(() => {
 
 async function load() {
   const found = await ask(`/api/results/${encodeURIComponent(state.search)}`);
+  const context = readResultsVisit(state.search);
+  for (const key of ["query", "filters", "judgment", "showGone", "sortBy", "descending"]) {
+    state[key] = context[key];
+  }
   state.declared = arrange(found.columns);
   state.columns = visible();
   state.all = found.rows;
+  state.drive = new ResultDriveFilters(found, context, () => {
+    showFilters(); apply(); fit();
+  });
   forget();
   draw();
   /* Before the first `apply`, not only when somebody changes a filter. The bar used to be empty on
@@ -339,6 +347,7 @@ async function load() {
    * is short. */
   showFilters();
   apply();
+  state.drive.schedule();
   /* After the table is up, not before it. The vocabulary is only needed by a cell somebody opens,
    * and a thousand rows should not wait on a second request to be drawn. A failure here costs the
    * list of suggestions and nothing else, so it is not worth an error across the page. */
@@ -589,6 +598,7 @@ function reset() {
   state.hidden = {};
   state.view = "deciding";
   state.filters = {};
+  readResultsVisit(state.search).filters = state.filters;
   state.showPhotos = false;
   state.wrap = false;
   try {
@@ -659,6 +669,7 @@ function draw() {
   const search = el("input", {
     type: "search",
     id: "filter",
+    value: state.query,
     placeholder: "type to narrow the list",
     "aria-label": "Filter the table",
     oninput: (event) => { state.query = event.target.value; showFilters(); apply(); },
@@ -667,6 +678,7 @@ function draw() {
   const gone = el("input", {
     type: "checkbox",
     id: "showgone",
+    checked: state.showGone,
     onchange: (event) => { state.showGone = event.target.checked; apply(); },
   });
 
@@ -745,6 +757,8 @@ function draw() {
      * missing is a reason, and every reason is in the bar below with its own control to lift it.
      * The line used to carry both, plus how many milliseconds the table took to draw, which is a
      * number for whoever is writing this table rather than whoever is reading it. */
+    state.drive ? state.drive.group() : null,
+    el("p", {id: "drive-status", class: "drive-status", role: "status", hidden: true}),
     el("p", {class: "counts", id: "counts", role: "status"}, ""),
     el("p", {class: "hint"},
       "Drive to Church (min): estimated driving from Louisiana houses to Old Zion Hill Baptist Church, "
@@ -1082,6 +1096,7 @@ function clearFilters() {
 
   state.filters = {};
   state.query = "";
+  if (state.drive) state.drive.clear(null, false);
   const search = document.getElementById("filter");
   if (search) search.value = "";
   /* Everything, which is the point of the button and now includes the two that hide the most. A
@@ -1128,7 +1143,8 @@ function showFilters() {
   const narrowedByJudgment = state.judgment !== "all";
   const holdingBackGone =
     !state.showGone && state.all.some((row) => row.presence === "disappeared");
-  if (!held.length && !query && !narrowedByJudgment && !holdingBackGone) {
+  if (!held.length && !query && !narrowedByJudgment && !holdingBackGone
+      && !(state.drive && state.drive.active().length)) {
     bar.replaceChildren();
     bar.hidden = true;
     fit();
@@ -1142,7 +1158,7 @@ function showFilters() {
                   title: `Stop ${said}`, onclick: lift}, "\u00d7"),
   );
 
-  const chips = [];
+  const chips = state.drive ? state.drive.chips() : [];
 
   /* The two narrowings that hide by the thousand, in the same bar as the ones that hide by the
    * dozen, and looking exactly like them. This bar was built because a table silently missing four
@@ -1476,6 +1492,11 @@ function sortBy(name) {
 /* ------------------------------------------------------------------ */
 
 function apply() {
+  if (state.drive) {
+    for (const key of ["query", "filters", "judgment", "showGone", "sortBy", "descending"]) {
+      state.drive.context[key] = state[key];
+    }
+  }
   const query = state.query.trim().toLowerCase();
   let kept = state.all;
 
@@ -1513,12 +1534,20 @@ function apply() {
       narrowed.every((one) => holds(asShown(row, one.column).toLowerCase(), one.want)));
   }
 
+  if (state.drive) {
+    state.drive.status(kept);
+    const ranges = state.drive.active();
+    if (ranges.length) kept = kept.filter((row) => driveMatch(row, ranges) === "match");
+  }
+
   if (state.sortBy) {
     const name = state.sortBy;
     const direction = state.descending ? -1 : 1;
     kept = kept.slice().sort((a, b) => compare(a.values[name], b.values[name], direction));
   }
 
+  const scroller = document.getElementById("scroller");
+  if (scroller && kept.length !== state.shown.length) scroller.scrollTop = 0;
   state.shown = kept;
   window_();
   counts();

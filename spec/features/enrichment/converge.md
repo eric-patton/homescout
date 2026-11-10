@@ -404,3 +404,118 @@ Validation: 1,735 default tests passed, four skipped and 126 slow/live deselecte
 - confirmed gap-019 [partial]: carried forward outside this change; prior routing remains.
 
 verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+
+## run 8 - 2026-11-09
+
+baseline: spec sha256:0fb1fab1b53f | plan sha256:977e6be1ebee | tasks sha256:c81125f57f11 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/results-drive-time and its folded criteria.
+Raw findings: none in this change. Governing documents were checked for immutable history,
+additive collection, optional credentials and thin HTTP/CLI surfaces. Existing unrelated gaps
+are retained without being re-audited or closed. No new contradictions.
+
+implemented:
+
+AC-59: matrix.py:15 selects listing-to-location or location-to-listing axes with validated
+full-precision durations. result_routes.py:46 works over api.results' full historical/merged/
+not-returned pool, without Louisiana, geometry or collection provenance restrictions. CLI/HTTP
+both reach api.result_drive_times and api.calculate_result_drive_times.
+AC-60: result_filters.py:24,87,96 keys exact origins and destination/provider/endpoint/profile/options,
+excluding bounds and collection duration/geometry. SQLite retains minutes/status/time/freshness.
+Failed refreshes keep route values and timestamps; church cache and one-decimal behavior remain.
+AC-61: guarded app.py endpoints and runs.Tracker reuse pass exclusion, worker-owned connections
+and progress. result_routes.py:19 reuses/closes one routing session per pass; :30 retains completed
+batches and marks all unfinished active areas unavailable on failure. Pacing is shared between
+preview/church/result sessions. Tests execute blocked/overlapping requests, retries and safe errors.
+
+Verification: 129 focused checks passed; full default suite 1,770 passed, four pre-existing skips,
+126 slow/live deselected. Lint, JS syntax, spec validation and permitted real-browser fixture
+interactions passed. 5,000 collected rows yielded 300 filtered matches with 33 rendered rows;
+table, 300 pins and 300 map-list entries agreed. Work/Family fixture gave 5 Work-max matches,
+4 Work-55-to-60 matches, then 3 with Family-20-to-40; unknowns remained visibly incomplete.
+Paired screenshots are on card #3. Live routing, merged #2 integration and deployment are not
+claimed. Card #2 at 6c299fc changes the editor, preserving the routing identity contract.
+
+- confirmed gap-001 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-002 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-004 [unrequested]: carried forward outside this scope; prior routing remains.
+- confirmed gap-005 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-007 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-010 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-016 [partial]: carried forward outside this scope; prior routing remains.
+- confirmed gap-019 [partial]: carried forward outside this scope; prior routing remains.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+
+## run 9 - 2026-11-09
+
+baseline: spec sha256:0fb1fab1b53f | plan sha256:977e6be1ebee | tasks sha256:29262333dfb1 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Final scoped inline audit after adding explicit test trace tokens and an actual collection-loop
+regression. Raw findings: none for results-drive-time. All criteria from the preceding scoped run
+remain implemented. tests/test_results_drive_time.py:test_real_additive_collection_through_family_matches_work_58
+runs FileCatalog, both real area checks and the collection loop with only the outside source/routing
+scripted. Work returns nothing; Family returns the listing. Work geometry excludes it, Family includes
+it, and the saved 45-minute Work area still permits the result's numeric 58-minute route to match
+55-60. api.results calls core matching; CLI and guarded HTTP expose the same core numeric result.
+
+Final evidence: 1,771 default tests passed in 283.20 seconds; four macOS shell-wrapper cases skipped
+on Windows, 126 slow/live cases deselected. The earlier 129 focused regressions and separate new
+collection regression passed. Lint, all three changed-JS syntax checks and both final validators
+passed with zero spec errors/warnings. Runtime/test/dependency source receipt fingerprint:
+d11843813a9f4d991cc3e151691f2f134077fc800c6f12ba5cca3b83c1fd3cf4.
+Browser acceptance and paired screenshot evidence from the preceding run remain applicable; runtime
+code did not change afterward. No live routing, destination merge/push or deployment is claimed.
+
+- confirmed gap-001 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-002 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-004 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-005 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-007 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-010 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-016 [partial]: unchanged outside this scope; prior routing remains.
+- confirmed gap-019 [partial]: unchanged outside this scope; prior routing remains.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)
+
+
+## run 10 - 2026-11-09
+
+baseline: spec sha256:0fb1fab1b53f | plan sha256:977e6be1ebee | tasks sha256:a563a4661162 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline audit of the integrated #2/#3 candidate against both approved deltas and shared
+invariants. Raw findings: none in the combined behavior. Main's delivered audit history is
+preserved; branch-local records from b99d872 remain identifiable in Git and the integration note.
+
+implemented:
+
+AC-108/109 and AC-111/112/113 (browser), AC-59/60/61 (enrichment): the unchanged delivered editor
+recalculates/saves Work from 45 to 60. common.js:aboutSearch initializes one-shot visit context on
+arrival, retaining valid filters through longer editing visits. The shipped JS regression advances
+the edit clock by 120 seconds; browser checks retained Work 55-60 and Family 20-40 after saving.
+Real FileCatalog integration coverage changes duration/geometry/generation time, verifies stable
+references and identical cached minutes/status/fetch times, and proves zero new matrix calls.
+Combined browser results, map pins and map list each remain two, with no automatic collection
+rerun. The fixture observed exactly one polygon request, zero matrix requests and two original
+collection queries. Before/after cache documents and an integration screenshot are review evidence.
+Location/direction changes still invalidate references, covered by existing focused checks.
+
+Validation: 86 combined focused checks passed in 12.66 seconds. Integrated full suite: 1,787
+passed, four macOS shell-wrapper skips, 126 slow/live deselected in 224.28 seconds. Ruff, four
+changed/integrated JavaScript syntax checks and browser-interface/enrichment/saved-searches
+validators passed. Runtime/test/dependency fingerprint: 608ca53a76681cbff2a96a9b2ec7fea85ac24f8886587a68b2cec0d8c70b9a56.
+No live routing or feature #3 destination merge/push/deployment was performed. Eric's explicit
+approval applies to this integrated candidate; #4 remains the deployment gate.
+
+- confirmed gap-001 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-002 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-004 [unrequested]: carried forward outside integration; prior routing remains.
+- confirmed gap-005 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-007 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-010 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-016 [partial]: carried forward outside integration; prior routing remains.
+- confirmed gap-019 [partial]: carried forward outside integration; prior routing remains.
+
+verdict: open 8 (missing 0, partial 7, contradicts 0, unrequested 1)

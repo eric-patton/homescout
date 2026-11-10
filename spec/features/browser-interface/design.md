@@ -286,3 +286,12 @@ A form below the radius form uses Address, optional Latitude/Longitude center, M
 ## Adjust saved drive-time minutes
 
 Recalculate opens the existing driving form for the named area. Show its current allowance, a positive adjustment input, Increase and Decrease, plus editable final minutes. Keep location, direction, provider and inclusion unchanged; those controls are disabled during this duration edit. Show Preview, Refresh preview, Update and Cancel. The original solid boundary stays until Update; a dashed boundary is only a preview. Cancel returns to Add without altering other drafts. Update writes a draft pair, and Save the areas persists it. A saved coverage notice links to Searches where Run already exists. No save automatically collects listings. Errors use the existing status surface and retain editable input.
+## Card #3: results drive-time filters
+
+A compact fieldset above the result count lists attached drive-time locations. A checkbox
+enables each row's labelled Min/Max minutes boxes. Each row shows saved name/address and
+direction. Blank fields do nothing. Inline errors identify invalid values without applying
+them. Valid ranges appear as removable chips in the existing filter bar. Clear all removes
+these too. A status line says results are incomplete and lists pending/unavailable counts;
+explicit retry handles failed work. The same controls/state qualify map pins and map list.
+No new saved-search settings. Estimates say no live traffic and credit ORS/OpenStreetMap.

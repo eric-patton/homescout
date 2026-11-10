@@ -623,3 +623,187 @@ Actual browser-plugin acceptance on the local fixture increased 45 by 15 to 60, 
 Verification: 195 focused tests passed in 38.25 seconds. Final normal suite: 1,751 passed, 4 platform skips, 126 slow/live deselected in 260.47 seconds. Ruff, JavaScript syntax and scoped validators pass. Full receipt and detailed review evidence are run artifacts outside the checkout. The installed validator does not implement --code-fingerprint; no source fingerprint capability is claimed. Eric review, delivery approval and combined card #3 acceptance are pending; deployment belongs to card #4.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+Integration note: branch-local audit records from b99d872 are appended below as runs 14/15
+after the delivered card #2 run 13. The original branch records remain in Git at
+b99d872; main history and all gap identities are preserved.
+
+
+## run 14 - 2026-11-09
+
+baseline: spec sha256:9268cf439ad3 | plan sha256:867131c3d5b3 | tasks sha256:127f687f6b55 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/results-drive-time and its folded criteria.
+Raw findings: none in this change. Governing documents were checked for immutable history,
+additive collection, optional credentials and thin HTTP/CLI surfaces. Existing unrelated gaps
+are retained without being re-audited or closed. No new contradictions.
+
+implemented:
+
+AC-111: result_filters.py:59 validates blank/finite/nonnegative/inclusive bounds and references.
+common.js:83 renders labelled selectors, independent bounds, inline errors and removable chips.
+AC-112: api.results and result_drive_times expose complete-pool cache-only numeric evaluation;
+results.js:1487 filters before virtualization; common.js:68 uses the same AND semantics.
+result_routes.py:46 calculates exact saved-area routes without source collection or a duration cap.
+AC-113: common.js:5,19 carries one-shot same-search context; fire.js:643,676 applies the same
+filters to pins/list and qualifies unmappable counts. Fresh visits reset filters, changed references
+are removed and stale search/run/coordinate replies cannot replace compatible values.
+
+Verification: 129 focused checks passed; full default suite 1,770 passed, four pre-existing skips,
+126 slow/live deselected. Lint, JS syntax, spec validation and permitted real-browser fixture
+interactions passed. 5,000 collected rows yielded 300 filtered matches with 33 rendered rows;
+table, 300 pins and 300 map-list entries agreed. Work/Family fixture gave 5 Work-max matches,
+4 Work-55-to-60 matches, then 3 with Family-20-to-40; unknowns remained visibly incomplete.
+Paired screenshots are on card #3. Live routing, merged #2 integration and deployment are not
+claimed. Card #2 at 6c299fc changes the editor, preserving the routing identity contract.
+
+- confirmed gap-004 [unrequested]: carried forward outside this scope; prior routing remains.
+- confirmed gap-005 [unrequested]: carried forward outside this scope; prior routing remains.
+- confirmed gap-006 [unrequested]: carried forward outside this scope; prior routing remains.
+- confirmed gap-007 [unrequested]: carried forward outside this scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 15 - 2026-11-09
+
+baseline: spec sha256:9268cf439ad3 | plan sha256:867131c3d5b3 | tasks sha256:cddde1d1fed0 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Final scoped inline audit after adding explicit test trace tokens and an actual collection-loop
+regression. Raw findings: none for results-drive-time. All criteria from the preceding scoped run
+remain implemented. tests/test_results_drive_time.py:test_real_additive_collection_through_family_matches_work_58
+runs FileCatalog, both real area checks and the collection loop with only the outside source/routing
+scripted. Work returns nothing; Family returns the listing. Work geometry excludes it, Family includes
+it, and the saved 45-minute Work area still permits the result's numeric 58-minute route to match
+55-60. api.results calls core matching; CLI and guarded HTTP expose the same core numeric result.
+
+Final evidence: 1,771 default tests passed in 283.20 seconds; four macOS shell-wrapper cases skipped
+on Windows, 126 slow/live cases deselected. The earlier 129 focused regressions and separate new
+collection regression passed. Lint, all three changed-JS syntax checks and both final validators
+passed with zero spec errors/warnings. Runtime/test/dependency source receipt fingerprint:
+d11843813a9f4d991cc3e151691f2f134077fc800c6f12ba5cca3b83c1fd3cf4.
+Browser acceptance and paired screenshot evidence from the preceding run remain applicable; runtime
+code did not change afterward. No live routing, destination merge/push or deployment is claimed.
+
+- confirmed gap-004 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 16 - 2026-11-09
+
+baseline: spec sha256:67bd23686dca | plan sha256:62f25cf4c9c7 | tasks sha256:693eccd303f3 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline audit of the integrated #2/#3 candidate against both approved deltas and shared
+invariants. Raw findings: none in the combined behavior. Main's delivered audit history is
+preserved; branch-local records from b99d872 remain identifiable in Git and the integration note.
+
+implemented:
+
+AC-108/109 and AC-111/112/113 (browser), AC-59/60/61 (enrichment): the unchanged delivered editor
+recalculates/saves Work from 45 to 60. common.js:aboutSearch initializes one-shot visit context on
+arrival, retaining valid filters through longer editing visits. The shipped JS regression advances
+the edit clock by 120 seconds; browser checks retained Work 55-60 and Family 20-40 after saving.
+Real FileCatalog integration coverage changes duration/geometry/generation time, verifies stable
+references and identical cached minutes/status/fetch times, and proves zero new matrix calls.
+Combined browser results, map pins and map list each remain two, with no automatic collection
+rerun. The fixture observed exactly one polygon request, zero matrix requests and two original
+collection queries. Before/after cache documents and an integration screenshot are review evidence.
+Location/direction changes still invalidate references, covered by existing focused checks.
+
+Validation: 86 combined focused checks passed in 12.66 seconds. Integrated full suite: 1,787
+passed, four macOS shell-wrapper skips, 126 slow/live deselected in 224.28 seconds. Ruff, four
+changed/integrated JavaScript syntax checks and browser-interface/enrichment/saved-searches
+validators passed. Runtime/test/dependency fingerprint: 608ca53a76681cbff2a96a9b2ec7fea85ac24f8886587a68b2cec0d8c70b9a56.
+No live routing or feature #3 destination merge/push/deployment was performed. Eric's explicit
+approval applies to this integrated candidate; #4 remains the deployment gate.
+
+- confirmed gap-004 [unrequested]: carried forward outside integration; prior routing remains.
+- confirmed gap-005 [unrequested]: carried forward outside integration; prior routing remains.
+- confirmed gap-006 [unrequested]: carried forward outside integration; prior routing remains.
+- confirmed gap-007 [unrequested]: carried forward outside integration; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 17 - 2026-11-10
+
+baseline: spec sha256:67bd23686dca | plan sha256:62f25cf4c9c7 | tasks sha256:35af4f8a3e6d | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline audit of review round 1 progress defects against the existing range requirements,
+plan, tasks and shared snapshot/privacy/optional-provider invariants. Both A1 and A2 were
+reproduced before correction. Raw findings after the fixes: none in this scope. No requirement
+change, backend routing change or new persistence is introduced.
+
+implemented:
+
+AC-112: common.js keeps unfinished-pass polling independent of active filter selection. Clearing
+one/all filters, deselecting or blanking bounds no longer strands busy state or partial batches.
+The timer-driven shipped-JS regressions verify completed values and enabled Retry without reload.
+AC-113: common.js recognizes result-drive-times with the current search in already_running and
+attaches to its status polling. Completed estimates suppress duplicate work; a retained area not
+covered by that pass is requested afterward. Other pass types/searches remain separate. The new
+controller regression and real Results-to-Map navigation both follow partial batches to completion.
+
+Validation: all nine timer cases passed; focused pytest passed 37 tests in 12.14 seconds. Final
+full default suite passed 1,788 tests in 231.58 seconds, with four macOS wrapper skips and 126
+slow/live deselections. One existing Starlette/httpx deprecation warning remains. Ruff and four
+JavaScript syntax checks passed. Runtime/test/dependency fingerprint:
+52d76cef82cc2189c10642854ec248c90188bc372f103057bfa577a16b4533e1.
+
+Permitted browser acceptance used a disposable local fixture, scripted routes and explicitly held
+batches. Clearing Work let Family finish automatically, then Work/Family ranges agreed across
+results/map/list. Navigating with Work pending showed the calculating status and completed to four
+map pins/list entries without Retry; adding Family reached three. Fresh after images use the
+original paired results/map captions. No real routing credential, production changes, merge, push
+or deployment was used. Eric reviews through Guildboard before board-managed delivery.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 18 - 2026-11-10
+
+baseline: spec sha256:67bd23686dca | plan sha256:62f25cf4c9c7 | tasks sha256:bb2b7fb9b5f2 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for review round 2 B1 against the existing table/filter/navigation
+requirements, plan and shared snapshot/privacy invariants. Raw findings after correction: none
+in this scope. The browser and shipped-JavaScript regression both reproduced the defect before
+the fix. No source-of-truth change, backend change or new persistence is introduced.
+
+implemented:
+
+AC-45/57/113: results.js:601 assigns the table's cleared column-filter object to its current
+visit context before reset reloads. tests/results_table_reset.cjs executes actual shipped load,
+setFilter, reset and matching. It proves rows return after clearing the column filter, while
+query, judgment, disappeared visibility, sorting and drive-time ranges remain intact. Ordinary
+reload still retains active column filters. It failed against the previous code and passes now.
+
+Permitted browser acceptance: Property Boundary stayed at two of eight after reset before the
+fix. With the correction, Work 55-60 AND Family 20-40 matched three of eight; Property
+FamilyCollected58 narrowed to one; reset restored three with both drive-time ranges retained.
+Map navigation and return kept three matches with no restored Property chip. The map showed
+three pins and three list entries. Fresh after images use the original results and map captions.
+The fixture and agent-owned browser tab are closed; routing was scripted, with no real credential.
+
+Validation: 38 focused tests passed in 7.13 seconds. The final default suite passed 1,789 tests
+in 225.91 seconds, with four macOS wrapper skips, 126 slow/live deselections and one existing
+Starlette/httpx deprecation warning. Ruff and four JavaScript syntax checks passed. All 286
+runtime/test/dependency files remained unchanged since the suite began. Source fingerprint:
+8c284b667be7d5fe4931eefee5d55e17a924d4cd9906d03a426f3b8bc5a94d79.
+No production change, merge, push or deployment was performed. Eric reviews through Guildboard.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

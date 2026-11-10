@@ -41,6 +41,7 @@ from web_fakes import (
 #: hand-written table on purpose: the point is that adding a command means deciding, in writing,
 #: how the browser reaches it, and the test below fails until somebody has.
 REACHES: dict[str, tuple[str, str]] = {
+    "result-drive-times": ("GET", "/api/result-drive-times/{name}"),
     "searches radius": ("POST", "/api/areas/radius"),
     "searches drive-time": ("POST", "/api/areas/drive-time"),
     "run": ("POST", "/api/searches/{name}/run"),
@@ -84,6 +85,7 @@ REACHES: dict[str, tuple[str, str]] = {
 #: Capabilities the terminal carries as a flag on a command rather than as a command of its own.
 #: Same argument, one level down: `run --deliver` is a thing the tool can do.
 FLAGS_REACH: dict[str, tuple[str, str]] = {
+    "result-drive-times --calculate": ("POST", "/api/result-drive-times/{name}"),
     "run --deliver": ("POST", "/api/deliver"),
     "enrich --stale": ("POST", "/api/enrich"),
     "extract --limit": ("POST", "/api/extract"),

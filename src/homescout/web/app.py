@@ -520,6 +520,27 @@ def build(workspace: api.Workspace) -> FastAPI:
 
     # -- results -----------------------------------------------------------
 
+    @app.get("/api/result-drive-times/{name}")
+    def result_drive_times(name: str, filters: str | None = None) -> dict[str, Any]:
+        try:
+            raw = json.loads(filters) if filters is not None else None
+        except ValueError:
+            raise InvalidInput("filters must be a JSON list of ref/min/max objects.") from None
+        return answer("result-drive-times", **api.result_drive_times(held(), name, raw))
+
+    @app.post("/api/result-drive-times/{name}")
+    async def start_result_drive_times(name: str, request: Request) -> dict[str, Any]:
+        body = await _body(request)
+        active = api.result_drive_time_filters(held(), name, body.get("filters", []))
+        if not active:
+            return answer("task-started", task="result-drive-times", inactive=True)
+        started = app.state.runs.start_task(
+            "result-drive-times", lambda mine, say: api.calculate_result_drive_times(
+                mine, name, active, retry=body.get("retry") is True, progress=say),
+            held(), subject=name,
+        )
+        return answer("task-started", **started)
+
     @app.get("/api/results/{name}")
     def results(
         name: str, include_dropped: bool = False, include_passed: bool = False

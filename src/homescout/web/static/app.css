@@ -2233,3 +2233,15 @@ dialog.assessed .head button.close { flex: none; }
   margin: 0 0 0.25rem;
 }
 .assessment .said ul { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; }
+.drive-filters { margin: .6rem 0; padding: .5rem .75rem; border: 1px solid #c7cdd5; border-radius: 5px; }
+.drive-filters legend { font-weight: 600; padding: 0 .35rem; }
+.drive-filters p { margin: .25rem 0; }
+.drive-areas { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+.drive-area { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.drive-place { min-width: 15rem; }
+.drive-place .hint { display: block; padding-left: 1.3rem; }
+.drive-area input[type=text] { width: 4.5rem; padding: .25rem; }
+.drive-error { color: #9e2020; font-weight: 600; }
+.drive-area input[aria-invalid=true] { outline: 2px solid #9e2020; }
+.drive-status { padding: .5rem .75rem; background: #fff3cd; border: 1px solid #d7bd66; border-radius: 4px; }
+.drive-status button { margin-left: 1rem; }

@@ -189,6 +189,12 @@ class PacedSession:
     each other: a slow site cannot make a fast one slower.
     """
 
+    # ORS is one quota even when a preview and an enrichment pass use separate sessions.
+    # A test's injected clock keeps its scripted timeline isolated from real requests.
+    _routing_gate = threading.Lock()
+    _routing_last: dict[Any, float] = {}
+    _routing_deferred: dict[Any, float] = {}
+
     def __init__(
         self,
         transport: Transport,
@@ -326,27 +332,36 @@ class PacedSession:
         return {"User-Agent": self._user_agent}
 
     def _wait_turn(self, source: str, policy: SourcePolicy) -> None:
+        routing = source in ("church_drive", "drive_time")
+        last_requests = self._routing_last if routing else self._last_request_at
+        deferred = self._routing_deferred if routing else self._not_before
+        key = self._clock if routing else source
         while True:
             with self._gate_for(source):
-                last = self._last_request_at.get(source)
+                last = last_requests.get(key)
                 now = self._clock()
-                allowed = max(self._not_before.get(source, now),
+                allowed = max(deferred.get(key, now),
                               last + policy.delay if last is not None else now)
                 owed = allowed - now
                 if owed <= 0:
-                    self._last_request_at[source] = now
+                    last_requests[key] = now
                     return
             # Recheck after sleeping: another worker may have entered or extended the cooldown.
             # Neither the sleep nor network I/O holds a lock needed by a returning request.
             self._sleeper(owed)
 
     def _gate_for(self, source: str) -> Any:
+        if source in ("church_drive", "drive_time"):
+            return self._routing_gate
         with self._gate_lock:
             return self._gates.setdefault(source, threading.Lock())
 
     def _defer(self, source: str, wait: float) -> None:
         with self._gate_for(source):
-            self._not_before[source] = max(self._not_before.get(source, 0), self._clock() + wait)
+            routing = source in ("church_drive", "drive_time")
+            deferred = self._routing_deferred if routing else self._not_before
+            key = self._clock if routing else source
+            deferred[key] = max(deferred.get(key, 0), self._clock() + wait)
 
     def _back_off(
         self, source: str, attempt: int, policy: SourcePolicy, *, retry_after: float = 0,

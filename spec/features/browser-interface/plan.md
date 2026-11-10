@@ -686,3 +686,15 @@ The live coverage check extends this change to historical coordinate versions an
 Extend the existing Recalculate, Preview, Update and Save stages. Reuse api.drive_time_area, enrich/travel.py and FileCatalog.edit. Keep object references while editing; never use duration or geometry as identity. Preserve any stable ID supplied by card #3. Lock the selected area routing/location controls during duration editing. Merge only minutes, validated geometry and generation provenance after a current preview; keep matched address and all row metadata. Revision tokens invalidate requests after input, target and lifecycle changes. An explicit Cancel clears only the calculation draft. Block area save while a calculation edit is pending, and invalidate edit references when the area list is refreshed after save. Retain drafts on failure. Included geography remains OR with exclusions and ordinary observation revisions.
 
 Verify feat-004/AC-25, feat-004/AC-26, feat-010/AC-108 and feat-010/AC-109 through persisted 45 to 60 to 55 changes with distinct polygons, real runner union/coarse/exact tests, HTTP failure checks, executed JavaScript state tests and local fixture browser acceptance. Run normal pytest, ruff, JavaScript syntax and scoped spec validation. Browser acceptance uses the installed plugin, with no headless launcher. Eric reviews before delivery; deployment waits for cards #2 and #3.
+# Card #3: results drive-time ranges
+
+Apply changes/results-drive-time with shared core validation in result_filters.py. api.results
+adds search-scoped location references and cached route values, never fetches. Background start
+validates references and uses web/runs.py and api.recording. Route identity excludes collection
+duration and polygon. Existing saved routing is ORS driving-car with no extra options; reject
+unsupported configuration rather than guessing. No saved-search persistence changes.
+Keep drafts/valid ranges in shared common.js helpers; evaluate before virtualization and map
+plot/list. Carry transient context only on explicit same-search navigation, consume it once.
+Use focused Python/HTTP/shipped-JavaScript tests plus permitted browser fixture interactions,
+then uv run pytest -q, uv run ruff check ., JS syntax and affected spec validators. No live
+routing or deployment. Eric reviews the complete diff before destination delivery.
