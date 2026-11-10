@@ -80,9 +80,20 @@ function driveMatch(row, active) {
   return unknown || "match";
 }
 
-/* Ask the page to re-measure the table, where the page measures one (AC-53). */
+/* Ask the page to re-measure the table, where the page measures one (AC-53). Only for a change made
+ * inside a filter pass, which draws the rows itself straight afterwards. */
 function refit() {
   if (typeof fit === "function") fit();
+}
+
+/* Re-measure the table and draw the rows its new height shows, exactly as a window resize does. For
+ * a change in the height above the table that happens on its own: a panel opened or closed, a
+ * disclosure toggled, a notice said. Re-measuring alone is not enough when the table grows: rows are
+ * drawn for the height the table had plus a small margin, so a table that gains more than that
+ * margin shows blank space under its last drawn row until something scrolls. */
+function relayout() {
+  refit();
+  if (typeof window_ === "function") window_();
 }
 
 class ResultDriveFilters {
@@ -138,7 +149,7 @@ class ResultDriveFilters {
     const panel = document.getElementById("drive-filters");
     if (panel) panel.hidden = !this.open;
     this.syncToggle();
-    refit();
+    relayout();
   }
   syncToggle() {
     const button = document.getElementById("drive-toggle");
@@ -288,7 +299,7 @@ class ResultDriveFilters {
         const group = document.getElementById("drive-filters");
         if (group) { const next = this.group(); if (next) group.replaceWith(next); else group.remove(); }
         const toggle = this.areas.length ? null : document.getElementById("drive-toggle");
-        if (toggle) { toggle.remove(); refit(); }
+        if (toggle) { toggle.remove(); relayout(); }
       }
       const values = new Map(found.rows.map((row) => [row.listing_id, row]));
       for (const row of this.rows) {
@@ -622,7 +633,7 @@ function say(message, kind) {
    * is the table's bottom edge, and the horizontal scrollbar on it, going below the window: the
    * exact fault AC-53 exists to prevent, reintroduced by a sentence. A surface that does not
    * measure anything is unaffected and does not define this. */
-  if (typeof fit === "function") fit();
+  relayout();
 }
 
 function fail(error) {
@@ -835,7 +846,7 @@ function howItWorks(surface, said, ...content) {
     /* This is the largest thing on these pages that changes height, and on the results table the
      * height of everything above the table is what the table's own height is measured from. A
      * surface that does not measure things is unaffected; one that does says so by defining this. */
-    if (typeof fit === "function") fit();
+    relayout();
   });
   return holder;
 }

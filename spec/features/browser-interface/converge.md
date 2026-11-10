@@ -845,3 +845,37 @@ Chrome harness in tests/test_web_browser.py was not run. No routing request, mer
 - confirmed gap-007 [unrequested]: unchanged outside this scope; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 20 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:b19ab983e050 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for card #5 review round 1, A1, against AC-114 and AC-53. The defect
+was real: opening or closing the Drive time panel re-measured the table but did not draw rows for
+its new height, so a panel taller than the 12-row drawing margin, closed after scrolling, left
+blank space under the last drawn row. Raw findings after the fix: none in this scope.
+
+implemented:
+
+AC-114, AC-53: common.js relayout() re-measures and redraws exactly as the window resize handler
+does; the panel toggle (setOpen), removal of the button when areas disappear, the "How this table
+works" disclosure and the banner use it. Height changes made inside a filter pass keep refit(),
+because that pass draws the rows straight afterwards. tests/results_drive_panel_redraw.cjs runs
+the shipped fit(), window_() and toggle with a 25-location panel closed after scrolling; it failed
+on the previous code at the no-blank-space assertion and passes now. In the browser on a fresh
+read-only copy of the live workspace (la-near-church, panel height simulated for ~25 locations,
+scrolled to row 100): closing by the old re-measure-only path left 58 px blank; the shipped button
+left 0 px. The running marker keeps its re-measure only (it cannot change height by the margin).
+
+Verification: full default suite 1,792 passed, 4 macOS wrapper skips, 126 slow/live deselected in
+262.53 s, one existing Starlette/httpx deprecation warning. Ruff, node --check on common.js,
+results.js and both new test scripts, and the spec validator (0/0) passed. The Chrome harness in
+tests/test_web_browser.py was not run. No routing request, merge, push or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

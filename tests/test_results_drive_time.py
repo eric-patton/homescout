@@ -228,7 +228,8 @@ def test_unconfigured_and_no_areas(setup, monkeypatch):
 
 
 @pytest.mark.parametrize("script", ["results_drive_time.cjs", "results_drive_time_progress.cjs",
-                                   "results_table_reset.cjs", "results_compact_header.cjs"])
+                                   "results_table_reset.cjs", "results_compact_header.cjs",
+                                   "results_drive_panel_redraw.cjs"])
 def test_shipped_javascript(script):
     completed = subprocess.run(["node", str(Path(__file__).with_name(script))],
                                capture_output=True, text=True, check=False)

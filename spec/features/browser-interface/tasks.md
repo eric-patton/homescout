@@ -2061,3 +2061,15 @@ No live routing, production changes, merge, push or deployment. Eric reviews thr
 - [x] T-compact-3: Test collapsed/opened states, summaries, notice, chips and clearing, the Map
       box and CSS scope; verify in the browser at 1920x950 on la-near-church, 1280 px and phone
       width, with paired before/after screenshots on card #5 (feat-010/AC-114).
+
+## Card #5 review round 1: redraw after the panel closes
+
+- [x] T-compact-review1: Fix A1. Opening or closing the Drive time panel only re-measured the
+      table, and rows are drawn for the table's height plus a 12-row margin, so closing a panel
+      taller than that margin after scrolling left blank space under the last drawn row. The
+      panel toggle now re-measures and redraws exactly as a window resize does (relayout() in
+      common.js), and so do the other height changes outside a filter pass: the "How this table
+      works" disclosure and the banner. Regression:
+      tests/results_drive_panel_redraw.cjs runs the shipped fit(), window_() and toggle with a
+      25-location panel closed after scrolling; it failed on the previous code and passes now
+      (feat-010/AC-114, feat-010/AC-53).
