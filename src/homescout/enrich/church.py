@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 from ..deliver.settings import environment
-from ..sources.errors import SourceError, SourceFailed
-from ..sources.politeness import Request
 from ..store import Store
 from . import cache, settings
 from .provider import ProviderFailed
@@ -108,67 +105,12 @@ class ChurchDrive:
         return {"church_drive_minutes": minutes, "church_drive_status": status}
 
     def _batch(self, session: Any, entries: list[tuple[str, Place]]) -> Iterator[tuple[str, dict]]:
+        from .matrix import durations
+
         credential = self._credential()
         if not credential:
             raise ProviderFailed(self.why_not())
-        url = settings.endpoint(self.name).url
-        if not url.startswith("https://"):
-            raise ProviderFailed("church_drive: routing endpoint must use HTTPS")
-        locations = [[lon, lat] for _, (lat, lon) in entries]
-        locations.append([DESTINATION[1], DESTINATION[0]])
-        request = Request(
-            url, method="POST", allow_redirects=False, max_bytes=1_000_000,
-            headers={"Authorization": credential, "Content-Type": "application/json",
-                     "Accept": "application/json"},
-            body=json.dumps({"locations": locations, "sources": list(range(len(entries))),
-                             "destinations": [len(entries)], "metrics": ["duration"],
-                             "resolve_locations": False}).encode(),
-        )
-        try:
-            fetched = session.request(self.name, request)
-        except SourceError as exc:
-            # Split only a documented point-snapping error, never quota or credential failures.
-            if self._unsnappable(exc):
-                if len(entries) == 1:
-                    yield entries[0][0], self._answer(None, "route unavailable")
-                else:
-                    middle = len(entries) // 2
-                    yield from self._batch(session, entries[:middle])
-                    yield from self._batch(session, entries[middle:])
-                return
-            raise ProviderFailed(
-                "church_drive: routing request failed. Check service availability, key and quota; "
-                "saved estimates are retained."
-            ) from None
-        try:
-            answer = json.loads(fetched.body)
-            rows = answer["durations"]
-            if not isinstance(rows, list) or len(rows) != len(entries):
-                raise ValueError
-            results = []
-            for (key, _), row in zip(entries, rows, strict=True):
-                if not isinstance(row, list) or len(row) != 1:
-                    raise ValueError
-                seconds = row[0]
-                if seconds is None:
-                    results.append((key, self._answer(None, "route unavailable")))
-                elif (type(seconds) not in (int, float)
-                      or not math.isfinite(seconds) or seconds < 0):
-                    raise ValueError
-                else:
-                    results.append((key, self._answer(round(seconds / 60, 1), "estimated")))
-        except (ValueError, TypeError, KeyError, RecursionError, OverflowError):
-            raise ProviderFailed(
-                "church_drive: routing service returned invalid durations"
-            ) from None
-        # Validate the entire batch before publishing any value from it.
-        yield from results
-
-    @staticmethod
-    def _unsnappable(exc: SourceError) -> bool:
-        if not isinstance(exc, SourceFailed) or exc.status not in (400, 404):
-            return False
-        try:
-            return json.loads(exc.detail).get("error", {}).get("code") == 6010
-        except (ValueError, TypeError, AttributeError, RecursionError):
-            return False
+        for key, minutes in durations(session, entries, DESTINATION, "to",
+                                      settings.endpoint(self.name).url, credential):
+            yield key, self._answer(None if minutes is None else round(minutes, 1),
+                                   "route unavailable" if minutes is None else "estimated")

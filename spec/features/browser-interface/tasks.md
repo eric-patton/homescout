@@ -1964,3 +1964,25 @@ default 34 visible plus 14 not returned. The slow browser pytest suite was not r
 
 - [x] T-church-1: Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. (AC-110)
 - [x] T-church-2: Run focused/full checks, audit the change, push, deploy while idle, backfill and verify live.
+## Card #3: results drive-time ranges
+
+- [x] T-range-1: Expose stable area references and shared validated matching (AC-111-113).
+- [x] T-range-2: Build immediate controls/chips/errors/status and map navigation (AC-111-113).
+- [x] T-range-3: Verify full pool, fixtures, JS/HTTP/core checks, scoped audit (AC-111-113).
+
+Verification for card #3: 129 focused checks passed in 27.51 seconds. Final default
+suite: 1,771 passed, four existing skips, 126 slow/live deselected in 283.20 seconds.
+Python lint, changed-JavaScript syntax and both spec validators passed. The permitted
+browser exercised Work/Family ranges, progressive status, errors, clearing, navigation
+and a 5,000-row pool (300 filtered matches, 33 rendered rows); map/list counts agreed.
+No separate Chrome harness, real routing credential, production backfill, push, merge
+or deployment. Paired before/after screenshots are attached to card #3.
+Pre-build inline consistency/security review: no blocking findings for the approved delta.
+Card #2 is separately in Review at 6c299fc; its area/routing identity is unchanged.
+Owner approval and combined post-merge verification remain external delivery gates.
+
+The final run also includes the real FileCatalog/FakeSource collection proof: returned only
+through Family, outside Work geometry, then matching Work at 58 minutes with Work still
+saved at 45 minutes. That targeted regression passed separately in 1.34 seconds.
+All six new criteria carry explicit qualified test trace tokens. Final validators have
+zero errors and warnings. Four default-suite skips execute macOS shell wrappers on Windows.

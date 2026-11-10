@@ -1,4 +1,279 @@
 "use strict";
+
+// One-shot navigation context, consumed on arrival. A fresh visit never restores old filters.
+let resultVisit = null;
+function readResultsVisit(name) {
+  if (resultVisit && resultVisit.name === name) return resultVisit;
+  let carried = null;
+  try {
+    const raw = JSON.parse(sessionStorage.getItem("homescout:result-navigation") || "null");
+    sessionStorage.removeItem("homescout:result-navigation");
+    if (raw && raw.name === name && raw.target === location.pathname
+        && Date.now() - raw.at < 60000) carried = raw.context;
+  } catch (_) { /* Browser storage is optional. */ }
+  resultVisit = Object.assign({name, query: "", filters: {}, judgment: "play", showGone: false,
+                              sortBy: null, descending: false, drive: {}}, carried || {}, {name});
+  return resultVisit;
+}
+
+function carryResults(event, name, target) {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const context = readResultsVisit(name);
+  try {
+    sessionStorage.setItem("homescout:result-navigation", JSON.stringify({
+      name, target, context, at: Date.now(),
+    }));
+  } catch (_) { /* Navigation still works without storage. */ }
+}
+
+function resultCellText(row, column) {
+  const value = row.values[column.name];
+  if (value === null || value === undefined || value === "") {
+    return column.origin === "annotation" || column.name === "Town Analysis Notes" ? "" : "not known";
+  }
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return column.name === "Price" ? "$" + Number(value).toLocaleString() : String(value);
+}
+
+function matchesResults(row, context, columns) {
+  if (!context.showGone && row.presence === "disappeared") return false;
+  if (context.judgment === "play" && row.judgment === "pass") return false;
+  if (!["play", "all"].includes(context.judgment) && row.judgment !== context.judgment) return false;
+  const query = context.query.trim().toLowerCase();
+  if (query && !Object.values(row.values).some((value) => value !== null && value !== undefined
+      && String(value).toLowerCase().includes(query))) return false;
+  return Object.entries(context.filters).every(([name, text]) => {
+    if (!String(text).trim()) return true;
+    const column = columns.find((one) => one.name === name);
+    if (!column) return true;
+    const value = resultCellText(row, column).toLowerCase(), wanted = text.trim().toLowerCase();
+    const bare = (one) => one.replace(/[\s$,]/g, "");
+    return value.includes(wanted) || bare(value).includes(bare(wanted));
+  });
+}
+
+function driveBounds(draft) {
+  const number = (value) => String(value ?? "").trim() === "" ? null : Number(value);
+  const min = number(draft.min), max = number(draft.max);
+  if ([min, max].some((one) => one !== null && (!Number.isFinite(one) || one < 0))) {
+    return {error: "Enter finite, nonnegative minutes, or leave blank."};
+  }
+  if (min !== null && max !== null && min > max) {
+    return {error: "Minimum cannot be greater than maximum."};
+  }
+  return {min, max};
+}
+
+function driveMatch(row, active) {
+  let unknown = null;
+  for (const range of active) {
+    const estimate = (row.drive_times || {})[range.ref] || {};
+    const minutes = estimate.minutes;
+    if (estimate.status !== "estimated" || typeof minutes !== "number"
+        || !Number.isFinite(minutes) || minutes < 0) {
+      unknown = estimate.status === "pending" || !estimate.status
+        ? unknown || "pending" : "unavailable";
+    } else if ((range.min !== null && minutes < range.min)
+               || (range.max !== null && minutes > range.max)) return "excluded";
+  }
+  return unknown || "match";
+}
+
+class ResultDriveFilters {
+  constructor(found, context, changed) {
+    this.search = found.search;
+    this.run = found.run_id;
+    this.areas = found.drive_time_areas || [];
+    this.rows = found.rows;
+    this.context = context;
+    this.changed = changed;
+    this.configured = found.drive_time_configured;
+    this.requested = new Set();
+    this.busy = false;
+    this.message = "";
+    const known = new Set(this.areas.map((one) => one.ref));
+    for (const ref of Object.keys(context.drive)) if (!known.has(ref)) delete context.drive[ref];
+  }
+  active() {
+    return this.areas.flatMap((area) => {
+      const draft = this.context.drive[area.ref];
+      if (!draft || !draft.selected) return [];
+      const range = driveBounds(draft);
+      return range.error || (range.min === null && range.max === null)
+        ? [] : [{ref: area.ref, ...range}];
+    });
+  }
+  clear(ref, notify = true) {
+    clearTimeout(this.timer);
+    clearTimeout(this.pollTimer);
+    if (ref) delete this.context.drive[ref];
+    else this.context.drive = {};
+    const group = document.getElementById("drive-filters");
+    if (group) group.replaceWith(this.group());
+    if (notify) this.changed();
+  }
+  group() {
+    if (!this.areas.length) return null;
+    return el("fieldset", {id: "drive-filters", class: "drive-filters"},
+      el("legend", {}, "Drive time"),
+      el("p", {class: "hint"}, "Choose locations to narrow these results. All active ranges must match. "
+        + "Minutes are inclusive; blank means no bound. Estimates have no live traffic."),
+      el("div", {class: "drive-areas"}, this.areas.map((area) => this.areaRow(area))),
+      el("p", {class: "hint"}, "Routing: ", link("https://openrouteservice.org/", "openrouteservice by HeiGIT"),
+        " / ", link("https://www.openstreetmap.org/copyright", "OpenStreetMap"), " / CC-BY-SA 4.0."));
+  }
+  areaRow(area) {
+    const draft = this.context.drive[area.ref] || {selected: false, min: "", max: ""};
+    this.context.drive[area.ref] = draft;
+    const id = `drive-${area.ref}`;
+    const title = `${area.name} (${area.routing.direction} location)`;
+    const error = el("span", {id: `${id}-error`, class: "drive-error", role: "alert"});
+    const update = () => {
+      const problem = draft.selected ? driveBounds(draft).error : null;
+      error.textContent = problem || "";
+      for (const box of [min, max]) {
+        box.disabled = !draft.selected;
+        box.setAttribute("aria-invalid", problem ? "true" : "false");
+      }
+    };
+    const input = (side) => el("input", {id: `${id}-${side}`, type: "text", inputmode: "decimal",
+      value: draft[side], disabled: !draft.selected, "aria-describedby": `${id}-error`,
+      "aria-label": `${area.name} ${side === "min" ? "minimum" : "maximum"} minutes`,
+      oninput: (event) => { draft[side] = event.target.value; update(); this.edited(); }});
+    const min = input("min"), max = input("max");
+    const checkbox = el("input", {type: "checkbox", id, checked: draft.selected,
+      onchange: (event) => { draft.selected = event.target.checked; update(); this.edited(); }});
+    update();
+    return el("div", {class: "drive-area"},
+      el("label", {for: id, class: "drive-place"}, checkbox, " ", el("strong", {}, title),
+        el("span", {class: "hint"}, `${area.address}${area.excluded ? " (excluded collection area)" : ""}`)),
+      el("label", {for: `${id}-min`}, "Min ", min),
+      el("label", {for: `${id}-max`}, "Max ", max),
+      el("button", {type: "button", class: "quiet", onclick: () => this.clear(area.ref),
+                    "aria-label": `Clear ${area.name} drive-time filter`}, "clear"), error);
+  }
+  edited() {
+    this.message = "";
+    this.changed();
+    this.schedule();
+  }
+  schedule() {
+    clearTimeout(this.timer);
+    const active = this.active();
+    if (!active.length) clearTimeout(this.pollTimer);
+    if (this.configured && active.some((one) => !this.requested.has(one.ref))) {
+      this.timer = setTimeout(() => this.calculate(false), 450);
+    }
+  }
+  async calculate(retry) {
+    if (this.busy || !this.active().length) return;
+    clearTimeout(this.pollTimer);
+    this.busy = true;
+    const active = this.active();
+    this.message = "Calculating driving estimates...";
+    this.changed();
+    try {
+      const found = await send(`/api/result-drive-times/${encodeURIComponent(this.search)}`,
+                               {filters: active, retry});
+      if (found.already_running) {
+        this.busy = false;
+        active.forEach((one) => this.requested.add(one.ref));
+        this.message = "Another pass is running. Retry driving estimates when it finishes.";
+        this.changed();
+        return;
+      }
+      active.forEach((one) => this.requested.add(one.ref));
+      await this.poll();
+    } catch (error) {
+      this.busy = false;
+      active.forEach((one) => this.requested.add(one.ref));
+      this.message = `Driving estimates could not complete: ${error.message}`;
+      this.changed();
+    }
+  }
+  async poll() {
+    try {
+      const found = await ask(`/api/result-drive-times/${encodeURIComponent(this.search)}`);
+      if (found.search !== this.search || found.run_id !== this.run) {
+        throw new Error("Search results changed. Reload this page to continue.");
+      }
+      const known = new Set(found.areas.map((area) => area.ref));
+      const removed = this.areas.some((area) => !known.has(area.ref));
+      const changed = removed || found.areas.length !== this.areas.length;
+      this.areas = found.areas;
+      this.configured = found.configured;
+      for (const ref of Object.keys(this.context.drive)) {
+        if (!known.has(ref)) delete this.context.drive[ref];
+      }
+      if (changed) {
+        const group = document.getElementById("drive-filters");
+        if (group) { const next = this.group(); if (next) group.replaceWith(next); else group.remove(); }
+      }
+      const values = new Map(found.rows.map((row) => [row.listing_id, row]));
+      for (const row of this.rows) {
+        const fresh = values.get(row.listing_id);
+        if (fresh && fresh.latitude === row.latitude && fresh.longitude === row.longitude) {
+          row.drive_times = fresh.drive_times;
+        }
+      }
+      const finished = found.pass.finished !== false;
+      if (finished && (found.pass.failed || (found.pass.outcome || {}).degraded)) {
+        for (const row of this.rows) for (const range of this.active()) {
+          const estimate = (row.drive_times || {})[range.ref];
+          if (estimate && estimate.status === "pending") estimate.status = "unavailable";
+        }
+      }
+      this.busy = !finished;
+      this.message = removed ? "Changed or removed locations were cleared from these filters."
+        : finished ? (found.pass.failed ? "Driving estimates failed. Retry when ready."
+          : (found.pass.outcome || {}).degraded ? (found.pass.outcome || {}).summary || ""
+            : "") : "Calculating driving estimates...";
+      this.changed();
+      if (this.active().length) this.pollTimer = setTimeout(() => this.poll(), finished ? 15000 : 1000);
+      if (finished) { this.busy = false; this.schedule(); }
+    } catch (error) {
+      this.busy = false;
+      this.message = `Driving estimates could not complete: ${error.message}`;
+      this.changed();
+    }
+  }
+  status(candidates) {
+    const active = this.active();
+    const summary = {pending: 0, unavailable: 0, stale: 0};
+    for (const row of candidates) {
+      const status = driveMatch(row, active);
+      if (status in summary) summary[status] += 1;
+      if (status === "match" && active.some((one) =>
+          ((row.drive_times || {})[one.ref] || {}).freshness === "stale")) summary.stale += 1;
+    }
+    const notice = document.getElementById("drive-status");
+    if (notice) {
+      notice.hidden = !active.length;
+      const parts = [];
+      if (summary.pending || summary.unavailable) parts.push("Results incomplete. Showing confirmed matches only.");
+      if (summary.pending) parts.push(`${summary.pending} pending.`);
+      if (summary.unavailable) parts.push(`${summary.unavailable} unavailable.`);
+      if (summary.stale) parts.push(`${summary.stale} use retained stale estimates.`);
+      if (!this.configured) parts.push("Routing unavailable: configure the ORS key. Missing coordinates also cannot be routed.");
+      if (this.message) parts.push(this.message);
+      notice.replaceChildren(el("span", {}, parts.join(" ") || "All candidates evaluated."),
+        el("button", {type: "button", class: "quiet", disabled: this.busy,
+          onclick: () => this.calculate(true)}, "Retry driving estimates"));
+    }
+    return summary;
+  }
+  chips() {
+    return this.active().map((range) => {
+      const area = this.areas.find((one) => one.ref === range.ref);
+      const bounds = [range.min !== null ? `at least ${range.min}` : "",
+        range.max !== null ? `at most ${range.max}` : ""].filter(Boolean).join(", ");
+      return el("span", {class: "chip"}, `${area.name} ${area.routing.direction}: ${bounds} min`,
+        el("button", {type: "button", class: "lift", "aria-label": `Remove ${area.name} drive-time filter`,
+          onclick: () => this.clear(range.ref)}, "×"));
+    });
+  }
+}
 /* What every surface shares.
  *
  * One rule shapes this whole file, and it is the security requirement made structural rather than
@@ -387,7 +662,8 @@ function aboutSearch(name, here) {
       SEARCH_PAGES.map(([key, said, path]) =>
         key === here
           ? el("span", {class: "surface here", "aria-current": "page"}, said)
-          : link(path + encodeURIComponent(name), said, {class: "surface"}))),
+          : link(path + encodeURIComponent(name), said, {class: "surface",
+              onclick: (event) => carryResults(event, name, path + encodeURIComponent(name))}))),
   ];
 }
 

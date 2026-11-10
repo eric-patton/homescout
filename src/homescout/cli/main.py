@@ -173,6 +173,14 @@ def build_parser() -> argparse.ArgumentParser:
     driving.add_argument("--center", nargs=2, type=float, metavar=("LAT", "LON"))
     driving.add_argument("--refresh", action="store_true")
 
+    result_routes = commands.add_parser(
+        "result-drive-times", parents=[common], help="read/calculate saved-area result estimates"
+    )
+    result_routes.add_argument("name")
+    result_routes.add_argument("--filters", default="[]", help="JSON list of ref/min/max objects")
+    result_routes.add_argument("--calculate", action="store_true")
+    result_routes.add_argument("--retry", action="store_true")
+
     judge = commands.add_parser(
         "judge", parents=[common], help="keep or pass on several properties at once"
     )
@@ -802,6 +810,26 @@ def _matches(workspace: api.Workspace, args: argparse.Namespace) -> Answer:
 def _dispatch(
     workspace: api.Workspace, args: argparse.Namespace, note: Any, settings: Any = None
 ) -> Answer:
+    if args.command == "result-drive-times":
+        try:
+            raw = json.loads(args.filters)
+        except ValueError:
+            raise InvalidInput(
+                "--filters must be a JSON list of ref/min/max objects."
+            ) from None
+        api.result_drive_time_filters(workspace, args.name, raw)
+        if args.calculate:
+            with api.recording(workspace, "result-drive-times", subject=args.name,
+                               progress=note) as report:
+                outcome = api.calculate_result_drive_times(
+                    workspace, args.name, raw, retry=args.retry, progress=report)
+                api.recorded(workspace, report, outcome)
+            found = {**api.result_drive_times(workspace, args.name, raw), "outcome": outcome}
+        else:
+            found = api.result_drive_times(workspace, args.name, raw)
+        return Answer(digest.envelope("result-drive-times", **found), json.dumps(found, indent=2),
+                      code=ExitCode.DEGRADED if found.get("outcome", {}).get("degraded")
+                      else ExitCode.SUCCESS)
     if args.command == "run":
         answer = _run(workspace, args, note)
         return _delivered(workspace, answer, settings) if args.deliver else answer

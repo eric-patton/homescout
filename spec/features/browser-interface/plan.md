@@ -680,3 +680,15 @@ and toggles.
 Apply `changes/church-drive-times/delta.md`, AC-110. Add the numeric column and Deciding view placement, destination and attribution; verify sorting and detail. Preserve snapshots, annotations, existing views and optional-provider behavior.
 
 The live coverage check extends this change to historical coordinate versions and newly merged Louisiana houses, with no snapshot edits. Existing acceptance criteria remain the source of truth.
+# Card #3: results drive-time ranges
+
+Apply changes/results-drive-time with shared core validation in result_filters.py. api.results
+adds search-scoped location references and cached route values, never fetches. Background start
+validates references and uses web/runs.py and api.recording. Route identity excludes collection
+duration and polygon. Existing saved routing is ORS driving-car with no extra options; reject
+unsupported configuration rather than guessing. No saved-search persistence changes.
+Keep drafts/valid ranges in shared common.js helpers; evaluate before virtualization and map
+plot/list. Carry transient context only on explicit same-search navigation, consume it once.
+Use focused Python/HTTP/shipped-JavaScript tests plus permitted browser fixture interactions,
+then uv run pytest -q, uv run ruff check ., JS syntax and affected spec validators. No live
+routing or deployment. Eric reviews the complete diff before destination delivery.

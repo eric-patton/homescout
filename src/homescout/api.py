@@ -1920,6 +1920,7 @@ def results(
     run_id: str | None = None,
     include_dropped: bool = False,
     include_passed: bool = False,
+    drive_time_filters: Any = None,
 ) -> dict[str, Any]:
     """One run's properties as rows, with the columns they are rows of.
 
@@ -1971,14 +1972,66 @@ def results(
         document["assessment"] = _assessment_summary(row, stated)
         documents.append(document)
 
+    from . import result_filters
+    from .enrich.result_routes import credential
+    from .search import UnknownSearch
+
+    try:
+        areas = result_filters.destinations(workspace.catalog.load(name))
+    except UnknownSearch:
+        # Recorded results remain readable after a definition is archived or removed.
+        areas = []
+    configured = bool(credential(workspace.store)) if areas else False
+    result_filters.read(workspace.store, documents, areas, configured=configured)
+    summary = None
+    if drive_time_filters is not None:
+        active = result_filters.validate(drive_time_filters, areas)
+        evaluated = result_filters.evaluate(documents, active)
+        documents = evaluated.pop("rows")
+        summary = evaluated
     return {
         "search": name,
         "run_id": wanted,
+        "drive_time_areas": areas,
+        "drive_time_configured": configured,
+        "drive_time_summary": summary,
         "columns": columns,
         "rows": documents,
         "passed": passed,
         "include_passed": include_passed,
     }
+
+
+def result_drive_time_filters(workspace: Workspace, name: str, raw: Any) -> list[dict]:
+    from . import result_filters
+
+    with _translating():
+        areas = result_filters.destinations(workspace.catalog.load(name))
+    return result_filters.validate(raw, areas)
+
+
+def result_drive_times(workspace: Workspace, name: str, filters: Any = None) -> dict:
+    found = results(workspace, name, include_dropped=True, include_passed=True,
+                    drive_time_filters=filters)
+    return {"search": name, "run_id": found["run_id"],
+            "areas": found["drive_time_areas"], "configured": found["drive_time_configured"],
+            "summary": found["drive_time_summary"],
+            "rows": [{key: row[key] for key in
+                      ("listing_id", "latitude", "longitude", "drive_times")}
+                     for row in found["rows"]],
+            "pass": last_pass(workspace, "result-drive-times", subject=name)}
+
+
+def calculate_result_drive_times(workspace: Workspace, name: str, raw: Any, *,
+                                retry: bool = False, progress: Any = None) -> dict:
+    from .enrich.result_routes import calculate
+
+    active = result_drive_time_filters(workspace, name, raw)
+    if not active:
+        return {"degraded": False, "saved": 0, "summary": "No active drive-time bounds."}
+    found = results(workspace, name, include_dropped=True, include_passed=True)
+    return calculate(workspace.store, found["rows"], found["drive_time_areas"], active,
+                     retry=retry, progress=progress)
 
 
 def _stated_criteria(workspace: Workspace, name: str) -> dict[str, Any] | None:

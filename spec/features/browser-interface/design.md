@@ -282,3 +282,12 @@ with the same sense written in the table so color is never the sole explanation.
 ## Drive-time areas
 
 A form below the radius form uses Address, optional Latitude/Longitude center, Minutes, Driving to/from, a public-place acknowledgment, In or out, Preview driving area, Refresh preview and Add drive-time area. Successful preview says it has not been added; added rows say to save. Existing rows show estimates, date and provider credit, plus Recalculate to load parameters into the form. Generated boundaries are display-only shapes outside the drawing toolbar. Regenerating parameters requires a fresh preview and Add; the existing row stays until the replacement is explicitly added. Refresh uses the same draft rule.
+## Card #3: results drive-time filters
+
+A compact fieldset above the result count lists attached drive-time locations. A checkbox
+enables each row's labelled Min/Max minutes boxes. Each row shows saved name/address and
+direction. Blank fields do nothing. Inline errors identify invalid values without applying
+them. Valid ranges appear as removable chips in the existing filter bar. Clear all removes
+these too. A status line says results are incomplete and lists pending/unavailable counts;
+explicit retry handles failed work. The same controls/state qualify map pins and map list.
+No new saved-search settings. Estimates say no live traffic and credit ORS/OpenStreetMap.

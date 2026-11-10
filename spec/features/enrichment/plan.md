@@ -587,3 +587,12 @@ Test files: `tests/enrich_fakes.py`, `tests/test_enrich_cache.py`, `tests/test_e
 Apply `changes/church-drive-times/delta.md`, AC-56-58. Implement the optional Louisiana provider, safe matrix batches, generic streaming hook, cache and failure tests. Preserve snapshots, annotations, existing views and optional-provider behavior.
 
 Live coverage verification: include historical coordinate versions of current Louisiana canonical houses and their nonretracted merge constituents through a provider-owned additional-places hook. Use the same bounded batch/cache path; do not rewrite snapshots. Regression tests cover older results, a newly merged house and retracted records (AC-56, AC-58).
+# Card #3: results route estimates
+
+Implement AC-59-61 with a reusable ORS matrix helper. Preserve church output rounding and
+coverage. Saved-area estimates use full-precision minutes and exact-coordinate route keys in
+existing enrichment_values. Reuse 30-day cache policy, pass claims, progress and worker-owned
+connections; a failed refresh never replaces a good value. One routing pacing key for church,
+isochrones and saved-area matrices, with global pass exclusion. Test scripted failures, both
+directions, partial batches, historical/merge/disappeared rows, identities and cache repeats.
+Run focused regressions, complete default pytest, ruff and validators before human review.

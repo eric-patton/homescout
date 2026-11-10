@@ -131,10 +131,18 @@ async function load() {
    * words carrying a different number, which is worse than different words would be. What only
    * this page can say is how many have no location, and that has always been said separately. */
   held.all = found.rows;
+  held.context = readResultsVisit(held.name);
+  held.columns = found.columns;
+  held.judgment = held.context.judgment;
+  held.showGone = held.context.showGone;
+  held.drive = new ResultDriveFilters(found, held.context, () => {
+    mapFilterChips(); plot();
+  });
   held.rows = found.rows.filter((row) => row.latitude !== null && row.longitude !== null);
   held.without = found.rows.length - held.rows.length;
   held.settings = settings;
   draw();
+  held.drive.schedule();
 }
 
 /* ------------------------------------------------------------------ */
@@ -149,6 +157,7 @@ function draw() {
   const gone = el("input", {
     type: "checkbox",
     id: "showgone",
+    checked: held.showGone,
     onchange: (event) => { held.showGone = event.target.checked; plot(); },
   });
 
@@ -271,6 +280,9 @@ function draw() {
         ),
       ),
     ),
+    held.drive ? held.drive.group() : null,
+    el("p", {id: "drive-status", class: "drive-status", role: "status", hidden: true}),
+    el("div", {id: "map-filters", class: "sifted"}),
     /* One region, not three. Three that announce themselves separately are three interruptions for
      * one change of state, and to somebody who cannot see that they landed together they read as
      * three unrelated events. The three spans stay, because three parts of the page write them;
@@ -321,6 +333,31 @@ function draw() {
   );
 
   build();
+  mapFilterChips();
+}
+
+function mapFilterChips() {
+  const where = document.getElementById("map-filters");
+  if (!where || !held.context) return;
+  const context = held.context;
+  const chips = held.drive.chips();
+  const remove = (text, action) => el("span", {class: "chip"}, text,
+    el("button", {type: "button", class: "lift", "aria-label": `Remove ${text}`,
+      onclick: () => { action(); mapFilterChips(); plot(); }}, "×"));
+  if (context.query) chips.push(remove(`Any column: ${context.query}`, () => { context.query = ""; }));
+  for (const [name, text] of Object.entries(context.filters)) {
+    chips.push(remove(`${name}: ${text}`, () => { delete context.filters[name]; }));
+  }
+  where.hidden = !chips.length;
+  where.replaceChildren(...chips, el("button", {type: "button", class: "quiet", onclick: () => {
+    context.query = ""; context.filters = {}; context.judgment = held.judgment = "all";
+    context.showGone = held.showGone = true;
+    held.drive.clear(null, false);
+    redrawChooser(held.judgment, pickJudgment);
+    const gone = document.getElementById("showgone");
+    if (gone) gone.checked = true;
+    mapFilterChips(); plot();
+  }}, "clear all filters"));
 }
 
 /* Choosing which properties are pinned, from the control every surface uses for this. Named rather
@@ -603,6 +640,12 @@ function build() {
  * answers, which is exactly what was reported: a hundred and sixty-two on the table against two
  * hundred and thirteen here. */
 function worthDrawing(row) {
+  if (held.context) {
+    held.context.judgment = held.judgment;
+    held.context.showGone = held.showGone;
+    return matchesResults(row, held.context, held.columns)
+      && driveMatch(row, held.drive.active()) === "match";
+  }
   if (held.judgment === "play" && row.judgment === "pass") return false;
   if (held.judgment !== "play" && held.judgment !== "all"
       && row.judgment !== held.judgment) return false;
@@ -630,6 +673,14 @@ function background() {
 
 function plot() {
   if (!held.markers) return;
+  if (held.context) {
+    held.context.judgment = held.judgment;
+    held.context.showGone = held.showGone;
+    const candidates = held.all.filter((row) => matchesResults(row, held.context, held.columns));
+    held.drive.status(candidates);
+    held.without = candidates.filter((row) => (row.latitude === null || row.longitude === null)
+      && driveMatch(row, held.drive.active()) === "match").length;
+  }
   held.markers.clearLayers();
   held.pins = {};
   let drawn = 0;
