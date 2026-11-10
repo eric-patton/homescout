@@ -728,3 +728,43 @@ approval applies to this integrated candidate; #4 remains the deployment gate.
 - confirmed gap-007 [unrequested]: carried forward outside integration; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 17 - 2026-11-10
+
+baseline: spec sha256:67bd23686dca | plan sha256:62f25cf4c9c7 | tasks sha256:35af4f8a3e6d | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline audit of review round 1 progress defects against the existing range requirements,
+plan, tasks and shared snapshot/privacy/optional-provider invariants. Both A1 and A2 were
+reproduced before correction. Raw findings after the fixes: none in this scope. No requirement
+change, backend routing change or new persistence is introduced.
+
+implemented:
+
+AC-112: common.js keeps unfinished-pass polling independent of active filter selection. Clearing
+one/all filters, deselecting or blanking bounds no longer strands busy state or partial batches.
+The timer-driven shipped-JS regressions verify completed values and enabled Retry without reload.
+AC-113: common.js recognizes result-drive-times with the current search in already_running and
+attaches to its status polling. Completed estimates suppress duplicate work; a retained area not
+covered by that pass is requested afterward. Other pass types/searches remain separate. The new
+controller regression and real Results-to-Map navigation both follow partial batches to completion.
+
+Validation: all nine timer cases passed; focused pytest passed 37 tests in 12.14 seconds. Final
+full default suite passed 1,788 tests in 231.58 seconds, with four macOS wrapper skips and 126
+slow/live deselections. One existing Starlette/httpx deprecation warning remains. Ruff and four
+JavaScript syntax checks passed. Runtime/test/dependency fingerprint:
+52d76cef82cc2189c10642854ec248c90188bc372f103057bfa577a16b4533e1.
+
+Permitted browser acceptance used a disposable local fixture, scripted routes and explicitly held
+batches. Clearing Work let Family finish automatically, then Work/Family ranges agreed across
+results/map/list. Navigating with Work pending showed the calculating status and completed to four
+map pins/list entries without Retry; adding Family reached three. Fresh after images use the
+original paired results/map captions. No real routing credential, production changes, merge, push
+or deployment was used. Eric reviews through Guildboard before board-managed delivery.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

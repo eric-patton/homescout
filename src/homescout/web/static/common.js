@@ -91,6 +91,7 @@ class ResultDriveFilters {
     this.configured = found.drive_time_configured;
     this.requested = new Set();
     this.busy = false;
+    this.following = null;
     this.message = "";
     const known = new Set(this.areas.map((one) => one.ref));
     for (const ref of Object.keys(context.drive)) if (!known.has(ref)) delete context.drive[ref];
@@ -106,12 +107,12 @@ class ResultDriveFilters {
   }
   clear(ref, notify = true) {
     clearTimeout(this.timer);
-    clearTimeout(this.pollTimer);
     if (ref) delete this.context.drive[ref];
     else this.context.drive = {};
     const group = document.getElementById("drive-filters");
     if (group) group.replaceWith(this.group());
     if (notify) this.changed();
+    this.schedule();
   }
   group() {
     if (!this.areas.length) return null;
@@ -161,7 +162,7 @@ class ResultDriveFilters {
   schedule() {
     clearTimeout(this.timer);
     const active = this.active();
-    if (!active.length) clearTimeout(this.pollTimer);
+    if (!active.length && !this.busy) clearTimeout(this.pollTimer);
     if (this.configured && active.some((one) => !this.requested.has(one.ref))) {
       this.timer = setTimeout(() => this.calculate(false), 450);
     }
@@ -170,6 +171,7 @@ class ResultDriveFilters {
     if (this.busy || !this.active().length) return;
     clearTimeout(this.pollTimer);
     this.busy = true;
+    this.following = null;
     const active = this.active();
     this.message = "Calculating driving estimates...";
     this.changed();
@@ -177,6 +179,12 @@ class ResultDriveFilters {
       const found = await send(`/api/result-drive-times/${encodeURIComponent(this.search)}`,
                                {filters: active, retry});
       if (found.already_running) {
+        if (found.running === "result-drive-times" && found.running_on === this.search) {
+          // Follow the existing pass. It may cover only some of the retained area filters.
+          this.following = active.map((one) => one.ref);
+          await this.poll();
+          return;
+        }
         this.busy = false;
         active.forEach((one) => this.requested.add(one.ref));
         this.message = "Another pass is running. Retry driving estimates when it finishes.";
@@ -224,13 +232,25 @@ class ResultDriveFilters {
           if (estimate && estimate.status === "pending") estimate.status = "unavailable";
         }
       }
+      if (finished && this.following) {
+        for (const ref of this.following) {
+          if (this.rows.every((row) => {
+            const estimate = (row.drive_times || {})[ref];
+            return estimate && estimate.status !== "pending";
+          })) this.requested.add(ref);
+        }
+        this.following = null;
+      }
       this.busy = !finished;
       this.message = removed ? "Changed or removed locations were cleared from these filters."
         : finished ? (found.pass.failed ? "Driving estimates failed. Retry when ready."
           : (found.pass.outcome || {}).degraded ? (found.pass.outcome || {}).summary || ""
             : "") : "Calculating driving estimates...";
       this.changed();
-      if (this.active().length) this.pollTimer = setTimeout(() => this.poll(), finished ? 15000 : 1000);
+      // Selection controls visibility, not the lifetime of a running calculation.
+      if (!finished || this.active().length) {
+        this.pollTimer = setTimeout(() => this.poll(), finished ? 15000 : 1000);
+      }
       if (finished) { this.busy = false; this.schedule(); }
     } catch (error) {
       this.busy = false;

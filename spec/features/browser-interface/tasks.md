@@ -2008,3 +2008,22 @@ zero errors and warnings. Four default-suite skips execute macOS shell wrappers 
       Lint, four JS syntax checks and all three affected spec validators passed.
       No live routing or feature #3 delivery/deployment is claimed. Eric reviews the
       resulting integrated candidate before its destination merge/push.
+## Card #3 review round 1: progress tracking defects
+
+- [x] T-range-review1: Fix A1 so clearing individual/all filters or deselecting areas cannot
+      strand a running route job. Fix A2 so navigation attaches to the same search's running
+      result-drive-times pass, distinguishing unrelated work. Add timer-driven shipped-JS
+      regressions for multi-batch progress, clear/reselect, navigation and remaining-area work
+      (feat-010/AC-112, feat-010/AC-113). Recheck browser interactions and update after shots.
+
+Review round 1 verification: both defects reproduced before the fix. Nine deterministic
+timer-driven cases now pass, including clearing one/all areas, reselecting during/after a
+job, blanking/deselecting, attaching on navigation, follow-up work for an uncovered area,
+and unrelated pass handling. The focused results suite passed 37 tests in 12.14 seconds.
+Final default suite: 1,788 passed, four macOS shell-wrapper skips, 126 slow/live cases
+deselected in 231.58 seconds; one existing Starlette/httpx deprecation warning. Ruff and
+four JavaScript syntax checks passed. Offline browser batches were held pending, then
+released: clearing Work continued Family automatically; navigating to Map continued Work
+automatically. Retry re-enabled after completion, with final results/pins/list agreement.
+Fresh after screenshots replaced the existing paired results and map captions. No live
+routing, merge, push or deployment was performed. Eric reviews and delivers through the board.
