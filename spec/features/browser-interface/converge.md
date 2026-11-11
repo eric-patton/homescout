@@ -879,3 +879,44 @@ tests/test_web_browser.py was not run. No routing request, merge, push or deploy
 - confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 21 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:dff429113aeb | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for card #5 review round 2, A1, against AC-114, AC-53 and AC-47 (the
+wrapped table's measured row heights). The defect was real: run 20's helper was named `relayout`,
+which results.js already declares for its columns, and results.js loads after common.js in one
+global scope, so its declaration replaced the shared helper. Panel toggles, the disclosure and the
+banner therefore ran the column routine, whose forget() clears every measured row height. Raw
+findings after the fix: none in this scope. Run 20's verification passed only because its test
+ran unwrapped rows, where forgetting heights changes nothing visible.
+
+implemented:
+
+AC-114, AC-53: common.js:100 refitAndRedraw() runs fit() and window_() only; its callers are the
+panel toggle (:158), removal of the button (:308), the banner (:642) and the disclosure (:855).
+results.js relayout() is untouched and only results.js calls it.
+tests/results_drive_panel_redraw.cjs loads common.js then results.js into one scope in page order
+and adds a wrapped table whose measured heights (92 and 38 px) differ from the guess: heights,
+scroll position and the top listing survive the panel and the disclosure. It fails on 0343b55 at
+"closing the panel must not forget measured row heights". tests/test_web_surfaces.py
+test_no_page_script_redeclares_a_name_the_shared_script_declares refuses any top-level common.js
+name a page script declares again; on 0343b55 it would report `relayout`. Browser on a fresh
+read-only copy of the live workspace, la-near-church, wrap on, 174 rows measured (26 to 82 px
+against a 56 px guess), scrolled to listing 150: opening and closing the panel kept 174 heights,
+scrollTop 8653 and listing 150 at the top; running the previous commit's routine dropped to 27
+heights and moved the top to listing 154.
+
+Verification: full default suite 1,793 passed, 4 macOS wrapper skips, 126 slow/live deselected in
+350.74 s, one existing Starlette/httpx deprecation warning. Ruff, node --check on both scripts and
+both test scripts, and the spec validator (0/0) passed. tests/test_web_browser.py was not run. No
+routing request, merge, push or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

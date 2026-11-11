@@ -2073,3 +2073,16 @@ No live routing, production changes, merge, push or deployment. Eric reviews thr
       tests/results_drive_panel_redraw.cjs runs the shipped fit(), window_() and toggle with a
       25-location panel closed after scrolling; it failed on the previous code and passes now
       (feat-010/AC-114, feat-010/AC-53).
+
+## Card #5 review round 2: a shared name the Results page already used
+
+- [x] T-compact-review2: Fix A1. The round-1 helper in common.js was named `relayout`, which
+      results.js already declares for re-laying-out its columns; loaded after common.js, the
+      page's declaration replaced it, so every panel toggle, disclosure toggle and banner also ran
+      the column routine, including forget(), and a wrapped, scrolled table lost its measured row
+      heights and could show different listings. Renamed to refitAndRedraw() (fit and window_
+      only). tests/results_drive_panel_redraw.cjs now loads both scripts in page order and adds a
+      wrapped table with measured heights unlike the guess: the heights, scroll position and top
+      listing survive opening and closing the panel and toggling the disclosure. It fails on the
+      previous commit. test_no_page_script_redeclares_a_name_the_shared_script_declares refuses
+      any top-level common.js name a page script declares again (feat-010/AC-114, feat-010/AC-53).

@@ -90,8 +90,14 @@ function refit() {
  * a change in the height above the table that happens on its own: a panel opened or closed, a
  * disclosure toggled, a notice said. Re-measuring alone is not enough when the table grows: rows are
  * drawn for the height the table had plus a small margin, so a table that gains more than that
- * margin shows blank space under its last drawn row until something scrolls. */
-function relayout() {
+ * margin shows blank space under its last drawn row until something scrolls.
+ *
+ * Only `fit` and `window_`, and nothing else. This file and a page's own script share one global
+ * scope, so a name used here must not be one a page declares: this was briefly called `relayout`,
+ * which the results table already uses for re-laying-out its columns, and the page's declaration
+ * replaced this one. Every panel toggle then forgot every measured row height, and a wrapped table
+ * jumped to different listings under the reader. A test now refuses any shared name a page reuses. */
+function refitAndRedraw() {
   refit();
   if (typeof window_ === "function") window_();
 }
@@ -149,7 +155,7 @@ class ResultDriveFilters {
     const panel = document.getElementById("drive-filters");
     if (panel) panel.hidden = !this.open;
     this.syncToggle();
-    relayout();
+    refitAndRedraw();
   }
   syncToggle() {
     const button = document.getElementById("drive-toggle");
@@ -299,7 +305,7 @@ class ResultDriveFilters {
         const group = document.getElementById("drive-filters");
         if (group) { const next = this.group(); if (next) group.replaceWith(next); else group.remove(); }
         const toggle = this.areas.length ? null : document.getElementById("drive-toggle");
-        if (toggle) { toggle.remove(); relayout(); }
+        if (toggle) { toggle.remove(); refitAndRedraw(); }
       }
       const values = new Map(found.rows.map((row) => [row.listing_id, row]));
       for (const row of this.rows) {
@@ -633,7 +639,7 @@ function say(message, kind) {
    * is the table's bottom edge, and the horizontal scrollbar on it, going below the window: the
    * exact fault AC-53 exists to prevent, reintroduced by a sentence. A surface that does not
    * measure anything is unaffected and does not define this. */
-  relayout();
+  refitAndRedraw();
 }
 
 function fail(error) {
@@ -846,7 +852,7 @@ function howItWorks(surface, said, ...content) {
     /* This is the largest thing on these pages that changes height, and on the results table the
      * height of everything above the table is what the table's own height is measured from. A
      * surface that does not measure things is unaffected; one that does says so by defining this. */
-    relayout();
+    refitAndRedraw();
   });
   return holder;
 }

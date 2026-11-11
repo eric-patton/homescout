@@ -589,6 +589,32 @@ def test_the_results_header_is_compact_and_hides_nothing() -> None:
                 assert one.startswith("body.results"), f"{one} would change other pages"
 
 
+def test_no_page_script_redeclares_a_name_the_shared_script_declares() -> None:
+    """feat-010/AC-114, feat-010/AC-53: one global scope, so one meaning per name.
+
+    Every page loads common.js and then its own script as classic scripts, so a top-level name a
+    page declares again silently replaces the shared one for every caller in common.js. The helper
+    that redraws the table after the Drive time panel opens or closes was briefly called `relayout`,
+    which results.js already declares for its columns, and every panel toggle forgot every measured
+    row height. tests/results_drive_panel_redraw.cjs holds the behaviour; this holds the names.
+    """
+    declared = re.compile(
+        r"^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(|^(?:const|let|var|class)\s+([A-Za-z_$][\w$]*)",
+        flags=re.MULTILINE,
+    )
+
+    def names(text: str) -> set[str]:
+        return {first or second for first, second in declared.findall(text)}
+
+    shared = names(script("common"))
+    assert "refitAndRedraw" in shared and "ResultDriveFilters" in shared
+    for page in sorted(STATIC.glob("*.js")):
+        if page.name == "common.js":
+            continue
+        reused = shared & names(page.read_text(encoding="utf-8"))
+        assert not reused, f"{page.name} redeclares {sorted(reused)} from common.js"
+
+
 def test_the_table_controls_are_grouped_by_the_question_they_answer() -> None:
     """feat-010/AC-72: three questions, named, rather than eleven controls in one flow."""
     results = script("results")
