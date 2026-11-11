@@ -295,3 +295,18 @@ them. Valid ranges appear as removable chips in the existing filter bar. Clear a
 these too. A status line says results are incomplete and lists pending/unavailable counts;
 explicit retry handles failed work. The same controls/state qualify map pins and map list.
 No new saved-search settings. Estimates say no live traffic and credit ORS/OpenStreetMap.
+
+## Card #5: compact Results header
+
+On the Results page only (AC-114), the fieldset above becomes a "Drive time" button at the end
+of the Which rows group. Its text is the summary: "Drive time" when nothing is in force, else
+each range ("Church 0-25 min", "Church ≤25 min", "Work ≥55 min", joined by semicolons),
+an invalid entry and a running calculation. It is highlighted while a range is in force and
+reports expanded or collapsed. Pressing it opens the same controls as a strip under the
+controls row, one line per location, with a one-line explanation and a line holding the
+completeness facts and Retry; the table moves down. It is closed on every visit.
+Above it, one wrapping line holds the trail, the heading (which stands in for the trail's last
+step), the four screens and "How this table works"; the group names sit before their controls.
+Below it, one shaded bar holds the yellow incomplete notice (only while results are
+incomplete), the count, the "Showing only" chips with "clear all filters", and in small text the
+Drive to Church note with the single routing credit. The Map page keeps the fieldset as above.

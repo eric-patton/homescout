@@ -300,3 +300,13 @@ Derived from `homescout-brief.md` and `homescout-decisions.md` at the repository
   elements with drop-shadow filters, all rebuilt after every move: frames of 300 to 650
   milliseconds zoomed out, now 17 to 50, as triangle paths on one renderer that only add and remove
   what crossed the edge of the view.
+
+- **2026-11-10, the table gets the window (`changes/compact-results-header/`, AC-114).** On a
+  1920x950 window everything above the results table took about 600 px and ten rows were visible.
+  The trail, heading, tabs and "How this table works" now share one line, the group names sit
+  beside their controls, and the Drive time box is a button whose own text says which ranges are
+  in force, opening the same controls inline. The count, chips, church note and the routing
+  credit (said once, not twice) share one bar above the table, and the yellow notice appears only
+  while results are incomplete. On a copy of the live workspace the table header moved from 601 px
+  to 202 px and full rows from 9 to 25. The Map page's box is unchanged: the compact form is an
+  option only the Results page asks for.

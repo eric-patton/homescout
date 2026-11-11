@@ -2049,3 +2049,40 @@ cases deselected in 225.91 seconds, with one existing Starlette/httpx deprecatio
 Ruff and syntax checks for results.js, common.js, fire.js and the new regression passed.
 All 286 runtime/test/dependency inputs stayed unchanged through final verification.
 No live routing, production changes, merge, push or deployment. Eric reviews through Guildboard.
+
+## Card #5: compact Results header
+
+- [x] T-compact-1: Add the opt-in compact Drive time mode in common.js: button with summary and
+      expanded state, panel built while closed, notice only while incomplete, facts and Retry in
+      the panel; the Map page's box unchanged (feat-010/AC-114, feat-010/AC-111-113).
+- [x] T-compact-2: Compact the Results header in results.js and app.css under a Results-only
+      class: one header row, inline group names, Drive time in Which rows, one bar above the
+      table with the routing credit once (feat-010/AC-114, feat-010/AC-53).
+- [x] T-compact-3: Test collapsed/opened states, summaries, notice, chips and clearing, the Map
+      box and CSS scope; verify in the browser at 1920x950 on la-near-church, 1280 px and phone
+      width, with paired before/after screenshots on card #5 (feat-010/AC-114).
+
+## Card #5 review round 1: redraw after the panel closes
+
+- [x] T-compact-review1: Fix A1. Opening or closing the Drive time panel only re-measured the
+      table, and rows are drawn for the table's height plus a 12-row margin, so closing a panel
+      taller than that margin after scrolling left blank space under the last drawn row. The
+      panel toggle now re-measures and redraws exactly as a window resize does (relayout() in
+      common.js), and so do the other height changes outside a filter pass: the "How this table
+      works" disclosure and the banner. Regression:
+      tests/results_drive_panel_redraw.cjs runs the shipped fit(), window_() and toggle with a
+      25-location panel closed after scrolling; it failed on the previous code and passes now
+      (feat-010/AC-114, feat-010/AC-53).
+
+## Card #5 review round 2: a shared name the Results page already used
+
+- [x] T-compact-review2: Fix A1. The round-1 helper in common.js was named `relayout`, which
+      results.js already declares for re-laying-out its columns; loaded after common.js, the
+      page's declaration replaced it, so every panel toggle, disclosure toggle and banner also ran
+      the column routine, including forget(), and a wrapped, scrolled table lost its measured row
+      heights and could show different listings. Renamed to refitAndRedraw() (fit and window_
+      only). tests/results_drive_panel_redraw.cjs now loads both scripts in page order and adds a
+      wrapped table with measured heights unlike the guess: the heights, scroll position and top
+      listing survive opening and closing the panel and toggling the disclosure. It fails on the
+      previous commit. test_no_page_script_redeclares_a_name_the_shared_script_declares refuses
+      any top-level common.js name a page script declares again (feat-010/AC-114, feat-010/AC-53).

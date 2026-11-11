@@ -698,3 +698,18 @@ plot/list. Carry transient context only on explicit same-search navigation, cons
 Use focused Python/HTTP/shipped-JavaScript tests plus permitted browser fixture interactions,
 then uv run pytest -q, uv run ruff check ., JS syntax and affected spec validators. No live
 routing or deployment. Eric reviews the complete diff before destination delivery.
+
+# Card #5: compact Results header
+
+Apply changes/compact-results-header (AC-114). A layout and density change on the Results page
+only. common.js gives ResultDriveFilters an opt-in compact mode: toggle() returns the Drive time
+button, group() returns the panel (built while closed so inputs keep ids, values and listeners),
+summary() states the active ranges, invalid entries and calculation, and status() shows the
+yellow notice only while results are incomplete, saying the remaining facts in the panel. The Map
+page calls the constructor without the option and renders exactly as before. results.js adds a
+Results-only body class, puts the trail, heading, tabs and disclosure in one wrapping row, puts
+the button in Which rows, and merges the notice, count, chips, church note and the single routing
+credit into one bar above the table. app.css changes shared furniture only under body.results.
+Matching, validation, background calculation, chips and clearing are untouched; every height
+change calls fit() so AC-53 holds. Verified by executed shipped-JavaScript tests, a CSS-scope
+test and the permitted browser on a scratch copy of the workspace, with no routing requests.

@@ -807,3 +807,116 @@ No production change, merge, push or deployment was performed. Eric reviews thro
 - confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
 
 verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 19 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:865137e9e9ef | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline drift-auditor pass for changes/compact-results-header (card #5) and the criteria it
+touches. Raw findings: none. No backend, matching, routing, persistence or other-page change.
+
+implemented:
+
+AC-114: results.js:324 adds a Results-only body class; results.js:720 puts the trail, heading,
+tabs and disclosure in one row; results.js:744 puts the Drive time button in Which rows;
+results.js:774 is the one bar (notice, count, chips, church note, the single credit at :789).
+common.js:111 summarises ranges, invalid entries and calculation; common.js:128 and :136 give the
+button aria-expanded/aria-controls and open or close the panel built hidden at :174; common.js:362
+shows the yellow notice only while incomplete and says the rest in the panel at :370. app.css:2249
+scopes shared furniture under body.results. Browser on a copy of the live workspace, 1920x950,
+la-near-church: table header 601 px to 202 px, full rows 9 to 25; a 10-25 min range gave 78 and
+with Town/Area Ponchatoula 34, the same as before. 1280 px and 390 px (page width emulated in a
+maximized window) showed no overlap. What changed, Edit and Map pages keep their styles; the Map
+box renders identically to the base commit's common.js.
+AC-53: every height change re-measures (common.js:141, :151, :368; results.js:842 unchanged).
+AC-72, AC-78, AC-110, AC-111, AC-112, AC-113: same controls, same disclosure, church note and
+credit still shown once, controls hidden without areas, notice with counts and Retry while
+incomplete, chips and Clear all still lift drive-time ranges (tests/results_compact_header.cjs).
+
+Verification: focused 128 passed; full default suite 1,791 passed, 4 macOS wrapper skips, 126
+slow/live deselected in 254.88 s, one existing Starlette/httpx deprecation warning. Ruff and
+node --check on common.js, results.js and the new test passed; spec validator 0/0. The separate
+Chrome harness in tests/test_web_browser.py was not run. No routing request, merge or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 20 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:b19ab983e050 | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for card #5 review round 1, A1, against AC-114 and AC-53. The defect
+was real: opening or closing the Drive time panel re-measured the table but did not draw rows for
+its new height, so a panel taller than the 12-row drawing margin, closed after scrolling, left
+blank space under the last drawn row. Raw findings after the fix: none in this scope.
+
+implemented:
+
+AC-114, AC-53: common.js relayout() re-measures and redraws exactly as the window resize handler
+does; the panel toggle (setOpen), removal of the button when areas disappear, the "How this table
+works" disclosure and the banner use it. Height changes made inside a filter pass keep refit(),
+because that pass draws the rows straight afterwards. tests/results_drive_panel_redraw.cjs runs
+the shipped fit(), window_() and toggle with a 25-location panel closed after scrolling; it failed
+on the previous code at the no-blank-space assertion and passes now. In the browser on a fresh
+read-only copy of the live workspace (la-near-church, panel height simulated for ~25 locations,
+scrolled to row 100): closing by the old re-measure-only path left 58 px blank; the shipped button
+left 0 px. The running marker keeps its re-measure only (it cannot change height by the margin).
+
+Verification: full default suite 1,792 passed, 4 macOS wrapper skips, 126 slow/live deselected in
+262.53 s, one existing Starlette/httpx deprecation warning. Ruff, node --check on common.js,
+results.js and both new test scripts, and the spec validator (0/0) passed. The Chrome harness in
+tests/test_web_browser.py was not run. No routing request, merge, push or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)
+
+
+## run 21 - 2026-11-10
+
+baseline: spec sha256:4c992bd2cfd5 | plan sha256:f2dc2c2341fc | tasks sha256:dff429113aeb | code n/a (no code_surface declared; this workspace validator has no code fingerprint)
+
+Scoped inline defect audit for card #5 review round 2, A1, against AC-114, AC-53 and AC-47 (the
+wrapped table's measured row heights). The defect was real: run 20's helper was named `relayout`,
+which results.js already declares for its columns, and results.js loads after common.js in one
+global scope, so its declaration replaced the shared helper. Panel toggles, the disclosure and the
+banner therefore ran the column routine, whose forget() clears every measured row height. Raw
+findings after the fix: none in this scope. Run 20's verification passed only because its test
+ran unwrapped rows, where forgetting heights changes nothing visible.
+
+implemented:
+
+AC-114, AC-53: common.js:100 refitAndRedraw() runs fit() and window_() only; its callers are the
+panel toggle (:158), removal of the button (:308), the banner (:642) and the disclosure (:855).
+results.js relayout() is untouched and only results.js calls it.
+tests/results_drive_panel_redraw.cjs loads common.js then results.js into one scope in page order
+and adds a wrapped table whose measured heights (92 and 38 px) differ from the guess: heights,
+scroll position and the top listing survive the panel and the disclosure. It fails on 0343b55 at
+"closing the panel must not forget measured row heights". tests/test_web_surfaces.py
+test_no_page_script_redeclares_a_name_the_shared_script_declares refuses any top-level common.js
+name a page script declares again; on 0343b55 it would report `relayout`. Browser on a fresh
+read-only copy of the live workspace, la-near-church, wrap on, 174 rows measured (26 to 82 px
+against a 56 px guess), scrolled to listing 150: opening and closing the panel kept 174 heights,
+scrollTop 8653 and listing 150 at the top; running the previous commit's routine dropped to 27
+heights and moved the top to listing 154.
+
+Verification: full default suite 1,793 passed, 4 macOS wrapper skips, 126 slow/live deselected in
+350.74 s, one existing Starlette/httpx deprecation warning. Ruff, node --check on both scripts and
+both test scripts, and the spec validator (0/0) passed. tests/test_web_browser.py was not run. No
+routing request, merge, push or deploy.
+
+- confirmed gap-004 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-005 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-006 [unrequested]: unchanged outside this defect scope; prior routing remains.
+- confirmed gap-007 [unrequested]: unchanged outside this defect scope; prior routing remains.
+
+verdict: open 4 (missing 0, partial 0, contradicts 0, unrequested 4)

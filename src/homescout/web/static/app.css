@@ -2245,3 +2245,103 @@ dialog.assessed .head button.close { flex: none; }
 .drive-area input[aria-invalid=true] { outline: 2px solid #9e2020; }
 .drive-status { padding: .5rem .75rem; background: #fff3cd; border: 1px solid #d7bd66; border-radius: 4px; }
 .drive-status button { margin-left: 1rem; }
+
+/* -- the Results page's compact header (AC-114) ------------------------- */
+
+/* Everything above the results table was taking two thirds of a 950 px window. Every rule here is
+   under the Results page's own class, because the trail, the tabs and the Drive time box are shared
+   with What changed, Map and Edit, and those pages are not being changed. Nothing is hidden: the
+   same controls, laid out denser. */
+body.results #main { padding-top: var(--s3); padding-bottom: var(--s2); }
+
+/* The trail, the heading, the four screens and "How this table works", on one line that wraps. */
+body.results .pagehead {
+  display: flex;
+  flex-wrap: wrap;
+  /* Baseline, so opening "How this table works" grows downward beside the title rather than
+     pushing the title to its middle. */
+  align-items: baseline;
+  gap: var(--s1) var(--s4);
+  margin: 0 0 var(--s2);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--line);
+}
+body.results .pagehead .crumbs { margin: 0; }
+/* The heading says the search's name, so the trail's last step is said by it rather than twice on
+   one line. Hidden from sight only: anything reading the trail out still reads all of it. */
+body.results .pagehead .crumbs > span:last-child {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+body.results .pagehead h1 { font-size: 1.3rem; margin: 0; }
+body.results .pagehead .surfaces { margin: 0; padding: 0; border: 0; }
+body.results .pagehead .surfaces .surface { padding: 0.15rem var(--s3); }
+body.results .pagehead .howto { margin: 0; padding-left: var(--s2); }
+
+/* Each group's name sits before its controls rather than above them. */
+body.results .grouped { gap: var(--s2) var(--s4); align-items: center; margin-bottom: var(--s2); }
+body.results .group > .items, body.results .group.elsewhere > .items { gap: var(--s1) var(--s2); }
+body.results .group { flex-direction: row; align-items: center; gap: var(--s2); }
+body.results .group > .name { white-space: nowrap; }
+body.results .choice button { padding: 0.2rem 0.6rem; }
+body.results .group button.quiet { padding-block: 0.2rem; }
+
+/* The Drive time button: its text is the summary of what is in force, and it looks pressed while
+   a range is, so a closed panel never reads as an unused one. */
+.drive-toggle {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  white-space: normal;
+  text-align: left;
+}
+/* The arrow is drawn, not said: the button already reports whether it is open. */
+.drive-toggle::after { content: " \25B8"; content: " \25B8" / ""; color: var(--dim); }
+.drive-toggle[aria-expanded="true"]::after { content: " \25BE"; content: " \25BE" / ""; }
+.drive-toggle[data-active="true"] {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--link-wash);
+  border-color: rgba(18, 87, 165, 0.35);
+}
+
+/* Opened, the panel is a strip under the controls, one line per location. */
+.drive-filters.compact { margin: 0 0 var(--s2); padding: var(--s1) var(--s3); font-size: 0.9rem; }
+.drive-filters.compact[hidden] { display: none; }
+.drive-filters.compact > p { margin: var(--s1) 0; }
+.drive-filters.compact .drive-areas { flex-direction: column; gap: var(--s1); }
+.drive-filters.compact .drive-area { gap: var(--s1) var(--s2); }
+.drive-filters.compact .drive-place { min-width: 0; }
+.drive-filters.compact .drive-place .hint { display: inline; padding-left: var(--s2); font-size: 0.8rem; }
+.drive-filters.compact .drive-area input[type=text] { width: 4rem; padding: 0.15rem 0.3rem; }
+.drive-panel-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.drive-panel-status button { padding-block: 0.1rem; }
+
+/* One bar above the table: the notice when results are incomplete, the totals, every filter in
+   force, and what the church column measures with the routing credit, said once. */
+.resultbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s3);
+  margin: 0 0 var(--s2);
+  padding: var(--s1) var(--s3);
+  font-size: 0.85rem;
+  background: var(--shade);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.resultbar > p { margin: 0; }
+.resultbar .drive-status { flex: 1 0 100%; padding: var(--s1) var(--s3); }
+.resultbar .drive-status[hidden] { display: none; }
+.resultbar .counts { font-size: inherit; white-space: nowrap; }
+.resultbar .sifted { margin: 0; padding: 0; background: none; border: 0; gap: var(--s1) var(--s2); }
+.resultbar .sifted .clearall { margin-left: 0; }
+.resultbar .resultnote { flex: 1 1 26rem; font-size: 0.75rem; color: var(--dim); line-height: 1.35; }
+.resultbar .resultnote a { color: var(--dim); }
+
+@media (max-width: 40rem) {
+  body.results .group { flex-wrap: wrap; }
+  body.results .group input[type="search"] { width: 100%; }
+  .resultbar .counts { white-space: normal; }
+}

@@ -80,8 +80,30 @@ function driveMatch(row, active) {
   return unknown || "match";
 }
 
+/* Ask the page to re-measure the table, where the page measures one (AC-53). Only for a change made
+ * inside a filter pass, which draws the rows itself straight afterwards. */
+function refit() {
+  if (typeof fit === "function") fit();
+}
+
+/* Re-measure the table and draw the rows its new height shows, exactly as a window resize does. For
+ * a change in the height above the table that happens on its own: a panel opened or closed, a
+ * disclosure toggled, a notice said. Re-measuring alone is not enough when the table grows: rows are
+ * drawn for the height the table had plus a small margin, so a table that gains more than that
+ * margin shows blank space under its last drawn row until something scrolls.
+ *
+ * Only `fit` and `window_`, and nothing else. This file and a page's own script share one global
+ * scope, so a name used here must not be one a page declares: this was briefly called `relayout`,
+ * which the results table already uses for re-laying-out its columns, and the page's declaration
+ * replaced this one. Every panel toggle then forgot every measured row height, and a wrapped table
+ * jumped to different listings under the reader. A test now refuses any shared name a page reuses. */
+function refitAndRedraw() {
+  refit();
+  if (typeof window_ === "function") window_();
+}
+
 class ResultDriveFilters {
-  constructor(found, context, changed) {
+  constructor(found, context, changed, options = {}) {
     this.search = found.search;
     this.run = found.run_id;
     this.areas = found.drive_time_areas || [];
@@ -93,8 +115,58 @@ class ResultDriveFilters {
     this.busy = false;
     this.following = null;
     this.message = "";
+    /* The Results page asks for the compact form (AC-114): a button in its controls row whose own
+     * text says what is in force, and the same controls in a panel it opens. The Map page does not
+     * ask, and draws the box it always drew. Closed on every visit; not remembered. */
+    this.compact = Boolean(options.compact);
+    this.open = false;
     const known = new Set(this.areas.map((one) => one.ref));
     for (const ref of Object.keys(context.drive)) if (!known.has(ref)) delete context.drive[ref];
+  }
+  /* What the button says: every range in force, an entry that cannot be used, and a calculation
+   * that is running, so closing the panel hides nothing that is active. */
+  summary() {
+    const label = (area) => this.areas.filter((one) => one.name === area.name).length > 1
+      ? `${area.name} (${area.routing.direction})` : area.name;
+    const said = [];
+    for (const area of this.areas) {
+      const draft = this.context.drive[area.ref];
+      if (!draft || !draft.selected) continue;
+      const range = driveBounds(draft);
+      if (range.error) said.push(`${label(area)}: invalid entry`);
+      else if (range.min !== null && range.max !== null) {
+        said.push(`${label(area)} ${range.min === range.max ? range.min : `${range.min}-${range.max}`} min`);
+      } else if (range.max !== null) said.push(`${label(area)} ≤${range.max} min`);
+      else if (range.min !== null) said.push(`${label(area)} ≥${range.min} min`);
+    }
+    return (said.length ? `Drive time: ${said.join("; ")}` : "Drive time")
+      + (this.busy ? " · calculating..." : "");
+  }
+  toggle() {
+    if (!this.compact || !this.areas.length) return null;
+    return el("button", {type: "button", id: "drive-toggle", class: "drive-toggle",
+      "aria-expanded": this.open ? "true" : "false", "aria-controls": "drive-filters",
+      "data-active": this.active().length ? "true" : "false",
+      title: "Show or hide the drive-time filters",
+      onclick: () => this.setOpen(!this.open)}, this.summary());
+  }
+  setOpen(open) {
+    this.open = Boolean(open);
+    const panel = document.getElementById("drive-filters");
+    if (panel) panel.hidden = !this.open;
+    this.syncToggle();
+    refitAndRedraw();
+  }
+  syncToggle() {
+    const button = document.getElementById("drive-toggle");
+    if (!button) return;
+    button.setAttribute("aria-expanded", this.open ? "true" : "false");
+    button.setAttribute("data-active", this.active().length ? "true" : "false");
+    const said = this.summary();
+    if (button.textContent !== said) {
+      button.textContent = said;
+      refit();
+    }
   }
   active() {
     return this.areas.flatMap((area) => {
@@ -116,6 +188,17 @@ class ResultDriveFilters {
   }
   group() {
     if (!this.areas.length) return null;
+    if (this.compact) {
+      /* Built whether or not it is open, so the inputs keep their ids, values and listeners while
+       * it is closed. No routing credit here: the page says it once, beside the count. */
+      return el("fieldset", {id: "drive-filters", class: "drive-filters compact",
+                             "aria-label": "Drive time filters", hidden: !this.open},
+        el("p", {class: "hint"}, "Tick a location to narrow these results by driving time. "
+          + "All active ranges must match. Minutes are inclusive; blank means no bound. "
+          + "Estimates have no live traffic."),
+        el("div", {class: "drive-areas"}, this.areas.map((area) => this.areaRow(area))),
+        el("p", {id: "drive-panel-status", class: "hint drive-panel-status"}));
+    }
     return el("fieldset", {id: "drive-filters", class: "drive-filters"},
       el("legend", {}, "Drive time"),
       el("p", {class: "hint"}, "Choose locations to narrow these results. All active ranges must match. "
@@ -146,9 +229,13 @@ class ResultDriveFilters {
     const checkbox = el("input", {type: "checkbox", id, checked: draft.selected,
       onchange: (event) => { draft.selected = event.target.checked; update(); this.edited(); }});
     update();
+    const excluded = area.excluded ? " (excluded collection area)" : "";
+    /* An unnamed location is named by its address; the compact line does not print it twice. */
+    const where = !this.compact ? `${area.address}${excluded}`
+      : area.address === area.name ? excluded.trim() : `${area.address}${excluded}`;
     return el("div", {class: "drive-area"},
       el("label", {for: id, class: "drive-place"}, checkbox, " ", el("strong", {}, title),
-        el("span", {class: "hint"}, `${area.address}${area.excluded ? " (excluded collection area)" : ""}`)),
+        !this.compact || where ? el("span", {class: "hint"}, where) : null),
       el("label", {for: `${id}-min`}, "Min ", min),
       el("label", {for: `${id}-max`}, "Max ", max),
       el("button", {type: "button", class: "quiet", onclick: () => this.clear(area.ref),
@@ -217,6 +304,8 @@ class ResultDriveFilters {
       if (changed) {
         const group = document.getElementById("drive-filters");
         if (group) { const next = this.group(); if (next) group.replaceWith(next); else group.remove(); }
+        const toggle = this.areas.length ? null : document.getElementById("drive-toggle");
+        if (toggle) { toggle.remove(); refitAndRedraw(); }
       }
       const values = new Map(found.rows.map((row) => [row.listing_id, row]));
       for (const row of this.rows) {
@@ -268,19 +357,41 @@ class ResultDriveFilters {
           ((row.drive_times || {})[one.ref] || {}).freshness === "stale")) summary.stale += 1;
     }
     const notice = document.getElementById("drive-status");
-    if (notice) {
-      notice.hidden = !active.length;
-      const parts = [];
-      if (summary.pending || summary.unavailable) parts.push("Results incomplete. Showing confirmed matches only.");
-      if (summary.pending) parts.push(`${summary.pending} pending.`);
-      if (summary.unavailable) parts.push(`${summary.unavailable} unavailable.`);
-      if (summary.stale) parts.push(`${summary.stale} use retained stale estimates.`);
-      if (!this.configured) parts.push("Routing unavailable: configure the ORS key. Missing coordinates also cannot be routed.");
-      if (this.message) parts.push(this.message);
-      notice.replaceChildren(el("span", {}, parts.join(" ") || "All candidates evaluated."),
-        el("button", {type: "button", class: "quiet", disabled: this.busy,
-          onclick: () => this.calculate(true)}, "Retry driving estimates"));
+    const parts = [];
+    if (summary.pending || summary.unavailable) parts.push("Results incomplete. Showing confirmed matches only.");
+    if (summary.pending) parts.push(`${summary.pending} pending.`);
+    if (summary.unavailable) parts.push(`${summary.unavailable} unavailable.`);
+    if (summary.stale) parts.push(`${summary.stale} use retained stale estimates.`);
+    if (!this.configured) parts.push("Routing unavailable: configure the ORS key. Missing coordinates also cannot be routed.");
+    if (this.message) parts.push(this.message);
+    const retry = () => el("button", {type: "button", class: "quiet",
+      disabled: this.busy || (this.compact && !active.length),
+      onclick: () => this.calculate(true)}, "Retry driving estimates");
+    if (!this.compact) {
+      if (notice) {
+        notice.hidden = !active.length;
+        notice.replaceChildren(el("span", {}, parts.join(" ") || "All candidates evaluated."), retry());
+      }
+      return summary;
     }
+    /* Compact (AC-114): the yellow notice is for results that are not complete yet, as prominent
+     * as it always was. Once every estimate is in, the same facts are said in the panel. */
+    const incomplete = Boolean(summary.pending || summary.unavailable || this.busy || this.message);
+    const warned = Boolean(notice && active.length && incomplete);
+    if (notice) {
+      const was = notice.hidden;
+      notice.hidden = !warned;
+      notice.replaceChildren(...(warned ? [el("span", {}, parts.join(" ")), retry()] : []));
+      if (was !== notice.hidden) refit();
+    }
+    const panel = document.getElementById("drive-panel-status");
+    if (panel) {
+      const said = warned ? "Results incomplete: the notice above the table says what is missing."
+        : !active.length ? parts.filter((part) => part.startsWith("Routing unavailable")).join(" ")
+          : parts.join(" ") || "All candidates evaluated.";
+      panel.replaceChildren(...(said ? [el("span", {}, said)] : []), retry());
+    }
+    this.syncToggle();
     return summary;
   }
   chips() {
@@ -528,7 +639,7 @@ function say(message, kind) {
    * is the table's bottom edge, and the horizontal scrollbar on it, going below the window: the
    * exact fault AC-53 exists to prevent, reintroduced by a sentence. A surface that does not
    * measure anything is unaffected and does not define this. */
-  if (typeof fit === "function") fit();
+  refitAndRedraw();
 }
 
 function fail(error) {
@@ -741,7 +852,7 @@ function howItWorks(surface, said, ...content) {
     /* This is the largest thing on these pages that changes height, and on the results table the
      * height of everything above the table is what the table's own height is measured from. A
      * surface that does not measure things is unaffected; one that does says so by defining this. */
-    if (typeof fit === "function") fit();
+    refitAndRedraw();
   });
   return holder;
 }
